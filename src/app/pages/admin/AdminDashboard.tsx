@@ -83,7 +83,7 @@ export function AdminDashboard() {
       logsApi
         .list({ limit: 8 })
         .then(logs => {
-          if (!cancelled) setActivityLogs(logs.data);
+          if (!cancelled) setActivityLogs(logs);
         })
         .catch(() => {})
     ]).finally(() => {
