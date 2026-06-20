@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <circle cx="100" cy="100" r="90" fill="#1a3a6b" stroke="#c9a94e" stroke-width="4"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#c9a94e" stroke-width="2"/>
+  <text x="100" y="60" text-anchor="middle" fill="#c9a94e" font-size="12" font-weight="bold" font-family="serif">REPUBLIC OF</text>
+  <text x="100" y="75" text-anchor="middle" fill="#c9a94e" font-size="12" font-weight="bold" font-family="serif">THE PHILIPPINES</text>
+  <text x="100" y="105" text-anchor="middle" fill="white" font-size="10" font-family="serif">DEPARTMENT OF</text>
+  <text x="100" y="120" text-anchor="middle" fill="white" font-size="10" font-family="serif">EDUCATION</text>
+  <circle cx="100" cy="145" r="10" fill="none" stroke="#c9a94e" stroke-width="1.5"/>
+  <line x1="10" y1="100" x2="190" y2="100" stroke="#c9a94e" stroke-width="0.5"/>
+</svg>

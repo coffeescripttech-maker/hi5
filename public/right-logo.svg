@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">
+  <rect width="400" height="100" fill="#1a3a6b" rx="8"/>
+  <text x="200" y="45" text-anchor="middle" fill="#c9a94e" font-size="18" font-weight="bold" font-family="serif">Republic of the Philippines</text>
+  <text x="200" y="70" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="serif">Department of Education</text>
+  <line x1="20" y1="80" x2="380" y2="80" stroke="#c9a94e" stroke-width="1"/>
+  <text x="200" y="92" text-anchor="middle" fill="#c9a94e" font-size="10" font-family="serif">DepEd</text>
+</svg>

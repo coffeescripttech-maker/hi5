@@ -1,0 +1,8 @@
+[
+  { "grade": "Grade 7", "enrolled": 155, "capacity": 180, "male": 78, "female": 77 },
+  { "grade": "Grade 8", "enrolled": 154, "capacity": 180, "male": 80, "female": 74 },
+  { "grade": "Grade 9", "enrolled": 94, "capacity": 100, "male": 47, "female": 47 },
+  { "grade": "Grade 10", "enrolled": 44, "capacity": 50, "male": 22, "female": 22 },
+  { "grade": "Grade 11", "enrolled": 49, "capacity": 50, "male": 25, "female": 24 },
+  { "grade": "Grade 12", "enrolled": 47, "capacity": 50, "male": 23, "female": 24 }
+]

@@ -1,0 +1,7 @@
+[
+  { "range": "90 – 100", "section": "Star Section", "color": "bg-yellow-400", "icon": "⭐" },
+  { "range": "85 – 89", "section": "Gold Section", "color": "bg-amber-500", "icon": "🥇" },
+  { "range": "80 – 84", "section": "Silver Section", "color": "bg-gray-400", "icon": "🥈" },
+  { "range": "75 – 79", "section": "Regular Section", "color": "bg-blue-400", "icon": "📚" },
+  { "range": "Below 75", "section": "Non-Reader Section", "color": "bg-red-400", "icon": "📖" }
+]

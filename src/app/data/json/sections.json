@@ -1,0 +1,15 @@
+[
+  { "name": "7-Star", "gradeLevel": 7, "capacity": 45, "current": 42, "adviser": "Mr. Ramon Dela Cruz", "minAvg": 90 },
+  { "name": "7-Gold", "gradeLevel": 7, "capacity": 45, "current": 40, "adviser": "Ms. Linda Fernandez", "minAvg": 85 },
+  { "name": "7-Silver", "gradeLevel": 7, "capacity": 45, "current": 38, "adviser": "Mr. Eduardo Ocampo", "minAvg": 80 },
+  { "name": "7-Regular", "gradeLevel": 7, "capacity": 45, "current": 35, "adviser": "Ms. Patricia Lim", "minAvg": 75 },
+  { "name": "8-Star", "gradeLevel": 8, "capacity": 45, "current": 43, "adviser": "Mr. Fernando Castro", "minAvg": 90 },
+  { "name": "8-Gold", "gradeLevel": 8, "capacity": 45, "current": 41, "adviser": "Mr. Ramon Dela Cruz", "minAvg": 85 },
+  { "name": "8-Silver", "gradeLevel": 8, "capacity": 45, "current": 37, "adviser": "Ms. Linda Fernandez", "minAvg": 80 },
+  { "name": "8-Regular", "gradeLevel": 8, "capacity": 45, "current": 33, "adviser": "Mr. Eduardo Ocampo", "minAvg": 75 },
+  { "name": "9-Star", "gradeLevel": 9, "capacity": 50, "current": 48, "adviser": "Ms. Patricia Lim", "minAvg": 90 },
+  { "name": "9-Gold", "gradeLevel": 9, "capacity": 50, "current": 46, "adviser": "Mr. Fernando Castro", "minAvg": 85 },
+  { "name": "10-Silver", "gradeLevel": 10, "capacity": 50, "current": 44, "adviser": "Mr. Ramon Dela Cruz", "minAvg": 80 },
+  { "name": "11-Star", "gradeLevel": 11, "capacity": 50, "current": 49, "adviser": "Ms. Linda Fernandez", "minAvg": 90 },
+  { "name": "12-Gold", "gradeLevel": 12, "capacity": 50, "current": 47, "adviser": "Mr. Eduardo Ocampo", "minAvg": 85 }
+]

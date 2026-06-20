@@ -1,0 +1,73 @@
+/* Print optimization for the SF1 register (official landscape paper form) */
+
+/* Hide layout chrome during print — sidebar, topbar, and anything marked no-print */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide sidebar, topbar, toolbar, and layout extras */
+  .no-print {
+    display: none !important;
+  }
+
+  aside,
+  header.border-b {
+    display: none !important;
+  }
+
+  /* Reset the main content area to full page width */
+  .sf1-sheet {
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #fff !important;
+  }
+
+  /* Ensure the page uses full width available */
+  main,
+  #root > div,
+  [class*="flex-1"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Scale the wide register down so every column fits the printable
+     width of an A4 landscape page (no columns cut or trimmed).
+     zoom reflows content, so page breaks still work correctly. */
+  .sf1-page {
+    zoom: 0.78;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .sf1-page:last-child {
+    page-break-after: auto;
+  }
+
+  /* Ensure form field borders/colors render on paper */
+  .sf1-sheet * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .sf1-input {
+    border: none !important;
+  }
+}

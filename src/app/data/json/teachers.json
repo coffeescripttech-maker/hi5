@@ -1,0 +1,7 @@
+[
+  { "id": "T-001", "name": "Mr. Ramon Dela Cruz", "subject": "Mathematics", "sections": ["7-Star", "7-Gold", "8-Silver"], "email": "rdelacruz@school.edu.ph" },
+  { "id": "T-002", "name": "Ms. Linda Fernandez", "subject": "English", "sections": ["8-Regular", "9-Star", "9-Gold"], "email": "lfernandez@school.edu.ph" },
+  { "id": "T-003", "name": "Mr. Eduardo Ocampo", "subject": "Science", "sections": ["10-Silver", "11-Star", "12-Gold"], "email": "eocampo@school.edu.ph" },
+  { "id": "T-004", "name": "Ms. Patricia Lim", "subject": "Filipino", "sections": ["7-Star", "8-Silver"], "email": "plim@school.edu.ph" },
+  { "id": "T-005", "name": "Mr. Fernando Castro", "subject": "MAPEH", "sections": ["9-Star", "10-Silver", "11-Star"], "email": "fcastro@school.edu.ph" }
+]

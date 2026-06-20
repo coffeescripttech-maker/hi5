@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./theme.css";
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in { animation: slide-in 0.25s ease; }
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-skeleton { animation: skeleton-pulse 1.5s ease-in-out infinite; }
+
+/* Dark mode base */
+.dark body { background: #0f172a; color: #f1f5f9; }
+.dark .bg-white { background: #1e293b !important; }
+.dark .bg-gray-50 { background: #0f172a !important; }
+.dark .bg-gray-100 { background: #1e293b !important; }
+.dark .border-gray-200 { border-color: #334155 !important; }
+.dark .text-gray-800 { color: #f1f5f9 !important; }
+.dark .text-gray-700 { color: #e2e8f0 !important; }
+.dark .text-gray-600 { color: #cbd5e1 !important; }
+.dark .text-gray-500 { color: #94a3b8 !important; }
+.dark .text-gray-400 { color: #64748b !important; }
+.dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+.dark .rounded-xl { }
