@@ -37,21 +37,34 @@ export interface SF5Row {
 }
 
 export interface SF9Row {
-  student_name: string;
-  lrn: string;
-  grade_level: number;
-  section_name: string;
-  sy_label: string;
-  subjects: Array<{
+  form: string;
+  school: {
+    school_name: string;
+    school_id: string;
+  } | null;
+  student: {
+    id: number;
     name: string;
+    lrn: string;
+    grade_level: number;
+    sex: string;
+    birthdate: string;
+  } | null;
+  enrollment: {
+    section_name: string;
+    sy_label: string;
+    grade_level: number;
+  } | null;
+  general_average: number | null;
+  subjects: Array<{
+    subject_name: string;
+    subject_type: string;
     q1: number | null;
     q2: number | null;
     q3: number | null;
     q4: number | null;
-    final_grade: number | null;
-    remarks: string;
+    final_average: number | null;
   }>;
-  general_average: number | null;
 }
 
 export interface SF10Row {

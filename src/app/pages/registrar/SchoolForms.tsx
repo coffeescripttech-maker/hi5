@@ -20,6 +20,7 @@ import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { useApp } from '../../context/AppContext';
 import { SF1Register } from './sf1-register';
 import { SF5Report } from './sf5-report';
+import { SF9Report } from './sf9-report';
 
 // --- Form Definitions ---
 interface SchoolForm {
@@ -180,6 +181,11 @@ export function SchoolForms() {
   // SF5 gets the full interactive fillable report
   if (formCode?.toUpperCase() === 'SF5') {
     return <SF5Report />;
+  }
+
+  // SF9 gets the full report card with grade+section+student filters
+  if (formCode?.toUpperCase() === 'SF9') {
+    return <SF9Report />;
   }
 
   return (

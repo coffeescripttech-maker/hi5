@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import {
   BookOpen, Lock, Save, CheckCircle, Info, MessageSquare, Send, X, AlertTriangle,
-  Users, GraduationCap, Loader2, UserCheck, Search,
+  Users, GraduationCap, Loader2, UserCheck, Search, FileText, ExternalLink,
 } from "lucide-react";
 import { studentsApi, StudentRow } from "../../services/students";
 import { gradesApi } from "../../services/grades";
@@ -50,6 +51,7 @@ const getDescriptor = (val: string): { label: string; color: string } => {
 
 export function GradeManagement() {
   const { showToast } = useApp();
+  const navigate = useNavigate();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
@@ -540,6 +542,16 @@ export function GradeManagement() {
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
                   >
                     <MessageSquare size={15} /> Request Grade Correction
+                  </button>
+                )}
+
+                {/* ── SF9 Report Card Button (always visible when a student is selected) ── */}
+                {selectedStudent && (
+                  <button
+                    onClick={() => navigate(`/teacher/forms/sf9?student_id=${selectedStudent.id}&school_year_id=${schoolYearId}`)}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto"
+                  >
+                    <FileText size={15} /> <span>SF9 Report Card</span> <ExternalLink size={12} />
                   </button>
                 )}
               </div>
