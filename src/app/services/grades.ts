@@ -71,7 +71,7 @@ export const gradesApi = {
     return api.get<GradeRow[]>(`/grades${query}`);
   },
   upsert: (data: GradeUpsertPayload) =>
-    api.put<GradeRow>("/grades", data),
+    api.post<GradeRow>("/grades", data),
   lock: (data: GradeLockPayload) =>
     api.post<{ message: string }>("/grades/lock", data),
   unlock: (data: GradeLockPayload) =>

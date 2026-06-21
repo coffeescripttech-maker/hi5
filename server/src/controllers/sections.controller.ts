@@ -25,7 +25,12 @@ export async function listSections(req: Request, res: Response): Promise<void> {
   try {
     const { grade_level, section_type, is_active } = req.query;
 
-    let sql = `SELECT s.*, u.name AS adviser_name FROM sections s LEFT JOIN users u ON s.adviser_id = u.id`;
+    let sql = `SELECT s.*, u.name AS adviser_name,
+                      (SELECT COUNT(*) FROM enrollments e
+                       JOIN school_years sy ON e.school_year_id = sy.id
+                       WHERE e.section_id = s.id AND sy.is_current = 1) AS current_count
+               FROM sections s
+               LEFT JOIN users u ON s.adviser_id = u.id`;
     const params: any[] = [];
     const conditions: string[] = [];
 
@@ -52,6 +57,30 @@ export async function listSections(req: Request, res: Response): Promise<void> {
     res.json(sections);
   } catch (error) {
     console.error("List sections error:", error);
+    res.status(500).json({ error: "Failed to fetch sections." });
+  }
+}
+
+/**
+ * GET /api/sections/my-sections — Sections scoped to the logged-in teacher
+ */
+export async function getTeacherSections(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const sections = await query<SectionRow[]>(
+      `SELECT s.*, u.name AS adviser_name,
+              (SELECT COUNT(*) FROM enrollments e
+               JOIN school_years sy ON e.school_year_id = sy.id
+               WHERE e.section_id = s.id AND sy.is_current = 1) AS current_count
+       FROM sections s
+       LEFT JOIN users u ON s.adviser_id = u.id
+       WHERE s.adviser_id = ? AND s.is_active = 1
+       ORDER BY s.grade_level ASC, s.name ASC`,
+      [userId]
+    );
+    res.json(sections);
+  } catch (error) {
+    console.error("Get teacher sections error:", error);
     res.status(500).json({ error: "Failed to fetch sections." });
   }
 }

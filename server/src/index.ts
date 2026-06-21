@@ -22,6 +22,7 @@ import documentsRoutes from "./routes/documents.routes";
 import schoolYearsRoutes from "./routes/schoolYears.routes";
 import backupsRoutes from "./routes/backups.routes";
 import notificationsRoutes from "./routes/notifications.routes";
+import sectioningRoutes from "./routes/sectioning.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 // Load .env
@@ -62,6 +63,7 @@ app.use("/api/documents", documentsRoutes);
 app.use("/api/school-years", schoolYearsRoutes);
 app.use("/api/backups", backupsRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/sectioning", sectioningRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

@@ -38,6 +38,7 @@ export interface UpdateSectionPayload {
 
 export const sectionsApi = {
   list: () => api.get<SectionRow[]>("/sections"),
+  listMySections: () => api.get<SectionRow[]>("/sections/my-sections"),
   get: (id: number) => api.get<SectionRow>(`/sections/${id}`),
   create: (data: CreateSectionPayload) =>
     api.post<SectionRow>("/sections", data),

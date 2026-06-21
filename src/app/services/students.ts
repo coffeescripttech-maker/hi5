@@ -58,7 +58,7 @@ export interface ClassificationPayload {
 }
 
 export const studentsApi = {
-  list: (params?: { search?: string; grade_level?: number; status?: string }) => {
+  list: (params?: { search?: string; grade_level?: number; status?: string; section_id?: number; school_year_id?: number }) => {
     const query = params
       ? "?" + new URLSearchParams(
           Object.entries(params)
@@ -68,6 +68,8 @@ export const studentsApi = {
       : "";
     return api.get<StudentRow[]>(`/students${query}`);
   },
+  /** Get students scoped to the logged-in teacher (their section assignments) */
+  listMyStudents: () => api.get<StudentRow[]>("/students/my-students"),
   get: (id: number) => api.get<StudentDetail>(`/students/${id}`),
   create: (data: CreateStudentPayload) =>
     api.post<StudentRow>("/students", data),

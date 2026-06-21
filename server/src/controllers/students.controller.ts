@@ -70,6 +70,59 @@ export async function listStudents(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * GET /api/students/my-students — Get students scoped to the logged-in teacher
+ * Returns students enrolled in sections where the current user is the adviser,
+ * for the current active school year.
+ */
+export async function getTeacherStudents(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    // Find sections where this user is the adviser
+    const sections = await query<RowDataPacket[]>(
+      "SELECT id, name, grade_level FROM sections WHERE adviser_id = ? AND is_active = 1",
+      [userId]
+    );
+
+    if (sections.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    // Get current school year
+    const currentSY = await query<RowDataPacket[]>(
+      "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+    );
+
+    if (currentSY.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const schoolYearId = currentSY[0].id;
+    const sectionIds = sections.map(s => s.id);
+
+    // Get enrolled students in those sections for this school year
+    const placeholders = sectionIds.map(() => "?").join(",");
+    const students = await query<StudentRow[]>(
+      `SELECT s.*, e.section_id, sec.name AS section_name, e.status AS enrollment_status,
+              e.enrollment_date, e.program
+       FROM students s
+       JOIN enrollments e ON e.student_id = s.id
+       JOIN sections sec ON e.section_id = sec.id
+       WHERE e.section_id IN (${placeholders}) AND e.school_year_id = ?
+       ORDER BY sec.grade_level ASC, sec.name ASC, s.name ASC`,
+      [...sectionIds, schoolYearId]
+    );
+
+    res.json(students);
+  } catch (error) {
+    console.error("Get teacher students error:", error);
+    res.status(500).json({ error: "Failed to fetch teacher's students." });
+  }
+}
+
+/**
  * GET /api/students/:id — Get student by ID with enrollment info
  */
 export async function getStudentById(req: Request, res: Response): Promise<void> {

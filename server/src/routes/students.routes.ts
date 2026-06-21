@@ -3,6 +3,7 @@ import { authenticate } from "../middleware/auth";
 import { authorize } from "../middleware/roleGuard";
 import {
   listStudents,
+  getTeacherStudents,
   getStudentById,
   createStudent,
   updateStudent,
@@ -16,6 +17,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/", listStudents);
+router.get("/my-students", authorize("teacher"), getTeacherStudents);
 router.get("/:id", getStudentById);
 router.post("/", authorize("admin", "teacher", "registrar"), createStudent);
 router.put("/:id", authorize("admin", "teacher", "registrar"), updateStudent);
