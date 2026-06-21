@@ -1,7 +1,7 @@
 /**
  * Enrollments API service
  */
-import { api } from "./api";
+import { api } from './api';
 
 export interface EnrollmentRow {
   id: number;
@@ -18,7 +18,7 @@ export interface EnrollmentRow {
   enrollment_date: string;
   enrolled_by: number;
   enrolled_by_name: string;
-  status: "enrolled" | "dropped" | "transferred";
+  status: 'enrolled' | 'dropped' | 'transferred';
   remarks: string | null;
   created_at: string;
   updated_at: string;
@@ -31,12 +31,16 @@ export interface CreateEnrollmentPayload {
   enrollment_date: string;
   program?: string;
   remarks?: string;
-  requirements?: { requirement_key: string; label: string; is_submitted: boolean }[];
+  requirements?: {
+    requirement_key: string;
+    label: string;
+    is_submitted: boolean;
+  }[];
 }
 
 export interface UpdateEnrollmentPayload {
   section_id?: number;
-  status?: "enrolled" | "dropped" | "transferred";
+  status?: 'enrolled' | 'dropped' | 'transferred';
   remarks?: string;
   program?: string;
 }
@@ -54,17 +58,23 @@ export interface EnrollmentRequirementRow {
 }
 
 export const enrollmentsApi = {
-  list: () => api.get<EnrollmentRow[]>("/enrollments"),
+  list: () => api.get<EnrollmentRow[]>('/enrollments'),
   get: (id: number) => api.get<EnrollmentRow>(`/enrollments/${id}`),
   create: (data: CreateEnrollmentPayload) =>
-    api.post<EnrollmentRow>("/enrollments", data),
+    api.post<EnrollmentRow>('/enrollments', data),
   update: (id: number, data: UpdateEnrollmentPayload) =>
     api.put<EnrollmentRow>(`/enrollments/${id}`, data),
   delete: (id: number) => api.del(`/enrollments/${id}`),
   listRequirements: (enrollmentId: number) =>
-    api.get<EnrollmentRequirementRow[]>(`/enrollments/${enrollmentId}/requirements`),
-  updateRequirements: (enrollmentId: number, data: { requirements: { requirement_key: string; is_submitted: boolean }[] }) =>
-    api.put<EnrollmentRequirementRow[]>(`/enrollments/${enrollmentId}/requirements`, data),
+    api.get<EnrollmentRequirementRow[]>(
+      `/enrollments/${enrollmentId}/requirements`
+    ),
+  updateRequirements: (
+    enrollmentId: number,
+    data: { requirements: { requirement_key: string; is_submitted: boolean }[] }
+  ) =>
+    api.put<EnrollmentRequirementRow[]>(
+      `/enrollments/${enrollmentId}/requirements`,
+      data
+    )
 };
-
-\
