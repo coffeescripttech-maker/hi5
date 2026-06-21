@@ -3,15 +3,15 @@ import { useNavigate } from "react-router";
 import { useApp } from "../context/AppContext";
 import { authApi, setToken } from "../services/api";
 import { ApiError } from "../services/api";
-import { Eye, EyeOff, Shield, BookOpen, FileText, Lock, User, CheckCircle, AlertCircle, ArrowLeft, Mail, AlertTriangle } from "lucide-react";
+import { Eye, EyeOff, Shield, Lock, User, CheckCircle, AlertCircle, ArrowLeft, Mail, AlertTriangle } from "lucide-react";
 import bgImage from "../../assets/202c9b6425aa8d526006a7e3262187c250e06d15.png";
 import logoImage from "../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png";
 
-const CREDENTIALS = [
-  { role: "admin" as const, username: "admin", label: "Administrator", icon: Shield, desc: "Full system access, user management & school settings", path: "/admin", activeColor: "border-blue-600 bg-blue-100", iconColor: "text-blue-600", iconBg: "bg-blue-100" },
-  { role: "teacher" as const, username: "teacher01", label: "Teacher", icon: BookOpen, desc: "Enroll students, encode & upload grades", path: "/teacher", activeColor: "border-emerald-600 bg-emerald-100", iconColor: "text-emerald-600", iconBg: "bg-emerald-100" },
-  { role: "registrar" as const, username: "registrar01", label: "Registrar", icon: FileText, desc: "Generate SF1, SF5, SF9, SF10 & manage student records", path: "/registrar", activeColor: "border-indigo-600 bg-indigo-100", iconColor: "text-indigo-600", iconBg: "bg-indigo-100" },
-];
+const ROLE_PATHS: Record<string, string> = {
+  admin: "/admin",
+  teacher: "/teacher",
+  registrar: "/registrar",
+};
 
 type Screen = "login" | "forgot" | "forgot-sent";
 
@@ -19,7 +19,6 @@ export function Login() {
   const navigate = useNavigate();
   const { setSession, showToast, loginAttempts, lockoutUntil, recordFailedAttempt, resetAttempts } = useApp();
   const [screen, setScreen] = useState<Screen>("login");
-  const [selectedCred, setSelectedCred] = useState(CREDENTIALS[0]);
   const [username, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -45,10 +44,6 @@ export function Login() {
   const isLockedOut = lockoutUntil !== null && Date.now() < lockoutUntil;
   const attemptsLeft = Math.max(0, 5 - loginAttempts);
 
-  const handleRoleSelect = (cred: typeof CREDENTIALS[0]) => {
-    setSelectedCred(cred); setUsernameInput(""); setPassword(""); setError("");
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLockedOut) return;
@@ -57,10 +52,10 @@ export function Login() {
       const res = await authApi.login({ username, password });
       setToken(res.token);
       resetAttempts();
-      const displayName = res.user.name || (CREDENTIALS.find(c => c.role === res.user.role)?.label ?? res.user.role);
+      const displayName = res.user.name || res.user.role;
       setSession(res.user.role, displayName + " – " + res.user.username);
       showToast("success", `Welcome back, ${displayName}!`);
-      navigate(CREDENTIALS.find(c => c.role === res.user.role)?.path ?? `/${res.user.role}`);
+      navigate(ROLE_PATHS[res.user.role] ?? `/${res.user.role}`);
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         if (err.status === 423 || err.detail.locked) {
@@ -248,25 +243,8 @@ export function Login() {
         <div className="w-full max-w-md">
           <div className="mb-8">
             <h2 className="text-2xl font-extrabold text-gray-800">Welcome back</h2>
-            <p className="text-gray-500 text-sm mt-1">Select your role and sign in to continue</p>
+            <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
           </div>
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            {CREDENTIALS.map(cred => {
-              const Icon = cred.icon;
-              const isSelected = selectedCred.role === cred.role;
-              return (
-                <button key={cred.role} type="button" onClick={() => handleRoleSelect(cred)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${isSelected ? `${cred.activeColor} shadow-md scale-[1.02]` : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"}`}>
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? cred.iconBg : "bg-gray-100"}`}>
-                    <Icon size={17} className={isSelected ? cred.iconColor : "text-gray-400"} />
-                  </div>
-                  <span className={`text-xs font-semibold ${isSelected ? cred.iconColor : "text-gray-500"}`}>{cred.label}</span>
-                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs text-gray-400 mb-5 text-center">{selectedCred.desc}</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Username</label>
@@ -274,7 +252,7 @@ export function Login() {
                 <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="text" value={username} onChange={e => setUsernameInput(e.target.value)}
                   className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white transition shadow-sm"
-                  placeholder={`e.g. ${selectedCred.username}`} required />
+                  placeholder="Enter your username" required />
               </div>
             </div>
             <div>

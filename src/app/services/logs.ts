@@ -22,6 +22,7 @@ export const logsApi = {
             .map(([k, v]) => [k, String(v)])
         ).toString()
       : "";
-    return api.get<ActivityLogRow[]>(`/logs${query}`);
+    // API returns { data: ActivityLogRow[], pagination: {...} } — unwrap .data
+    return api.get<{ data: ActivityLogRow[] }>(`/logs${query}`).then(r => r.data);
   },
 };
