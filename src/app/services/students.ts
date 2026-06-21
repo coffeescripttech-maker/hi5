@@ -45,6 +45,7 @@ export interface CreateStudentPayload {
 
 export interface UpdateStudentPayload {
   name?: string;
+  grade_level?: number;
   address?: string;
   guardian?: string;
   contact?: string;
@@ -57,7 +58,16 @@ export interface ClassificationPayload {
 }
 
 export const studentsApi = {
-  list: () => api.get<StudentRow[]>("/students"),
+  list: (params?: { search?: string; grade_level?: number; status?: string }) => {
+    const query = params
+      ? "?" + new URLSearchParams(
+          Object.entries(params)
+            .filter(([_, v]) => v !== undefined && v !== null)
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : "";
+    return api.get<StudentRow[]>(`/students${query}`);
+  },
   get: (id: number) => api.get<StudentDetail>(`/students/${id}`),
   create: (data: CreateStudentPayload) =>
     api.post<StudentRow>("/students", data),

@@ -89,11 +89,11 @@ export async function getEnrollmentById(req: Request, res: Response): Promise<vo
 
 /**
  * POST /api/enrollments — Create enrollment
- * Body: { student_id, section_id, school_year_id, enrollment_date, remarks? }
+ * Body: { student_id, section_id, school_year_id, enrollment_date, program?, remarks?, requirements? }
  */
 export async function createEnrollment(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, section_id, school_year_id, enrollment_date, remarks } = req.body;
+    const { student_id, section_id, school_year_id, enrollment_date, program, remarks, requirements } = req.body;
 
     if (!student_id || !section_id || !school_year_id || !enrollment_date) {
       res.status(400).json({ error: "Missing required fields: student_id, section_id, school_year_id, enrollment_date." });
@@ -141,10 +141,21 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
     const enrolled_by = req.user!.userId;
 
     const result = await query<ResultSetHeader>(
-      `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [student_id, section_id, school_year_id, enrollment_date, enrolled_by, remarks || null]
+      `INSERT INTO enrollments (student_id, section_id, school_year_id, program, enrollment_date, enrolled_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [student_id, section_id, school_year_id, program || "regular", enrollment_date, enrolled_by, remarks || null]
     );
+
+    // Insert requirements checklist if provided
+    if (requirements && Array.isArray(requirements) && requirements.length > 0) {
+      for (const r of requirements) {
+        await query<ResultSetHeader>(
+          `INSERT INTO enrollment_requirements (enrollment_id, requirement_key, label, is_submitted, submitted_at, notes, created_at, updated_at)
+           VALUES (?, ?, ?, ?, IF(?, NOW(), NULL), NULL, NOW(), NOW())`,
+          [result.insertId, r.requirement_key, r.label, r.is_submitted ? 1 : 0, r.is_submitted ? 1 : 0]
+        );
+      }
+    }
 
     // Increment section current_count
     await query<ResultSetHeader>(
@@ -300,5 +311,62 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
   } catch (error) {
     console.error("Update enrollment error:", error);
     res.status(500).json({ error: "Failed to update enrollment." });
+  }
+}
+
+/**
+ * GET /api/enrollments/:id/requirements — List enrollment requirements
+ */
+export async function listRequirements(req: Request, res: Response): Promise<void> {
+  try {
+    const id = req.params.id as string;
+    const rows = await query<RowDataPacket[]>(
+      "SELECT * FROM enrollment_requirements WHERE enrollment_id = ? ORDER BY requirement_key ASC",
+      [id]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error("List requirements error:", error);
+    res.status(500).json({ error: "Failed to fetch requirements." });
+  }
+}
+
+/**
+ * PUT /api/enrollments/:id/requirements — Batch update requirements
+ * Body: { requirements: [{ requirement_key, is_submitted }] }
+ */
+export async function updateRequirements(req: Request, res: Response): Promise<void> {
+  try {
+    const id = req.params.id as string;
+    const { requirements } = req.body;
+
+    if (!requirements || !Array.isArray(requirements)) {
+      res.status(400).json({ error: "requirements array is required." });
+      return;
+    }
+
+    for (const r of requirements) {
+      if (r.is_submitted) {
+        await query<ResultSetHeader>(
+          "UPDATE enrollment_requirements SET is_submitted = 1, submitted_at = COALESCE(submitted_at, NOW()) WHERE enrollment_id = ? AND requirement_key = ?",
+          [id, r.requirement_key]
+        );
+      } else {
+        await query<ResultSetHeader>(
+          "UPDATE enrollment_requirements SET is_submitted = 0, submitted_at = NULL WHERE enrollment_id = ? AND requirement_key = ?",
+          [id, r.requirement_key]
+        );
+      }
+    }
+
+    // Return updated list
+    const rows = await query<RowDataPacket[]>(
+      "SELECT * FROM enrollment_requirements WHERE enrollment_id = ? ORDER BY requirement_key ASC",
+      [id]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error("Update requirements error:", error);
+    res.status(500).json({ error: "Failed to update requirements." });
   }
 }
