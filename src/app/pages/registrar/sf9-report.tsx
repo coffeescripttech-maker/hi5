@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router';
-import { Loader2, Printer, Users, BookOpen } from 'lucide-react';
+import { Loader2, Printer, Users, BookOpen, Download } from 'lucide-react';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { formsApi, SF9Row } from '../../services/forms';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
+import { exportToPdf } from '../../services/pdfExport';
 import './sf1.css';
 /* ── Constants (DepEd SF9 layout) ── */
 const CORE_VALUES: { value: string; statements: string[] }[] = [
@@ -221,6 +222,46 @@ export function SF9Report() {
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /* ── Editable cell state (attendance, observed values) ── */
+  const [attendance, setAttendance] = useState<Record<string, string>>({});
+  const [observedMarks, setObservedMarks] = useState<Record<string, string>>({});
+  const [parentSignatures, setParentSignatures] = useState<Record<string, string>>({});
+  const [transferFields, setTransferFields] = useState<Record<string, string>>({});
+
+  const handleAttendanceChange = useCallback((rowLabel: string, month: string, value: string) => {
+    const key = `${rowLabel}::${month}`;
+    setAttendance(p => ({ ...p, [key]: value }));
+  }, []);
+
+  const getAttendance = useCallback((rowLabel: string, month: string): string => {
+    return attendance[`${rowLabel}::${month}`] || '';
+  }, [attendance]);
+
+  const handleObservedChange = useCallback((cvIdx: number, stIdx: number, quarter: number, value: string) => {
+    const key = `${cvIdx}-${stIdx}-Q${quarter}`;
+    setObservedMarks(p => ({ ...p, [key]: value }));
+  }, []);
+
+  const getObserved = useCallback((cvIdx: number, stIdx: number, quarter: number): string => {
+    return observedMarks[`${cvIdx}-${stIdx}-Q${quarter}`] || '';
+  }, [observedMarks]);
+
+  const handleSignatureChange = useCallback((quarter: string, value: string) => {
+    setParentSignatures(p => ({ ...p, [quarter]: value }));
+  }, []);
+
+  const getSignature = useCallback((quarter: string): string => {
+    return parentSignatures[quarter] || '';
+  }, [parentSignatures]);
+
+  const handleTransferChange = useCallback((field: string, value: string) => {
+    setTransferFields(p => ({ ...p, [field]: value }));
+  }, []);
+
+  const getTransfer = useCallback((field: string): string => {
+    return transferFields[field] || '';
+  }, [transferFields]);
+
   useEffect(() => {
     const loadData = role === 'teacher'
       ? Promise.all([
@@ -348,6 +389,20 @@ export function SF9Report() {
   /* ── Print ── */
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      await exportToPdf({
+        elementId: 'sf9-print-area',
+        filename: `SF9_${selectedStudent?.lrn || selectedStudentId}`,
+        orientation: 'landscape',
+        format: 'letter',
+      });
+      showToast('success', 'PDF exported successfully.');
+    } catch {
+      showToast('error', 'Failed to export PDF. Please try again.');
+    }
   };
 
   /* ── Loading skeleton ── */
@@ -539,11 +594,18 @@ export function SF9Report() {
               <span className="text-violet-700 font-bold">SF9</span> —{' '}
               {selectedStudent.name}
             </p>
-            <button
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-xs">
-              <Printer size={14} /> Print
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportPdf}
+                className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-violet-50 text-violet-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-xs">
+                <Download size={14} /> Export PDF
+              </button>
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-xs">
+                <Printer size={14} /> Print
+              </button>
+            </div>
           </div>
 
           {/* ── Print Area ── */}
@@ -582,7 +644,12 @@ export function SF9Report() {
                             </td>
                             {MONTHS.map(m => (
                               <td key={m} className="border border-black p-0">
-                                <span className="block h-5">&nbsp;</span>
+                                <input
+                                  type="text"
+                                  value={getAttendance(label, m)}
+                                  onChange={e => handleAttendanceChange(label, m, e.target.value)}
+                                  className="sf1-input h-5 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50"
+                                />
                               </td>
                             ))}
                           </tr>
@@ -606,9 +673,12 @@ export function SF9Report() {
                           <span className="text-[11px] font-semibold whitespace-nowrap">
                             {q}:
                           </span>
-                          <span className="flex-1 border-b border-black">
-                            &nbsp;
-                          </span>
+                          <input
+                            type="text"
+                            value={getSignature(q)}
+                            onChange={e => handleSignatureChange(q, e.target.value)}
+                            className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
+                          />
                         </div>
                       ))}
                     </div>
@@ -623,31 +693,43 @@ export function SF9Report() {
                         <span className="text-[11px] font-semibold whitespace-nowrap">
                           Admitted to Grade:
                         </span>
-                        <span className="flex-1 border-b border-black">
-                          &nbsp;
-                        </span>
+                        <input
+                          type="text"
+                          value={getTransfer('admittedGrade')}
+                          onChange={e => handleTransferChange('admittedGrade', e.target.value)}
+                          className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
+                        />
                         <span className="text-[11px] font-semibold whitespace-nowrap">
                           Section:
                         </span>
-                        <span className="flex-1 border-b border-black">
-                          &nbsp;
-                        </span>
+                        <input
+                          type="text"
+                          value={getTransfer('admittedSection')}
+                          onChange={e => handleTransferChange('admittedSection', e.target.value)}
+                          className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
+                        />
                       </div>
                       <div className="flex items-end gap-1">
                         <span className="text-[11px] font-semibold whitespace-nowrap">
                           Eligibility for Admission to Grade:
                         </span>
-                        <span className="flex-1 border-b border-black">
-                          &nbsp;
-                        </span>
+                        <input
+                          type="text"
+                          value={getTransfer('eligibilityGrade')}
+                          onChange={e => handleTransferChange('eligibilityGrade', e.target.value)}
+                          className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
+                        />
                       </div>
                       <div className="flex items-end gap-6 pt-2">
                         <span className="text-[11px] font-semibold whitespace-nowrap">
                           Approved:
                         </span>
-                        <span className="flex-1 border-b border-black">
-                          &nbsp;
-                        </span>
+                        <input
+                          type="text"
+                          value={getTransfer('approved')}
+                          onChange={e => handleTransferChange('approved', e.target.value)}
+                          className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
+                        />
                       </div>
                       <div className="flex justify-between text-center text-[9px] italic">
                         <span className="flex-1">School Head</span>
@@ -665,17 +747,23 @@ export function SF9Report() {
                         <span className="text-[11px] font-semibold whitespace-nowrap">
                           Admitted in:
                         </span>
-                        <span className="flex-1 border-b border-black">
-                          &nbsp;
-                        </span>
+                        <input
+                          type="text"
+                          value={getTransfer('cancelAdmitted')}
+                          onChange={e => handleTransferChange('cancelAdmitted', e.target.value)}
+                          className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
+                        />
                       </div>
                       <div className="flex items-end gap-6">
                         <span className="text-[11px] font-semibold whitespace-nowrap">
                           Date:
                         </span>
-                        <span className="flex-1 border-b border-black">
-                          &nbsp;
-                        </span>
+                        <input
+                          type="text"
+                          value={getTransfer('cancelDate')}
+                          onChange={e => handleTransferChange('cancelDate', e.target.value)}
+                          className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
+                        />
                       </div>
                       <div className="text-right text-[9px] italic">
                         School Head
@@ -1013,10 +1101,10 @@ export function SF9Report() {
                       </tr>
                     </thead>
                     <tbody>
-                      {CORE_VALUES.map(cv =>
-                        cv.statements.map((st, idx) => (
-                          <tr key={cv.value + idx}>
-                            {idx === 0 ? (
+                      {CORE_VALUES.map((cv, cvIdx) =>
+                        cv.statements.map((st, stIdx) => (
+                          <tr key={cv.value + stIdx}>
+                            {stIdx === 0 ? (
                               <td
                                 rowSpan={cv.statements.length}
                                 className="border border-black px-1 py-1 text-left align-middle font-semibold">
@@ -1028,7 +1116,16 @@ export function SF9Report() {
                             </td>
                             {[1, 2, 3, 4].map(q => (
                               <td key={q} className="border border-black p-0">
-                                <span className="block h-6">&nbsp;</span>
+                                <select
+                                  value={getObserved(cvIdx, stIdx, q)}
+                                  onChange={e => handleObservedChange(cvIdx, stIdx, q, e.target.value)}
+                                  className="sf1-input h-6 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50 appearance-none cursor-pointer">
+                                  <option value="" />
+                                  <option value="AO">AO</option>
+                                  <option value="SO">SO</option>
+                                  <option value="RO">RO</option>
+                                  <option value="NO">NO</option>
+                                </select>
                               </td>
                             ))}
                           </tr>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Printer, Loader2 } from 'lucide-react';
+import { Printer, Loader2, Download } from 'lucide-react';
 import './sf1.css';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
@@ -8,6 +8,7 @@ import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { settingsApi } from '../../services/settings';
 import { useApp } from '../../context/AppContext';
+import { exportToPdf } from '../../services/pdfExport';
 
 /* ---------------------------------------------------------------- */
 /* Column definitions matching DepEd School Form 1 (SF1)            */
@@ -256,6 +257,21 @@ export function SF1Register() {
     );
   }
 
+  // ── PDF Export ──
+  const handleExportPdf = async () => {
+    try {
+      await exportToPdf({
+        elementId: 'sf1-print-area',
+        filename: `SF1_Register_Grade${selectedGrade}${selectedSection ? '_'+selectedSection : ''}`,
+        orientation: 'landscape',
+        format: 'letter',
+      });
+      // useApp() showToast can't be used without the hook — skip toast or import separately
+    } catch {
+      console.error('PDF export failed');
+    }
+  };
+
   const filledCount = rows.filter(r => r.lrn).length;
 
   return (
@@ -271,6 +287,9 @@ export function SF1Register() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" onClick={handleExportPdf}>
+            <Download className="size-4" /> PDF
+          </Button>
           <Button size="sm" onClick={() => window.print()}>
             <Printer className="size-4" /> Print
           </Button>
@@ -302,7 +321,7 @@ export function SF1Register() {
       </div>
 
       {/* Sheet */}
-      <div className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
+      <div id="sf1-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
         <div className="sf1-page" style={{ minWidth: '1340px' }}>
           {/* ---------- Title block ---------- */}
           <div className="mb-4 flex items-center justify-between gap-6">

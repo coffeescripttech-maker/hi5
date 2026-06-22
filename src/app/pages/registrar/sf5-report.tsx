@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Printer, Loader2 } from 'lucide-react';
+import { Printer, Loader2, Download } from 'lucide-react';
 import './sf1.css';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
@@ -10,6 +10,7 @@ import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { settingsApi } from '../../services/settings';
 import { useApp } from '../../context/AppContext';
+import { exportToPdf } from '../../services/pdfExport';
 
 /* ---------------------------------------------------------------- */
 /* DepEd School Form 5 (SF5)                                        */
@@ -273,6 +274,20 @@ export function SF5Report() {
     </tr>
   );
 
+  // ── PDF Export ──
+  const handleExportPdf = async () => {
+    try {
+      await exportToPdf({
+        elementId: 'sf5-print-area',
+        filename: `SF5_Promotion_Grade${selectedGrade}${selectedSection ? '_'+selectedSection : ''}`,
+        orientation: 'landscape',
+        format: 'letter',
+      });
+    } catch {
+      console.error('PDF export failed');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-muted/40 py-6">
       {/* Toolbar */}
@@ -287,6 +302,9 @@ export function SF5Report() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" onClick={handleExportPdf}>
+            <Download className="size-4" /> PDF
+          </Button>
           <Button size="sm" onClick={() => window.print()}>
             <Printer className="size-4" /> Print
           </Button>
@@ -337,7 +355,7 @@ export function SF5Report() {
       </div>
 
       {/* Sheet */}
-      <div className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
+      <div id="sf5-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
         <div className="sf1-page" style={{ minWidth: '1200px' }}>
           {/* ---------- Title block ---------- */}
           <div className="mb-4 flex items-center justify-between gap-6">
