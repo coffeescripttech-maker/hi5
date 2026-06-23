@@ -5,11 +5,11 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
  * GET /api/enrollments — List enrollments with filters
- * Query: ?school_year_id=1&section_id=1&student_id=1&status=enrolled
+ * Query: ?school_year_id=1&section_id=1&student_id=1&status=enrolled&unassigned=1
  */
 export async function listEnrollments(req: Request, res: Response): Promise<void> {
   try {
-    const { school_year_id, section_id, student_id, status } = req.query;
+    const { school_year_id, section_id, student_id, status, unassigned } = req.query;
 
     let sql = `
       SELECT e.*, s.name AS student_name, s.student_id AS student_display_id, s.lrn, s.grade_level,
@@ -17,7 +17,7 @@ export async function listEnrollments(req: Request, res: Response): Promise<void
              u.name AS enrolled_by_name, sy.sy_label
       FROM enrollments e
       JOIN students s ON e.student_id = s.id
-      JOIN sections sec ON e.section_id = sec.id
+      LEFT JOIN sections sec ON e.section_id = sec.id
       JOIN users u ON e.enrolled_by = u.id
       JOIN school_years sy ON e.school_year_id = sy.id
     `;
@@ -40,12 +40,15 @@ export async function listEnrollments(req: Request, res: Response): Promise<void
       conditions.push("e.status = ?");
       params.push(status);
     }
+    if (unassigned === "1") {
+      conditions.push("e.section_id IS NULL");
+    }
 
     if (conditions.length > 0) {
       sql += " WHERE " + conditions.join(" AND ");
     }
 
-    sql += " ORDER BY s.grade_level ASC, sec.name ASC, s.name ASC";
+    sql += " ORDER BY s.grade_level ASC, COALESCE(sec.name, '') ASC, s.name ASC";
 
     const enrollments = await query<RowDataPacket[]>(sql, params);
     res.json(enrollments);
@@ -68,7 +71,7 @@ export async function getEnrollmentById(req: Request, res: Response): Promise<vo
               u.name AS enrolled_by_name, sy.sy_label
        FROM enrollments e
        JOIN students s ON e.student_id = s.id
-       JOIN sections sec ON e.section_id = sec.id
+       LEFT JOIN sections sec ON e.section_id = sec.id
        JOIN users u ON e.enrolled_by = u.id
        JOIN school_years sy ON e.school_year_id = sy.id
        WHERE e.id = ?`,
@@ -89,14 +92,17 @@ export async function getEnrollmentById(req: Request, res: Response): Promise<vo
 
 /**
  * POST /api/enrollments — Create enrollment
- * Body: { student_id, section_id, school_year_id, enrollment_date, program?, remarks?, requirements? }
+ * Body: { student_id, section_id?, school_year_id, enrollment_date, program?, remarks?, requirements? }
+ *
+ * When section_id is omitted/null, the enrollment goes into the Pending Section Queue
+ * and the Registrar assigns a section later via the section assignment workflow.
  */
 export async function createEnrollment(req: Request, res: Response): Promise<void> {
   try {
     const { student_id, section_id, school_year_id, enrollment_date, program, remarks, requirements } = req.body;
 
-    if (!student_id || !section_id || !school_year_id || !enrollment_date) {
-      res.status(400).json({ error: "Missing required fields: student_id, section_id, school_year_id, enrollment_date." });
+    if (!student_id || !school_year_id || !enrollment_date) {
+      res.status(400).json({ error: "Missing required fields: student_id, school_year_id, enrollment_date." });
       return;
     }
 
@@ -104,27 +110,6 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
     const student = await query<RowDataPacket[]>("SELECT id, name, status, grade_level FROM students WHERE id = ?", [student_id]);
     if (student.length === 0) {
       res.status(404).json({ error: "Student not found." });
-      return;
-    }
-
-    // Verify section exists
-    const section = await query<RowDataPacket[]>("SELECT id, name, grade_level, capacity, current_count FROM sections WHERE id = ?", [section_id]);
-    if (section.length === 0) {
-      res.status(404).json({ error: "Section not found." });
-      return;
-    }
-
-    // Check capacity
-    if (section[0].current_count >= section[0].capacity) {
-      res.status(400).json({ error: `Section "${section[0].name}" has reached its capacity (${section[0].capacity}).` });
-      return;
-    }
-
-    // Check grade level match
-    if (student[0].grade_level !== section[0].grade_level) {
-      res.status(400).json({
-        error: `Student grade level (${student[0].grade_level}) does not match section grade level (${section[0].grade_level}).`
-      });
       return;
     }
 
@@ -138,12 +123,41 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Section validation only when section_id is provided
+    let sectionName = "Pending Section";
+    if (section_id) {
+      const section = await query<RowDataPacket[]>(
+        "SELECT id, name, grade_level, capacity, current_count FROM sections WHERE id = ?",
+        [section_id]
+      );
+      if (section.length === 0) {
+        res.status(404).json({ error: "Section not found." });
+        return;
+      }
+
+      // Check capacity
+      if (section[0].current_count >= section[0].capacity) {
+        res.status(400).json({ error: `Section "${section[0].name}" has reached its capacity (${section[0].capacity}).` });
+        return;
+      }
+
+      // Check grade level match
+      if (student[0].grade_level !== section[0].grade_level) {
+        res.status(400).json({
+          error: `Student grade level (${student[0].grade_level}) does not match section grade level (${section[0].grade_level}).`
+        });
+        return;
+      }
+
+      sectionName = section[0].name;
+    }
+
     const enrolled_by = req.user!.userId;
 
     const result = await query<ResultSetHeader>(
       `INSERT INTO enrollments (student_id, section_id, school_year_id, program, enrollment_date, enrolled_by, remarks)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [student_id, section_id, school_year_id, program || "regular", enrollment_date, enrolled_by, remarks || null]
+      [student_id, section_id || null, school_year_id, program || "regular", enrollment_date, enrolled_by, remarks || null]
     );
 
     // Insert requirements checklist if provided
@@ -157,11 +171,13 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
       }
     }
 
-    // Increment section current_count
-    await query<ResultSetHeader>(
-      "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
-      [section_id]
-    );
+    // Increment section current_count only if section was assigned
+    if (section_id) {
+      await query<ResultSetHeader>(
+        "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
+        [section_id]
+      );
+    }
 
     // Update student status to enrolled
     await query<ResultSetHeader>(
@@ -171,7 +187,9 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
 
     await logActivity(
       req.user!.userId,
-      `Enrolled student: ${student[0].name} into ${section[0].name}`,
+      sectionName !== "Pending Section"
+        ? `Enrolled student: ${student[0].name} into ${sectionName}`
+        : `Enrolled student: ${student[0].name} (Pending Section — awaiting Registrar assignment)`,
       "enrollments",
       result.insertId
     );
@@ -180,7 +198,7 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
       `SELECT e.*, s.name AS student_name, s.student_id, sec.name AS section_name, sy.sy_label
        FROM enrollments e
        JOIN students s ON e.student_id = s.id
-       JOIN sections sec ON e.section_id = sec.id
+       LEFT JOIN sections sec ON e.section_id = sec.id
        JOIN school_years sy ON e.school_year_id = sy.id
        WHERE e.id = ?`,
       [result.insertId]
@@ -194,8 +212,8 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
 }
 
 /**
- * PUT /api/enrollments/:id — Update enrollment (drop/transfer)
- * Body: { status: "dropped" | "transferred", remarks? }
+ * PUT /api/enrollments/:id — Update enrollment (drop/transfer/assign-section)
+ * Body: { status?, remarks?, section_id? }
  */
 export async function updateEnrollment(req: Request, res: Response): Promise<void> {
   try {
@@ -203,7 +221,11 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
     const { status, remarks, section_id } = req.body;
 
     const existing = await query<RowDataPacket[]>(
-      "SELECT e.*, s.name AS student_name, sec.name AS section_name FROM enrollments e JOIN students s ON e.student_id = s.id JOIN sections sec ON e.section_id = sec.id WHERE e.id = ?",
+      `SELECT e.*, s.name AS student_name, sec.name AS section_name
+       FROM enrollments e
+       JOIN students s ON e.student_id = s.id
+       LEFT JOIN sections sec ON e.section_id = sec.id
+       WHERE e.id = ?`,
       [id]
     );
 
@@ -214,12 +236,77 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
 
     const enrollment = existing[0];
 
-    if (status === "dropped" || status === "transferred") {
-      // Decrement old section count
-      await query<ResultSetHeader>(
-        "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
-        [enrollment.section_id]
+    // --- Section assignment (Registrar assigning section to a pending student) ---
+    if (section_id && !enrollment.section_id && (!status || status === "enrolled")) {
+      const newSection = await query<RowDataPacket[]>(
+        "SELECT id, name, capacity, current_count, grade_level FROM sections WHERE id = ?",
+        [section_id]
       );
+
+      if (newSection.length === 0) {
+        res.status(404).json({ error: "Section not found." });
+        return;
+      }
+
+      if (newSection[0].current_count >= newSection[0].capacity) {
+        res.status(400).json({ error: `Section "${newSection[0].name}" is at full capacity.` });
+        return;
+      }
+
+      // Check grade level match
+      const student = await query<RowDataPacket[]>(
+        "SELECT grade_level FROM students WHERE id = ?",
+        [enrollment.student_id]
+      );
+      if (student.length > 0 && student[0].grade_level !== newSection[0].grade_level) {
+        res.status(400).json({
+          error: `Student grade level (${student[0].grade_level}) does not match section grade level (${newSection[0].grade_level}).`
+        });
+        return;
+      }
+
+      // Assign section
+      await query<ResultSetHeader>(
+        "UPDATE enrollments SET section_id = ?, assigned_at = NOW(), assigned_by = ? WHERE id = ?",
+        [section_id, req.user!.userId, id]
+      );
+
+      // Increment new section count
+      await query<ResultSetHeader>(
+        "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
+        [section_id]
+      );
+
+      await logActivity(
+        req.user!.userId,
+        `Assigned student: ${enrollment.student_name} to section ${newSection[0].name}`,
+        "enrollments",
+        id
+      );
+
+      const updated = await query<RowDataPacket[]>(
+        `SELECT e.*, s.name AS student_name, sec.name AS section_name, sy.sy_label
+         FROM enrollments e
+         JOIN students s ON e.student_id = s.id
+         LEFT JOIN sections sec ON e.section_id = sec.id
+         JOIN school_years sy ON e.school_year_id = sy.id
+         WHERE e.id = ?`,
+        [id]
+      );
+
+      res.json(updated[0]);
+      return;
+    }
+
+    // --- Drop or Transfer ---
+    if (status === "dropped" || status === "transferred") {
+      // Decrement old section count only if section was assigned
+      if (enrollment.section_id) {
+        await query<ResultSetHeader>(
+          "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
+          [enrollment.section_id]
+        );
+      }
 
       // Update student status
       const newStudentStatus = status === "dropped" ? "dropped" : "transferred";
@@ -235,7 +322,8 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
 
       await logActivity(
         req.user!.userId,
-        `${status === "dropped" ? "Dropped" : "Transferred"} student: ${enrollment.student_name} from ${enrollment.section_name}`,
+        `${status === "dropped" ? "Dropped" : "Transferred"} student: ${enrollment.student_name}` +
+          (enrollment.section_name ? ` from ${enrollment.section_name}` : ""),
         "enrollments",
         id
       );
@@ -244,8 +332,8 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Transfer to a new section
-    if (section_id && section_id !== enrollment.section_id) {
+    // --- Transfer to a new section (re-assign) ---
+    if (section_id && section_id !== enrollment.section_id && enrollment.section_id) {
       const newSection = await query<RowDataPacket[]>(
         "SELECT id, name, capacity, current_count, grade_level FROM sections WHERE id = ?",
         [section_id]
@@ -274,8 +362,8 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
       );
 
       await query<ResultSetHeader>(
-        "UPDATE enrollments SET section_id = ?, remarks = ?, status = 'enrolled' WHERE id = ?",
-        [section_id, remarks || null, id]
+        "UPDATE enrollments SET section_id = ?, assigned_at = NOW(), assigned_by = ?, remarks = ?, status = 'enrolled' WHERE id = ?",
+        [section_id, req.user!.userId, remarks || null, id]
       );
 
       await logActivity(
@@ -289,7 +377,7 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
         `SELECT e.*, s.name AS student_name, sec.name AS section_name, sy.sy_label
          FROM enrollments e
          JOIN students s ON e.student_id = s.id
-         JOIN sections sec ON e.section_id = sec.id
+         LEFT JOIN sections sec ON e.section_id = sec.id
          JOIN school_years sy ON e.school_year_id = sy.id
          WHERE e.id = ?`,
         [id]
@@ -311,6 +399,49 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
   } catch (error) {
     console.error("Update enrollment error:", error);
     res.status(500).json({ error: "Failed to update enrollment." });
+  }
+}
+
+/**
+ * DELETE /api/enrollments/:id — Delete enrollment (hard delete)
+ */
+export async function deleteEnrollment(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+
+    const existing = await query<RowDataPacket[]>(
+      `SELECT e.*, s.name AS student_name FROM enrollments e JOIN students s ON e.student_id = s.id WHERE e.id = ?`,
+      [id]
+    );
+
+    if (existing.length === 0) {
+      res.status(404).json({ error: "Enrollment not found." });
+      return;
+    }
+
+    const enrollment = existing[0];
+
+    // Decrement section count if section was assigned
+    if (enrollment.section_id) {
+      await query<ResultSetHeader>(
+        "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
+        [enrollment.section_id]
+      );
+    }
+
+    await query<ResultSetHeader>("DELETE FROM enrollments WHERE id = ?", [id]);
+
+    await logActivity(
+      req.user!.userId,
+      `Deleted enrollment for student: ${enrollment.student_name}`,
+      "enrollments",
+      id
+    );
+
+    res.json({ message: "Enrollment deleted." });
+  } catch (error) {
+    console.error("Delete enrollment error:", error);
+    res.status(500).json({ error: "Failed to delete enrollment." });
   }
 }
 

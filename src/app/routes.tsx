@@ -30,6 +30,7 @@ import { PromotionRecords } from "./pages/registrar/PromotionRecords";
 import { RegistrarAtRisk } from "./pages/registrar/RegistrarAtRisk";
 import { RegistrarProfile } from "./pages/registrar/RegistrarProfile";
 import { SubjectView } from "./pages/registrar/SubjectView";
+import { SectionAssignment } from "./pages/registrar/SectionAssignment";
 import { StudentProfile } from "./pages/StudentProfile";
 import { NotFound } from "./pages/NotFound";
 import { logsApi, ActivityLogRow } from "./services/logs";
@@ -139,6 +140,7 @@ export const router = createBrowserRouter([
       { path: "profile", Component: RegistrarProfile },
       { path: "sections", Component: SectionCreation },
       { path: "subjects", Component: SubjectView },
+      { path: "section-assignment", Component: SectionAssignment },
     ],
   },
   { path: "/student/:id", Component: Layout, children: [{ index: true, Component: StudentProfile }] },

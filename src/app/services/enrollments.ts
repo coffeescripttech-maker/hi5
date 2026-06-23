@@ -10,8 +10,8 @@ export interface EnrollmentRow {
   student_name: string;
   lrn: string;
   grade_level: number;
-  section_id: number;
-  section_name: string;
+  section_id: number | null;
+  section_name: string | null;
   school_year_id: number;
   sy_label: string;
   program: string;
@@ -20,13 +20,15 @@ export interface EnrollmentRow {
   enrolled_by_name: string;
   status: 'enrolled' | 'dropped' | 'transferred';
   remarks: string | null;
+  assigned_at: string | null;
+  assigned_by: number | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateEnrollmentPayload {
   student_id: number;
-  section_id: number;
+  section_id?: number;
   school_year_id: number;
   enrollment_date: string;
   program?: string;

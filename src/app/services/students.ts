@@ -17,14 +17,18 @@ export interface StudentRow {
   status: "enrolled" | "pending" | "dropped" | "transferred" | "graduated";
   created_at: string;
   updated_at: string;
+  /** Present on teacher's my-students response — null means Pending Section Queue */
+  section_id?: number | null;
+  section_name?: string | null;
+  program?: string;
 }
 
 /** Student with enrollment and section info (from GET /api/students/:id) */
 export interface StudentDetail extends StudentRow {
   enrollment?: {
     id: number;
-    section_id: number;
-    section_name: string;
+    section_id: number | null;
+    section_name: string | null;
     school_year_id: number;
     sy_label: string;
     status: string;
@@ -53,7 +57,7 @@ export interface UpdateStudentPayload {
 }
 
 export interface ClassificationPayload {
-  classification: string;
+  classifications: string[];
   school_year_id: number;
 }
 

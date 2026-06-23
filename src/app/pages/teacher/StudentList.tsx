@@ -30,7 +30,7 @@ export function StudentList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const STATUSES = ["all", "enrolled", "pending", "dropped", "transferred", "graduated"];
+  const STATUSES = ["all", "awaiting_section", "enrolled", "pending", "dropped", "transferred", "graduated"];
 
   useEffect(() => {
     studentsApi.listMyStudents()
@@ -65,7 +65,11 @@ export function StudentList() {
     }
 
     if (filterGrade !== "all") data = data.filter(s => s.grade_level === filterGrade);
-    if (filterStatus !== "all") data = data.filter(s => s.status === filterStatus);
+    if (filterStatus === "awaiting_section") {
+      data = data.filter(s => s.status === "enrolled" && s.section_id == null);
+    } else if (filterStatus !== "all") {
+      data = data.filter(s => s.status === filterStatus);
+    }
     if (filterSex !== "all") data = data.filter(s => s.sex === filterSex);
 
     data.sort((a, b) => {
@@ -135,11 +139,13 @@ export function StudentList() {
           </div>
           <div className="flex-1">
             <h2 className="text-lg font-bold text-gray-900">My Students</h2>
-            <p className="text-gray-500 text-sm">View and manage students in your assigned sections</p>
+            <p className="text-gray-500 text-sm">Students you enrolled or those in your assigned sections</p>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400 bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100">
+          <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100">
             <GraduationCap size={14} className="text-emerald-500" />
             <span className="font-semibold text-gray-600">{students.length}</span> total
+            <span className="text-gray-300">|</span>
+            <span className="text-amber-600 font-medium">{students.filter(s => s.section_id == null && s.status === "enrolled").length}</span> await section
           </div>
         </div>
       </div>
@@ -219,7 +225,10 @@ export function StudentList() {
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Status</p>
               <div className="flex flex-wrap gap-1.5">
-                {STATUSES.map(st => filterChip(st === "all" ? "All" : st.charAt(0).toUpperCase() + st.slice(1), filterStatus === st, () => setFilterStatus(filterStatus === st ? "all" : st)))}
+                {STATUSES.map(st => {
+                  const label = st === "all" ? "All" : st === "awaiting_section" ? "Awaiting Section" : st.charAt(0).toUpperCase() + st.slice(1);
+                  return filterChip(label, filterStatus === st, () => setFilterStatus(filterStatus === st ? "all" : st));
+                })}
               </div>
             </div>
             {/* Sex */}
@@ -298,7 +307,9 @@ export function StudentList() {
                           </button>
                         </th>
                       ))}
-                      <th className="px-6 py-3.5 text-left"><span className="sr-only">Action</span></th>
+                      <th className="px-6 py-3.5 text-left">
+                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Section</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -311,7 +322,12 @@ export function StudentList() {
                         transferred: { bg: "bg-blue-50 text-blue-700 border-blue-200/50", label: "Transferred" },
                         graduated: { bg: "bg-purple-50 text-purple-700 border-purple-200/50", label: "Graduated" },
                       };
-                      const badge = statusBadge[s.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", label: s.status };
+                      const hasSection = s.section_id != null;
+                      // Show "Awaiting Section" instead of "Enrolled" when student has no section yet
+                      const isEnrolledPending = s.status === "enrolled" && !hasSection;
+                      const badgeInfo = isEnrolledPending
+                        ? { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Awaiting Section" }
+                        : statusBadge[s.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", label: s.status };
                       return (
                         <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/50 transition-colors duration-150`}>
                           <td className="px-6 py-3.5">
@@ -329,7 +345,19 @@ export function StudentList() {
                           <td className="px-6 py-3.5"><span className="text-sm text-gray-700 font-medium">Grade {s.grade_level}</span></td>
                           <td className="px-6 py-3.5"><span className="text-sm text-gray-600 capitalize">{s.sex}</span></td>
                           <td className="px-6 py-3.5">
-                            <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${badge.bg}`}>{badge.label}</span>
+                            <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${badgeInfo.bg}`}>{badgeInfo.label}</span>
+                          </td>
+                          <td className="px-6 py-3.5">
+                            {hasSection ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">
+                                {s.section_name}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                Pending Section
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-3.5">
                             <button

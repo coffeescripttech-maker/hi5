@@ -134,9 +134,17 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
+/** Build a query string from an object, omitting nullish values */
+function buildQuery(params?: Record<string, string | number | undefined>): string {
+  if (!params) return "";
+  const entries = Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== "");
+  if (entries.length === 0) return "";
+  return "?" + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
+}
+
 export const api = {
-  get<T>(path: string): Promise<T> {
-    return request<T>(path);
+  get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+    return request<T>(`${path}${buildQuery(params)}`);
   },
 
   post<T>(path: string, body?: unknown): Promise<T> {

@@ -78,17 +78,6 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
   try {
     const userId = req.user!.userId;
 
-    // Find sections where this user is the adviser
-    const sections = await query<RowDataPacket[]>(
-      "SELECT id, name, grade_level FROM sections WHERE adviser_id = ? AND is_active = 1",
-      [userId]
-    );
-
-    if (sections.length === 0) {
-      res.json([]);
-      return;
-    }
-
     // Get current school year
     const currentSY = await query<RowDataPacket[]>(
       "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
@@ -100,21 +89,43 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
     }
 
     const schoolYearId = currentSY[0].id;
-    const sectionIds = sections.map(s => s.id);
 
-    // Get enrolled students in those sections for this school year
-    const placeholders = sectionIds.map(() => "?").join(",");
-    const students = await query<StudentRow[]>(
-      `SELECT s.*, e.section_id, sec.name AS section_name, e.status AS enrollment_status,
-              e.enrollment_date, e.program
-       FROM students s
-       JOIN enrollments e ON e.student_id = s.id
-       JOIN sections sec ON e.section_id = sec.id
-       WHERE e.section_id IN (${placeholders}) AND e.school_year_id = ?
-       ORDER BY sec.grade_level ASC, sec.name ASC, s.name ASC`,
-      [...sectionIds, schoolYearId]
+    // Find sections where this user is the adviser
+    const sections = await query<RowDataPacket[]>(
+      "SELECT id, name, grade_level FROM sections WHERE adviser_id = ? AND is_active = 1",
+      [userId]
     );
 
+    // Build query: students in teacher's sections OR students they enrolled (pending queue)
+    let sql = `
+      SELECT s.*, e.section_id, sec.name AS section_name, e.status AS enrollment_status,
+             e.enrollment_date, e.program
+      FROM students s
+      JOIN enrollments e ON e.student_id = s.id
+      LEFT JOIN sections sec ON e.section_id = sec.id
+      WHERE e.school_year_id = ?
+        AND e.status = 'enrolled'
+        AND (
+    `;
+    const params: any[] = [schoolYearId];
+    const orConditions: string[] = [];
+
+    if (sections.length > 0) {
+      const sectionIds = sections.map((s: any) => s.id);
+      const ph = sectionIds.map(() => "?").join(",");
+      orConditions.push(`e.section_id IN (${ph})`);
+      params.push(...sectionIds);
+    }
+
+    // Also include pending-queue students enrolled by this teacher
+    orConditions.push("(e.enrolled_by = ? AND e.section_id IS NULL)");
+    params.push(userId);
+
+    sql += orConditions.join(" OR ");
+    sql += `)
+      ORDER BY COALESCE(sec.grade_level, 0) ASC, sec.name ASC, s.name ASC`;
+
+    const students = await query<RowDataPacket[]>(sql, params);
     res.json(students);
   } catch (error) {
     console.error("Get teacher students error:", error);
