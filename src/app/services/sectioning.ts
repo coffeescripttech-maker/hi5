@@ -19,7 +19,7 @@ export interface SectioningSection {
   id: number;
   name: string;
   grade_level: number;
-  section_type: "star" | "gold" | "silver" | "regular" | "non_reader";
+  section_type: string;
   capacity: number;
   current_count: number;
   min_average: number;

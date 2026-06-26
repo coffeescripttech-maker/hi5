@@ -638,17 +638,16 @@ export function EnrollmentModule() {
     return (
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className="bg-white rounded-xl border border-gray-200/60 shadow-sm overflow-hidden">
           <div className="p-5 sm:p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-lg shadow-emerald-200 flex items-center justify-center flex-shrink-0">
-              <UserCheck size={22} className="text-white" />
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <UserCheck size={18} className="text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-base font-semibold text-gray-900">
                 Enrollment Module
               </h2>
-              <p className="text-gray-500 text-sm">
+              <p className="text-gray-400 text-sm">
                 Manage student enrollment, re-enrollment, and drop/transfer
                 processing
               </p>
@@ -657,118 +656,125 @@ export function EnrollmentModule() {
         </div>
 
         {/* Flow cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => setFlow('new')}
-            className="group relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-50/0 to-green-50/0 group-hover:from-green-50 group-hover:to-emerald-50/50 transition-all duration-300" />
-            <div className="relative p-7 sm:p-8 flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-100 to-emerald-100 group-hover:from-green-200 group-hover:to-emerald-200 flex items-center justify-center transition-all duration-300 shadow-sm group-hover:shadow-md group-hover:scale-105">
-                <UserPlus size={28} className="text-green-700" />
+            className="group bg-emerald-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-emerald-200 transition-all duration-200 p-6 text-left relative overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-emerald-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors ring-1 ring-emerald-200/50">
+                <UserPlus size={19} className="text-emerald-600" />
               </div>
-              <div className="text-center">
-                <p className="font-bold text-gray-900 text-lg">
-                  Enroll New Student
-                </p>
-                <p className="text-gray-500 text-sm mt-1 leading-relaxed">
-                  Complete data entry for first-time enrollees with auto-ID
-                  generation
-                </p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {['Full data entry', 'Auto-ID', 'Section assignment'].map(
-                    t => (
-                      <span
-                        key={t}
-                        className="bg-green-100 text-green-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
-                        {t}
-                      </span>
-                    )
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-green-700 font-semibold text-sm group-hover:gap-3 transition-all duration-300">
-                Start Enrollment{' '}
+              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md ring-1 ring-emerald-200/50 tracking-wide uppercase">
+                New
+              </span>
+            </div>
+            <h3 className="font-semibold text-gray-900 text-[15px] tracking-[-0.02em] mb-1.5">
+              Enroll New Student
+            </h3>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              Complete data entry for first-time enrollees with auto-ID
+              generation
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {['Full data entry', 'Auto-ID', 'Section assignment'].map(t => (
+                <span
+                  key={t}
+                  className="text-[11px] text-gray-500 bg-gray-100/60 px-2.5 py-1 rounded-md tracking-wide">
+                  {t}
+                </span>
+              ))}
+            </div>
+            <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200 tracking-[-0.01em]">
+                Start Enrollment
                 <ChevronRight
-                  size={15}
+                  size={14}
                   className="group-hover:translate-x-0.5 transition-transform"
                 />
-              </div>
+              </span>
             </div>
           </button>
 
           <button
             onClick={() => setFlow('returning')}
-            className="group relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/0 to-emerald-50/0 group-hover:from-emerald-50 group-hover:to-emerald-100/30 transition-all duration-300" />
-            <div className="relative p-7 sm:p-8 flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 group-hover:from-emerald-200 group-hover:to-teal-200 flex items-center justify-center transition-all duration-300 shadow-sm group-hover:shadow-md group-hover:scale-105">
-                <RefreshCw size={28} className="text-emerald-700" />
+            className="group bg-blue-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 transition-all duration-200 p-6 text-left relative overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors ring-1 ring-blue-200/50">
+                <RefreshCw size={19} className="text-blue-600" />
               </div>
-              <div className="text-center">
-                <p className="font-bold text-gray-900 text-lg">
-                  Enroll Returning Student
-                </p>
-                <p className="text-gray-500 text-sm mt-1 leading-relaxed">
-                  Auto-populate from existing records via LRN or name search
-                </p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {['LRN search', 'Auto-populate', 'Grade promotion'].map(t => (
-                    <span
-                      key={t}
-                      className="bg-emerald-100 text-emerald-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-emerald-700 font-semibold text-sm group-hover:gap-3 transition-all duration-300">
-                Search Student{' '}
+              <span className="text-[11px] font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md ring-1 ring-blue-200/50">
+                Returning
+              </span>
+            </div>
+            <h3 className="font-semibold text-gray-900 text-[15px] tracking-[-0.02em] mb-1.5">
+              Enroll Returning Student
+            </h3>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              Auto-populate from existing records via LRN or name search
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {['LRN search', 'Auto-populate', 'Grade promotion'].map(t => (
+                <span
+                  key={t}
+                  className="text-[11px] text-gray-500 bg-gray-100/60 px-2.5 py-1 rounded-md tracking-wide">
+                  {t}
+                </span>
+              ))}
+            </div>
+            <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-sm font-medium text-blue-600 flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200 tracking-[-0.01em]">
+                Search Student
                 <ChevronRight
-                  size={15}
+                  size={14}
                   className="group-hover:translate-x-0.5 transition-transform"
                 />
-              </div>
+              </span>
             </div>
           </button>
 
           <button
             onClick={() => setFlow('drop')}
-            className="group relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden md:col-span-2">
-            <div className="absolute inset-0 bg-gradient-to-br from-red-50/0 to-red-50/0 group-hover:from-red-50 group-hover:to-orange-50/30 transition-all duration-300" />
-            <div className="relative p-7 sm:p-8 flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-100 to-orange-100 group-hover:from-red-200 group-hover:to-orange-200 flex items-center justify-center transition-all duration-300 shadow-sm group-hover:shadow-md group-hover:scale-105">
-                <UserMinus size={28} className="text-red-600" />
+            className="group bg-red-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-red-200 transition-all duration-200 p-6 text-left relative overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-red-400 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors ring-1 ring-red-200/50">
+                <UserMinus size={19} className="text-red-500" />
               </div>
-              <div className="text-center">
-                <p className="font-bold text-gray-900 text-lg">
-                  Student Drop / Transfer
-                </p>
-                <p className="text-gray-500 text-sm mt-1 leading-relaxed">
-                  Process student dropout or school transfer with official
-                  reason documentation
-                </p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {[
-                    'Dropout',
-                    'Transfer Out',
-                    'Transfer In',
-                    'Reason on record'
-                  ].map(t => (
-                    <span
-                      key={t}
-                      className="bg-red-100 text-red-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-red-600 font-semibold text-sm group-hover:gap-3 transition-all duration-300">
-                Process Drop{' '}
+              <span className="text-[11px] font-medium text-red-500 bg-red-50 px-2.5 py-1 rounded-md ring-1 ring-red-200/50">
+                Status
+              </span>
+            </div>
+            <h3 className="font-semibold text-gray-900 text-[15px] tracking-[-0.02em] mb-1.5">
+              Student Drop / Transfer
+            </h3>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              Process student dropout or school transfer with official reason
+              documentation
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'Dropout',
+                'Transfer Out',
+                'Transfer In',
+                'Reason on record'
+              ].map(t => (
+                <span
+                  key={t}
+                  className="text-[11px] text-gray-500 bg-gray-100/60 px-2.5 py-1 rounded-md tracking-wide">
+                  {t}
+                </span>
+              ))}
+            </div>
+            <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-sm font-medium text-red-500 flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200">
+                Process Request
                 <ChevronRight
-                  size={15}
+                  size={14}
                   className="group-hover:translate-x-0.5 transition-transform"
                 />
-              </div>
+              </span>
             </div>
           </button>
         </div>
@@ -916,7 +922,7 @@ export function EnrollmentModule() {
     }
 
     return (
-      <div className="max-w-2xl mx-auto space-y-5">
+      <div className="max-w-4xl mx-auto space-y-5">
         <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <button
             onClick={resetAll}
@@ -1628,7 +1634,7 @@ export function EnrollmentModule() {
     }
 
     return (
-      <div className="max-w-2xl mx-auto space-y-5">
+      <div className="max-w-4xl mx-auto space-y-5">
         <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <button
             onClick={resetAll}
@@ -2128,7 +2134,7 @@ export function EnrollmentModule() {
     }
 
     return (
-      <div className="max-w-2xl mx-auto space-y-5">
+      <div className="max-w-4xl mx-auto space-y-5">
         <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <button
             onClick={resetAll}

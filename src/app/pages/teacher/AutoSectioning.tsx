@@ -17,10 +17,10 @@ const THRESHOLD_RANGES = [
 ];
 
 const SECTION_TYPE_COLORS: Record<string, { color: string; bg: string; border: string; dot: string }> = {
-  star: { color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-300", dot: "bg-yellow-400" },
-  gold: { color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-300", dot: "bg-amber-400" },
-  silver: { color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-300", dot: "bg-gray-400" },
+  ste: { color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-300", dot: "bg-amber-400" },
   regular: { color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-300", dot: "bg-blue-400" },
+  spfl: { color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-300", dot: "bg-yellow-400" },
+  spj: { color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-300", dot: "bg-slate-400" },
   non_reader: { color: "text-red-600", bg: "bg-red-50", border: "border-red-300", dot: "bg-red-400" },
 };
 
@@ -100,7 +100,7 @@ export function AutoSectioning() {
 
     if (best) {
       const style = SECTION_TYPE_COLORS[best.section_type] || SECTION_TYPE_COLORS.regular;
-      const iconMap: Record<string, string> = { star: "⭐", gold: "🥇", silver: "🥈", regular: "📚", non_reader: "📖" };
+      const iconMap: Record<string, string> = { ste: "🔬", spfl: "🌐", spj: "📰", regular: "📚", non_reader: "📖" };
       const extras: string[] = [];
       if (classifications.includes("pwd")) extras.push("PWD flagged");
       if (classifications.includes("4ps")) extras.push("4Ps beneficiary");

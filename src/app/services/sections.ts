@@ -7,7 +7,7 @@ export interface SectionRow {
   id: number;
   name: string;
   grade_level: number;
-  section_type: "star" | "gold" | "silver" | "regular" | "non_reader";
+  section_type: string;
   capacity: number;
   current_count: number;
   adviser_id: number | null;
@@ -36,8 +36,16 @@ export interface UpdateSectionPayload {
   is_active?: number;
 }
 
+export interface TeacherBrief {
+  id: number;
+  name: string;
+  employee_id: string | null;
+  designation: string | null;
+}
+
 export const sectionsApi = {
   list: () => api.get<SectionRow[]>("/sections"),
+  listTeachers: () => api.get<TeacherBrief[]>("/sections/teachers"),
   listMySections: () => api.get<SectionRow[]>("/sections/my-sections"),
   get: (id: number) => api.get<SectionRow>(`/sections/${id}`),
   create: (data: CreateSectionPayload) =>

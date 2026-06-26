@@ -189,26 +189,29 @@ export function SchoolForms() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-2xl p-5 text-white shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-            <FileSpreadsheet size={20} className="text-white" />
-          </div>
-          <div>
-            <h2 className="font-bold text-lg">
-              Official School Form Generation
-            </h2>
-            <p className="text-blue-200 text-sm">
-              DepEd-authorized forms — {userLabel} access
-            </p>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+              <FileSpreadsheet size={22} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
+                Official School Form Generation
+              </h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                DepEd-authorized forms — {userLabel} access
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Legal Notice */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+      <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
         <Shield size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-amber-800 text-sm font-semibold">
@@ -226,9 +229,9 @@ export function SchoolForms() {
 
       {/* Accessible Forms */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
           <CheckCircle size={16} className="text-emerald-500" />
-          <h3 className="font-semibold text-gray-800">
+          <h3 className="font-semibold text-gray-800 text-sm tracking-[-0.01em]">
             Forms Available to {userLabel}
           </h3>
           <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium border border-emerald-200">
@@ -243,7 +246,7 @@ export function SchoolForms() {
                 setActiveForm(form.code as ActiveForm);
                 setGenerated(false);
               }}
-              className={`bg-white text-left rounded-xl border-2 ${form.border} hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group flex flex-col`}>
+              className={`bg-white text-left rounded-2xl border ${form.border} hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group flex flex-col shadow-sm`}>
               <div
                 className={`${form.bg} px-4 py-3 flex items-center justify-between flex-shrink-0`}>
                 <div className="flex items-center gap-2.5">
@@ -264,7 +267,7 @@ export function SchoolForms() {
                 </div>
               </div>
               <div className="p-4 flex flex-col flex-1">
-                <p className="font-bold text-gray-800">{form.title}</p>
+                <p className="font-bold text-gray-900 text-sm">{form.title}</p>
                 <p
                   className="text-sm font-semibold mt-0.5 min-h-[2.5rem]"
                   style={{
@@ -305,35 +308,35 @@ export function SchoolForms() {
 
       {/* Generator Modal */}
       {activeForm && currentForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-700 to-blue-900 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+            <div className="px-6 py-5 bg-white border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center">
                   {currentForm.icon}
                 </div>
                 <div>
-                  <h3 className="font-bold text-white">
+                  <h3 className="font-bold text-gray-900 text-sm">
                     {currentForm.title} — {currentForm.subtitle}
                   </h3>
-                  <p className="text-blue-200 text-xs mt-0.5">
+                  <p className="text-gray-500 text-xs mt-0.5">
                     School Year 2025–2026 · Authorized: {userLabel}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveForm(null)}
-                className="p-2 hover:bg-white/10 rounded-lg text-white">
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition">
                 <X size={18} />
               </button>
             </div>
 
             {/* Config */}
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/80 flex-shrink-0">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
                     Grade Level
                   </label>
                   <select
@@ -342,7 +345,7 @@ export function SchoolForms() {
                       setSelectedGrade(e.target.value);
                       setGenerated(false);
                     }}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
                     {[7, 8, 9, 10, 11, 12].map(g => (
                       <option key={g} value={g}>
                         Grade {g}
@@ -352,7 +355,7 @@ export function SchoolForms() {
                 </div>
                 {activeForm !== 'SF10' && activeForm !== 'SF9' && (
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
+                    <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
                       Section
                     </label>
                     <select
@@ -361,7 +364,7 @@ export function SchoolForms() {
                         setSelectedSection(e.target.value);
                         setGenerated(false);
                       }}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
                       {['Star', 'Gold', 'Silver', 'Regular'].map(s => (
                         <option key={s}>{s}</option>
                       ))}
@@ -370,7 +373,7 @@ export function SchoolForms() {
                 )}
                 {(activeForm === 'SF10' || activeForm === 'SF9') && (
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
+                    <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
                       Student
                     </label>
                     <select
@@ -379,7 +382,7 @@ export function SchoolForms() {
                         setSelectedStudentId(parseInt(e.target.value));
                         setGenerated(false);
                       }}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
                       {students
                         .filter(s => s.status === 'enrolled')
                         .map(s => (
@@ -392,10 +395,10 @@ export function SchoolForms() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
                     School Year
                   </label>
-                  <select className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  <select className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
                     <option>2025–2026</option>
                     <option>2024–2025</option>
                   </select>
@@ -404,7 +407,7 @@ export function SchoolForms() {
                   <button
                     onClick={handleGenerate}
                     disabled={generating}
-                    className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white px-4 py-2 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2">
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 shadow-sm">
                     {generating ? (
                       <>
                         <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -419,11 +422,11 @@ export function SchoolForms() {
             </div>
 
             {/* Document Preview */}
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/80">
               {!generated && !generating && (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="w-16 h-16 bg-blue-50 border-2 border-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FileText size={28} className="text-blue-300" />
+                  <div className="w-16 h-16 bg-indigo-50 border-2 border-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <FileText size={28} className="text-indigo-300" />
                   </div>
                   <p className="font-semibold text-gray-500">
                     Configure options and click Generate
@@ -436,8 +439,8 @@ export function SchoolForms() {
               {generating && (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <div className="relative w-14 h-14 mb-4">
-                    <div className="absolute inset-0 rounded-full border-4 border-blue-100" />
-                    <div className="absolute inset-0 rounded-full border-4 border-t-blue-600 animate-spin" />
+                    <div className="absolute inset-0 rounded-full border-4 border-indigo-100" />
+                    <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 animate-spin" />
                   </div>
                   <p className="font-semibold text-gray-600">
                     Generating {currentForm.code}...
@@ -1176,16 +1179,16 @@ export function SchoolForms() {
               <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0 bg-gray-50">
                 <button
                   onClick={() => setActiveForm(null)}
-                  className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-100 transition">
+                  className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-100 transition shrink-0">
                   Close
                 </button>
                 <button
-                  className="flex items-center gap-2 flex-1 bg-blue-700 hover:bg-blue-800 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center"
+                  className="flex items-center gap-2 flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0"
                   onClick={() => window.print()}>
                   <Printer size={14} /> Print Form
                 </button>
                 <button
-                  className="flex items-center gap-2 flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center"
+                  className="flex items-center gap-2 flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0"
                   onClick={() => window.print()}>
                   <Download size={14} /> Export PDF
                 </button>

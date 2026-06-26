@@ -46,54 +46,63 @@ INSERT INTO student_classifications (student_id, classification, school_year_id)
 (10, 'pwd', 1),
 (4, 'transferee', 1);
 
+-- ─── Section Types ────────────────────────────────────────────────────────────────
+
+INSERT IGNORE INTO section_types (name, label, color_code, icon, sort_order, is_locked) VALUES
+('ste',       'STE (Science & Technology)', 'amber',  '🔬',    1, 1),
+('regular',   'Regular (Standard K-12)',   'blue',   '📚',    2, 1),
+('spfl',      'SPFL (Foreign Language)',   'yellow', '🌐',    3, 1),
+('spj',       'SPJ (Journalism)',          'slate',  '📰',    4, 0),
+('non_reader','Non-Reader (Intervention)', 'red',    '📖',    5, 1);
+
 -- ─── Sections ───────────────────────────────────────────────────────────────────
 
 INSERT INTO sections (name, grade_level, section_type, capacity, current_count, adviser_id, min_average) VALUES
-('7-Star',    7,  'star',        45, 42, 2, 90),
-('7-Gold',    7,  'gold',        45, 40, 3, 85),
-('7-Silver',  7,  'silver',      45, 38, 4, 80),
-('7-Regular', 7,  'regular',     45, 35, 5, 75),
-('8-Star',    8,  'star',        45, 43, 6, 90),
-('8-Gold',    8,  'gold',        45, 41, 2, 85),
-('8-Silver',  8,  'silver',      45, 37, 3, 80),
-('8-Regular', 8,  'regular',     45, 33, 4, 75),
-('9-Star',    9,  'star',        50, 48, 5, 90),
-('9-Gold',    9,  'gold',        50, 46, 6, 85),
-('10-Silver', 10, 'silver',      50, 44, 2, 80),
-('11-Star',   11, 'star',        50, 49, 3, 90),
-('12-Gold',   12, 'gold',        50, 47, 4, 85);
+('7-Mabini',     7,  'ste',      45, 42, 2, 90),
+('7-Sampaguita', 7,  'spfl',     45, 40, 3, 85),
+('7-Integridad', 7,  'spj',      45, 38, 4, 80),
+('7-Diligence',  7,  'regular',  45, 35, 5, 75),
+('8-Rizal',      8,  'ste',      45, 43, 6, 90),
+('8-Rosal',      8,  'spfl',     45, 41, 2, 85),
+('8-Katapatan',  8,  'spj',      45, 37, 3, 80),
+('8-Masipag',    8,  'regular',  45, 33, 4, 75),
+('9-Bonifacio',  9,  'ste',      50, 48, 5, 90),
+('9-Ilang-Ilang',9,  'spfl',     50, 46, 6, 85),
+('10-Luna',      10, 'spj',      50, 44, 2, 80),
+('11-Aquino',    11, 'ste',      50, 49, 3, 90),
+('12-Jacinto',   12, 'regular',  50, 47, 4, 85);
 
 -- ─── Section Type Config ────────────────────────────────────────────────────────
 
 INSERT INTO section_type_config (section_type, grade_level, min_average, max_average, color_code, icon) VALUES
-('star',        7,  90, 100, 'bg-yellow-400', '⭐'),
-('gold',        7,  85,  89, 'bg-amber-500',  '🥇'),
-('silver',      7,  80,  84, 'bg-gray-400',   '🥈'),
+('ste',        7,  90, 100, 'bg-amber-400', '🔬'),
+('spfl',        7,  85,  89, 'bg-yellow-400', '🌐'),
+('spj',      7,  80,  84, 'bg-gray-400',   '🥈'),
 ('regular',     7,  75,  79, 'bg-blue-400',   '📚'),
 ('non_reader',  7,  0,   74, 'bg-red-400',    '📖'),
-('star',        8,  90, 100, 'bg-yellow-400', '⭐'),
-('gold',        8,  85,  89, 'bg-amber-500',  '🥇'),
-('silver',      8,  80,  84, 'bg-gray-400',   '🥈'),
+('ste',        8,  90, 100, 'bg-yellow-400', '⭐'),
+('spfl',        8,  85,  89, 'bg-amber-500',  '🥇'),
+('spj',      8,  80,  84, 'bg-gray-400',   '🥈'),
 ('regular',     8,  75,  79, 'bg-blue-400',   '📚'),
 ('non_reader',  8,  0,   74, 'bg-red-400',    '📖'),
-('star',        9,  90, 100, 'bg-yellow-400', '⭐'),
-('gold',        9,  85,  89, 'bg-amber-500',  '🥇'),
-('silver',      9,  80,  84, 'bg-gray-400',   '🥈'),
+('ste',        9,  90, 100, 'bg-yellow-400', '⭐'),
+('spfl',        9,  85,  89, 'bg-amber-500',  '🥇'),
+('spj',      9,  80,  84, 'bg-gray-400',   '🥈'),
 ('regular',     9,  75,  79, 'bg-blue-400',   '📚'),
 ('non_reader',  9,  0,   74, 'bg-red-400',    '📖'),
-('star',        10, 90, 100, 'bg-yellow-400', '⭐'),
-('gold',        10, 85,  89, 'bg-amber-500',  '🥇'),
-('silver',      10, 80,  84, 'bg-gray-400',   '🥈'),
+('ste',        10, 90, 100, 'bg-yellow-400', '⭐'),
+('spfl',        10, 85,  89, 'bg-amber-500',  '🥇'),
+('spj',      10, 80,  84, 'bg-gray-400',   '🥈'),
 ('regular',     10, 75,  79, 'bg-blue-400',   '📚'),
 ('non_reader',  10, 0,   74, 'bg-red-400',    '📖'),
-('star',        11, 90, 100, 'bg-yellow-400', '⭐'),
-('gold',        11, 85,  89, 'bg-amber-500',  '🥇'),
-('silver',      11, 80,  84, 'bg-gray-400',   '🥈'),
+('ste',        11, 90, 100, 'bg-yellow-400', '⭐'),
+('spfl',        11, 85,  89, 'bg-amber-500',  '🥇'),
+('spj',      11, 80,  84, 'bg-gray-400',   '🥈'),
 ('regular',     11, 75,  79, 'bg-blue-400',   '📚'),
 ('non_reader',  11, 0,   74, 'bg-red-400',    '📖'),
-('star',        12, 90, 100, 'bg-yellow-400', '⭐'),
-('gold',        12, 85,  89, 'bg-amber-500',  '🥇'),
-('silver',      12, 80,  84, 'bg-gray-400',   '🥈'),
+('ste',        12, 90, 100, 'bg-yellow-400', '⭐'),
+('spfl',        12, 85,  89, 'bg-amber-500',  '🥇'),
+('spj',      12, 80,  84, 'bg-gray-400',   '🥈'),
 ('regular',     12, 75,  79, 'bg-blue-400',   '📚'),
 ('non_reader',  12, 0,   74, 'bg-red-400',    '📖');
 

@@ -181,6 +181,69 @@ export async function getMe(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * PUT /api/auth/me — Update current user's own profile
+ * Allows a user to update their name, email, phone, and address.
+ * Does NOT allow changing role, status, employee_id, etc.
+ */
+export async function updateMe(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { name, email, phone, address } = req.body;
+
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    if (name !== undefined) { fields.push("name = ?"); params.push(name); }
+    if (email !== undefined) { fields.push("email = ?"); params.push(email); }
+    if (phone !== undefined) { fields.push("phone = ?"); params.push(phone); }
+    if (address !== undefined) { fields.push("address = ?"); params.push(address); }
+
+    if (fields.length === 0) {
+      res.status(400).json({ error: "No fields to update." });
+      return;
+    }
+
+    params.push(userId);
+    await query<ResultSetHeader>(
+      `UPDATE users SET ${fields.join(", ")} WHERE id = ?`,
+      params
+    );
+
+    const updated = await query<UserRow[]>(
+      `SELECT id, username, name, email, role, status, phone, address, profile_photo_url,
+              employee_id, designation, date_hired, last_login
+       FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    if (updated.length === 0) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    const u = updated[0];
+    res.json({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+      phone: u.phone,
+      address: u.address,
+      profile_photo_url: u.profile_photo_url,
+      employee_id: u.employee_id,
+      designation: u.designation,
+      date_hired: u.date_hired,
+      last_login: u.last_login,
+    });
+  } catch (error) {
+    console.error("Update me error:", error);
+    res.status(500).json({ error: "Failed to update profile." });
+  }
+}
+
+/**
  * POST /api/auth/logout
  */
 export async function logout(_req: Request, res: Response): Promise<void> {

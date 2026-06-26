@@ -24,10 +24,10 @@ const GRADE_COLORS: Record<number, string> = {
 };
 
 const SECTION_TYPE_STYLES: Record<string, { icon: string; bg: string; label: string }> = {
-  star: { icon: "⭐", bg: "bg-yellow-50 text-yellow-700 border-yellow-200/50", label: "Star" },
-  gold: { icon: "🥇", bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Gold" },
-  silver: { icon: "🥈", bg: "bg-gray-50 text-gray-600 border-gray-200/50", label: "Silver" },
+  ste: { icon: "🔬", bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "STE" },
   regular: { icon: "📚", bg: "bg-blue-50 text-blue-700 border-blue-200/50", label: "Regular" },
+  spfl: { icon: "🌐", bg: "bg-yellow-50 text-yellow-700 border-yellow-200/50", label: "SPFL" },
+  spj: { icon: "📰", bg: "bg-slate-50 text-slate-600 border-slate-200/50", label: "SPJ" },
   non_reader: { icon: "📖", bg: "bg-red-50 text-red-600 border-red-200/50", label: "Non-Reader" },
 };
 

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Brain, AlertTriangle, CheckCircle, Clock, TrendingDown, TrendingUp, Info } from "lucide-react";
+import { Brain, AlertTriangle, CheckCircle, Clock, TrendingDown, TrendingUp, Info, GraduationCap } from "lucide-react";
 import { atRiskApi, AtRiskStudentRow } from "../../services/atRisk";
 import { useApp } from "../../context/AppContext";
 
 const RISK_CONFIG: Record<string, { color: string; dot: string }> = {
-  at_risk: { color: "bg-red-100 text-red-700 border-red-200", dot: "bg-red-500" },
-  needs_monitoring: { color: "bg-amber-100 text-amber-700 border-amber-200", dot: "bg-amber-500" },
-  on_track: { color: "bg-green-100 text-green-700 border-green-200", dot: "bg-green-500" },
+  at_risk: { color: "bg-red-50 text-red-700 border-red-200/50", dot: "bg-red-500" },
+  needs_monitoring: { color: "bg-amber-50 text-amber-700 border-amber-200/50", dot: "bg-amber-500" },
+  on_track: { color: "bg-emerald-50 text-emerald-700 border-emerald-200/50", dot: "bg-emerald-500" },
 };
 
 const RISK_LABEL: Record<string, string> = {
@@ -14,6 +14,13 @@ const RISK_LABEL: Record<string, string> = {
   needs_monitoring: "Needs Monitoring",
   on_track: "On Track",
 };
+
+const FILTER_CHIPS: { key: "All" | "at_risk" | "needs_monitoring" | "on_track"; label: string }[] = [
+  { key: "All", label: "All" },
+  { key: "at_risk", label: "At-Risk" },
+  { key: "needs_monitoring", label: "Needs Monitoring" },
+  { key: "on_track", label: "On Track" },
+];
 
 type RiskFilter = "All" | "at_risk" | "needs_monitoring" | "on_track";
 
@@ -37,119 +44,184 @@ export function RegistrarAtRisk() {
 
   if (loading) {
     return (
-      <div className="space-y-5 animate-pulse">
-        <div className="h-16 bg-gray-200 rounded-xl" />
-        <div className="h-12 bg-gray-200 rounded-xl" />
-        <div className="grid grid-cols-3 gap-4">{[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-gray-200 rounded-xl" />)}</div>
-        <div className="h-64 bg-gray-200 rounded-xl" />
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
+          <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+            <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+          <p className="text-gray-400 text-sm font-medium">Loading at-risk data...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-            <Brain size={20} className="text-violet-700" />
+    <div className="space-y-5 max-w-6xl mx-auto">
+      {/* ── HEADER ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="p-5 sm:p-6 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+            <Brain size={22} className="text-white" />
           </div>
-          <div>
-            <h2 className="font-bold text-gray-800">At-Risk Students — System-Wide View</h2>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">At-Risk Students — System-Wide View</h2>
             <p className="text-gray-500 text-sm">AI-generated risk classifications across all grade levels and sections</p>
+          </div>
+          <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100">
+            <GraduationCap size={14} className="text-indigo-500" />
+            <span className="font-semibold text-gray-600">{predictions.length}</span> students
+            <span className="text-gray-300">|</span>
+            <span className="text-red-600 font-medium">{atRiskCount}</span> at-risk
           </div>
         </div>
       </div>
 
-      {/* Info */}
-      <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex gap-3">
-        <Info size={17} className="text-violet-600 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-violet-700 leading-relaxed">
+      {/* ── Info Banner ── */}
+      <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl px-5 py-4 flex gap-3">
+        <Info size={18} className="text-indigo-500 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-indigo-700 leading-relaxed">
           This panel shows the <strong>AI-generated at-risk classifications</strong> for all students across all sections, as computed by the Linear Regression predictive model.
           Classifications are updated each time a teacher runs the prediction model from their portal. Red badges indicate students requiring immediate attention.
         </p>
       </div>
 
-      {/* Summary cards */}
+      {/* ── Summary Cards ── */}
       {predictions.length > 0 && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-red-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">At-Risk</p><AlertTriangle size={14} className="text-red-500" /></div>
-            <p className="text-2xl font-bold text-red-600">{atRiskCount}</p>
-            <p className="text-xs text-red-400 mt-1">Requires immediate action</p>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">At-Risk</span>
+              <div className="w-8 h-8 rounded-xl bg-red-100 flex items-center justify-center">
+                <AlertTriangle size={14} className="text-red-600" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{atRiskCount}</p>
+            <p className="text-xs text-gray-400 mt-1">Requires immediate action</p>
           </div>
-          <div className="bg-white rounded-xl border border-amber-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Needs Monitoring</p><Clock size={14} className="text-amber-500" /></div>
-            <p className="text-2xl font-bold text-amber-600">{monitorCount}</p>
-            <p className="text-xs text-amber-400 mt-1">Declining trend</p>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Needs Monitoring</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Clock size={14} className="text-amber-600" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{monitorCount}</p>
+            <p className="text-xs text-gray-400 mt-1">Declining trend</p>
           </div>
-          <div className="bg-white rounded-xl border border-green-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">On Track</p><CheckCircle size={14} className="text-green-500" /></div>
-            <p className="text-2xl font-bold text-green-600">{onTrackCount}</p>
-            <p className="text-xs text-green-400 mt-1">Performing well</p>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">On Track</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <CheckCircle size={14} className="text-emerald-600" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{onTrackCount}</p>
+            <p className="text-xs text-gray-400 mt-1">Performing well</p>
           </div>
         </div>
       )}
 
-      {/* Table */}
+      {/* ── Table ── */}
       {predictions.length > 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex border-b border-gray-100 px-5 pt-4 gap-2">
-            {(["All", "at_risk", "needs_monitoring", "on_track"] as RiskFilter[]).map(f => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition mb-3 ${filter === f ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                {f === "All" ? "All" : RISK_LABEL[f]}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {/* Filter chips */}
+          <div className="px-6 pt-4 pb-3 border-b border-gray-100 flex flex-wrap gap-1.5">
+            {FILTER_CHIPS.map(chip => (
+              <button
+                key={chip.key}
+                onClick={() => setFilter(chip.key)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-150 border ${
+                  filter === chip.key
+                    ? chip.key === "at_risk"
+                      ? "bg-red-50 text-red-700 border-red-200 shadow-sm"
+                      : chip.key === "needs_monitoring"
+                        ? "bg-amber-50 text-amber-700 border-amber-200 shadow-sm"
+                        : chip.key === "on_track"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
+                          : "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"
+                }`}
+              >
+                {chip.label}
               </button>
             ))}
           </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Section</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">LRN</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Q1</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Q2</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Q3</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Trend</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Risk Score</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Classification</th>
+            <table className="w-full min-w-[900px]">
+              <thead className="bg-gray-50/80">
+                <tr>
+                  {[
+                    { label: "Student", key: "student" },
+                    { label: "Section", key: "section" },
+                    { label: "LRN", key: "lrn" },
+                    { label: "Q1", key: "q1" },
+                    { label: "Q2", key: "q2" },
+                    { label: "Q3", key: "q3" },
+                    { label: "Trend", key: "trend" },
+                    { label: "Risk Score", key: "score" },
+                    { label: "Classification", key: "class" },
+                  ].map(col => (
+                    <th key={col.key} className="px-4 py-3.5 text-left">
+                      <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{col.label}</span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(s => {
+                {filtered.map((s, idx) => {
                   const cfg = RISK_CONFIG[s.risk_level] || RISK_CONFIG.on_track;
                   const trendIcon = s.trend === "declining" ? "down" : s.trend === "improving" ? "up" : "stable";
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50/60">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-                          <span className="font-medium text-gray-700">{s.student_name}</span>
+                    <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
+                            {(s.student_name || "?").charAt(0)}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 tracking-[-0.01em]">{s.student_name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{s.section_name}</td>
-                      <td className="px-4 py-3 text-gray-400 text-xs font-mono">{s.lrn}</td>
-                      <td className="px-4 py-3 text-center text-xs font-mono">{s.q1_average ?? "—"}</td>
-                      <td className="px-4 py-3 text-center text-xs font-mono">{s.q2_average ?? "—"}</td>
-                      <td className="px-4 py-3 text-center text-xs font-mono">{s.q3_average ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{s.section_name}</td>
+                      <td className="px-4 py-3 text-xs text-gray-400 font-mono">{s.lrn}</td>
                       <td className="px-4 py-3 text-center">
-                        {trendIcon === "down" ? <TrendingDown size={14} className="text-red-500 mx-auto" />
-                          : trendIcon === "up" ? <TrendingUp size={14} className="text-green-500 mx-auto" />
-                          : <span className="text-gray-400 text-xs">—</span>}
+                        <span className="text-xs font-mono text-gray-600">{s.q1_average ?? "—"}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <span className="text-xs font-mono text-gray-600">{s.q2_average ?? "—"}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-xs font-mono text-gray-600">{s.q3_average ?? "—"}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {trendIcon === "down" ? (
+                          <TrendingDown size={15} className="text-red-500 mx-auto" />
+                        ) : trendIcon === "up" ? (
+                          <TrendingUp size={15} className="text-emerald-500 mx-auto" />
+                        ) : (
+                          <span className="text-gray-400 text-xs font-medium">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
                           <div className="w-16 bg-gray-100 rounded-full h-1.5">
-                            <div className={`h-1.5 rounded-full ${s.risk_score >= 85 ? "bg-green-500" : s.risk_score >= 70 ? "bg-amber-500" : "bg-red-500"}`}
-                              style={{ width: `${s.risk_score}%` }} />
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${s.risk_score >= 85 ? "bg-emerald-500" : s.risk_score >= 70 ? "bg-amber-500" : "bg-red-500"}`}
+                              style={{ width: `${s.risk_score}%` }}
+                            />
                           </div>
                           <span className="text-xs font-bold text-gray-700">{s.risk_score}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.color}`}>{RISK_LABEL[s.risk_level]}</span>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${cfg.color}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                          {RISK_LABEL[s.risk_level]}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -157,15 +229,18 @@ export function RegistrarAtRisk() {
               </tbody>
             </table>
           </div>
+
           {filtered.length === 0 && (
-            <div className="p-8 text-center text-gray-400 text-sm">No students match the selected filter.</div>
+            <div className="p-10 text-center text-gray-400 text-sm">No students match the selected filter.</div>
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-          <Brain size={40} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">No predictions available yet.</p>
-          <p className="text-gray-400 text-sm mt-1">Ask teachers to run the prediction model from their portal first.</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-14 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+            <Brain size={28} className="text-gray-300" />
+          </div>
+          <p className="text-gray-500 text-sm font-semibold">No predictions available yet</p>
+          <p className="text-gray-400 text-xs mt-1">Ask teachers to run the prediction model from their portal first.</p>
         </div>
       )}
     </div>

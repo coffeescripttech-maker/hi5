@@ -165,6 +165,12 @@ const registrarNav: NavGroup[] = [
     items: [
       { label: 'Student Search', icon: Search, path: '/registrar/students' },
       {
+        label: 'Section Assignment',
+        icon: Layers,
+        path: '/registrar/section-assignment'
+      },
+
+      {
         label: 'Promotion Records',
         icon: GraduationCap,
         path: '/registrar/promotions'
@@ -173,11 +179,6 @@ const registrarNav: NavGroup[] = [
         label: 'Subject Directory',
         icon: BookOpen,
         path: '/registrar/subjects'
-      },
-      {
-        label: 'Section Assignment',
-        icon: Layers,
-        path: '/registrar/section-assignment'
       }
     ]
   },

@@ -1,6 +1,6 @@
-import { Router } from "express";
-import { authenticate } from "../middleware/auth";
-import { authorize } from "../middleware/roleGuard";
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/roleGuard';
 import {
   listSections,
   getTeacherSections,
@@ -8,17 +8,23 @@ import {
   createSection,
   updateSection,
   deleteSection,
-} from "../controllers/sections.controller";
+  listTeachers
+} from '../controllers/sections.controller';
 
 const router = Router();
 
 router.use(authenticate);
 
-router.get("/", listSections);
-router.get("/my-sections", authorize("teacher"), getTeacherSections);
-router.get("/:id", getSectionById);
-router.post("/", authorize("admin"), createSection);
-router.put("/:id", authorize("admin"), updateSection);
-router.delete("/:id", authorize("admin"), deleteSection);
+router.get('/', listSections);
+router.get('/teachers', listTeachers);
+router.get(
+  '/my-sections',
+  authorize('teacher', 'registrar'),
+  getTeacherSections
+);
+router.get('/:id', getSectionById);
+router.post('/', authorize('admin', 'registrar'), createSection);
+router.put('/:id', authorize('admin', 'registrar'), updateSection);
+router.delete('/:id', authorize('admin', 'registrar'), deleteSection);
 
 export default router;

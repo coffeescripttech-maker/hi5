@@ -7,7 +7,7 @@ interface SectionRow extends RowDataPacket {
   id: number;
   name: string;
   grade_level: number;
-  section_type: "star" | "gold" | "silver" | "regular" | "non_reader";
+  section_type: string;
   capacity: number;
   current_count: number;
   adviser_id: number | null;
@@ -15,6 +15,24 @@ interface SectionRow extends RowDataPacket {
   is_active: number;
   created_at: Date;
   updated_at: Date;
+}
+
+/**
+ * GET /api/sections/teachers — List teachers for adviser search
+ * Lightweight: returns only id, name, employee_id, designation.
+ * Accessible by admin, registrar, and teacher.
+ */
+export async function listTeachers(_req: Request, res: Response): Promise<void> {
+  try {
+    const teachers = await query<RowDataPacket[]>(
+      `SELECT id, name, employee_id, designation
+       FROM users WHERE role = 'teacher' ORDER BY name ASC`
+    );
+    res.json(teachers);
+  } catch (error) {
+    console.error("List teachers error:", error);
+    res.status(500).json({ error: "Failed to fetch teachers." });
+  }
 }
 
 /**
@@ -135,9 +153,13 @@ export async function createSection(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const validTypes = ["star", "gold", "silver", "regular", "non_reader"];
-    if (!validTypes.includes(section_type)) {
-      res.status(400).json({ error: `Invalid section_type. Must be one of: ${validTypes.join(", ")}` });
+    // Validate section_type exists in the dynamic section_types table
+    const validTypes = await query<RowDataPacket[]>(
+      "SELECT id FROM section_types WHERE name = ? AND is_active = 1",
+      [section_type]
+    );
+    if (validTypes.length === 0) {
+      res.status(400).json({ error: `Invalid section_type "${section_type}". No matching section type found.` });
       return;
     }
 

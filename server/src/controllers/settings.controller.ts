@@ -83,7 +83,9 @@ export async function updateSettings(req: Request, res: Response): Promise<void>
 export async function getThresholds(_req: Request, res: Response): Promise<void> {
   try {
     const rows = await query<RowDataPacket[]>(
-      "SELECT * FROM section_type_config ORDER BY grade_level, FIELD(section_type, 'star','gold','silver','regular','non_reader')"
+      `SELECT stc.* FROM section_type_config stc
+       JOIN section_types st ON stc.section_type = st.name
+       ORDER BY stc.grade_level, st.sort_order`
     );
     res.json(rows);
   } catch (error) {
@@ -122,7 +124,9 @@ export async function updateThresholds(req: Request, res: Response): Promise<voi
     await logActivity(req.user!.userId, "Updated section type thresholds", "settings", 0);
 
     const updated = await query<RowDataPacket[]>(
-      "SELECT * FROM section_type_config ORDER BY grade_level, FIELD(section_type, 'star','gold','silver','regular','non_reader')"
+      `SELECT stc.* FROM section_type_config stc
+       JOIN section_types st ON stc.section_type = st.name
+       ORDER BY stc.grade_level, st.sort_order`
     );
     res.json(updated);
   } catch (error) {

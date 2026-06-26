@@ -2,51 +2,12 @@ import React, { useState, useEffect } from "react";
 import {
   Settings, Calendar, Layers, Save, CheckCircle,
   AlertTriangle, Info, Lock, Unlock, ChevronDown,
-  GraduationCap, Star, Award, Shield, BookOpen, BookMarked
+  GraduationCap
 } from "lucide-react";
 import { settingsApi, SectionTypeThreshold } from "../../services/settings";
+import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
 import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
-
-const SECTION_META: Record<string, { icon: React.ReactNode; color: string; bgColor: string; borderColor: string; textColor: string; description: string; locked?: boolean }> = {
-  star: {
-    icon: <Star size={16} className="text-amber-500" fill="currentColor" />,
-    color: "amber", bgColor: "bg-amber-50", borderColor: "border-amber-200",
-    textColor: "text-amber-700",
-    description: "Top performers — highest general average",
-  },
-  gold: {
-    icon: <Award size={16} className="text-yellow-600" />,
-    color: "yellow", bgColor: "bg-yellow-50", borderColor: "border-yellow-200",
-    textColor: "text-yellow-700",
-    description: "High achievers — above average performance",
-  },
-  silver: {
-    icon: <Shield size={16} className="text-slate-500" />,
-    color: "slate", bgColor: "bg-slate-50", borderColor: "border-slate-200",
-    textColor: "text-slate-600",
-    description: "Average performers — meeting grade standards",
-  },
-  regular: {
-    icon: <BookOpen size={16} className="text-blue-500" />,
-    color: "blue", bgColor: "bg-blue-50", borderColor: "border-blue-200",
-    textColor: "text-blue-600",
-    description: "Below average — needs additional academic support",
-  },
-  non_reader: {
-    icon: <BookMarked size={16} className="text-red-500" />,
-    color: "red", bgColor: "bg-red-50", borderColor: "border-red-200",
-    textColor: "text-red-600",
-    description: "Intervention needed — remedial literacy program",
-    locked: true,
-  },
-};
-
-const TYPE_ORDER = ["star", "gold", "silver", "regular", "non_reader"];
-const SECTION_LABELS: Record<string, string> = {
-  star: "Star Section", gold: "Gold Section", silver: "Silver Section",
-  regular: "Regular Section", non_reader: "Non-Reader Section",
-};
 
 export function SchoolSettings() {
   const { showToast, refreshSchoolInfo } = useApp();
@@ -63,13 +24,16 @@ export function SchoolSettings() {
   const [region, setRegion] = useState("");
   const [division, setDivision] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sectionTypes, setSectionTypes] = useState<SectionType[]>([]);
 
   useEffect(() => {
     Promise.all([
       settingsApi.get(),
       schoolYearsApi.list(),
       settingsApi.getThresholds(),
-    ]).then(([settings, sys, thresholdsData]) => {
+      sectionTypesApi.list(),
+    ]).then(([settings, sys, thresholdsData, types]) => {
+      setSectionTypes(types);
       setSchoolName(settings.school_name);
       setSchoolId(settings.school_id);
       setRegion(settings.region);
@@ -147,9 +111,10 @@ export function SchoolSettings() {
   const handleSaveThresholds = async () => {
     setSaving(true);
     try {
+      const lockedTypes = sectionTypes.filter(t => t.is_locked).map(t => t.name);
       const updated = await settingsApi.updateThresholds({
         thresholds: thresholds
-          .filter(t => t.section_type !== "non_reader")
+          .filter(t => !lockedTypes.includes(t.section_type))
           .map(t => ({ id: t.id, min_average: t.min_average, max_average: t.max_average })),
       });
       setThresholds(updated);
@@ -327,40 +292,46 @@ export function SchoolSettings() {
             </p>
           </div>
 
-          {TYPE_ORDER.map(sectionType => {
-            const meta = SECTION_META[sectionType];
+          {sectionTypes.filter(t => t.is_active).sort((a, b) => a.sort_order - b.sort_order).map(sectionType => {
+            const displayName = sectionType.label || sectionType.name;
+            const description = `Section type with sort order ${sectionType.sort_order}`;
+            const isLocked = sectionType.is_locked === 1;
+            // Color class helpers: parse color_code or use defaults
+            const colorCode = sectionType.color_code || "";
+            const bgColor = colorCode ? `bg-${colorCode.split(" ")[0]?.replace("bg-", "") || "gray"}-50` : "bg-gray-50";
+            const borderColor = colorCode ? `border-${colorCode.split(" ")[2]?.replace("border-", "") || "gray"}-200` : "border-gray-200";
+            const textColor = colorCode ? `text-${colorCode.split("text-")[1]?.split(" ")[0] || "gray"}-700` : "text-gray-700";
             // Get the row for the lowest grade level (used as the editable entry point)
             const t = thresholds
-              .filter(th => th.section_type === sectionType)
+              .filter(th => th.section_type === sectionType.name)
               .sort((a, b) => a.grade_level - b.grade_level)[0];
-            if (!t) return null;
-            const displayName = SECTION_LABELS[sectionType] || sectionType;
-            const isLocked = meta.locked;
             return (
-            <div key={sectionType} className={`rounded-xl border ${meta.borderColor} ${meta.bgColor} overflow-hidden`}>
-              <button onClick={() => setExpandedSection(expandedSection === sectionType ? null : sectionType)}
+            <div key={sectionType.name} className={`rounded-xl border ${borderColor} ${bgColor} overflow-hidden`}>
+              <button onClick={() => setExpandedSection(expandedSection === sectionType.name ? null : sectionType.name)}
                 className="w-full px-4 py-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border ${meta.borderColor}`}>{meta.icon}</div>
+                  <div className={`w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border ${borderColor}`}>
+                    <span className="text-sm">{sectionType.icon || sectionType.name.charAt(0).toUpperCase()}</span>
+                  </div>
                   <div className="text-left">
-                    <p className={`font-semibold text-sm ${meta.textColor}`}>{displayName}</p>
-                    <p className="text-gray-500 text-xs">{meta.description}</p>
+                    <p className={`font-semibold text-sm ${textColor}`}>{displayName}</p>
+                    <p className="text-gray-500 text-xs">{description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm font-bold px-3 py-1 rounded-full bg-white border ${meta.borderColor} ${meta.textColor}`}>
-                    {sectionType === "non_reader" ? `Below ${t.max_average + 1}` : t.max_average === 100 ? `${t.min_average} – 100` : `${t.min_average} – ${t.max_average}`}
+                  <span className={`text-sm font-bold px-3 py-1 rounded-full bg-white border ${borderColor} ${textColor}`}>
+                    {t.max_average === 100 ? `${t.min_average} – 100` : `${t.min_average} – ${t.max_average}`}
                   </span>
                   {isLocked && <span className="flex items-center gap-1 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-200"><Lock size={11} /> Fixed</span>}
-                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedSection === sectionType ? "rotate-180" : ""}`} />
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedSection === sectionType.name ? "rotate-180" : ""}`} />
                 </div>
               </button>
-              {expandedSection === sectionType && (
+              {expandedSection === sectionType.name && (
                 <div className="px-4 pb-4 border-t border-white/60 pt-4">
                   {isLocked ? (
                     <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/70 rounded-lg p-3 border border-gray-200">
                       <Lock size={13} className="text-gray-400" />
-                      The Non-Reader threshold (below 75) is fixed per DepEd policy and cannot be customized.
+                      This section type is locked and cannot be customized.
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-4">

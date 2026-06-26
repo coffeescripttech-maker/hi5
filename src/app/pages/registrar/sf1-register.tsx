@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Printer, Loader2, Download } from 'lucide-react';
+import { Printer, Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import './sf1.css';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
@@ -275,47 +275,60 @@ export function SF1Register() {
   const filledCount = rows.filter(r => r.lrn).length;
 
   return (
-    <div className="min-h-screen bg-muted/40 py-6">
-      {/* Toolbar */}
-      <div className="no-print mx-auto mb-4 flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4">
-        <div>
-          <h1 className="text-lg font-bold text-foreground">
-            School Form 1 (SF1) — School Register
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Select grade &amp; section to auto-populate, or fill manually.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={handleExportPdf}>
-            <Download className="size-4" /> PDF
-          </Button>
-          <Button size="sm" onClick={() => window.print()}>
-            <Printer className="size-4" /> Print
-          </Button>
+    <div className="space-y-5 pb-10">
+      {/* ── Header Card ── */}
+      <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+                <FileSpreadsheet size={22} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
+                  School Form 1 (SF1) — School Register
+                </h1>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Select grade &amp; section to auto-populate, or fill manually.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleExportPdf} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+                <Download className="size-4" /> PDF
+              </Button>
+              <Button size="sm" onClick={() => window.print()} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
+                <Printer className="size-4" /> Print
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Grade / Section Selector */}
-      <div className="no-print mx-auto mb-4 max-w-[1400px] px-4">
-        <div className="flex flex-wrap items-end gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wider">Grade Level</label>
-            <select value={selectedGrade} onChange={e => setSelectedGrade(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              {[7, 8, 9, 10, 11, 12].map(g => <option key={g} value={g}>Grade {g}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wider">Section</label>
-            <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              {gradeSections.length === 0 && <option value="">No sections</option>}
-              {gradeSections.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-            </select>
-          </div>
-          <div className="text-xs text-gray-400 pb-1">
-            {filledCount} student{filledCount !== 1 ? 's' : ''} loaded &middot; {rows.length} total rows
+      <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Grade Level</label>
+              <select value={selectedGrade} onChange={e => setSelectedGrade(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                {[7, 8, 9, 10, 11, 12].map(g => <option key={g} value={g}>Grade {g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Section</label>
+              <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                {gradeSections.length === 0 && <option value="">No sections</option>}
+                {gradeSections.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-400 pb-1">
+              <FileText size={14} className="text-indigo-400" />
+              <span>{filledCount} student{filledCount !== 1 ? 's' : ''} loaded &middot; {rows.length} total rows</span>
+            </div>
           </div>
         </div>
       </div>

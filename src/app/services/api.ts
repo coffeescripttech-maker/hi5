@@ -215,5 +215,7 @@ export interface UserProfile {
 export const authApi = {
   login: (data: LoginPayload) => api.post<LoginResponse>("/auth/login", data),
   me: () => api.get<UserProfile>("/auth/me"),
+  updateMe: (data: { name?: string; email?: string; phone?: string; address?: string }) =>
+    api.put<UserProfile>("/auth/me", data),
   logout: () => api.post<{ message: string }>("/auth/logout"),
 };

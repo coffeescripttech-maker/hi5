@@ -23,6 +23,7 @@ import schoolYearsRoutes from "./routes/schoolYears.routes";
 import backupsRoutes from "./routes/backups.routes";
 import notificationsRoutes from "./routes/notifications.routes";
 import sectioningRoutes from "./routes/sectioning.routes";
+import sectionTypesRoutes from "./routes/sectionTypes.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 // Load .env
@@ -64,6 +65,7 @@ app.use("/api/school-years", schoolYearsRoutes);
 app.use("/api/backups", backupsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/sectioning", sectioningRoutes);
+app.use("/api/section-types", sectionTypesRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

@@ -1,6 +1,6 @@
 -- ============================================================
 -- Migration 002: Academic Structure Tables
--- students, student_classifications, sections, section_type_config, subjects
+-- students, student_classifications, section_types, sections, section_type_config, subjects
 -- ============================================================
 
 -- 4. students
@@ -32,12 +32,33 @@ CREATE TABLE IF NOT EXISTS student_classifications (
   FOREIGN KEY (school_year_id) REFERENCES school_years(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 5b. section_types — master list of dynamic section types
+CREATE TABLE IF NOT EXISTS section_types (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE COMMENT 'key value e.g. star, honors',
+  label VARCHAR(100) NOT NULL COMMENT 'display label e.g. Star Section',
+  color_code VARCHAR(30) NULL COMMENT 'e.g. amber, #F59E0B',
+  icon VARCHAR(30) NULL COMMENT 'lucide icon name or emoji',
+  sort_order INT NOT NULL DEFAULT 0,
+  is_locked TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'prevents deletion of core types',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT NOW()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Seed default section types (curriculum tracks)
+INSERT IGNORE INTO section_types (name, label, color_code, icon, sort_order, is_locked) VALUES
+('ste',       'STE (Science & Technology)', 'amber',  '🔬',    1, 1),
+('regular',   'Regular (Standard K-12)',   'blue',   '📚',    2, 1),
+('spfl',      'SPFL (Foreign Language)',   'yellow', '🌐',    3, 1),
+('spj',       'SPJ (Journalism)',          'slate',  '📰',    4, 0),
+('non_reader','Non-Reader (Intervention)', 'red',    '📖',    5, 1);
+
 -- 6. sections
 CREATE TABLE IF NOT EXISTS sections (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(30) NOT NULL UNIQUE COMMENT 'e.g. 7-Star',
   grade_level TINYINT NOT NULL COMMENT '7-12',
-  section_type ENUM('star', 'gold', 'silver', 'regular', 'non_reader') NOT NULL,
+  section_type VARCHAR(50) NOT NULL,
   capacity SMALLINT NOT NULL,
   current_count SMALLINT NOT NULL DEFAULT 0,
   adviser_id INT NULL,
@@ -51,7 +72,7 @@ CREATE TABLE IF NOT EXISTS sections (
 -- 7. section_type_config
 CREATE TABLE IF NOT EXISTS section_type_config (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  section_type ENUM('star', 'gold', 'silver', 'regular', 'non_reader') NOT NULL,
+  section_type VARCHAR(50) NOT NULL,
   grade_level TINYINT NOT NULL,
   min_average DECIMAL(5,2) NOT NULL,
   max_average DECIMAL(5,2) NOT NULL,
@@ -99,3 +120,7 @@ CREATE TABLE IF NOT EXISTS teacher_section_assignments (
   FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
   FOREIGN KEY (school_year_id) REFERENCES school_years(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migrate existing ENUM columns to VARCHAR (safe to re-run)
+ALTER TABLE sections MODIFY section_type VARCHAR(50) NOT NULL;
+ALTER TABLE section_type_config MODIFY section_type VARCHAR(50) NOT NULL;

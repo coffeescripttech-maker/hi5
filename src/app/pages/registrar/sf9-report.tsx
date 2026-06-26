@@ -85,12 +85,19 @@ function toNum(v: any): number | null {
 }
 
 /** Parse a student name into last, first, and middle components */
-function parseName(name: string): { last: string; first: string; middle: string } {
+function parseName(name: string): {
+  last: string;
+  first: string;
+  middle: string;
+} {
   // Try "Last, First Middle" format
   const comma = name.indexOf(',');
   if (comma >= 0) {
     const last = name.substring(0, comma).trim();
-    const rest = name.substring(comma + 1).trim().split(/\s+/);
+    const rest = name
+      .substring(comma + 1)
+      .trim()
+      .split(/\s+/);
     const first = rest[0] || '';
     const middle = rest.slice(1).join(' ') || '';
     return { last, first, middle };
@@ -98,8 +105,13 @@ function parseName(name: string): { last: string; first: string; middle: string 
   // Fallback: "First Middle Last"
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return { last: parts[0], first: '', middle: '' };
-  if (parts.length === 2) return { last: parts[1], first: parts[0], middle: '' };
-  return { last: parts[parts.length - 1], first: parts[0], middle: parts.slice(1, -1).join(' ') };
+  if (parts.length === 2)
+    return { last: parts[1], first: parts[0], middle: '' };
+  return {
+    last: parts[parts.length - 1],
+    first: parts[0],
+    middle: parts.slice(1, -1).join(' ')
+  };
 }
 
 /** Parse LRN into 12 individual digits for the LRN grid */
@@ -224,62 +236,92 @@ export function SF9Report() {
 
   /* ── Editable cell state (attendance, observed values) ── */
   const [attendance, setAttendance] = useState<Record<string, string>>({});
-  const [observedMarks, setObservedMarks] = useState<Record<string, string>>({});
-  const [parentSignatures, setParentSignatures] = useState<Record<string, string>>({});
-  const [transferFields, setTransferFields] = useState<Record<string, string>>({});
+  const [observedMarks, setObservedMarks] = useState<Record<string, string>>(
+    {}
+  );
+  const [parentSignatures, setParentSignatures] = useState<
+    Record<string, string>
+  >({});
+  const [transferFields, setTransferFields] = useState<Record<string, string>>(
+    {}
+  );
 
-  const handleAttendanceChange = useCallback((rowLabel: string, month: string, value: string) => {
-    const key = `${rowLabel}::${month}`;
-    setAttendance(p => ({ ...p, [key]: value }));
-  }, []);
+  const handleAttendanceChange = useCallback(
+    (rowLabel: string, month: string, value: string) => {
+      const key = `${rowLabel}::${month}`;
+      setAttendance(p => ({ ...p, [key]: value }));
+    },
+    []
+  );
 
-  const getAttendance = useCallback((rowLabel: string, month: string): string => {
-    return attendance[`${rowLabel}::${month}`] || '';
-  }, [attendance]);
+  const getAttendance = useCallback(
+    (rowLabel: string, month: string): string => {
+      return attendance[`${rowLabel}::${month}`] || '';
+    },
+    [attendance]
+  );
 
-  const handleObservedChange = useCallback((cvIdx: number, stIdx: number, quarter: number, value: string) => {
-    const key = `${cvIdx}-${stIdx}-Q${quarter}`;
-    setObservedMarks(p => ({ ...p, [key]: value }));
-  }, []);
+  const handleObservedChange = useCallback(
+    (cvIdx: number, stIdx: number, quarter: number, value: string) => {
+      const key = `${cvIdx}-${stIdx}-Q${quarter}`;
+      setObservedMarks(p => ({ ...p, [key]: value }));
+    },
+    []
+  );
 
-  const getObserved = useCallback((cvIdx: number, stIdx: number, quarter: number): string => {
-    return observedMarks[`${cvIdx}-${stIdx}-Q${quarter}`] || '';
-  }, [observedMarks]);
+  const getObserved = useCallback(
+    (cvIdx: number, stIdx: number, quarter: number): string => {
+      return observedMarks[`${cvIdx}-${stIdx}-Q${quarter}`] || '';
+    },
+    [observedMarks]
+  );
 
-  const handleSignatureChange = useCallback((quarter: string, value: string) => {
-    setParentSignatures(p => ({ ...p, [quarter]: value }));
-  }, []);
+  const handleSignatureChange = useCallback(
+    (quarter: string, value: string) => {
+      setParentSignatures(p => ({ ...p, [quarter]: value }));
+    },
+    []
+  );
 
-  const getSignature = useCallback((quarter: string): string => {
-    return parentSignatures[quarter] || '';
-  }, [parentSignatures]);
+  const getSignature = useCallback(
+    (quarter: string): string => {
+      return parentSignatures[quarter] || '';
+    },
+    [parentSignatures]
+  );
 
   const handleTransferChange = useCallback((field: string, value: string) => {
     setTransferFields(p => ({ ...p, [field]: value }));
   }, []);
 
-  const getTransfer = useCallback((field: string): string => {
-    return transferFields[field] || '';
-  }, [transferFields]);
+  const getTransfer = useCallback(
+    (field: string): string => {
+      return transferFields[field] || '';
+    },
+    [transferFields]
+  );
 
   useEffect(() => {
-    const loadData = role === 'teacher'
-      ? Promise.all([
-          studentsApi.listMyStudents(),
-          sectionsApi.listMySections(),
-          enrollmentsApi.list(),
-          schoolYearsApi.list(),
-        ])
-      : Promise.all([
-          studentsApi.list(),
-          sectionsApi.list(),
-          enrollmentsApi.list(),
-          schoolYearsApi.list(),
-        ]);
+    const loadData =
+      role === 'teacher'
+        ? Promise.all([
+            studentsApi.listMyStudents(),
+            sectionsApi.listMySections(),
+            enrollmentsApi.list(),
+            schoolYearsApi.list()
+          ])
+        : Promise.all([
+            studentsApi.list(),
+            sectionsApi.list(),
+            enrollmentsApi.list(),
+            schoolYearsApi.list()
+          ]);
 
     loadData
       .then(([studs, secs, enrs, years]) => {
-        const activeSections = secs.filter((s: SectionRow) => s.is_active === 1);
+        const activeSections = secs.filter(
+          (s: SectionRow) => s.is_active === 1
+        );
         setStudents(studs);
         setSections(activeSections);
         setEnrollments(enrs);
@@ -294,12 +336,15 @@ export function SF9Report() {
         if (preselectedStudentId) {
           const sid = parseInt(preselectedStudentId);
           const enrollment = enrs.find(
-            (e: EnrollmentRow) => e.student_id === sid && e.status === 'enrolled'
+            (e: EnrollmentRow) =>
+              e.student_id === sid && e.status === 'enrolled'
           );
           if (enrollment) {
             setSelectedGrade(String(enrollment.grade_level));
             // Set section and student — the effects will preserve these
-            const sec = activeSections.find((s: SectionRow) => s.id === enrollment.section_id);
+            const sec = activeSections.find(
+              (s: SectionRow) => s.id === enrollment.section_id
+            );
             if (sec) setSelectedSectionId(sec.id);
             setSelectedStudentId(sid);
             return;
@@ -307,7 +352,9 @@ export function SF9Report() {
         }
 
         // Default: first section for Grade 7
-        const g7 = activeSections.filter((s: SectionRow) => s.grade_level === 7);
+        const g7 = activeSections.filter(
+          (s: SectionRow) => s.grade_level === 7
+        );
         if (g7.length > 0) setSelectedSectionId(g7[0].id);
       })
       .catch(err =>
@@ -397,7 +444,7 @@ export function SF9Report() {
         elementId: 'sf9-print-area',
         filename: `SF9_${selectedStudent?.lrn || selectedStudentId}`,
         orientation: 'landscape',
-        format: 'letter',
+        format: 'letter'
       });
       showToast('success', 'PDF exported successfully.');
     } catch {
@@ -434,23 +481,37 @@ export function SF9Report() {
         }
       `}</style>
       {/* ── Filter Bar ── */}
-      <div className="no-print max-w-5xl mx-auto">
+      <div className="no-print">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-violet-400" />
-          <div className="p-4 sm:p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center shadow-xs">
-                <BookOpen size={18} className="text-violet-700" />
+          <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-violet-400" />
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+                  <BookOpen size={22} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
+                    SF9 — Learner's Progress Report Card
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {role === 'teacher'
+                      ? 'Showing only your sections and students. Select grade, section, and student to generate the official report card.'
+                      : 'Select grade level, section, and student to generate the official report card.'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-bold text-gray-900 text-sm">
-                  SF9 — Learner's Progress Report Card
-                </h2>
-                <p className="text-xs text-gray-400">
-                  {role === 'teacher'
-                    ? 'Showing only your sections and students. Select grade, section, and student to generate the official report card.'
-                    : 'Select grade level, section, and student to generate the official report card.'}
-                </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportPdf}
+                  className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm">
+                  <Download size={14} /> PDF
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm">
+                  <Printer size={14} /> Print
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -588,26 +649,6 @@ export function SF9Report() {
       {/* ────────────────────────────────────────────────────────────── */}
       {!loadingReport && sf9Data && selectedStudent && (
         <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
-          {/* Toolbar */}
-          <div className="no-print flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/80">
-            <p className="text-sm text-gray-600 font-medium">
-              <span className="text-violet-700 font-bold">SF9</span> —{' '}
-              {selectedStudent.name}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleExportPdf}
-                className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-violet-50 text-violet-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-xs">
-                <Download size={14} /> Export PDF
-              </button>
-              <button
-                onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-xs">
-                <Printer size={14} /> Print
-              </button>
-            </div>
-          </div>
-
           {/* ── Print Area ── */}
           <div
             id="sf9-print-area"
@@ -647,7 +688,13 @@ export function SF9Report() {
                                 <input
                                   type="text"
                                   value={getAttendance(label, m)}
-                                  onChange={e => handleAttendanceChange(label, m, e.target.value)}
+                                  onChange={e =>
+                                    handleAttendanceChange(
+                                      label,
+                                      m,
+                                      e.target.value
+                                    )
+                                  }
                                   className="sf1-input h-5 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50"
                                 />
                               </td>
@@ -676,7 +723,9 @@ export function SF9Report() {
                           <input
                             type="text"
                             value={getSignature(q)}
-                            onChange={e => handleSignatureChange(q, e.target.value)}
+                            onChange={e =>
+                              handleSignatureChange(q, e.target.value)
+                            }
                             className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                           />
                         </div>
@@ -696,7 +745,12 @@ export function SF9Report() {
                         <input
                           type="text"
                           value={getTransfer('admittedGrade')}
-                          onChange={e => handleTransferChange('admittedGrade', e.target.value)}
+                          onChange={e =>
+                            handleTransferChange(
+                              'admittedGrade',
+                              e.target.value
+                            )
+                          }
                           className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                         />
                         <span className="text-[11px] font-semibold whitespace-nowrap">
@@ -705,7 +759,12 @@ export function SF9Report() {
                         <input
                           type="text"
                           value={getTransfer('admittedSection')}
-                          onChange={e => handleTransferChange('admittedSection', e.target.value)}
+                          onChange={e =>
+                            handleTransferChange(
+                              'admittedSection',
+                              e.target.value
+                            )
+                          }
                           className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                         />
                       </div>
@@ -716,7 +775,12 @@ export function SF9Report() {
                         <input
                           type="text"
                           value={getTransfer('eligibilityGrade')}
-                          onChange={e => handleTransferChange('eligibilityGrade', e.target.value)}
+                          onChange={e =>
+                            handleTransferChange(
+                              'eligibilityGrade',
+                              e.target.value
+                            )
+                          }
                           className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                         />
                       </div>
@@ -727,7 +791,9 @@ export function SF9Report() {
                         <input
                           type="text"
                           value={getTransfer('approved')}
-                          onChange={e => handleTransferChange('approved', e.target.value)}
+                          onChange={e =>
+                            handleTransferChange('approved', e.target.value)
+                          }
                           className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                         />
                       </div>
@@ -750,7 +816,12 @@ export function SF9Report() {
                         <input
                           type="text"
                           value={getTransfer('cancelAdmitted')}
-                          onChange={e => handleTransferChange('cancelAdmitted', e.target.value)}
+                          onChange={e =>
+                            handleTransferChange(
+                              'cancelAdmitted',
+                              e.target.value
+                            )
+                          }
                           className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                         />
                       </div>
@@ -761,7 +832,9 @@ export function SF9Report() {
                         <input
                           type="text"
                           value={getTransfer('cancelDate')}
-                          onChange={e => handleTransferChange('cancelDate', e.target.value)}
+                          onChange={e =>
+                            handleTransferChange('cancelDate', e.target.value)
+                          }
                           className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                         />
                       </div>
@@ -828,14 +901,24 @@ export function SF9Report() {
                   {/* Learner identification */}
                   <div className="space-y-2 pt-2">
                     <div className="flex items-end gap-2">
-                      <span className="text-[11px] font-semibold shrink-0">Name :</span>
+                      <span className="text-[11px] font-semibold shrink-0">
+                        Name :
+                      </span>
                       {(() => {
-                        const p = parseName(sf9Data.student?.name || selectedStudent.name);
+                        const p = parseName(
+                          sf9Data.student?.name || selectedStudent.name
+                        );
                         return (
                           <>
-                            <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">{p.last}</span>
-                            <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">{p.first}</span>
-                            <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">{p.middle}</span>
+                            <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">
+                              {p.last}
+                            </span>
+                            <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">
+                              {p.first}
+                            </span>
+                            <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">
+                              {p.middle}
+                            </span>
                           </>
                         );
                       })()}
@@ -1118,7 +1201,14 @@ export function SF9Report() {
                               <td key={q} className="border border-black p-0">
                                 <select
                                   value={getObserved(cvIdx, stIdx, q)}
-                                  onChange={e => handleObservedChange(cvIdx, stIdx, q, e.target.value)}
+                                  onChange={e =>
+                                    handleObservedChange(
+                                      cvIdx,
+                                      stIdx,
+                                      q,
+                                      e.target.value
+                                    )
+                                  }
                                   className="sf1-input h-6 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50 appearance-none cursor-pointer">
                                   <option value="" />
                                   <option value="AO">AO</option>
