@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Database, Download, CheckCircle, Clock, AlertTriangle, RefreshCw, Shield, HardDrive, Archive } from "lucide-react";
+import { Database, Download, CheckCircle, Clock, AlertTriangle, RefreshCw, Shield, HardDrive, Archive, RotateCcw, ToggleLeft, ToggleRight } from "lucide-react";
 import { backupsApi, BackupRow } from "../../services/backups";
+import { settingsApi, BackupSettings } from "../../services/settings";
 import { useApp } from "../../context/AppContext";
 
 export function DatabaseBackup() {
@@ -10,6 +11,16 @@ export function DatabaseBackup() {
   const [done, setDone] = useState(false);
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState<number | null>(null);
+  const [confirmRestore, setConfirmRestore] = useState<number | null>(null);
+
+  // Backup schedule state
+  const [schedLoading, setSchedLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [frequency, setFrequency] = useState<string>("daily");
+  const [backupTime, setBackupTime] = useState<string>("02:00");
+  const [retention, setRetention] = useState<string>("last_30");
+  const [enabled, setEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     backupsApi.list()
@@ -17,6 +28,31 @@ export function DatabaseBackup() {
       .catch(err => showToast("error", "Failed to load backups: " + (err.detail?.error || err.message)))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    settingsApi.getBackupSettings()
+      .then((s: BackupSettings) => {
+        setFrequency(s.backup_frequency);
+        setBackupTime(s.backup_time?.slice(0, 5) || "02:00");
+        setRetention(s.backup_retention);
+        setEnabled(s.backup_enabled === 1);
+      })
+      .catch(() => { /* defaults */ })
+      .finally(() => setSchedLoading(false));
+  }, []);
+
+  const handleRestore = async (id: number) => {
+    setRestoring(id);
+    setConfirmRestore(null);
+    try {
+      await backupsApi.restore(id);
+      showToast("success", "Database restored successfully from backup #" + id);
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Restore failed");
+    } finally {
+      setRestoring(null);
+    }
+  };
 
   const handleBackup = async () => {
     setBacking(true);
@@ -49,6 +85,23 @@ export function DatabaseBackup() {
     }
   };
 
+  const handleSaveSchedule = async () => {
+    setSaving(true);
+    try {
+      await settingsApi.updateBackupSettings({
+        backup_frequency: frequency as BackupSettings["backup_frequency"],
+        backup_time: backupTime + ":00",
+        backup_retention: retention as BackupSettings["backup_retention"],
+        backup_enabled: enabled ? 1 : 0,
+      });
+      showToast("success", "Backup schedule saved successfully.");
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Failed to save schedule");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const lastBackup = backups.length > 0 ? backups[0] : null;
   const totalSize = lastBackup?.file_size
     ? lastBackup.file_size >= 1024 * 1024
@@ -58,6 +111,15 @@ export function DatabaseBackup() {
   const successCount = backups.filter(b => b.status === "success").length;
   const lastBackupDate = lastBackup
     ? new Date(lastBackup.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
+    : "—";
+
+  const frequencyLabel =
+    frequency === "every_12h" ? "Every 12 Hours"
+    : frequency === "weekly" ? "Weekly"
+    : "Daily";
+
+  const timeLabel = backupTime
+    ? new Date("2000-01-01T" + backupTime + ":00").toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", hour12: true })
     : "—";
 
   if (loading) {
@@ -98,8 +160,14 @@ export function DatabaseBackup() {
         </div>
         <div className="bg-white rounded-xl border border-amber-100 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Auto Backup</p><Clock size={13} className="text-amber-500" /></div>
-          <p className="text-sm font-bold text-amber-700">Daily</p>
-          <p className="text-xs text-gray-400 mt-0.5">02:00 AM · Scheduled</p>
+          {schedLoading ? (
+            <p className="text-sm text-gray-400">Loading...</p>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-amber-700">{enabled ? frequencyLabel : "Paused"}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{enabled ? `${timeLabel} · Scheduled` : "Disabled"}</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -141,41 +209,68 @@ export function DatabaseBackup() {
         )}
       </div>
 
-      {/* Backup Settings */}
+      {/* Backup Schedule Settings */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h3 className="font-semibold text-gray-800 mb-4">Automatic Backup Schedule</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-800">Automatic Backup Schedule</h3>
+          {!schedLoading && (
+            <button
+              onClick={() => setEnabled(e => !e)}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                enabled ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+              }`}
+            >
+              {enabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+              {enabled ? "Enabled" : "Disabled"}
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Backup Frequency</label>
-            <select className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-              <option>Daily (Recommended)</option>
-              <option>Every 12 Hours</option>
-              <option>Weekly</option>
+            <select value={frequency} onChange={e => setFrequency(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              <option value="daily">Daily (Recommended)</option>
+              <option value="every_12h">Every 12 Hours</option>
+              <option value="weekly">Weekly</option>
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Backup Time</label>
-            <input type="time" defaultValue="02:00"
+            <input type="time" value={backupTime} onChange={e => setBackupTime(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Retention Period</label>
-            <select className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-              <option>Keep last 30 backups</option>
-              <option>Keep last 7 backups</option>
-              <option>Keep all backups</option>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Retention Policy</label>
+            <select value={retention} onChange={e => setRetention(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              <option value="last_30">Keep last 30 backups</option>
+              <option value="last_7">Keep last 7 backups</option>
+              <option value="all">Keep all backups</option>
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status</label>
-            <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-sm text-green-700 font-medium">Automatic backups are enabled</span>
-            </div>
+            {enabled ? (
+              <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-sm text-green-700 font-medium">Automatic backups are enabled</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5">
+                <span className="w-2 h-2 rounded-full bg-gray-400" />
+                <span className="text-sm text-gray-500 font-medium">Automatic backups are paused</span>
+              </div>
+            )}
           </div>
         </div>
-        <button className="mt-4 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">
-          <CheckCircle size={14} /> Save Schedule
+        <button onClick={handleSaveSchedule} disabled={saving}
+          className="mt-4 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50">
+          {saving ? (
+            <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
+          ) : (
+            <><CheckCircle size={14} /> Save Schedule</>
+          )}
         </button>
       </div>
 
@@ -227,11 +322,19 @@ export function DatabaseBackup() {
                       </span>
                     </td>
                     <td className="px-5 py-3">
-                      {b.status === "success" && (
-                        <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                          <Download size={11} /> Download
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {b.status === "success" && (
+                          <>
+                            <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                              <Download size={11} /> Download
+                            </button>
+                            <button onClick={() => setConfirmRestore(b.id)}
+                              className="flex items-center gap-1 text-xs text-amber-600 hover:underline">
+                              <RotateCcw size={11} /> Restore
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -240,6 +343,44 @@ export function DatabaseBackup() {
           </div>
         )}
       </div>
+
+      {/* Restore Confirmation Dialog */}
+      {confirmRestore !== null && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800">Restore Database?</h3>
+                <p className="text-xs text-gray-500">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">
+              Restoring from backup <strong>#{confirmRestore}</strong> will overwrite ALL current data
+              including student records, grades, enrollment data, and system settings.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+              <strong>Warning:</strong> Make sure you have a recent backup before proceeding. It is
+              strongly recommended to create a new backup first.
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setConfirmRestore(null)}
+                className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
+                Cancel
+              </button>
+              <button onClick={() => handleRestore(confirmRestore)}
+                disabled={restoring !== null}
+                className="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2">
+                {restoring !== null ? (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Restoring...</>
+                ) : "Restore Database"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Compliance notice */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">

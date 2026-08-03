@@ -59,12 +59,19 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
 
     // Get enrolled students with their averages
     const students = await query<RowDataPacket[]>(
-      `SELECT e.id AS enrollment_id, e.student_id,
-              ROUND(AVG(g.grade), 2) AS general_average
-       FROM enrollments e
-       JOIN grades g ON g.student_id = e.student_id AND g.school_year_id = e.school_year_id
-       WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-       GROUP BY e.id, e.student_id
+      `SELECT ps.enrollment_id, ps.student_id,
+              ROUND(AVG(ps.subject_avg), 2) AS general_average
+       FROM (
+         SELECT e.id AS enrollment_id, e.student_id,
+                ROUND(AVG(g.grade), 2) AS subject_avg
+         FROM enrollments e
+         JOIN grades g ON g.student_id = e.student_id AND g.school_year_id = e.school_year_id
+         JOIN subjects s ON g.subject_id = s.id
+         WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+         GROUP BY e.id, e.student_id,
+           CASE WHEN s.name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE s.name END
+       ) ps
+       GROUP BY ps.enrollment_id, ps.student_id
        ORDER BY general_average DESC`,
       [section_id, school_year_id]
     );
@@ -267,5 +274,116 @@ export async function getPromotionById(req: Request, res: Response): Promise<voi
   } catch (error) {
     console.error("Get promotion error:", error);
     res.status(500).json({ error: "Failed to fetch promotion." });
+  }
+}
+
+/**
+ * POST /api/promotions/complete — Mark a Grade 12 section as completers
+ * Body: { section_id, school_year_id }
+ *
+ * Algorithm:
+ * 1. Fetch all enrolled students in the Grade 12 section
+ * 2. Mark each student's enrollment as 'completed'
+ * 3. Update each student's status to 'graduated'
+ * 4. Record a promotion record for audit trail
+ */
+export async function completeSection(req: Request, res: Response): Promise<void> {
+  try {
+    const { section_id, school_year_id } = req.body;
+
+    if (!section_id || !school_year_id) {
+      res.status(400).json({ error: "section_id and school_year_id are required." });
+      return;
+    }
+
+    // Get source section — must be Grade 12
+    const sections = await query<RowDataPacket[]>(
+      "SELECT * FROM sections WHERE id = ?",
+      [section_id]
+    );
+    if (sections.length === 0) {
+      res.status(404).json({ error: "Section not found." });
+      return;
+    }
+
+    const section = sections[0];
+    if (section.grade_level !== 12) {
+      res.status(400).json({ error: "Only Grade 12 sections can be marked as completers." });
+      return;
+    }
+
+    // Get enrolled students in this section for this school year
+    const students = await query<RowDataPacket[]>(
+      `SELECT e.id AS enrollment_id, e.student_id, s.name, s.student_id AS display_id
+       FROM enrollments e
+       JOIN students s ON e.student_id = s.id
+       WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'`,
+      [section_id, school_year_id]
+    );
+
+    if (students.length === 0) {
+      res.status(400).json({ error: "No enrolled students found in this section." });
+      return;
+    }
+
+    // Create a promotion-like record for audit trail
+    const promoResult = await query<ResultSetHeader>(
+      `INSERT INTO promotions (section_id, to_grade_level, school_year_id, promoted_by, status)
+       VALUES (?, 12, ?, ?, 'completed')`,
+      [section_id, school_year_id, req.user!.userId]
+    );
+    const promotionId = promoResult.insertId;
+
+    // Process each student
+    const results: any[] = [];
+    for (const s of students) {
+      // Mark enrollment as completed
+      await query<ResultSetHeader>(
+        "UPDATE enrollments SET status = 'completed', remarks = 'Grade 12 completed' WHERE id = ?",
+        [s.enrollment_id]
+      );
+
+      // Update student status to graduated
+      await query<ResultSetHeader>(
+        "UPDATE students SET status = 'graduated' WHERE id = ?",
+        [s.student_id]
+      );
+
+      // Insert promotion_student record for audit
+      await query<ResultSetHeader>(
+        `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained)
+         VALUES (?, ?, ?, NULL, NULL, 0)`,
+        [promotionId, s.student_id, section_id]
+      );
+
+      results.push({
+        student_id: s.student_id,
+        name: s.name,
+      });
+    }
+
+    // Decrement section counts since students have left
+    await query<ResultSetHeader>(
+      "UPDATE sections SET current_count = GREATEST(current_count - ?, 0) WHERE id = ?",
+      [students.length, section_id]
+    );
+
+    await logActivity(
+      req.user!.userId,
+      `Marked section "${section.name}" (Grade 12) as completers: ${results.length} students`,
+      "promotions",
+      promotionId
+    );
+
+    res.status(201).json({
+      message: `${results.length} students marked as completers.`,
+      promotion_id: promotionId,
+      section_name: section.name,
+      student_count: results.length,
+      students: results,
+    });
+  } catch (error) {
+    console.error("Complete section error:", error);
+    res.status(500).json({ error: "Failed to complete section." });
   }
 }

@@ -163,6 +163,19 @@ export const api = {
    * Upload a file via multipart form-data.
    * Does NOT set Content-Type (browser sets it with boundary).
    */
+  /**
+   * Get a raw Response for binary downloads (CSV, PDF, etc.)
+   */
+  getBlob(path: string, params?: Record<string, string | number | undefined>): Promise<Response> {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const qs = buildQuery(params);
+    return fetch(`${API_BASE}${path}${qs}`, { headers });
+  },
+
   upload<T>(path: string, formData: FormData): Promise<T> {
     const token = getToken();
     const headers: Record<string, string> = {};
@@ -191,7 +204,7 @@ export interface LoginResponse {
     username: string;
     name: string;
     email: string;
-    role: "admin" | "teacher" | "registrar";
+    role: "admin" | "teacher" | "registrar" | "principal";
     status: string;
   };
 }
@@ -201,7 +214,7 @@ export interface UserProfile {
   username: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar";
+  role: "admin" | "teacher" | "registrar" | "principal";
   status: "active" | "idle" | "inactive";
   phone: string | null;
   address: string | null;

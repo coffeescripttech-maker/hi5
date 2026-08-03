@@ -59,6 +59,27 @@ export interface CorrectionRequestRow {
   updated_at: string;
 }
 
+export interface DistributionBucket {
+  range: string;
+  count: number;
+  color: string;
+}
+
+export interface SubjectDistribution {
+  subject_name: string;
+  total_students: number;
+  mean_grade: number;
+  pass_rate: number;
+  buckets: DistributionBucket[];
+}
+
+export interface GradeDistribution {
+  school_year_id: number;
+  total_students: number;
+  overall_pass_rate: number;
+  subjects: SubjectDistribution[];
+}
+
 export const gradesApi = {
   list: (params?: { student_id?: number; section_id?: number; school_year_id?: number; subject_id?: number }) => {
     const query = params
@@ -82,4 +103,14 @@ export const gradesApi = {
     api.post<CorrectionRequestRow>("/grades/corrections", data),
   reviewCorrection: (id: number, status: "approved" | "rejected") =>
     api.put<CorrectionRequestRow>(`/grades/corrections/${id}`, { status }),
+  getDistribution: (params?: { school_year_id?: number; grade_level?: number; section_id?: number }) => {
+    const query = params
+      ? "?" + new URLSearchParams(
+          Object.entries(params)
+            .filter(([_, v]) => v !== undefined)
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : "";
+    return api.get<GradeDistribution>(`/grades/distribution${query}`);
+  },
 };

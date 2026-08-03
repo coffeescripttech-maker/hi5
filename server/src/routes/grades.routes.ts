@@ -8,6 +8,7 @@ import {
   lockGrades,
   unlockGrades,
   computeAverages,
+  getGradeDistribution,
 } from "../controllers/grades.controller";
 
 const router = Router();
@@ -16,6 +17,7 @@ router.use(authenticate);
 
 // Grade queries — all authenticated roles can view
 router.get("/", getGrades);
+router.get("/distribution", getGradeDistribution);
 router.get("/compute/averages", computeAverages);
 
 // Grade mutations — teachers, registrars, and admin

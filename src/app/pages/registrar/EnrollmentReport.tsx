@@ -1,37 +1,47 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Search, Download, Filter, Users, FileText,
-  ChevronUp, ChevronDown, X, BarChart3, GraduationCap
+  ChevronUp, ChevronDown, X, BarChart3, GraduationCap, FileSpreadsheet, Printer
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts";
-import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
+import { enrollmentsApi, EnrollmentRow, DashboardStats } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
+import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
+import { exportToPdf } from "../../services/pdfExport";
 
 const SECTIONS = ["All Sections", "Star", "Gold", "Silver", "Regular", "Pending"];
 const CLASSIFICATIONS = ["All Classifications", "4Ps", "PWD", "Transferee", "Non-Reader", "Regular"];
 const GRADES = ["All Grades", "7", "8", "9", "10", "11", "12"];
 
-const classifData = [
-  { name: "4Ps", value: 142, color: "#6366f1" },
-  { name: "PWD", value: 38, color: "#8b5cf6" },
-  { name: "Transferee", value: 24, color: "#06b6d4" },
-  { name: "Non-Reader", value: 11, color: "#ef4444" },
-  { name: "Regular", value: 328, color: "#9ca3af" },
-];
+const CLASSIF_COLORS: Record<string, string> = {
+  "4ps": "#6366f1",
+  "pwd": "#8b5cf6",
+  "transferee": "#06b6d4",
+  "non_reader": "#ef4444",
+  "regular": "#9ca3af",
+};
+
+const CLASSIF_LABELS: Record<string, string> = {
+  "4ps": "4Ps",
+  "pwd": "PWD",
+  "transferee": "Transferee",
+  "non_reader": "Non-Reader",
+  "regular": "Regular",
+};
 
 const STATUS_BADGE: Record<string, string> = {
   enrolled: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
   pending: "bg-amber-50 text-amber-700 border-amber-200/50",
   dropped: "bg-red-50 text-red-600 border-red-200/50",
   transferred: "bg-blue-50 text-blue-700 border-blue-200/50",
-  graduated: "bg-purple-50 text-purple-700 border-purple-200/50",
+  completed: "bg-purple-50 text-purple-700 border-purple-200/50",
 };
 
-type SortKey = "name" | "lrn" | "grade_level" | "section_name" | "sex";
+type SortKey = "name" | "lrn" | "grade_level" | "section_name" | "sex" | "status";
 type SortDir = "asc" | "desc";
 
 export function EnrollmentReport() {
@@ -43,18 +53,27 @@ export function EnrollmentReport() {
   const [filterGrade, setFilterGrade] = useState("All Grades");
   const [sortKey, setSortKey] = useState<SortKey>("grade_level");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [exportMsg, setExportMsg] = useState(false);
+  const [exportMsg, setExportMsg] = useState("");
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [syLabel, setSyLabel] = useState("2025–2026");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     Promise.all([
       enrollmentsApi.list(),
       sectionsApi.list(),
-    ]).then(([enr, sec]) => {
+      schoolYearsApi.list(),
+      enrollmentsApi.stats(),
+    ]).then(([enr, sec, years, st]) => {
       setEnrollments(enr);
       setSections(sec);
+      setStats(st);
+      const current = years.find(y => y.is_current === 1);
+      if (current) setSyLabel(current.sy_label);
     }).catch(err => {
       showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
     }).finally(() => setLoading(false));
@@ -72,6 +91,23 @@ export function EnrollmentReport() {
   const totalCapacity = sections.reduce((sum, s) => sum + s.capacity, 0);
   const overallPercent = totalCapacity > 0 ? Math.round((totalEnrolled / totalCapacity) * 100) : 0;
 
+  // Compute promotion rate: count of students in grades that were promoted vs total
+  // Use the number of enrolled students that are NOT in Grade 7 (new entrants)
+  // as a proxy, or simply show stats from the promotion system
+  const promotionRate = totalEnrolled > 0
+    ? Math.round((enrollments.filter(e => e.status === "enrolled" && e.grade_level > 7).length / totalEnrolled) * 100)
+    : 0;
+
+  // Build live classification data from stats
+  const classifData = useMemo(() => {
+    if (!stats?.classifications) return [];
+    return stats.classifications.map(c => ({
+      name: CLASSIF_LABELS[c.classification] || c.classification,
+      value: c.count,
+      color: CLASSIF_COLORS[c.classification] || "#9ca3af",
+    }));
+  }, [stats]);
+
   const filtered = useMemo(() => {
     let list = [...enrollments];
 
@@ -86,6 +122,10 @@ export function EnrollmentReport() {
     }
     if (filterSection !== "All Sections") {
       list = list.filter(s => s.section_name === filterSection);
+    }
+    if (filterClassif !== "All Classifications") {
+      const cf = filterClassif.toLowerCase().replace(" ", "_");
+      list = list.filter(s => s.classifications?.toLowerCase().includes(cf));
     }
 
     list.sort((a, b) => {
@@ -106,20 +146,147 @@ export function EnrollmentReport() {
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const handleExport = () => {
-    const headers = ["Student ID", "LRN", "Name", "Grade", "Section", "Sex", "Status"];
-    const rows = filtered.map(s => [
-      s.student_name, s.lrn, s.student_name, `Grade ${s.grade_level}`,
-      s.section_name, "", s.status
+  // ── CSV Export ──
+  const handleExportCsv = () => {
+    const escapeCsv = (val: string | number | null | undefined) => {
+      if (val == null) return "";
+      const s = String(val);
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const headers = ["#", "LRN", "Student Name", "Sex", "Grade Level", "Section", "Classification", "Status"];
+    const rows = filtered.map((s, idx) => [
+      idx + 1,
+      escapeCsv(s.lrn),
+      escapeCsv(s.student_name),
+      escapeCsv(s.sex ? (s.sex.charAt(0).toUpperCase() + s.sex.slice(1)) : ""),
+      s.grade_level,
+      escapeCsv(s.section_name || ""),
+      escapeCsv(s.classifications || ""),
+      escapeCsv(s.status.charAt(0).toUpperCase() + s.status.slice(1)),
     ]);
-    const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+
+    const bom = "﻿";
+    const csv = bom + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "enrollment_report_SY2025-2026.csv";
-    a.click(); URL.revokeObjectURL(url);
-    setExportMsg(true);
-    setTimeout(() => setExportMsg(false), 3000);
+    a.href = url;
+    a.download = `Enrollment_Report_${syLabel.replace(/\s/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportMsg("CSV exported successfully!");
+    setTimeout(() => setExportMsg(""), 3000);
+  };
+
+  // ── Excel Export ──
+  const handleExportExcel = () => {
+    // Build an HTML table that Excel can open
+    const rowsHtml = filtered.map((s, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>${s.lrn}</td>
+        <td>${s.student_name}</td>
+        <td>${s.sex ? s.sex.charAt(0).toUpperCase() + s.sex.slice(1) : ""}</td>
+        <td>Grade ${s.grade_level}</td>
+        <td>${s.section_name || ""}</td>
+        <td>${s.classifications || ""}</td>
+        <td>${s.status.charAt(0).toUpperCase() + s.status.slice(1)}</td>
+      </tr>
+    `).join("");
+
+    const summaryRows = enrollmentStats.map(stat => `
+      <tr>
+        <td>${stat.grade}</td>
+        <td>${stat.enrolled}</td>
+        <td>${stat.capacity}</td>
+        <td>${stat.capacity > 0 ? Math.round((stat.enrolled / stat.capacity) * 100) : 0}%</td>
+      </tr>
+    `).join("");
+
+    const classifRows = classifData.map(c => `
+      <tr><td>${c.name}</td><td>${c.value}</td></tr>
+    `).join("");
+
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:x="urn:schemas-microsoft-com:office:excel"
+            xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>
+        <x:ExcelWorksheet><x:Name>Enrollment_Report</x:Name><x:WorksheetOptions>
+        <x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>
+        <x:ExcelWorksheet><x:Name>Summary</x:Name></x:ExcelWorksheet>
+        <x:ExcelWorksheet><x:Name>Classifications</x:Name></x:ExcelWorksheet>
+        </x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+        <style>
+          table { border-collapse: collapse; font-family: Calibri, sans-serif; font-size: 11px; }
+          th, td { border: 1px solid #999; padding: 4px 8px; }
+          th { background: #6366f1; color: #fff; font-weight: 600; }
+          .summary th { background: #059669; }
+        </style>
+      </head>
+      <body>
+        <h2>Enrollment Report — SY ${syLabel}</h2>
+        <table>
+          <tr><th>#</th><th>LRN</th><th>Student Name</th><th>Sex</th><th>Grade Level</th><th>Section</th><th>Classification</th><th>Status</th></tr>
+          ${rowsHtml}
+        </table>
+        <br/>
+        <h3>Enrollment Summary per Grade</h3>
+        <table class="summary">
+          <tr><th>Grade</th><th>Enrolled</th><th>Capacity</th><th>Utilization</th></tr>
+          ${summaryRows}
+          <tr style="font-weight:bold;background:#f0fdf4;"><td>Total</td><td>${totalEnrolled}</td><td>${totalCapacity}</td><td>${overallPercent}%</td></tr>
+        </table>
+        <br/>
+        <h3>Classifications</h3>
+        <table>
+          <tr><th>Classification</th><th>Count</th></tr>
+          ${classifRows}
+        </table>
+        <p><em>Generated by Hi5 Portal — ${new Date().toLocaleString("en-PH")}</em></p>
+      </body></html>
+    `;
+
+    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Enrollment_Report_${syLabel.replace(/\s/g, "_")}.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportMsg("Excel exported successfully!");
+    setTimeout(() => setExportMsg(""), 3000);
+  };
+
+  // ── PDF Export ──
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      await exportToPdf({
+        elementId: "enrollment-report-content",
+        filename: `Enrollment_Report_${syLabel.replace(/\s/g, "_")}`,
+        orientation: "landscape",
+        format: "letter",
+        scale: 2,
+      });
+      setExportMsg("PDF exported successfully!");
+      setTimeout(() => setExportMsg(""), 3000);
+    } catch (err) {
+      showToast("error", "Failed to export PDF.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // ── Print ──
+  const handlePrint = () => {
+    window.print();
   };
 
   const clearFilters = () => {
@@ -152,6 +319,11 @@ export function EnrollmentReport() {
     Pending: "bg-gray-100 text-gray-500 border-gray-200",
   };
 
+  const sexBadge: Record<string, string> = {
+    male: "bg-blue-50 text-blue-700 border-blue-200/50",
+    female: "bg-pink-50 text-pink-700 border-pink-200/50",
+  };
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -169,7 +341,7 @@ export function EnrollmentReport() {
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto pb-10">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
@@ -179,22 +351,46 @@ export function EnrollmentReport() {
           </div>
           <div className="flex-1">
             <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Enrollment Report</h2>
-            <p className="text-gray-500 text-sm">School Year 2025–2026 · Grade 7–12 · All Sections</p>
+            <p className="text-gray-500 text-sm">School Year {syLabel} · Grade 7–12 · All Sections</p>
           </div>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-shrink-0"
-          >
-            <Download size={15} />
-            Export Report
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3.5 py-2.5 rounded-xl text-xs font-medium shadow-sm transition-all"
+            >
+              <FileSpreadsheet size={14} />
+              CSV
+            </button>
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-medium shadow-sm hover:shadow transition-all"
+            >
+              <FileText size={14} />
+              Excel
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={exporting}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3.5 py-2.5 rounded-xl text-xs font-medium shadow-sm hover:shadow transition-all disabled:opacity-60"
+            >
+              <Download size={14} />
+              {exporting ? "Exporting..." : "PDF"}
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-medium shadow-sm hover:shadow transition-all"
+            >
+              <Printer size={14} />
+              Print
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Export toast */}
       {exportMsg && (
-        <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm font-medium">
-          <Download size={15} /> Report exported successfully!
+        <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm font-medium animate-in">
+          <Download size={15} /> {exportMsg}
         </div>
       )}
 
@@ -234,8 +430,8 @@ export function EnrollmentReport() {
               <GraduationCap size={13} className="text-emerald-600" />
             </div>
           </div>
-          <p className="text-xl font-bold text-gray-900 tracking-[-0.02em]">94.2%</p>
-          <p className="text-xs text-gray-400 mt-1">From previous school year</p>
+          <p className="text-xl font-bold text-gray-900 tracking-[-0.02em]">{promotionRate}%</p>
+          <p className="text-xs text-gray-400 mt-1">{enrollments.filter(e => e.status === "enrolled" && e.grade_level > 7).length} students promoted</p>
         </div>
       </div>
 
@@ -358,16 +554,31 @@ export function EnrollmentReport() {
             <Users size={16} className="text-indigo-500" />
             <h3 className="font-semibold text-gray-900">Learner Enrollment List</h3>
           </div>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium shadow-sm hover:shadow transition-all"
-          >
-            <Download size={13} /> Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all"
+            >
+              <FileSpreadsheet size={13} /> CSV
+            </button>
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all"
+            >
+              <FileText size={13} /> Excel
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={exporting}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all disabled:opacity-60"
+            >
+              <Download size={13} /> {exporting ? "..." : "PDF"}
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px]">
+        <div className="overflow-x-auto" id="enrollment-report-content" ref={reportRef}>
+          <table className="w-full min-w-[850px]">
             <thead className="bg-gray-50/80">
               <tr>
                 <th className="px-4 py-3.5 text-left">
@@ -424,7 +635,15 @@ export function EnrollmentReport() {
                         <span className="text-sm font-medium text-gray-900 whitespace-nowrap">{s.student_name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-sm text-gray-600">—</td>
+                    <td className="px-4 py-3.5">
+                      {s.sex ? (
+                        <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium border ${sexBadge[s.sex] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                          {s.sex.charAt(0).toUpperCase() + s.sex.slice(1)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5">
                       <span className="bg-gray-100 text-gray-700 text-[11px] px-2.5 py-1 rounded-full font-medium">Gr. {s.grade_level}</span>
                     </td>
@@ -434,7 +653,7 @@ export function EnrollmentReport() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="text-xs text-gray-400">—</span>
+                      <span className="text-xs text-gray-500">{s.classifications || "—"}</span>
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${STATUS_BADGE[s.status] || "bg-gray-50 text-gray-500 border-gray-200/50"}`}>
@@ -450,7 +669,7 @@ export function EnrollmentReport() {
 
         <div className="px-6 py-3.5 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
           <span>Showing <span className="font-medium text-gray-600">{filtered.length}</span> of <span className="font-medium text-gray-600">{enrollments.length}</span> total learners</span>
-          <span>SY 2025–2026 · Hi5 Portal</span>
+          <span>SY {syLabel} · Hi5 Portal</span>
         </div>
       </div>
 
@@ -483,27 +702,33 @@ export function EnrollmentReport() {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h3 className="font-semibold text-gray-900 tracking-[-0.01em] mb-2">Classifications</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={classifData} cx="50%" cy="50%" outerRadius={70} dataKey="value" paddingAngle={2}>
-                {classifData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
+          {classifData.length === 0 ? (
+            <div className="py-10 text-center text-gray-400 text-xs">No classification data available</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={classifData} cx="50%" cy="50%" outerRadius={70} dataKey="value" paddingAngle={2}>
+                    {classifData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "11px" }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2 mt-1">
+                {classifData.map(d => (
+                  <div key={d.name} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: d.color }} />
+                      {d.name}
+                    </span>
+                    <span className="font-semibold text-gray-700">{d.value}</span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "11px" }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-2 mt-1">
-            {classifData.map(d => (
-              <div key={d.name} className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: d.color }} />
-                  {d.name}
-                </span>
-                <span className="font-semibold text-gray-700">{d.value}</span>
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>

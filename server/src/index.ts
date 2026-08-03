@@ -24,7 +24,13 @@ import backupsRoutes from "./routes/backups.routes";
 import notificationsRoutes from "./routes/notifications.routes";
 import sectioningRoutes from "./routes/sectioning.routes";
 import sectionTypesRoutes from "./routes/sectionTypes.routes";
+import certificatesRoutes from "./routes/certificates.routes";
+import strandTracksRoutes from "./routes/strandTracks.routes";
+import schedulesRoutes from "./routes/schedules.routes";
+import lisRoutes from "./routes/lis.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { startUserStatusCron } from "./cron/userStatusCron";
+import { startBackupCron } from "./cron/backupCron";
 
 // Load .env
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -66,6 +72,10 @@ app.use("/api/backups", backupsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/sectioning", sectioningRoutes);
 app.use("/api/section-types", sectionTypesRoutes);
+app.use("/api/certificates", certificatesRoutes);
+app.use("/api/strand-tracks", strandTracksRoutes);
+app.use("/api/schedules", schedulesRoutes);
+app.use("/api/lis", lisRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {
@@ -92,6 +102,12 @@ async function start() {
     console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`   Health check: http://localhost:${PORT}/api/health`);
   });
+
+  // Start background cron jobs
+  if (dbConnected) {
+    startUserStatusCron();
+    startBackupCron();
+  }
 }
 
 start();

@@ -10,7 +10,7 @@ interface UserRow extends RowDataPacket {
   password_hash: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar";
+  role: "admin" | "teacher" | "registrar" | "principal";
   status: string;
   last_login: Date | null;
 }

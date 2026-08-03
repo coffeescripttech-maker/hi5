@@ -18,4 +18,5 @@ export interface BackupRow {
 export const backupsApi = {
   list: () => api.get<BackupRow[]>("/backups"),
   create: () => api.post<BackupRow>("/backups"),
+  restore: (id: number) => api.post<{ message: string; backup_id: number }>(`/backups/${id}/restore`),
 };

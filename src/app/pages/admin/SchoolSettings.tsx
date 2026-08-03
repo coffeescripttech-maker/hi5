@@ -305,6 +305,26 @@ export function SchoolSettings() {
             const t = thresholds
               .filter(th => th.section_type === sectionType.name)
               .sort((a, b) => a.grade_level - b.grade_level)[0];
+
+            if (!t) {
+              return (
+                <div key={sectionType.name} className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 overflow-hidden">
+                  <div className="px-4 py-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200">
+                        <span className="text-sm">{sectionType.icon || sectionType.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold text-sm text-gray-500">{displayName}</p>
+                        <p className="text-gray-400 text-xs">No thresholds configured</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-400">—</span>
+                  </div>
+                </div>
+              );
+            }
+
             return (
             <div key={sectionType.name} className={`rounded-xl border ${borderColor} ${bgColor} overflow-hidden`}>
               <button onClick={() => setExpandedSection(expandedSection === sectionType.name ? null : sectionType.name)}

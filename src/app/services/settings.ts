@@ -37,6 +37,13 @@ export interface UpdateThresholdsPayload {
   thresholds: { id: number; min_average?: number; max_average?: number }[];
 }
 
+export interface BackupSettings {
+  backup_frequency: "daily" | "every_12h" | "weekly";
+  backup_time: string;
+  backup_retention: "last_7" | "last_30" | "all";
+  backup_enabled: number;
+}
+
 export const settingsApi = {
   get: () => api.get<SchoolSettingsRow>("/settings"),
   update: (data: UpdateSettingsPayload) =>
@@ -44,4 +51,7 @@ export const settingsApi = {
   getThresholds: () => api.get<SectionTypeThreshold[]>("/settings/thresholds"),
   updateThresholds: (data: UpdateThresholdsPayload) =>
     api.put<SectionTypeThreshold[]>("/settings/thresholds", data),
+  getBackupSettings: () => api.get<BackupSettings>("/settings/backup"),
+  updateBackupSettings: (data: Partial<BackupSettings>) =>
+    api.put<BackupSettings>("/settings/backup", data),
 };

@@ -10,7 +10,7 @@ import { getToken, clearToken, authApi } from '../services/api';
 import { settingsApi } from '../services/settings';
 import { schoolYearsApi } from '../services/schoolYears';
 
-type Role = 'admin' | 'teacher' | 'registrar' | null;
+type Role = 'admin' | 'teacher' | 'registrar' | 'principal' | null;
 
 export interface Toast {
   id: string;
@@ -82,6 +82,7 @@ interface AppContextType {
   // School info (shared so sidebar & header reflect saved values)
   schoolName: string;
   schoolYearLabel: string;
+  enrollmentOpen: boolean;
   refreshSchoolInfo: () => Promise<void>;
 }
 
@@ -107,6 +108,7 @@ const AppContext = createContext<AppContextType>({
   securityNotifs: [],
   schoolName: '',
   schoolYearLabel: '',
+  enrollmentOpen: true,
   refreshSchoolInfo: async () => {},
 });
 
@@ -138,6 +140,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [securityNotifs, setSecurityNotifs] = useState<SecurityNotif[]>([]);
   const [schoolName, setSchoolName] = useState('');
   const [schoolYearLabel, setSchoolYearLabel] = useState('');
+  const [enrollmentOpen, setEnrollmentOpen] = useState(true);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load school info from API so sidebar/header reflect saved values ──
@@ -150,6 +153,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSchoolName(settings.school_name);
       const current = sys.find(sy => sy.is_current === 1);
       setSchoolYearLabel(current?.sy_label || '');
+      setEnrollmentOpen(current?.enrollment_open === 1);
     } catch {
       // Silently fail — defaults stay empty
     }
@@ -300,6 +304,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         securityNotifs,
         schoolName,
         schoolYearLabel,
+        enrollmentOpen,
         refreshSchoolInfo
       }}>
       {children}

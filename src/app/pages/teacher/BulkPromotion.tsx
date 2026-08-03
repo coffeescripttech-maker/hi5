@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   ArrowUpCircle, CheckCircle, Users, AlertTriangle, Info,
-  BookOpen, Loader2, Target, ListOrdered,
+  BookOpen, Loader2, Target, ListOrdered, GraduationCap,
 } from "lucide-react";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { promotionsApi, PromotionRow } from "../../services/promotions";
@@ -37,23 +37,36 @@ export function BulkPromotion() {
 
   const selectedSection = sections.find(s => s.id === parseInt(selectedSectionId));
   const toGrade = selectedSection ? Math.min(selectedSection.grade_level + 1, 12) : null;
+  const isCompleters = selectedSection?.grade_level === 12;
 
   const handlePromote = async () => {
-    if (!selectedSection || !toGrade) return;
+    if (!selectedSection) return;
+    if (!isCompleters && !toGrade) return;
     setPromoting(true);
     try {
-      const result = await promotionsApi.create({
-        section_id: selectedSection.id,
-        school_year_id: syId,
-        to_grade_level: toGrade,
-      });
-      setPromotions(prev => [result, ...prev]);
-      setSuccessData(result);
+      if (isCompleters) {
+        const result = await promotionsApi.completeSection({
+          section_id: selectedSection.id,
+          school_year_id: syId,
+        });
+        const data = { ...result, section_name: selectedSection.name };
+        setSuccessData(data);
+      } else {
+        const result = await promotionsApi.create({
+          section_id: selectedSection.id,
+          school_year_id: syId,
+          to_grade_level: toGrade!,
+        });
+        setSuccessData(result);
+      }
       setShowConfirm(false);
       setShowSuccess(true);
       setSelectedSectionId("");
-    } catch (err: any) {
-      showToast("error", err.detail?.error || err.message || "Failed to promote section");
+    } catch (err) {
+      showToast("error", err?.detail?.error || err?.message || "Failed to process section");
+      // Refresh promotion history
+      const updatedPromotions = await promotionsApi.list();
+      setPromotions(updatedPromotions);
     } finally {
       setPromoting(false);
     }
@@ -107,18 +120,34 @@ export function BulkPromotion() {
       </div>
 
       {/* ── Info Banner ── */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60 rounded-xl p-4 sm:p-5 flex gap-3 transition-shadow duration-200 hover:shadow-sm">
-        <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 shadow-xs">
-          <Info size={16} className="text-blue-700" />
+      <div className={`rounded-xl p-4 sm:p-5 flex gap-3 transition-shadow duration-200 hover:shadow-sm ${
+        isCompleters
+          ? "bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200/60"
+          : "bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60"
+      }`}>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 shadow-xs ${
+          isCompleters ? "bg-indigo-100" : "bg-blue-100"
+        }`}>
+          <Info size={16} className={isCompleters ? "text-indigo-700" : "text-blue-700"} />
         </div>
-        <div className="text-sm text-blue-800">
-          <p className="font-bold mb-1">How Bulk Promotion Works</p>
-          <p className="text-blue-700 text-xs leading-relaxed">
-            Selecting a section and confirming will mark all enrolled students in that section as <strong>Promoted</strong> to the next grade level.
-            Students with a general average below 75 will be flagged as <strong>Retained</strong> and excluded from promotion automatically.
-            Promoted students are auto-assigned to appropriate sections in the next grade based on their average.
-            This action is recorded and visible in the Registrar's Promotion Records.
+        <div className={`text-sm ${isCompleters ? "text-indigo-800" : "text-blue-800"}`}>
+          <p className="font-bold mb-1">
+            {isCompleters ? "How Grade 12 Completion Works" : "How Bulk Promotion Works"}
           </p>
+          {isCompleters ? (
+            <p className={`text-xs leading-relaxed ${isCompleters ? "text-indigo-700" : "text-blue-700"}`}>
+              Marking a Grade 12 section as <strong>Completed</strong> will graduate all enrolled students.
+              Their enrollment status will be updated to <strong>Completed</strong> and student records will reflect <strong>Graduated</strong> status.
+              This action is recorded and visible in the Registrar's Promotion Records.
+            </p>
+          ) : (
+            <p className={`text-xs leading-relaxed ${isCompleters ? "text-indigo-700" : "text-blue-700"}`}>
+              Selecting a section and confirming will mark all enrolled students in that section as <strong>Promoted</strong> to the next grade level.
+              Students with a general average below 75 will be flagged as <strong>Retained</strong> and excluded from promotion automatically.
+              Promoted students are auto-assigned to appropriate sections in the next grade based on their average.
+              This action is recorded and visible in the Registrar's Promotion Records.
+            </p>
+          )}
         </div>
       </div>
 
@@ -145,7 +174,7 @@ export function BulkPromotion() {
                 className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
               >
                 <option value="">-- Select a section --</option>
-                {sections.filter(s => s.grade_level < 12).map(s => (
+                {sections.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.name} ({s.current_count} students · Grade {s.grade_level})
                   </option>
@@ -155,7 +184,11 @@ export function BulkPromotion() {
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.05em]">Promotes To</label>
               <div className="w-full border border-gray-200 bg-gray-50/60 rounded-xl px-3.5 py-2.5 text-sm text-gray-500">
-                {toGrade ? (
+                {selectedSection && isCompleters ? (
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-indigo-700">
+                    <GraduationCap size={14} /> Completers
+                  </span>
+                ) : toGrade ? (
                   <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
                     <ArrowUpCircle size={14} /> Grade {toGrade}
                   </span>
@@ -168,55 +201,93 @@ export function BulkPromotion() {
 
           {/* ── Section Preview ── */}
           {selectedSection && (
-            <div className="mt-5 border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-5">
+            <div className={`mt-5 border rounded-xl p-5 ${
+              isCompleters
+                ? "border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50"
+                : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50"
+            }`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <BookOpen size={13} className="text-emerald-700" />
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                    isCompleters ? "bg-indigo-100" : "bg-emerald-100"
+                  }`}>
+                    {isCompleters
+                      ? <GraduationCap size={13} className="text-indigo-700" />
+                      : <BookOpen size={13} className="text-emerald-700" />
+                    }
                   </div>
-                  <p className="font-bold text-emerald-800 text-sm">{selectedSection.name} — Promotion Preview</p>
+                  <p className={`font-bold text-sm ${
+                    isCompleters ? "text-indigo-800" : "text-emerald-800"
+                  }`}>{selectedSection.name} — {isCompleters ? "Completion Preview" : "Promotion Preview"}</p>
                 </div>
-                <span className="inline-flex items-center gap-1 bg-white text-emerald-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-emerald-200/50 shadow-xs">
+                <span className="inline-flex items-center gap-1 bg-white text-gray-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-gray-200/50 shadow-xs">
                   <Users size={11} /> {selectedSection.current_count} Students
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 text-center text-xs mb-4">
-                <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs">
-                  <p className="text-emerald-700 font-bold text-xl">{selectedSection.current_count}</p>
-                  <p className="text-gray-500 font-medium mt-0.5">Total Enrolled</p>
+              {isCompleters ? (
+                <div className="grid grid-cols-1 gap-3 text-center text-xs mb-4">
+                  <div className="bg-white rounded-xl p-3 border border-indigo-100 shadow-xs">
+                    <p className="text-indigo-700 font-bold text-xl">{selectedSection.current_count}</p>
+                    <p className="text-gray-500 font-medium mt-0.5">Total Graduating</p>
+                  </div>
                 </div>
-                <div className="bg-white rounded-xl p-3 border border-green-100 shadow-xs">
-                  <p className="text-green-600 font-bold text-xl">
-                    {selectedSection.current_count > 0 ? Math.max(1, Math.round(selectedSection.current_count * 0.9)) : 0}
-                  </p>
-                  <p className="text-gray-500 font-medium mt-0.5">For Promotion</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 text-center text-xs mb-4">
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs">
+                    <p className="text-emerald-700 font-bold text-xl">{selectedSection.current_count}</p>
+                    <p className="text-gray-500 font-medium mt-0.5">Total Enrolled</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-green-100 shadow-xs">
+                    <p className="text-green-600 font-bold text-xl">
+                      {selectedSection.current_count > 0 ? Math.max(1, Math.round(selectedSection.current_count * 0.9)) : 0}
+                    </p>
+                    <p className="text-gray-500 font-medium mt-0.5">For Promotion</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-red-100 shadow-xs">
+                    <p className="text-red-500 font-bold text-xl">
+                      {selectedSection.current_count > 0 ? Math.max(1, Math.round(selectedSection.current_count * 0.1)) : 0}
+                    </p>
+                    <p className="text-gray-500 font-medium mt-0.5">For Retention</p>
+                  </div>
                 </div>
-                <div className="bg-white rounded-xl p-3 border border-red-100 shadow-xs">
-                  <p className="text-red-500 font-bold text-xl">
-                    {selectedSection.current_count > 0 ? Math.max(1, Math.round(selectedSection.current_count * 0.1)) : 0}
-                  </p>
-                  <p className="text-gray-500 font-medium mt-0.5">For Retention</p>
-                </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2.5">
-                <AlertTriangle size={13} className="flex-shrink-0" />
-                Students with general average below 75 will be automatically retained and excluded from this promotion.
-              </div>
+              {isCompleters ? (
+                <div className="flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200/60 rounded-lg px-3 py-2.5">
+                  <GraduationCap size={13} className="flex-shrink-0" />
+                  All students in this section will be marked as completers/graduates. This cannot be undone easily.
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2.5">
+                  <AlertTriangle size={13} className="flex-shrink-0" />
+                  Students with general average below 75 will be automatically retained and excluded from this promotion.
+                </div>
+              )}
             </div>
           )}
 
-          {/* ── Promote Button ── */}
+          {/* ── Promote / Complete Button ── */}
           <div className="mt-5 flex gap-3">
-            <button
-              disabled={!selectedSectionId}
-              onClick={() => setShowConfirm(true)}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
-            >
-              <ArrowUpCircle size={16} />
-              Promote Section
-            </button>
+            {isCompleters ? (
+              <button
+                disabled={!selectedSectionId}
+                onClick={() => setShowConfirm(true)}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
+              >
+                <GraduationCap size={16} />
+                Mark as Completers
+              </button>
+            ) : (
+              <button
+                disabled={!selectedSectionId}
+                onClick={() => setShowConfirm(true)}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
+              >
+                <ArrowUpCircle size={16} />
+                Promote Section
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -310,20 +381,23 @@ export function BulkPromotion() {
       </div>
 
       {/* ── Confirm Modal ── */}
-      {showConfirm && selectedSection && toGrade && (
+      {showConfirm && selectedSection && (isCompleters || toGrade) && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shadow-sm">
-                <AlertTriangle size={22} className="text-amber-600" />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${isCompleters ? "bg-indigo-100" : "bg-amber-100"}`}>
+                {isCompleters
+                  ? <GraduationCap size={22} className="text-indigo-600" />
+                  : <AlertTriangle size={22} className="text-amber-600" />
+                }
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">Confirm Bulk Promotion</h3>
+                <h3 className="font-bold text-gray-900">{isCompleters ? "Confirm Grade 12 Completion" : "Confirm Bulk Promotion"}</h3>
                 <p className="text-gray-400 text-xs">This action will be recorded in the system</p>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-xl p-4 text-sm space-y-3 mb-5">
+            <div className={`bg-gradient-to-br from-gray-50 to-white border rounded-xl p-4 text-sm space-y-3 mb-5 ${isCompleters ? "border-indigo-100" : "border-gray-100"}`}>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Section:</span>
                 <span className="font-bold text-gray-800">{selectedSection.name}</span>
@@ -332,22 +406,39 @@ export function BulkPromotion() {
                 <span className="text-gray-500">From:</span>
                 <span className="font-semibold">Grade {selectedSection.grade_level}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">To:</span>
-                <span className="font-bold text-emerald-700 inline-flex items-center gap-1">
-                  <ArrowUpCircle size={13} /> Grade {toGrade}
-                </span>
-              </div>
+              {isCompleters ? (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Status:</span>
+                  <span className="font-bold text-indigo-700 inline-flex items-center gap-1">
+                    <GraduationCap size={13} /> Completers
+                  </span>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">To:</span>
+                  <span className="font-bold text-emerald-700 inline-flex items-center gap-1">
+                    <ArrowUpCircle size={13} /> Grade {toGrade}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <span className="text-gray-500">Students to promote:</span>
+                <span className="text-gray-500">{isCompleters ? "Students graduating:" : "Students to promote:"}</span>
                 <span className="font-bold text-gray-900">{selectedSection.current_count}</span>
               </div>
             </div>
 
-            <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-              This promotion will process all students with grades. Students below 75 will be retained.
-              Promoted students will be auto-assigned to appropriate sections in Grade {toGrade}.
-            </p>
+            {isCompleters ? (
+              <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+                This will mark all enrolled students in this section as <strong>Completed / Graduated</strong>.
+                Their enrollment status will be changed to <strong>Completed</strong> and their student records
+                will reflect <strong>Graduated</strong>. The section count will also be adjusted.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+                This promotion will process all students with grades. Students below 75 will be retained.
+                Promoted students will be auto-assigned to appropriate sections in Grade {toGrade}.
+              </p>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -357,14 +448,25 @@ export function BulkPromotion() {
               >
                 Cancel
               </button>
-              <button
-                onClick={handlePromote}
-                disabled={promoting}
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
-              >
-                {promoting ? <Loader2 size={14} className="animate-spin" /> : <ArrowUpCircle size={14} />}
-                {promoting ? "Promoting..." : "Yes, Promote"}
-              </button>
+              {isCompleters ? (
+                <button
+                  onClick={handlePromote}
+                  disabled={promoting}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                >
+                  {promoting ? <Loader2 size={14} className="animate-spin" /> : <GraduationCap size={14} />}
+                  {promoting ? "Processing..." : "Yes, Mark as Completed"}
+                </button>
+              ) : (
+                <button
+                  onClick={handlePromote}
+                  disabled={promoting}
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                >
+                  {promoting ? <Loader2 size={14} className="animate-spin" /> : <ArrowUpCircle size={14} />}
+                  {promoting ? "Promoting..." : "Yes, Promote"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -374,26 +476,48 @@ export function BulkPromotion() {
       {showSuccess && successData && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center animate-in zoom-in-95">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
-              <CheckCircle size={32} className="text-green-600" />
+            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center mx-auto mb-4 shadow-sm ${
+              isCompleters ? "from-indigo-100 to-purple-100" : "from-green-100 to-emerald-100"
+            }`}>
+              <CheckCircle size={32} className={isCompleters ? "text-indigo-600" : "text-green-600"} />
             </div>
-            <h3 className="font-bold text-gray-900 text-lg mb-1">Promotion Successful!</h3>
-            <p className="text-gray-500 text-sm mb-5">
-              <strong className="text-gray-800">{successData.student_count} students</strong> from <strong>{successData.section_name}</strong>
-              {" "}have been promoted to <strong className="text-emerald-700">Grade {successData.to_grade_level}</strong>.
-            </p>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">{isCompleters ? "Completers Marked Successfully!" : "Promotion Successful!"}</h3>
+            {isCompleters ? (
+              <p className="text-gray-500 text-sm mb-5">
+                <strong className="text-gray-800">{successData.student_count} students</strong> from <strong>{successData.section_name}</strong>
+                {" "}have been marked as <strong className="text-indigo-700">Completed / Graduated</strong>.
+              </p>
+            ) : (
+              <p className="text-gray-500 text-sm mb-5">
+                <strong className="text-gray-800">{successData.student_count} students</strong> from <strong>{successData.section_name}</strong>
+                {" "}have been promoted to <strong className="text-emerald-700">Grade {successData.to_grade_level}</strong>.
+              </p>
+            )}
 
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60 rounded-xl p-4 text-xs text-blue-700 text-left mb-5">
+            <div className={`rounded-xl p-4 text-xs text-left mb-5 ${
+              isCompleters
+                ? "bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200/60 text-indigo-700"
+                : "bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60 text-blue-700"
+            }`}>
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle size={14} className="text-blue-600" />
+                <CheckCircle size={14} className={isCompleters ? "text-indigo-600" : "text-blue-600"} />
                 <p className="font-bold">Registrar has been notified</p>
               </div>
-              <p className="text-blue-600/80">This promotion is now visible in the Registrar's Promotion Records.</p>
+              <p className={isCompleters ? "text-indigo-600/80" : "text-blue-600/80"}>
+                {isCompleters
+                  ? "This completion is now visible in the Registrar's Promotion Records."
+                  : "This promotion is now visible in the Registrar's Promotion Records."
+                }
+              </p>
             </div>
 
             <button
               onClick={() => setShowSuccess(false)}
-              className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
+              className={`w-full bg-gradient-to-r text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm ${
+                isCompleters
+                  ? "from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                  : "from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
+              }`}
             >
               Done
             </button>

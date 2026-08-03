@@ -105,3 +105,59 @@ export async function createBackup(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: "Failed to create backup." });
   }
 }
+
+/**
+ * POST /api/backups/:id/restore — Restore database from a backup file
+ */
+export async function restoreBackup(req: Request, res: Response): Promise<void> {
+  try {
+    const backupId = parseInt(req.params.id);
+    if (isNaN(backupId)) {
+      res.status(400).json({ error: "Invalid backup ID." });
+      return;
+    }
+
+    // Get backup record
+    const backups = await query<RowDataPacket[]>(
+      `SELECT * FROM backups WHERE id = ?`,
+      [backupId]
+    );
+
+    if (backups.length === 0) {
+      res.status(404).json({ error: "Backup not found." });
+      return;
+    }
+
+    const backup = backups[0];
+
+    if (backup.status !== "success") {
+      res.status(400).json({ error: "Cannot restore from a backup that is not marked as 'success'." });
+      return;
+    }
+
+    const filePath = backup.file_path as string;
+
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: `Backup file not found at: ${filePath}` });
+      return;
+    }
+
+    // Build mysql restore command
+    const host = process.env.DB_HOST || "localhost";
+    const port = process.env.DB_PORT || "3306";
+    const user = process.env.DB_USER || "root";
+    const pass = process.env.DB_PASSWORD || "";
+    const dbName = process.env.DB_NAME || "hi5_portal";
+
+    const cmd = `"${process.env.MYSQL_PATH || 'mysql'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} ${dbName} < "${filePath}"`;
+
+    await execPromise(cmd, { timeout: 300000 }); // 5 min timeout for large restores
+
+    await logActivity(req.user!.userId, `Database restored from backup #${backupId}`, "backups", backupId);
+
+    res.json({ message: "Database restored successfully.", backup_id: backupId });
+  } catch (error: any) {
+    console.error("Restore backup error:", error);
+    res.status(500).json({ error: `Restore failed: ${error.message || "Unknown error"}` });
+  }
+}

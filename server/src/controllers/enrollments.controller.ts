@@ -4,6 +4,62 @@ import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
+ * GET /api/enrollments/stats — Dashboard aggregation stats
+ * Query: ?school_year_id=1
+ * Returns gender breakdown per grade + classification totals
+ */
+export async function getDashboardStats(req: Request, res: Response): Promise<void> {
+  try {
+    const { school_year_id } = req.query;
+    const syFilter = school_year_id ? "AND e.school_year_id = ?" : "";
+    const syParams: any[] = school_year_id ? [parseInt(school_year_id as string)] : [];
+
+    // Gender breakdown per grade level
+    const genderStats = await query<RowDataPacket[]>(
+      `SELECT s.grade_level, s.sex, COUNT(*) AS count
+       FROM enrollments e
+       JOIN students s ON e.student_id = s.id
+       WHERE e.status = 'enrolled' ${syFilter}
+       GROUP BY s.grade_level, s.sex
+       ORDER BY s.grade_level ASC`,
+      syParams
+    );
+
+    // Classification totals across all enrolled students
+    const classificationStats = await query<RowDataPacket[]>(
+      `SELECT sc.classification, COUNT(DISTINCT sc.student_id) AS count
+       FROM student_classifications sc
+       JOIN enrollments e ON e.student_id = sc.student_id AND e.status = 'enrolled'
+       ${school_year_id ? "AND e.school_year_id = ?" : ""}
+       GROUP BY sc.classification
+       ORDER BY count DESC`,
+      syParams
+    );
+
+    // Build gender breakdown by grade
+    const grades = [7, 8, 9, 10, 11, 12];
+    const genderByGrade = grades.map(g => {
+      const row = genderStats.filter(r => r.grade_level === g);
+      const male = row.find(r => r.sex === 'male')?.count || 0;
+      const female = row.find(r => r.sex === 'female')?.count || 0;
+      return { grade: `Grade ${g}`, male, female, total: male + female };
+    });
+
+    const totalMale = genderByGrade.reduce((s, g) => s + g.male, 0);
+    const totalFemale = genderByGrade.reduce((s, g) => s + g.female, 0);
+
+    res.json({
+      gender_by_grade: genderByGrade,
+      gender_totals: { male: totalMale, female: totalFemale },
+      classifications: classificationStats,
+    });
+  } catch (error) {
+    console.error("Dashboard stats error:", error);
+    res.status(500).json({ error: "Failed to fetch dashboard stats." });
+  }
+}
+
+/**
  * GET /api/enrollments — List enrollments with filters
  * Query: ?school_year_id=1&section_id=1&student_id=1&status=enrolled&unassigned=1
  */
@@ -12,7 +68,11 @@ export async function listEnrollments(req: Request, res: Response): Promise<void
     const { school_year_id, section_id, student_id, status, unassigned } = req.query;
 
     let sql = `
-      SELECT e.*, s.name AS student_name, s.student_id AS student_display_id, s.lrn, s.grade_level,
+      SELECT e.*, s.name AS student_name, s.student_id AS student_display_id, s.lrn, s.grade_level, s.sex,
+             (SELECT GROUP_CONCAT(DISTINCT sc.classification ORDER BY sc.classification ASC SEPARATOR ', ')
+              FROM student_classifications sc
+              WHERE sc.student_id = s.id AND sc.school_year_id = COALESCE(e.school_year_id, (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1))
+             ) AS classifications,
              sec.name AS section_name, sec.section_type,
              u.name AS enrolled_by_name, sy.sy_label
       FROM enrollments e
@@ -92,14 +152,14 @@ export async function getEnrollmentById(req: Request, res: Response): Promise<vo
 
 /**
  * POST /api/enrollments — Create enrollment
- * Body: { student_id, section_id?, school_year_id, enrollment_date, program?, remarks?, requirements? }
+ * Body: { student_id, section_id?, school_year_id, enrollment_date, program?, strand_track_id?, remarks?, requirements? }
  *
  * When section_id is omitted/null, the enrollment goes into the Pending Section Queue
  * and the Registrar assigns a section later via the section assignment workflow.
  */
 export async function createEnrollment(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, section_id, school_year_id, enrollment_date, program, remarks, requirements } = req.body;
+    const { student_id, section_id, school_year_id, enrollment_date, program, strand_track_id, remarks, requirements } = req.body;
 
     if (!student_id || !school_year_id || !enrollment_date) {
       res.status(400).json({ error: "Missing required fields: student_id, school_year_id, enrollment_date." });
@@ -110,6 +170,20 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
     const student = await query<RowDataPacket[]>("SELECT id, name, status, grade_level FROM students WHERE id = ?", [student_id]);
     if (student.length === 0) {
       res.status(404).json({ error: "Student not found." });
+      return;
+    }
+
+    // Check if enrollment is open for this school year
+    const sy = await query<RowDataPacket[]>(
+      "SELECT id, enrollment_open FROM school_years WHERE id = ?",
+      [school_year_id]
+    );
+    if (sy.length === 0) {
+      res.status(404).json({ error: "School year not found." });
+      return;
+    }
+    if (!sy[0].enrollment_open) {
+      res.status(403).json({ error: "Enrollment is currently closed. Please wait for the enrollment period to open." });
       return;
     }
 
@@ -155,9 +229,9 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
     const enrolled_by = req.user!.userId;
 
     const result = await query<ResultSetHeader>(
-      `INSERT INTO enrollments (student_id, section_id, school_year_id, program, enrollment_date, enrolled_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [student_id, section_id || null, school_year_id, program || "regular", enrollment_date, enrolled_by, remarks || null]
+      `INSERT INTO enrollments (student_id, section_id, school_year_id, program, strand_track_id, enrollment_date, enrolled_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [student_id, section_id || null, school_year_id, program || "regular", strand_track_id || null, enrollment_date, enrolled_by, remarks || null]
     );
 
     // Insert requirements checklist if provided
@@ -238,6 +312,16 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
 
     // --- Section assignment (Registrar assigning section to a pending student) ---
     if (section_id && !enrollment.section_id && (!status || status === "enrolled")) {
+      // Check if enrollment is open for the enrollment's school year
+      const sy = await query<RowDataPacket[]>(
+        "SELECT id, enrollment_open FROM school_years WHERE id = ?",
+        [enrollment.school_year_id]
+      );
+      if (sy.length > 0 && !sy[0].enrollment_open) {
+        res.status(403).json({ error: "Enrollment is currently closed. Section assignment is not allowed." });
+        return;
+      }
+
       const newSection = await query<RowDataPacket[]>(
         "SELECT id, name, capacity, current_count, grade_level FROM sections WHERE id = ?",
         [section_id]
@@ -387,11 +471,51 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Just update remarks
-    if (remarks !== undefined) {
+      // --- Mark as completed (Grade 12 completers) ---
+    if (status === "completed") {
+      // Verify this section is Grade 12
+      const sec = await query<RowDataPacket[]>(
+        "SELECT id, name, grade_level FROM sections WHERE id = ?",
+        [enrollment.section_id]
+      );
+      if (sec.length > 0 && sec[0].grade_level !== 12) {
+        res.status(400).json({ error: "Only Grade 12 sections can be marked as completed." });
+        return;
+      }
+
       await query<ResultSetHeader>(
-        "UPDATE enrollments SET remarks = ? WHERE id = ?",
-        [remarks, id]
+        "UPDATE enrollments SET status = 'completed', remarks = ? WHERE id = ?",
+        [remarks || "Grade 12 completed", id]
+      );
+
+      await query<ResultSetHeader>(
+        "UPDATE students SET status = 'graduated' WHERE id = ?",
+        [enrollment.student_id]
+      );
+
+      await logActivity(
+        req.user!.userId,
+        `Student completed Grade 12: ${enrollment.student_name}` +
+          (enrollment.section_name ? ` from ${enrollment.section_name}` : ""),
+        "enrollments",
+        id
+      );
+
+      res.json({ message: "Student marked as completer.", status: "completed" });
+      return;
+    }
+
+    // Update remarks and/or strand_track_id
+    const updateFields: string[] = [];
+    const updateParams: any[] = [];
+    if (remarks !== undefined) { updateFields.push("remarks = ?"); updateParams.push(remarks); }
+    if (req.body.strand_track_id !== undefined) { updateFields.push("strand_track_id = ?"); updateParams.push(req.body.strand_track_id); }
+
+    if (updateFields.length > 0) {
+      updateParams.push(id);
+      await query<ResultSetHeader>(
+        `UPDATE enrollments SET ${updateFields.join(", ")} WHERE id = ?`,
+        updateParams
       );
     }
 
@@ -442,6 +566,60 @@ export async function deleteEnrollment(req: Request, res: Response): Promise<voi
   } catch (error) {
     console.error("Delete enrollment error:", error);
     res.status(500).json({ error: "Failed to delete enrollment." });
+  }
+}
+
+/**
+ * GET /api/enrollments/requirements/batch — Get requirements for all students in a section
+ * Query: ?section_id=1&school_year_id=1
+ */
+export async function batchListRequirements(req: Request, res: Response): Promise<void> {
+  try {
+    const { section_id, school_year_id } = req.query;
+
+    if (!section_id) {
+      res.status(400).json({ error: "section_id is required." });
+      return;
+    }
+
+    const rows = await query<RowDataPacket[]>(
+      `SELECT er.*, e.student_id, s.name AS student_name, s.student_id AS display_id
+       FROM enrollment_requirements er
+       JOIN enrollments e ON er.enrollment_id = e.id
+       JOIN students s ON e.student_id = s.id
+       WHERE e.section_id = ?${school_year_id ? " AND e.school_year_id = ?" : ""}
+       ORDER BY s.name ASC, er.requirement_key ASC`,
+      school_year_id ? [parseInt(section_id as string), parseInt(school_year_id as string)] : [parseInt(section_id as string)]
+    );
+
+    // Group by student
+    const byStudent: Record<number, any> = {};
+    for (const r of rows) {
+      if (!byStudent[r.student_id]) {
+        byStudent[r.student_id] = {
+          student_id: r.student_id,
+          student_name: r.student_name,
+          display_id: r.display_id,
+          requirements: [],
+          submitted_count: 0,
+          total_count: 0,
+        };
+      }
+      byStudent[r.student_id].requirements.push({
+        id: r.id,
+        requirement_key: r.requirement_key,
+        label: r.label,
+        is_submitted: !!r.is_submitted,
+        submitted_at: r.submitted_at,
+      });
+      byStudent[r.student_id].total_count++;
+      if (r.is_submitted) byStudent[r.student_id].submitted_count++;
+    }
+
+    res.json(Object.values(byStudent));
+  } catch (error) {
+    console.error("Batch requirements error:", error);
+    res.status(500).json({ error: "Failed to fetch requirements." });
   }
 }
 

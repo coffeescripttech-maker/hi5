@@ -16,11 +16,15 @@ interface SubjectRow extends RowDataPacket {
 
 /**
  * GET /api/subjects — List subjects with filters
- * Query: ?grade_level=7&subject_type=core
+ * Query: ?grade_level=7&subject_type=core&strand_track_id=1
+ *
+ * When strand_track_id is provided, returns subjects that are either:
+ *   - Shared (not linked to any strand track), OR
+ *   - Linked to the specified strand track
  */
 export async function listSubjects(req: Request, res: Response): Promise<void> {
   try {
-    const { grade_level, subject_type, is_active } = req.query;
+    const { grade_level, subject_type, is_active, strand_track_id } = req.query;
 
     let sql = "SELECT * FROM subjects";
     const params: any[] = [];
@@ -37,6 +41,15 @@ export async function listSubjects(req: Request, res: Response): Promise<void> {
     if (is_active !== undefined) {
       conditions.push("is_active = ?");
       params.push(parseInt(is_active as string));
+    }
+
+    // Strand track filter — show shared subjects + track-specific subjects
+    if (strand_track_id) {
+      conditions.push(`(
+        NOT EXISTS (SELECT 1 FROM subject_strand_tracks WHERE subject_id = subjects.id)
+        OR id IN (SELECT subject_id FROM subject_strand_tracks WHERE strand_track_id = ?)
+      )`);
+      params.push(parseInt(strand_track_id as string));
     }
 
     if (conditions.length > 0) {

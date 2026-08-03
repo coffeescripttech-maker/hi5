@@ -16,7 +16,7 @@ export const SAMPLE_TEACHERS = [
   { id: "T-002", name: "Ms. Linda Fernandez", subject: "English", sections: ["8-Regular", "9-Star", "9-Gold"], email: "lfernandez@school.edu.ph" },
   { id: "T-003", name: "Mr. Eduardo Ocampo", subject: "Science", sections: ["10-Silver", "11-Star", "12-Gold"], email: "eocampo@school.edu.ph" },
   { id: "T-004", name: "Ms. Patricia Lim", subject: "Filipino", sections: ["7-Star", "8-Silver"], email: "plim@school.edu.ph" },
-  { id: "T-005", name: "Mr. Fernando Castro", subject: "MAPEH", sections: ["9-Star", "10-Silver", "11-Star"], email: "fcastro@school.edu.ph" },
+  { id: "T-005", name: "Mr. Fernando Castro", subject: "Health", sections: ["9-Star", "10-Silver", "11-Star"], email: "fcastro@school.edu.ph" },
 ];
 
 export const SAMPLE_SECTIONS = [
@@ -41,7 +41,10 @@ export const SAMPLE_GRADES = [
   { subject: "Science", q1: 95, q2: 93, q3: 96, q4: 94, finalGrade: null },
   { subject: "Filipino", q1: 85, q2: 87, q3: 83, q4: 86, finalGrade: null },
   { subject: "Araling Panlipunan", q1: 90, q2: 88, q3: 91, q4: 89, finalGrade: null },
-  { subject: "MAPEH", q1: 93, q2: 95, q3: 92, q4: 94, finalGrade: null },
+  { subject: "Music", q1: 93, q2: 95, q3: 92, q4: 94, finalGrade: null },
+  { subject: "Arts", q1: 90, q2: 92, q3: 91, q4: 93, finalGrade: null },
+  { subject: "Physical Education", q1: 88, q2: 90, q3: 87, q4: 91, finalGrade: null },
+  { subject: "Health", q1: 94, q2: 93, q3: 95, q4: 92, finalGrade: null },
   { subject: "TLE / EPP", q1: 87, q2: 89, q3: 88, q4: 90, finalGrade: null },
   { subject: "Values Education", q1: 91, q2: 93, q3: 90, q4: 92, finalGrade: null },
 ];

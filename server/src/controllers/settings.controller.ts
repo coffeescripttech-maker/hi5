@@ -134,3 +134,82 @@ export async function updateThresholds(req: Request, res: Response): Promise<voi
     res.status(500).json({ error: "Failed to update section thresholds." });
   }
 }
+
+/* ─────────────── Backup Settings ─────────────── */
+
+/**
+ * GET /api/settings/backup — Get backup schedule configuration
+ */
+export async function getBackupSettings(_req: Request, res: Response): Promise<void> {
+  try {
+    const settings = await query<RowDataPacket[]>(
+      `SELECT backup_frequency, backup_time, backup_retention, backup_enabled
+       FROM school_settings WHERE id = 1`
+    );
+
+    if (settings.length === 0) {
+      res.status(404).json({ error: "School settings not found." });
+      return;
+    }
+
+    res.json(settings[0]);
+  } catch (error) {
+    console.error("Get backup settings error:", error);
+    res.status(500).json({ error: "Failed to fetch backup settings." });
+  }
+}
+
+/**
+ * PUT /api/settings/backup — Update backup schedule configuration
+ */
+export async function updateBackupSettings(req: Request, res: Response): Promise<void> {
+  try {
+    const { backup_frequency, backup_time, backup_retention, backup_enabled } = req.body;
+
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    if (backup_frequency !== undefined) {
+      if (!["daily", "every_12h", "weekly"].includes(backup_frequency)) {
+        res.status(400).json({ error: "Invalid backup_frequency. Must be daily, every_12h, or weekly." });
+        return;
+      }
+      fields.push("backup_frequency = ?");
+      params.push(backup_frequency);
+    }
+    if (backup_time !== undefined) {
+      fields.push("backup_time = ?");
+      params.push(backup_time);
+    }
+    if (backup_retention !== undefined) {
+      if (!["last_7", "last_30", "all"].includes(backup_retention)) {
+        res.status(400).json({ error: "Invalid backup_retention. Must be last_7, last_30, or all." });
+        return;
+      }
+      fields.push("backup_retention = ?");
+      params.push(backup_retention);
+    }
+    if (backup_enabled !== undefined) {
+      fields.push("backup_enabled = ?");
+      params.push(backup_enabled ? 1 : 0);
+    }
+
+    if (fields.length === 0) {
+      res.status(400).json({ error: "No fields to update." });
+      return;
+    }
+
+    await query<ResultSetHeader>(`UPDATE school_settings SET ${fields.join(", ")} WHERE id = 1`, params);
+    await logActivity(req.user!.userId, "Updated backup schedule settings", "settings", 1);
+
+    const updated = await query<RowDataPacket[]>(
+      `SELECT backup_frequency, backup_time, backup_retention, backup_enabled
+       FROM school_settings WHERE id = 1`
+    );
+
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Update backup settings error:", error);
+    res.status(500).json({ error: "Failed to update backup settings." });
+  }
+}

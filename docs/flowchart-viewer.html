@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Lifecycle Flowchart</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #f8fafc;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 24px;
+    }
+    .controls {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #f8fafc;
+      padding: 12px 0 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 24px;
+    }
+    .controls h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-right: auto;
+    }
+    .controls button {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .controls button:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+    .controls button.primary {
+      background: #6366f1;
+      color: white;
+      border-color: #6366f1;
+    }
+    .controls button.primary:hover {
+      background: #4f46e5;
+    }
+    .diagram-container {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 32px;
+      overflow-x: auto;
+    }
+    .diagram-container h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .diagram-container .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+    .legend {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 24px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #475569;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .legend-swatch.admin { background: #e0e7ff; border-color: #6366f1; }
+    .legend-swatch.teacher { background: #d1fae5; border-color: #10b981; }
+    .legend-swatch.registrar { background: #fef3c7; border-color: #f59e0b; }
+    .legend-swatch.system { background: #f3e8ff; border-color: #a855f7; }
+    .legend-swatch.decision { background: #fff7ed; border-color: #f97316; }
+    .legend-swatch.terminal { background: #fce7f3; border-color: #ec4899; }
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>📊 Student Lifecycle Flowchart</h1>
+  <button onclick="window.print()">🖨️ Print</button>
+  <button class="primary" onclick="downloadSVG('lifecycle')">⬇️ Download SVG</button>
+</div>
+
+<div class="legend">
+  <span class="legend-item"><span class="legend-swatch admin"></span> Admin</span>
+  <span class="legend-item"><span class="legend-swatch teacher"></span> Teacher</span>
+  <span class="legend-item"><span class="legend-swatch registrar"></span> Registrar</span>
+  <span class="legend-item"><span class="legend-swatch system"></span> System</span>
+  <span class="legend-item"><span class="legend-swatch decision"></span> Decision</span>
+  <span class="legend-item"><span class="legend-swatch terminal"></span> Terminal</span>
+</div>
+
+<div class="diagram-container" id="diagram-lifecycle">
+  <h2>Full Lifecycle: Grade 7 → Graduation</h2>
+  <div class="loading">Rendering diagram...</div>
+</div>
+
+<div class="diagram-container" id="diagram-yearly">
+  <h2>Simplified Yearly Cycle (Role View)</h2>
+  <div class="loading">Rendering diagram...</div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    themeVariables: {
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontSize: '14px',
+      primaryColor: '#6366f1',
+      primaryBorderColor: '#4f46e5',
+      primaryTextColor: '#1e293b',
+      lineColor: '#94a3b8',
+      secondaryColor: '#d1fae5',
+      tertiaryColor: '#fef3c7',
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis',
+      padding: 16,
+    },
+    securityLevel: 'loose',
+  });
+
+  const LIFECYCLE_DEF = `
+flowchart TB
+    classDef admin fill:#e0e7ff,stroke:#6366f1,stroke-width:1.5,color:#3730a3
+    classDef teacher fill:#d1fae5,stroke:#10b981,stroke-width:1.5,color:#065f46
+    classDef registrar fill:#fef3c7,stroke:#f59e0b,stroke-width:1.5,color:#92400e
+    classDef system fill:#f3e8ff,stroke:#a855f7,stroke-width:1.5,color:#6b21a8
+    classDef decision fill:#fff7ed,stroke:#f97316,stroke-width:1.5,color:#9a3412
+    classDef terminal fill:#fce7f3,stroke:#ec4899,stroke-width:1.5,color:#831843
+
+    START([Start]) --> SETUP
+
+    subgraph SETUP_PHASE[Phase 0 - Admin Setup]
+        SETUP[Admin creates School Year]:::admin
+        --> SUBJECTS[Admin creates Subjects]:::admin
+        --> SECTIONS[Admin creates Sections and Types]:::admin
+        --> USERS[Admin creates Teacher/Registrar accounts]:::admin
+    end
+
+    USERS --> ENROLL_START
+
+    subgraph ENROLL_PHASE[Phase 1 - Teacher: Enrollment]
+        ENROLL_START{Student type?}:::decision
+
+        ENROLL_START -->|New Student G7| NEW_STU[Teacher fills New Student form<br/>LRN, Name, Grade Level, etc.]:::teacher
+        ENROLL_START -->|Returning G8-G12| RET_STU[Teacher searches LRN<br/>details auto-populate]:::teacher
+        ENROLL_START -->|Balik-Aral| BALIK[Teacher searches LRN<br/>creates fresh record]:::teacher
+
+        NEW_STU --> STRAND{G11+?}
+        STRAND -->|Yes| SELECT_STRAND[Teacher selects Strand/Track<br/>e.g. STEM, ABM, HUMSS, TVL]:::teacher
+        STRAND -->|No| SKIP_STRAND
+
+        SELECT_STRAND --> REQUIREMENTS
+        SKIP_STRAND --> REQUIREMENTS
+        RET_STU --> REQUIREMENTS
+        BALIK --> REQUIREMENTS
+
+        REQUIREMENTS[Teacher toggles submitted requirements]:::teacher
+        --> ENROLL[Teacher clicks ENROLL<br/><b>No section selected</b>]:::teacher
+        --> SYSTEM_ENROLL[System creates enrollment<br/>section_id = NULL<br/>status = enrolled]:::system
+        --> PENDING[Student appears as<br/><b>Pending Section</b>]:::system
+    end
+
+    PENDING --> REG_PHASE
+
+    subgraph REG_PHASE[Phase 2 - Registrar: Section Assignment]
+        REG_VIEW[Registrar opens Section Assignment page]:::registrar
+        --> QUEUE[Sees Pending Section Queue<br/>with all unassigned students]:::registrar
+
+        QUEUE --> ASSIGN_METHOD{Assignment method?}:::decision
+
+        ASSIGN_METHOD -->|Manual| MANUAL[Pick student -> select target section]:::registrar
+        ASSIGN_METHOD -->|Random| RANDOM[Auto-distribute across available sections]:::registrar
+        ASSIGN_METHOD -->|Placement| PLACEMENT[Assign by exam scores<br/>STE / SPFL / SPJ]:::registrar
+        ASSIGN_METHOD -->|Carryover| CARRYOVER[Carry G11 strand to G12 section]:::registrar
+
+        MANUAL --> ASSIGNED
+        RANDOM --> ASSIGNED
+        PLACEMENT --> ASSIGNED
+        CARRYOVER --> ASSIGNED
+
+        ASSIGNED[System updates section_id on enrollment]:::system
+        --> CONFIRM[Student now visible in assigned section]:::system
+    end
+
+    CONFIRM --> GRADE_PHASE
+
+    subgraph GRADE_PHASE[Phase 3 - Teacher: Grade Encoding]
+        TEACH_GRADE[Teacher opens My Students or Grade Management]:::teacher
+        --> SELECT_CLASS[Selects section and student]:::teacher
+        --> ENTER_GRADES[Enters Q1-Q4 grades for each of 12 subjects]:::teacher
+        --> LOCK[Teacher locks grades per subject]:::teacher
+        --> FORMS[Teacher generates School Forms<br/>SF1 - SF5 - SF9 - SF10]:::teacher
+
+        FORMS --> YEAR_END{End of school year?}:::decision
+        YEAR_END -->|Not yet| TEACH_GRADE
+        YEAR_END -->|Yes| PROMOTE_CHECK
+    end
+
+    PROMOTE_CHECK --> PROMOTE_PHASE
+
+    subgraph PROMOTE_PHASE[Phase 4 - Teacher: Promotion / Graduation]
+        GRADE12{Grade level?}:::decision
+
+        GRADE12 -->|G7-G11| PROMOTE[Teacher runs Bulk Promotion<br/>creates enrollment in next SY<br/>updates student grade_level]:::teacher
+        GRADE12 -->|G12| COMPLETER[Teacher clicks<br/><b>Mark as Completers</b>]:::teacher
+
+        PROMOTE --> RET_CHECK{General Average >= 75?}:::decision
+        RET_CHECK -->|Yes| PASS[Promoted to next grade]:::system
+        RET_CHECK -->|No| RETAIN[Retained - stays in same grade]:::system
+
+        PASS --> NEXT_YEAR
+        RETAIN --> NEXT_YEAR
+
+        COMPLETER --> GRAD_SYS[System updates:<br/>enrollment -> completed<br/>student -> graduated]:::system
+        --> GRAD_DONE([🎓 Graduated!]):::terminal
+
+        NEXT_YEAR[Registrar advances to next School Year]:::registrar
+    end
+
+    NEXT_YEAR --> REG_MONITOR
+
+    subgraph REG_MONITOR_PHASE[Phase 5 - Registrar: Monitoring]
+        REG_DASH[Registrar Dashboard<br/>enrollment stats, charts]:::registrar
+        REG_REPORT[Enrollment Report<br/>export CSV / Excel / PDF]:::registrar
+        REG_CERT[Generate Certificates<br/>Enrollment, Good Moral]:::registrar
+        REG_ATRISK[At-Risk Students<br/>read-only view]:::registrar
+    end
+
+    REG_DASH --> REG_REPORT --> REG_CERT --> REG_ATRISK
+
+    REG_ATRISK --> PRIN_PHASE
+
+    subgraph PRIN_PHASE[Phase 6 - Principal: View Only]
+        PRIN_DASH[Principal Dashboard<br/>school-wide overview]:::admin
+        PRIN_ENROLL[Enrollment Figures<br/>per grade, gender breakdown]:::admin
+        PRIN_PROGRESS[Grade Progress<br/>submission completion]:::admin
+        PRIN_PROMO[Promotion Stats]:::admin
+    end
+
+    PRIN_DASH --> PRIN_ENROLL --> PRIN_PROGRESS --> PRIN_PROMO
+
+    PRIN_PROMO --> NEXT_CYCLE{Next School Year?}:::decision
+    NEXT_CYCLE -->|Yes - repeat| ENROLL_START
+    NEXT_CYCLE -->|No - end| FINISH([End]):::terminal
+  `;
+
+  const YEARLY_DEF = `
+flowchart LR
+    classDef admin fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    classDef teacher fill:#d1fae5,stroke:#10b981,color:#065f46
+    classDef registrar fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    classDef system fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+
+    A[👤 Admin Setup]:::admin --> B[🧑‍🏫 Teacher Enroll Student<br/><small>no section</small>]:::teacher
+    B --> C[📋 Registrar Assign Section]:::registrar
+    C --> D[🧑‍🏫 Teacher Encode Grades Q1-Q4]:::teacher
+    D --> E[🧑‍🏫 Teacher Lock Grades]:::teacher
+    E --> F[🧑‍🏫 Teacher Generate Forms<br/>SF1 / SF5 / SF9 / SF10]:::teacher
+    F --> G[⚙️ System Bulk Promotion -> next grade]:::system
+    G -->|Repeat for G8-G12| B
+    G --> H[🎓 Grade 12 -> Graduation]:::system
+  `;
+
+  async function renderAll() {
+    try {
+      const { svg: svgLifecycle } = await mermaid.render('lifecycle-svg', LIFECYCLE_DEF);
+      document.querySelector('#diagram-lifecycle .loading').outerHTML =
+        `<div class="mermaid">${svgLifecycle}</div>`;
+    } catch (e) {
+      document.querySelector('#diagram-lifecycle .loading').innerHTML =
+        `<span style="color:#ef4444">Error rendering: ${e.message}</span>`;
+    }
+
+    try {
+      const { svg: svgYearly } = await mermaid.render('yearly-svg', YEARLY_DEF);
+      document.querySelector('#diagram-yearly .loading').outerHTML =
+        `<div class="mermaid">${svgYearly}</div>`;
+    } catch (e) {
+      document.querySelector('#diagram-yearly .loading').innerHTML =
+        `<span style="color:#ef4444">Error rendering: ${e.message}</span>`;
+    }
+  }
+
+  function downloadSVG(name) {
+    const svg = document.querySelector('#diagram-' + name + ' svg');
+    if (!svg) return;
+    const clone = svg.cloneNode(true);
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name + '.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  renderAll();
+</script>
+</body>
+</html>

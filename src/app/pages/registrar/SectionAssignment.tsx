@@ -286,15 +286,17 @@ export function SectionAssignment() {
     setGenerating(true);
     try {
       const data = await sectioningApi.getCarryOverPreview(carryOverGrade);
-      setCarryOverProposals(data.proposals);
-      setCarryOverSections(data.current_sections);
+      const proposals = data?.proposals ?? [];
+      const currentSections = data?.current_sections ?? [];
+      setCarryOverProposals(proposals);
+      setCarryOverSections(currentSections);
 
       // Track capacity per section across proposals
       const runningCounts = new Map<number, number>();
-      const currentSectionsMap = new Map(data.current_sections.map((s: any) => [s.id, s]));
+      const currentSectionsMap = new Map(currentSections.map((s: any) => [s.id, s]));
 
       // Build preview list from proposals, checking capacity
-      const previewList: PreviewAssignment[] = data.proposals.map((p: CarryOverProposal) => {
+      const previewList: PreviewAssignment[] = proposals.map((p: CarryOverProposal) => {
         const queueStudent = queue.find(q => q.student_id === p.student_id);
         let effectiveSectionId = p.proposed_section_id;
         let effectiveSectionName = p.proposed_section_name;
@@ -304,7 +306,7 @@ export function SectionAssignment() {
           const assigned = runningCounts.get(effectiveSectionId) ?? 0;
           if (sec && sec.current_count + assigned >= sec.capacity) {
             // Section full — try to find another open section for this grade
-            const alt = data.current_sections.find(
+            const alt = currentSections.find(
               (s: any) => s.grade_level === carryOverGrade && s.current_count + (runningCounts.get(s.id) ?? 0) < s.capacity
             );
             effectiveSectionId = alt?.id ?? null;

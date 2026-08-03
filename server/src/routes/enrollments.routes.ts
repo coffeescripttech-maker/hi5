@@ -8,12 +8,16 @@ import {
   updateEnrollment,
   listRequirements,
   updateRequirements,
+  getDashboardStats,
+  batchListRequirements,
 } from "../controllers/enrollments.controller";
 
 const router = Router();
 
 router.use(authenticate);
 
+router.get("/stats", getDashboardStats);
+router.get("/requirements/batch", batchListRequirements);
 router.get("/", listEnrollments);
 router.get("/:id", getEnrollmentById);
 router.post("/", authorize("admin", "teacher", "registrar"), createEnrollment);

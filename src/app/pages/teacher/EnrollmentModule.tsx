@@ -15,7 +15,8 @@ import {
   BookOpen,
   FileText,
   X,
-  UserMinus
+  UserMinus,
+  Lock
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -24,6 +25,7 @@ import {
   CreateStudentPayload
 } from '../../services/students';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { strandTracksApi, StrandTrackRow } from '../../services/strandTracks';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { z } from 'zod';
@@ -195,6 +197,8 @@ export function EnrollmentModule() {
   const [newErrors, setNewErrors] = useState<Record<string, string>>({});
   const [enrolledSectionName, setEnrolledSectionName] = useState('');
   const [program, setProgram] = useState('regular');
+  const [strandTracks, setStrandTracks] = useState<StrandTrackRow[]>([]);
+  const [selectedStrandTrackId, setSelectedStrandTrackId] = useState<number | null>(null);
   const [requirements, setRequirements] = useState<Record<string, boolean>>({
     psa_birth_cert: false,
     previous_grade_card: false,
@@ -235,6 +239,7 @@ export function EnrollmentModule() {
   const [allSections, setAllSections] = useState<SectionRow[]>([]);
   const [allEnrollments, setAllEnrollments] = useState<EnrollmentRow[]>([]);
   const [selectedSYId, setSelectedSYId] = useState<number>(1);
+  const [enrollmentOpen, setEnrollmentOpen] = useState(true);
 
   // Fetch data on mount
   useEffect(() => {
@@ -249,7 +254,10 @@ export function EnrollmentModule() {
         setAllSections(sections);
         setAllEnrollments(enrollments);
         const current = years.find(y => y.is_current === 1);
-        if (current) setSelectedSYId(current.id);
+        if (current) {
+          setSelectedSYId(current.id);
+          setEnrollmentOpen(current.enrollment_open === 1);
+        }
       })
       .catch(err => {
         showToast(
@@ -258,6 +266,17 @@ export function EnrollmentModule() {
         );
       });
   }, []);
+
+  // Fetch strand tracks when new grade or ret grade changes
+  useEffect(() => {
+    const grade = newGrade || retGrade;
+    if (!grade) return;
+    setSelectedStrandTrackId(null);
+    const trackType = grade >= 11 ? 'shs_strand' : 'tle';
+    strandTracksApi.list({ track_type: trackType, grade_level: grade })
+      .then(setStrandTracks)
+      .catch(() => setStrandTracks([]));
+  }, [newGrade, retGrade]);
 
   // Close suggestions on click outside
   useEffect(() => {
@@ -456,6 +475,8 @@ export function EnrollmentModule() {
     setNewErrors({});
     setEnrolledSectionName('');
     setProgram('regular');
+    setSelectedStrandTrackId(null);
+    setStrandTracks([]);
     setRequirements({
       psa_birth_cert: false,
       previous_grade_card: false,
@@ -528,6 +549,7 @@ export function EnrollmentModule() {
         school_year_id: selectedSYId,
         enrollment_date: new Date().toISOString().split('T')[0],
         program: program,
+        strand_track_id: selectedStrandTrackId || undefined,
         requirements: REQUIREMENTS_LIST.map(r => ({
           requirement_key: r.key,
           label: r.label,
@@ -576,7 +598,8 @@ export function EnrollmentModule() {
         student_id: foundStudent.id,
         school_year_id: selectedSYId,
         enrollment_date: new Date().toISOString().split('T')[0],
-        program: program
+        program: program,
+        strand_track_id: selectedStrandTrackId || undefined
       });
       setEnrolledSectionName('Pending Section');
       setEnrolledRet(true);
@@ -655,11 +678,28 @@ export function EnrollmentModule() {
           </div>
         </div>
 
+        {/* Enrollment closed banner */}
+        {!enrollmentOpen && (
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl p-5 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+              <Lock size={20} className="text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-red-800 text-sm">Enrollment is currently CLOSED</p>
+              <p className="text-red-600 text-xs mt-0.5 leading-relaxed">
+                New enrollments and returning student enrollments are disabled while enrollment is closed.
+                You may still process student drop/transfer requests.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Flow cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => setFlow('new')}
-            className="group bg-emerald-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-emerald-200 transition-all duration-200 p-6 text-left relative overflow-hidden">
+            disabled={!enrollmentOpen}
+            className="group bg-emerald-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-emerald-200 transition-all duration-200 p-6 text-left relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:-translate-y-0 disabled:hover:border-gray-200/60">
             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-emerald-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
             <div className="flex items-start justify-between mb-4">
               <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors ring-1 ring-emerald-200/50">
@@ -698,7 +738,8 @@ export function EnrollmentModule() {
 
           <button
             onClick={() => setFlow('returning')}
-            className="group bg-blue-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 transition-all duration-200 p-6 text-left relative overflow-hidden">
+            disabled={!enrollmentOpen}
+            className="group bg-blue-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 transition-all duration-200 p-6 text-left relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:-translate-y-0 disabled:hover:border-gray-200/60">
             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
             <div className="flex items-start justify-between mb-4">
               <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors ring-1 ring-blue-200/50">
@@ -1288,6 +1329,42 @@ export function EnrollmentModule() {
                   })}
                 </div>
               </div>
+
+              {/* Strand/Track selector — shown when tracks are available for the selected grade */}
+              {strandTracks.length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
+                    {newGrade && newGrade >= 11 ? 'SHS Strand *' : 'TLE Specialization (optional)'}
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {strandTracks.map(t => {
+                      const active = selectedStrandTrackId === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => setSelectedStrandTrackId(active ? null : t.id)}
+                          className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                            active
+                              ? 'border-emerald-400 bg-emerald-50'
+                              : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
+                          }`}>
+                          <div className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
+                            active ? 'border-emerald-500' : 'border-gray-300'
+                          }`}>
+                            {active && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
+                              {t.name}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">{t.code}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1981,6 +2058,42 @@ export function EnrollmentModule() {
                   })}
                 </div>
               </div>
+
+              {/* Strand/Track selector for returning student */}
+              {strandTracks.length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
+                    {retGrade && retGrade >= 11 ? 'SHS Strand *' : 'TLE Specialization (optional)'}
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {strandTracks.map(t => {
+                      const active = selectedStrandTrackId === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => setSelectedStrandTrackId(active ? null : t.id)}
+                          className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                            active
+                              ? 'border-emerald-400 bg-emerald-50'
+                              : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
+                          }`}>
+                          <div className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
+                            active ? 'border-emerald-500' : 'border-gray-300'
+                          }`}>
+                            {active && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
+                              {t.name}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">{t.code}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -8,7 +8,7 @@ export interface UserRow {
   username: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar";
+  role: "admin" | "teacher" | "registrar" | "principal";
   status: "active" | "idle" | "inactive";
   phone: string | null;
   address: string | null;
@@ -26,7 +26,7 @@ export interface CreateUserPayload {
   password: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar";
+  role: "admin" | "teacher" | "registrar" | "principal";
   phone?: string;
   address?: string;
   employee_id?: string;

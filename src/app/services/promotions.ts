@@ -38,6 +38,11 @@ export interface CreatePromotionPayload {
   to_grade_level: number;
 }
 
+export interface CompleteSectionPayload {
+  section_id: number;
+  school_year_id: number;
+}
+
 export const promotionsApi = {
   list: () => api.get<PromotionRow[]>("/promotions"),
   get: (id: number) =>
@@ -46,4 +51,8 @@ export const promotionsApi = {
     ),
   create: (data: CreatePromotionPayload) =>
     api.post<PromotionRow>("/promotions", data),
+  completeSection: (data: CompleteSectionPayload) =>
+    api.post<{ message: string; promotion_id: number; section_name: string; student_count: number; students: any[] }>(
+      "/promotions/complete", data
+    ),
 };

@@ -786,7 +786,10 @@ export function SchoolForms() {
                           'Mathematics',
                           'Science',
                           'Araling Panlipunan',
-                          'MAPEH',
+                          'Music',
+                          'Arts',
+                          'Physical Education',
+                          'Health',
                           'TLE/EPP',
                           'Values Education',
                           'ESP'
@@ -987,7 +990,10 @@ export function SchoolForms() {
                           'Mathematics',
                           'Science',
                           'Araling Panlipunan',
-                          'MAPEH',
+                          'Music',
+                          'Arts',
+                          'Physical Education',
+                          'Health',
                           'TLE/EPP',
                           'Values Education',
                           'ESP'

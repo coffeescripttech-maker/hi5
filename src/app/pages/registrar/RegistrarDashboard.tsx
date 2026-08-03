@@ -2,12 +2,28 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Users, Layers, TrendingUp, FileText, ArrowUpRight, GraduationCap,
-  BarChart3, Activity, BookOpen, School
+  BarChart3, Activity, BookOpen, School, UserCheck, HeartHandshake
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
+import { enrollmentsApi, EnrollmentRow, DashboardStats } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { useApp } from "../../context/AppContext";
+
+const CLASSIF_COLORS: Record<string, string> = {
+  "4ps": "#6366f1",
+  "pwd": "#8b5cf6",
+  "transferee": "#06b6d4",
+  "non_reader": "#ef4444",
+  "regular": "#9ca3af",
+};
+
+const CLASSIF_LABELS: Record<string, string> = {
+  "4ps": "4Ps",
+  "pwd": "PWD",
+  "transferee": "Transferee",
+  "non_reader": "Non-Reader",
+  "regular": "Regular",
+};
 
 export function RegistrarDashboard() {
   const navigate = useNavigate();
@@ -15,14 +31,17 @@ export function RegistrarDashboard() {
   const [loading, setLoading] = useState(true);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
     Promise.all([
       enrollmentsApi.list(),
       sectionsApi.list(),
-    ]).then(([enr, sec]) => {
+      enrollmentsApi.stats(),
+    ]).then(([enr, sec, st]) => {
       setEnrollments(enr);
       setSections(sec);
+      setStats(st);
     }).catch(err => {
       showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
     }).finally(() => setLoading(false));
@@ -40,18 +59,22 @@ export function RegistrarDashboard() {
   const totalCapacity = sections.reduce((sum, s) => sum + s.capacity, 0);
   const overallPercent = totalCapacity > 0 ? Math.round((totalEnrolled / totalCapacity) * 100) : 0;
 
+  const totalMale = stats?.gender_totals.male ?? 0;
+  const totalFemale = stats?.gender_totals.female ?? 0;
+  const genderTotal = totalMale + totalFemale;
+  const malePct = genderTotal > 0 ? Math.round((totalMale / genderTotal) * 100) : 0;
+  const femalePct = genderTotal > 0 ? Math.round((totalFemale / genderTotal) * 100) : 0;
+
   const sectionPopData = sections
     .sort((a, b) => b.current_count - a.current_count)
     .slice(0, 5)
     .map(s => ({ name: s.name, value: s.current_count }));
 
-  const classifData = [
-    { name: "4Ps", value: 142, color: "#6366f1" },
-    { name: "PWD", value: 38, color: "#8b5cf6" },
-    { name: "Transferee", value: 24, color: "#06b6d4" },
-    { name: "Non-Reader", value: 11, color: "#ef4444" },
-    { name: "Regular", value: 328, color: "#9ca3af" },
-  ];
+  const classifData = (stats?.classifications ?? []).map(c => ({
+    name: CLASSIF_LABELS[c.classification] || c.classification,
+    value: c.count,
+    color: CLASSIF_COLORS[c.classification] || "#9ca3af",
+  }));
 
   if (loading) {
     return (
@@ -130,13 +153,31 @@ export function RegistrarDashboard() {
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Promotion Rate</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <TrendingUp size={14} className="text-emerald-600" />
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Gender Breakdown</span>
+            <div className="w-8 h-8 rounded-xl bg-pink-100 flex items-center justify-center">
+              <UserCheck size={14} className="text-pink-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">94.2%</p>
-          <p className="text-xs text-gray-400 mt-1">From previous school year</p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" />
+              <div>
+                <p className="text-lg font-bold text-gray-900">{totalMale}</p>
+                <p className="text-[11px] text-gray-400">Male ({malePct}%)</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-pink-400 inline-block" />
+              <div>
+                <p className="text-lg font-bold text-gray-900">{totalFemale}</p>
+                <p className="text-[11px] text-gray-400">Female ({femalePct}%)</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-0.5 mt-3 h-2 rounded-full overflow-hidden bg-gray-100">
+            <div className="bg-indigo-500 transition-all" style={{ width: `${malePct}%` }} />
+            <div className="bg-pink-400 transition-all" style={{ width: `${femalePct}%` }} />
+          </div>
         </div>
       </div>
 

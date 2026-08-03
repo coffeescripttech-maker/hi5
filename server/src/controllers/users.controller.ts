@@ -9,7 +9,7 @@ interface UserRow extends RowDataPacket {
   username: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar";
+  role: "admin" | "teacher" | "registrar" | "principal";
   phone: string | null;
   address: string | null;
   profile_photo_url: string | null;
@@ -76,8 +76,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    if (!["admin", "teacher", "registrar"].includes(role)) {
-      res.status(400).json({ error: "Invalid role. Must be admin, teacher, or registrar." });
+    if (!["admin", "teacher", "registrar", "principal"].includes(role)) {
+      res.status(400).json({ error: "Invalid role. Must be admin, teacher, registrar, or principal." });
       return;
     }
 
@@ -135,8 +135,8 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     if (name !== undefined) { fields.push("name = ?"); params.push(name); }
     if (email !== undefined) { fields.push("email = ?"); params.push(email); }
     if (role !== undefined) {
-      if (!["admin", "teacher", "registrar"].includes(role)) {
-        res.status(400).json({ error: "Invalid role. Must be admin, teacher, or registrar." });
+      if (!["admin", "teacher", "registrar", "principal"].includes(role)) {
+        res.status(400).json({ error: "Invalid role. Must be admin, teacher, registrar, or principal." });
         return;
       }
       fields.push("role = ?"); params.push(role);

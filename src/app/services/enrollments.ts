@@ -10,11 +10,14 @@ export interface EnrollmentRow {
   student_name: string;
   lrn: string;
   grade_level: number;
+  sex?: string;
+  classifications?: string;
   section_id: number | null;
   section_name: string | null;
   school_year_id: number;
   sy_label: string;
   program: string;
+  strand_track_id: number | null;
   enrollment_date: string;
   enrolled_by: number;
   enrolled_by_name: string;
@@ -32,6 +35,7 @@ export interface CreateEnrollmentPayload {
   school_year_id: number;
   enrollment_date: string;
   program?: string;
+  strand_track_id?: number;
   remarks?: string;
   requirements?: {
     requirement_key: string;
@@ -59,6 +63,46 @@ export interface EnrollmentRequirementRow {
   updated_at: string;
 }
 
+export interface GenderBreakdown {
+  grade: string;
+  male: number;
+  female: number;
+  total: number;
+}
+
+export interface GenderTotals {
+  male: number;
+  female: number;
+}
+
+export interface ClassificationStat {
+  classification: string;
+  count: number;
+}
+
+export interface DashboardStats {
+  gender_by_grade: GenderBreakdown[];
+  gender_totals: GenderTotals;
+  classifications: ClassificationStat[];
+}
+
+export interface StudentRequirement {
+  id: number;
+  requirement_key: string;
+  label: string;
+  is_submitted: boolean;
+  submitted_at: string | null;
+}
+
+export interface StudentWithRequirements {
+  student_id: number;
+  student_name: string;
+  display_id: string;
+  requirements: StudentRequirement[];
+  submitted_count: number;
+  total_count: number;
+}
+
 export const enrollmentsApi = {
   list: () => api.get<EnrollmentRow[]>('/enrollments'),
   get: (id: number) => api.get<EnrollmentRow>(`/enrollments/${id}`),
@@ -71,6 +115,10 @@ export const enrollmentsApi = {
     api.get<EnrollmentRequirementRow[]>(
       `/enrollments/${enrollmentId}/requirements`
     ),
+  batchRequirements: (sectionId: number, schoolYearId?: number) =>
+    api.get<StudentWithRequirements[]>(
+      `/enrollments/requirements/batch?section_id=${sectionId}${schoolYearId ? `&school_year_id=${schoolYearId}` : ''}`
+    ),
   updateRequirements: (
     enrollmentId: number,
     data: { requirements: { requirement_key: string; is_submitted: boolean }[] }
@@ -78,5 +126,7 @@ export const enrollmentsApi = {
     api.put<EnrollmentRequirementRow[]>(
       `/enrollments/${enrollmentId}/requirements`,
       data
-    )
+    ),
+  stats: (schoolYearId?: number) =>
+    api.get<DashboardStats>(`/enrollments/stats${schoolYearId ? `?school_year_id=${schoolYearId}` : ''}`),
 };
