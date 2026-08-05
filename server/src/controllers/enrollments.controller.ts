@@ -73,7 +73,7 @@ export async function listEnrollments(req: Request, res: Response): Promise<void
               FROM student_classifications sc
               WHERE sc.student_id = s.id AND sc.school_year_id = COALESCE(e.school_year_id, (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1))
              ) AS classifications,
-             sec.name AS section_name, sec.section_type,
+             sec.name AS section_name, sec.section_type, sec.grade_level AS section_grade_level,
              u.name AS enrolled_by_name, sy.sy_label
       FROM enrollments e
       JOIN students s ON e.student_id = s.id

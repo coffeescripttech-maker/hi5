@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { studentsApi, StudentDetail } from "../services/students";
 import { enrollmentsApi, EnrollmentRow } from "../services/enrollments";
+import { gradesApi, GradeHistoryYear } from "../services/grades";
 import { useApp } from "../context/AppContext";
 
 const TABS = [
@@ -42,6 +43,7 @@ export function StudentProfile() {
   const [activeTab, setActiveTab] = useState("personal");
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
+  const [gradeHistory, setGradeHistory] = useState<GradeHistoryYear[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,9 +58,11 @@ export function StudentProfile() {
     Promise.all([
       studentsApi.get(studentId),
       enrollmentsApi.list(),
-    ]).then(([stud, enrs]) => {
+      gradesApi.history(studentId),
+    ]).then(([stud, enrs, hist]) => {
       setStudent(stud);
       setEnrollments(enrs.filter(e => e.student_id === studentId));
+      setGradeHistory(hist.school_years);
     }).catch(err => {
       showToast("error", "Failed to load student: " + (err.detail?.error || err.message));
       navigate(-1);
@@ -68,6 +72,16 @@ export function StudentProfile() {
   // ── helpers ──
   const getInitials = (name: string): string =>
     name.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?";
+
+  const getDescriptor = (val: number | null | undefined): { label: string; color: string } => {
+    const n = typeof val === "string" ? parseFloat(val) : val;
+    if (n == null || isNaN(n)) return { label: "—", color: "text-gray-400" };
+    if (n >= 90) return { label: "Outstanding", color: "text-green-600" };
+    if (n >= 85) return { label: "Very Satisfactory", color: "text-blue-600" };
+    if (n >= 80) return { label: "Satisfactory", color: "text-teal-600" };
+    if (n >= 75) return { label: "Fairly Satisfactory", color: "text-yellow-600" };
+    return { label: "Did Not Meet Expectations", color: "text-red-500" };
+  };
 
   const statusBadge = student
     ? STATUS_BADGE[student.status] || {
@@ -398,7 +412,7 @@ export function StudentProfile() {
                             } hover:bg-emerald-50/40 hover:shadow-xs`}
                           >
                             <td className="px-5 py-4 font-semibold text-gray-800 text-sm">{e.sy_label}</td>
-                            <td className="px-5 py-4 text-gray-600 text-sm">Grade {e.grade_level}</td>
+                            <td className="px-5 py-4 text-gray-600 text-sm">Grade {e.section_grade_level ?? e.grade_level}</td>
                             <td className="px-5 py-4 text-gray-600 text-sm font-medium">{e.section_name}</td>
                             <td className="px-5 py-4">
                               <span className="text-[11px] font-medium text-gray-500 capitalize bg-gray-100 px-2 py-0.5 rounded-md">{e.program || "regular"}</span>
@@ -431,18 +445,94 @@ export function StudentProfile() {
                   <h4 className="text-sm font-bold text-gray-800">Grade History</h4>
                   <p className="text-[10px] text-gray-400 font-medium">Academic performance records per subject</p>
                 </div>
+                <span className="ml-auto bg-amber-50 text-amber-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-amber-100 shadow-xs">
+                  {gradeHistory.length} school {gradeHistory.length !== 1 ? "years" : "year"}
+                </span>
               </div>
 
-              <div className="text-center py-16 bg-gradient-to-b from-gray-50/80 to-white rounded-xl border border-gray-100">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <BarChart2 size={32} className="text-amber-400" />
+              {gradeHistory.length === 0 ? (
+                <div className="text-center py-16 bg-gradient-to-b from-gray-50/80 to-white rounded-xl border border-gray-100">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4 shadow-sm">
+                    <BarChart2 size={32} className="text-amber-400" />
+                  </div>
+                  <p className="text-gray-500 text-sm font-semibold mb-1">No Grade Records Yet</p>
+                  <p className="text-gray-400 text-xs max-w-sm mx-auto leading-relaxed">
+                    Grade records will appear here once teachers encode them in the Grade Management module.
+                    Each subject will display the final rating, equivalent descriptor, and school year.
+                  </p>
                 </div>
-                <p className="text-gray-500 text-sm font-semibold mb-1">No Grade Records Yet</p>
-                <p className="text-gray-400 text-xs max-w-sm mx-auto leading-relaxed">
-                  Grade records will appear here once teachers encode them in the Grade Management module.
-                  Each subject will display the final rating, equivalent descriptor, and school year.
-                </p>
-              </div>
+              ) : (
+                <div className="space-y-6">
+                  {gradeHistory.map(sy => {
+                    const syDesc = getDescriptor(sy.general_average);
+                    return (
+                      <div key={sy.school_year_id} className="rounded-xl border border-gray-100 overflow-hidden">
+                        {/* School year header */}
+                        <div className="flex flex-wrap items-center gap-3 px-5 py-4 bg-gradient-to-r from-amber-50/80 to-yellow-50/40 border-b border-gray-100">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center flex-shrink-0">
+                            <Calendar size={16} className="text-amber-700" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900 text-sm">SY {sy.sy_label}</p>
+                            <p className="text-[11px] text-gray-500 font-medium">
+                              {sy.grade_level != null ? `Grade ${sy.grade_level}` : ""}
+                              {sy.section_name ? ` · ${sy.section_name}` : ""}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.05em]">General Average</p>
+                            {sy.general_average != null ? (
+                              <p className={`text-base font-bold ${syDesc.color}`}>
+                                {sy.general_average}
+                                <span className="block text-[10px] font-medium">{syDesc.label}</span>
+                              </p>
+                            ) : (
+                              <p className="text-base font-bold text-gray-400">—</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {sy.subjects.length === 0 ? (
+                          <p className="text-center text-gray-400 text-sm py-8">
+                            No grades recorded for this school year yet.
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[600px]">
+                              <thead>
+                                <tr className="bg-gray-50/80">
+                                  {["Subject", "Q1", "Q2", "Q3", "Q4", "Final Rating", "Descriptor"].map(h => (
+                                    <th key={h} className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">
+                                      {h}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {sy.subjects.map(sub => {
+                                  const desc = getDescriptor(sub.final_average);
+                                  return (
+                                    <tr key={`${sy.school_year_id}-${sub.subject_id}`} className="transition-colors hover:bg-amber-50/30">
+                                      <td className="px-4 py-3 font-semibold text-gray-800 text-sm whitespace-nowrap">{sub.subject_name}</td>
+                                      {[sub.q1, sub.q2, sub.q3, sub.q4].map((q, qi) => (
+                                        <td key={qi} className="px-4 py-3 text-gray-600 text-sm text-center">{q ?? "—"}</td>
+                                      ))}
+                                      <td className={`px-4 py-3 text-sm font-bold text-center ${sub.final_average != null ? desc.color : "text-gray-400"}`}>
+                                        {sub.final_average ?? "—"}
+                                      </td>
+                                      <td className={`px-4 py-3 text-sm font-medium ${desc.color}`}>{desc.label}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -542,7 +632,7 @@ export function StudentProfile() {
                                   </span>
                                   <span className="inline-flex items-center gap-1.5">
                                     <GraduationCap size={12} className="text-gray-400" />
-                                    Grade {e.grade_level}
+                                    Grade {e.section_grade_level ?? e.grade_level}
                                   </span>
                                   <span className="inline-flex items-center gap-1.5">
                                     <Clock size={12} className="text-gray-400" />

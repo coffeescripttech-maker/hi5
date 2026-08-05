@@ -34,7 +34,8 @@ import {
   UsersRound,
   TrendingUp,
   PieChart,
-  ClipboardList
+  ClipboardList,
+  MessageSquare
 } from 'lucide-react';
 import logoImage from '../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png';
 
@@ -242,6 +243,11 @@ const registrarNav: NavGroup[] = [
         label: 'Grade Distribution',
         icon: BarChart2,
         path: '/registrar/grade-distribution'
+      },
+      {
+        label: 'Grade Corrections',
+        icon: MessageSquare,
+        path: '/registrar/grade-corrections'
       },
       {
         label: 'Document Completion',
@@ -613,7 +619,7 @@ export function Layout() {
                 />
               </div>
               <div>
-                <p className="text-white font-bold text-sm leading-tight">
+                <p className="text-white font-bold font-heading text-sm leading-tight">
                   Hi5 Portal
                 </p>
                 <p className="text-blue-200 text-xs leading-tight">

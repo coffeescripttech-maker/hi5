@@ -31,6 +31,7 @@ import { EnrollmentReport } from "./pages/registrar/EnrollmentReport";
 import { PromotionRecords } from "./pages/registrar/PromotionRecords";
 import { RegistrarAtRisk } from "./pages/registrar/RegistrarAtRisk";
 import { GradeDistribution } from "./pages/registrar/GradeDistribution";
+import { GradeCorrections } from "./pages/registrar/GradeCorrections";
 import { DocumentCompletion } from "./pages/registrar/DocumentCompletion";
 import { RegistrarProfile } from "./pages/registrar/RegistrarProfile";
 import { SubjectView } from "./pages/registrar/SubjectView";
@@ -157,6 +158,7 @@ export const router = createBrowserRouter([
       { path: "promotions", Component: PromotionRecords },
       { path: "atrisk", Component: RegistrarAtRisk },
       { path: "grade-distribution", Component: GradeDistribution },
+      { path: "grade-corrections", Component: GradeCorrections },
       { path: "document-completion", Component: DocumentCompletion },
       { path: "profile", Component: RegistrarProfile },
       { path: "sections", Component: SectionCreation },

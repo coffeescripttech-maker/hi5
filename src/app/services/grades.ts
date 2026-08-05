@@ -35,9 +35,11 @@ export interface GradeLockPayload {
 
 export interface CorrectionRequestPayload {
   student_id: number;
-  subject_id: number;
+  /** null = all subjects */
+  subject_id: number | null;
   school_year_id: number;
-  quarter: number;
+  /** null = all quarters */
+  quarter: number | null;
   justification: string;
 }
 
@@ -45,15 +47,18 @@ export interface CorrectionRequestRow {
   id: number;
   student_id: number;
   student_name: string;
-  subject_id: number;
+  subject_id: number | null;
   subject_name: string;
   school_year_id: number;
-  quarter: number;
+  sy_label: string | null;
+  /** null = all quarters */
+  quarter: number | null;
   requested_by: number;
   requested_by_name: string;
   justification: string;
   status: "pending" | "approved" | "rejected";
   reviewed_by: number | null;
+  reviewed_by_name: string | null;
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -78,6 +83,31 @@ export interface GradeDistribution {
   total_students: number;
   overall_pass_rate: number;
   subjects: SubjectDistribution[];
+}
+
+export interface GradeHistorySubject {
+  subject_id: number;
+  subject_name: string;
+  subject_type: string;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  q4: number | null;
+  final_average: number | null;
+}
+
+export interface GradeHistoryYear {
+  school_year_id: number;
+  sy_label: string;
+  grade_level: number | null;
+  section_name: string | null;
+  general_average: number | null;
+  subjects: GradeHistorySubject[];
+}
+
+export interface GradeHistory {
+  student_id: number;
+  school_years: GradeHistoryYear[];
 }
 
 export interface SectionGradeSubmission {
@@ -126,6 +156,8 @@ export const gradesApi = {
     api.get<CorrectionRequestRow[]>("/grades/corrections"),
   requestCorrection: (data: CorrectionRequestPayload) =>
     api.post<CorrectionRequestRow>("/grades/corrections", data),
+  history: (studentId: number) =>
+    api.get<GradeHistory>(`/grades/history?student_id=${studentId}`),
   reviewCorrection: (id: number, status: "approved" | "rejected") =>
     api.put<CorrectionRequestRow>(`/grades/corrections/${id}`, { status }),
   getDistribution: (params?: { school_year_id?: number; grade_level?: number; section_id?: number }) => {

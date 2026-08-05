@@ -10,6 +10,8 @@ export interface EnrollmentRow {
   student_name: string;
   lrn: string;
   grade_level: number;
+  /** The section's grade level for that school year (null if pending/unassigned) */
+  section_grade_level: number | null;
   sex?: string;
   classifications?: string;
   section_id: number | null;

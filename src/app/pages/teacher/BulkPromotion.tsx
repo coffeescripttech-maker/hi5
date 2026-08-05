@@ -39,6 +39,22 @@ export function BulkPromotion() {
   const toGrade = selectedSection ? Math.min(selectedSection.grade_level + 1, 12) : null;
   const isCompleters = selectedSection?.grade_level === 12;
 
+  // Outcome breakdown for the success screen — the promotion run records every
+  // student, but only complete & passing students actually move to the next grade.
+  const successOutcome = (() => {
+    const students = successData?.students ?? [];
+    const promoted = students.filter((s: any) => s.grade_complete !== false && !s.is_retained).length;
+    const retained = students.filter((s: any) => s.is_retained).length;
+    const incomplete = students.filter((s: any) => s.grade_complete === false).length;
+    const total = students.length || successData?.student_count || 0;
+    const breakdown = [
+      ...(promoted > 0 ? [`${promoted} promoted`] : []),
+      ...(retained > 0 ? [`${retained} retained`] : []),
+      ...(incomplete > 0 ? [`${incomplete} incomplete`] : []),
+    ].join(", ");
+    return { promoted, retained, incomplete, total, breakdown };
+  })();
+
   const handlePromote = async () => {
     if (!selectedSection) return;
     if (!isCompleters && !toGrade) return;
@@ -261,7 +277,8 @@ export function BulkPromotion() {
               ) : (
                 <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2.5">
                   <AlertTriangle size={13} className="flex-shrink-0" />
-                  Students with general average below 75 will be automatically retained and excluded from this promotion.
+                  Students are promoted only if every subject has all 4 quarters of grades. An average below 75 means
+                  retention; incomplete grades hold a student back until their record is complete.
                 </div>
               )}
             </div>
@@ -477,21 +494,66 @@ export function BulkPromotion() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center animate-in zoom-in-95">
             <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center mx-auto mb-4 shadow-sm ${
-              isCompleters ? "from-indigo-100 to-purple-100" : "from-green-100 to-emerald-100"
+              isCompleters
+                ? "from-indigo-100 to-purple-100"
+                : successOutcome.promoted > 0
+                  ? "from-green-100 to-emerald-100"
+                  : "from-amber-100 to-yellow-100"
             }`}>
-              <CheckCircle size={32} className={isCompleters ? "text-indigo-600" : "text-green-600"} />
+              {isCompleters || successOutcome.promoted > 0 ? (
+                <CheckCircle size={32} className={isCompleters ? "text-indigo-600" : "text-green-600"} />
+              ) : (
+                <AlertTriangle size={32} className="text-amber-600" />
+              )}
             </div>
-            <h3 className="font-bold text-gray-900 text-lg mb-1">{isCompleters ? "Completers Marked Successfully!" : "Promotion Successful!"}</h3>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">
+              {isCompleters
+                ? "Completers Marked Successfully!"
+                : successOutcome.promoted === successOutcome.total && successOutcome.total > 0
+                  ? "Promotion Successful!"
+                  : successOutcome.promoted > 0
+                    ? "Promotion Completed"
+                    : "No Students Promoted"}
+            </h3>
             {isCompleters ? (
               <p className="text-gray-500 text-sm mb-5">
                 <strong className="text-gray-800">{successData.student_count} students</strong> from <strong>{successData.section_name}</strong>
                 {" "}have been marked as <strong className="text-indigo-700">Completed / Graduated</strong>.
               </p>
             ) : (
-              <p className="text-gray-500 text-sm mb-5">
-                <strong className="text-gray-800">{successData.student_count} students</strong> from <strong>{successData.section_name}</strong>
-                {" "}have been promoted to <strong className="text-emerald-700">Grade {successData.to_grade_level}</strong>.
-              </p>
+              <>
+                <p className="text-gray-500 text-sm mb-3">
+                  <strong className="text-gray-800">{successOutcome.total} {successOutcome.total === 1 ? "student" : "students"}</strong>
+                  {" "}from <strong>{successData.section_name || successData.from_section}</strong>
+                  {successOutcome.promoted === successOutcome.total && successOutcome.total > 0 ? (
+                    <>
+                      {" "}have been promoted to <strong className="text-emerald-700">Grade {successData.to_grade_level || successData.to_grade}</strong>.
+                    </>
+                  ) : (
+                    <>
+                      {" "}{successOutcome.total === 1 ? "was" : "were"} evaluated for{" "}
+                      <strong className="text-emerald-700">Grade {successData.to_grade_level || successData.to_grade}</strong>:
+                      <strong className="text-gray-800"> {successOutcome.breakdown}.</strong>
+                    </>
+                  )}
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 mb-5">
+                  <span className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${successOutcome.promoted > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-400 border-gray-200"}`}>
+                    {successOutcome.promoted} Promoted
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-semibold">
+                    {successOutcome.retained} Retained
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">
+                    {successOutcome.incomplete} Incomplete
+                  </span>
+                </div>
+                {successOutcome.promoted === 0 && successOutcome.incomplete > 0 && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2 mb-5">
+                    Incomplete students stay in their current grade until all 4 quarters of grades are entered.
+                  </p>
+                )}
+              </>
             )}
 
             <div className={`rounded-xl p-4 text-xs text-left mb-5 ${

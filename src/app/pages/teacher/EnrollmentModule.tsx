@@ -10,8 +10,12 @@ import {
   CheckCircle,
   ArrowLeft,
   User,
+  Users,
+  UserX,
   MapPin,
   Phone,
+  Clock,
+  CalendarDays,
   BookOpen,
   FileText,
   X,
@@ -239,6 +243,7 @@ export function EnrollmentModule() {
   const [allSections, setAllSections] = useState<SectionRow[]>([]);
   const [allEnrollments, setAllEnrollments] = useState<EnrollmentRow[]>([]);
   const [selectedSYId, setSelectedSYId] = useState<number>(1);
+  const [currentSYLabel, setCurrentSYLabel] = useState('');
   const [enrollmentOpen, setEnrollmentOpen] = useState(true);
 
   // Fetch data on mount
@@ -256,6 +261,7 @@ export function EnrollmentModule() {
         const current = years.find(y => y.is_current === 1);
         if (current) {
           setSelectedSYId(current.id);
+          setCurrentSYLabel(current.sy_label);
           setEnrollmentOpen(current.enrollment_open === 1);
         }
       })
@@ -440,6 +446,9 @@ export function EnrollmentModule() {
         setFoundStudent(students[0]);
         setNotFound(false);
         setRetStep(2);
+        // Clear any grade picked for a previously searched student so the
+        // validation for the new student always starts from a clean slate.
+        setRetGrade(null);
       } else {
         setNotFound(true);
       }
@@ -448,9 +457,65 @@ export function EnrollmentModule() {
     }
   };
 
+  // Grade the student completed before this enrollment — shown as "Previous Grade"
+  // on returning enrollment. students.grade_level reflects the CURRENT grade (e.g. 8
+  // after promotion), so derive the completed grade from the student's enrollment
+  // history and the grade level of the section they were in:
+  //   1. the most recent enrollment in a PRIOR school year (normal re-enrollment), or
+  //   2. the latest enrollment's section grade when it lags the current grade level
+  //      (promotion recorded within the same school year), or
+  //   3. the student's current grade level as a last resort.
+  const prevGradeLevel = (() => {
+    if (!foundStudent) return null;
+    const sectionGrade = (enr: EnrollmentRow) =>
+      allSections.find(s => s.id === enr.section_id)?.grade_level;
+    const sorted = [...allEnrollments]
+      .filter(e => e.student_id === foundStudent.id)
+      .sort((a, b) => b.school_year_id - a.school_year_id || b.id - a.id);
+    const prior = sorted.find(e => e.school_year_id !== selectedSYId);
+    if (prior) {
+      const g = sectionGrade(prior);
+      if (g) return g;
+    }
+    const latest = sorted[0];
+    if (latest) {
+      const g = sectionGrade(latest);
+      if (g && g < foundStudent.grade_level) return g;
+    }
+    return foundStudent.grade_level;
+  })();
+
+  // Data-integrity guard for the returning flow's grade selection: a student who
+  // completed Grade N may only be enrolled in Grade N (retained/repeating) or Grade
+  // N+1 (the normal next level) — never a grade they skipped or moved back to.
+  const allowedRetGrades = (() => {
+    if (prevGradeLevel == null) return GRADE_LEVELS;
+    const allowed = new Set<number>();
+    if (prevGradeLevel >= 7 && prevGradeLevel <= 12) allowed.add(prevGradeLevel); // retained / repeating
+    if (prevGradeLevel >= 7 && prevGradeLevel < 12) allowed.add(prevGradeLevel + 1); // next level
+    return GRADE_LEVELS.filter(g => allowed.has(g));
+  })();
+  const recommendedRetGrade =
+    prevGradeLevel != null && prevGradeLevel < 12 ? prevGradeLevel + 1 : null;
+  const completedGrade12 = prevGradeLevel === 12;
+
+  // A student can only have one enrollment per school year (DB unique key). If they
+  // already have one in the school year this flow targets (the current SY), the
+  // confirm step would fail with a duplicate-enrollment error — surface that early
+  // with guidance instead of letting the API throw a raw error.
+  const alreadyEnrolledThisSY =
+    foundStudent != null &&
+    allEnrollments.some(
+      e => e.student_id === foundStudent.id && e.school_year_id === selectedSYId
+    );
+
   const handleRetNext = () => {
-    if (retStep === 3 && retGrade) setRetStep(4);
-    else if (retStep < 4) setRetStep((retStep + 1) as RetStep);
+    if (retStep === 3) {
+      // Block advancing unless a grade that is valid for this student is selected
+      if (retGrade != null && allowedRetGrades.includes(retGrade)) setRetStep(4);
+      return;
+    }
+    if (retStep < 4) setRetStep((retStep + 1) as RetStep);
   };
 
   const resetAll = () => {
@@ -587,6 +652,24 @@ export function EnrollmentModule() {
 
   const handleConfirmReturning = async () => {
     if (!foundStudent || !retGrade) return;
+    // A student can only be enrolled once per school year — the returned student
+    // must be moved into the NEXT school year, not re-enrolled in the current one.
+    if (alreadyEnrolledThisSY) {
+      showToast(
+        'error',
+        `${foundStudent.name} is already enrolled for school year ${currentSYLabel}. This flow enrolls into the current school year — create the next school year and set it as current (Admin → Academic Year Mgmt.), or use Bulk Promotion to move this student forward.`
+      );
+      return;
+    }
+    // Last-line data-integrity guard: never enroll into a grade the student
+    // hasn't reached (previous grade + 1) or is repeating (same grade).
+    if (prevGradeLevel != null && !allowedRetGrades.includes(retGrade)) {
+      showToast(
+        'error',
+        `Grade ${retGrade} is not a valid level for this student (previous grade: Grade ${prevGradeLevel}).`
+      );
+      return;
+    }
     try {
       // Promote student to new grade level first
       await studentsApi.update(foundStudent.id, {
@@ -658,23 +741,168 @@ export function EnrollmentModule() {
 
   // ── FLOW SELECT ──────────────────────────────────────────
   if (flow === 'select') {
+    // Derived stats for the landing dashboard (current SY only)
+    const syEnrollments = allEnrollments.filter(
+      e => e.school_year_id === selectedSYId
+    );
+    const enrolledCount = syEnrollments.filter(
+      e => e.status === 'enrolled'
+    ).length;
+    const pendingCount = syEnrollments.filter(
+      e => e.status === 'enrolled' && !e.section_id
+    ).length;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayCount = syEnrollments.filter(
+      e => e.enrollment_date === todayStr
+    ).length;
+    const closedCount = syEnrollments.filter(
+      e => e.status === 'dropped' || e.status === 'transferred'
+    ).length;
+    const recentEnrollments = [...syEnrollments]
+      .sort(
+        (a, b) =>
+          (b.enrollment_date || '').localeCompare(a.enrollment_date || '') ||
+          b.id - a.id
+      )
+      .slice(0, 6);
+
+    const statCards = [
+      {
+        label: 'Total Enrolled',
+        value: enrolledCount,
+        icon: UserCheck,
+        iconWrap: 'bg-emerald-50 ring-emerald-100/70',
+        iconCls: 'text-emerald-600',
+        hint: 'this school year'
+      },
+      {
+        label: 'Pending Section',
+        value: pendingCount,
+        icon: Users,
+        iconWrap: 'bg-amber-50 ring-amber-100/70',
+        iconCls: 'text-amber-600',
+        hint: 'awaiting sectioning'
+      },
+      {
+        label: 'Enrolled Today',
+        value: todayCount,
+        icon: Clock,
+        iconWrap: 'bg-blue-50 ring-blue-100/70',
+        iconCls: 'text-blue-600',
+        hint: todayStr
+      },
+      {
+        label: 'Drop / Transfer',
+        value: closedCount,
+        icon: UserX,
+        iconWrap: 'bg-red-50 ring-red-100/70',
+        iconCls: 'text-red-600',
+        hint: 'this school year'
+      }
+    ];
+
+    const flowCards = [
+      {
+        key: 'new',
+        flow: 'new' as Flow,
+        code: 'NEW',
+        title: 'Enroll New Student',
+        subtitle: 'First-time enrollees · Grades 7–12',
+        desc:
+          'Complete data entry for new students with auto-generated Student ID and placement in the pending section queue.',
+        icon: UserPlus,
+        iconCls: 'text-emerald-600',
+        bandBg: 'bg-emerald-50',
+        cardBorder: 'border-emerald-200',
+        badge: 'bg-emerald-100 text-emerald-700',
+        accent: 'text-emerald-600',
+        statusOpen: '✓ Open',
+        statusClosed: 'Closed',
+        statusCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        action: 'Start Enrollment',
+        disabled: !enrollmentOpen
+      },
+      {
+        key: 'returning',
+        flow: 'returning' as Flow,
+        code: 'RETURN',
+        title: 'Enroll Returning Student',
+        subtitle: 'Re-enrollment · Grades 7–12',
+        desc:
+          'Search by LRN or Student ID to auto-populate existing records, then promote the student to their new grade level.',
+        icon: RefreshCw,
+        iconCls: 'text-blue-600',
+        bandBg: 'bg-blue-50',
+        cardBorder: 'border-blue-200',
+        badge: 'bg-blue-100 text-blue-700',
+        accent: 'text-blue-600',
+        statusOpen: '✓ Open',
+        statusClosed: 'Closed',
+        statusCls: 'bg-blue-50 text-blue-700 border-blue-200',
+        action: 'Search Student',
+        disabled: !enrollmentOpen
+      },
+      {
+        key: 'drop',
+        flow: 'drop' as Flow,
+        code: 'DROP',
+        title: 'Student Drop / Transfer',
+        subtitle: 'Status management · All grades',
+        desc:
+          'Process dropout or school transfer with official reason documentation. Academic records are preserved for SF10.',
+        icon: UserMinus,
+        iconCls: 'text-red-500',
+        bandBg: 'bg-red-50',
+        cardBorder: 'border-red-200',
+        badge: 'bg-red-100 text-red-700',
+        accent: 'text-red-500',
+        statusOpen: '✓ Available',
+        statusClosed: '✓ Available',
+        statusCls: 'bg-red-50 text-red-600 border-red-200',
+        action: 'Process Request',
+        disabled: false
+      }
+    ];
+
     return (
       <div className="space-y-6 max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl border border-gray-200/60 shadow-sm overflow-hidden">
-          <div className="p-5 sm:p-6 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-              <UserCheck size={18} className="text-white" />
+        {/* Header hero */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-blue-500" />
+          <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200/60">
+              <UserCheck size={22} className="text-white" />
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">
-                Enrollment Module
-              </h2>
-              <p className="text-gray-400 text-sm">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-lg font-bold text-gray-900 tracking-[-0.01em]">
+                  Enrollment Module
+                </h2>
+                {enrollmentOpen ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Open
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 ring-1 ring-red-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    Closed
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-400 text-sm mt-1">
                 Manage student enrollment, re-enrollment, and drop/transfer
                 processing
               </p>
             </div>
+            {currentSYLabel && (
+              <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-100 flex-shrink-0">
+                <CalendarDays size={14} className="text-gray-400" />
+                <span className="text-xs font-semibold text-gray-500">
+                  SY {currentSYLabel}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -694,186 +922,194 @@ export function EnrollmentModule() {
           </div>
         )}
 
+        {/* Quick stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {statCards.map(s => (
+            <div
+              key={s.label}
+              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3.5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+              <div
+                className={`w-10 h-10 rounded-xl ring-1 flex items-center justify-center flex-shrink-0 ${s.iconWrap}`}>
+                <s.icon size={18} className={s.iconCls} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.05em] truncate">
+                  {s.label}
+                </p>
+                <p className="text-xl font-bold text-gray-900 leading-tight">
+                  {s.value}
+                </p>
+                <p className="text-[10px] text-gray-400 truncate">{s.hint}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Flow cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => setFlow('new')}
-            disabled={!enrollmentOpen}
-            className="group bg-emerald-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-emerald-200 transition-all duration-200 p-6 text-left relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:-translate-y-0 disabled:hover:border-gray-200/60">
-            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-emerald-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors ring-1 ring-emerald-200/50">
-                <UserPlus size={19} className="text-emerald-600" />
+          {flowCards.map(card => (
+            <button
+              key={card.key}
+              onClick={() => setFlow(card.flow)}
+              disabled={card.disabled}
+              className={`bg-white text-left rounded-2xl border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group flex flex-col ${card.cardBorder} disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:-translate-y-0`}>
+              {/* Colored header band */}
+              <div
+                className={`${card.bandBg} px-4 py-3 flex items-center justify-between flex-shrink-0`}>
+                <div className="flex items-center gap-2.5">
+                  <card.icon size={20} className={card.iconCls} />
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${card.badge} border ${card.cardBorder}`}>
+                    {card.code}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                      card.disabled
+                        ? 'bg-gray-100 text-gray-500 border-gray-200'
+                        : card.statusCls
+                    }`}>
+                    {card.disabled ? card.statusClosed : card.statusOpen}
+                  </span>
+                  <ChevronRight
+                    size={15}
+                    className="text-gray-400 group-hover:translate-x-0.5 transition-transform"
+                  />
+                </div>
               </div>
-              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md ring-1 ring-emerald-200/50 tracking-wide uppercase">
-                New
-              </span>
-            </div>
-            <h3 className="font-semibold text-gray-900 text-[15px] tracking-[-0.02em] mb-1.5">
-              Enroll New Student
-            </h3>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">
-              Complete data entry for first-time enrollees with auto-ID
-              generation
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {['Full data entry', 'Auto-ID', 'Section assignment'].map(t => (
-                <span
-                  key={t}
-                  className="text-[11px] text-gray-500 bg-gray-100/60 px-2.5 py-1 rounded-md tracking-wide">
-                  {t}
-                </span>
-              ))}
-            </div>
-            <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200 tracking-[-0.01em]">
-                Start Enrollment
-                <ChevronRight
-                  size={14}
-                  className="group-hover:translate-x-0.5 transition-transform"
-                />
-              </span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setFlow('returning')}
-            disabled={!enrollmentOpen}
-            className="group bg-blue-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-200 transition-all duration-200 p-6 text-left relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:-translate-y-0 disabled:hover:border-gray-200/60">
-            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors ring-1 ring-blue-200/50">
-                <RefreshCw size={19} className="text-blue-600" />
+              {/* Body */}
+              <div className="p-4 flex flex-col flex-1">
+                <p className="font-bold text-gray-900 text-sm">{card.title}</p>
+                <p className={`text-sm font-semibold mt-0.5 ${card.accent}`}>
+                  {card.subtitle}
+                </p>
+                <p className="text-gray-500 text-xs mt-2 leading-relaxed flex-1">
+                  {card.desc}
+                </p>
+                <div
+                  className={`mt-3 flex items-center gap-1.5 text-xs font-medium ${card.accent}`}>
+                  <card.icon size={12} />
+                  {card.action}
+                </div>
               </div>
-              <span className="text-[11px] font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md ring-1 ring-blue-200/50">
-                Returning
-              </span>
-            </div>
-            <h3 className="font-semibold text-gray-900 text-[15px] tracking-[-0.02em] mb-1.5">
-              Enroll Returning Student
-            </h3>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">
-              Auto-populate from existing records via LRN or name search
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {['LRN search', 'Auto-populate', 'Grade promotion'].map(t => (
-                <span
-                  key={t}
-                  className="text-[11px] text-gray-500 bg-gray-100/60 px-2.5 py-1 rounded-md tracking-wide">
-                  {t}
-                </span>
-              ))}
-            </div>
-            <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-sm font-medium text-blue-600 flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200 tracking-[-0.01em]">
-                Search Student
-                <ChevronRight
-                  size={14}
-                  className="group-hover:translate-x-0.5 transition-transform"
-                />
-              </span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setFlow('drop')}
-            className="group bg-red-50/30 rounded-xl border border-gray-200/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-red-200 transition-all duration-200 p-6 text-left relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-red-400 scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-top" />
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors ring-1 ring-red-200/50">
-                <UserMinus size={19} className="text-red-500" />
-              </div>
-              <span className="text-[11px] font-medium text-red-500 bg-red-50 px-2.5 py-1 rounded-md ring-1 ring-red-200/50">
-                Status
-              </span>
-            </div>
-            <h3 className="font-semibold text-gray-900 text-[15px] tracking-[-0.02em] mb-1.5">
-              Student Drop / Transfer
-            </h3>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">
-              Process student dropout or school transfer with official reason
-              documentation
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                'Dropout',
-                'Transfer Out',
-                'Transfer In',
-                'Reason on record'
-              ].map(t => (
-                <span
-                  key={t}
-                  className="text-[11px] text-gray-500 bg-gray-100/60 px-2.5 py-1 rounded-md tracking-wide">
-                  {t}
-                </span>
-              ))}
-            </div>
-            <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-sm font-medium text-red-500 flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200">
-                Process Request
-                <ChevronRight
-                  size={14}
-                  className="group-hover:translate-x-0.5 transition-transform"
-                />
-              </span>
-            </div>
-          </button>
+            </button>
+          ))}
         </div>
 
         {/* Recently enrolled */}
-        {/* <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">Recently Enrolled Students</h3>
-            <span className="text-xs text-gray-400">{allStudents.filter(s => s.status === "enrolled").length} total</span>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gray-50 ring-1 ring-gray-100 flex items-center justify-center">
+                <Clock size={16} className="text-gray-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">
+                  Recently Enrolled
+                </h3>
+                <p className="text-[11px] text-gray-400">
+                  Latest enrollments · SY {currentSYLabel || `#${selectedSYId}`}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-gray-500 bg-gray-50 ring-1 ring-gray-100 px-2.5 py-1 rounded-full flex-shrink-0">
+              {enrolledCount} enrolled
+            </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50/80">
-                  <th className="text-left px-6 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Student ID</th>
-                  <th className="text-left px-6 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Name</th>
-                  <th className="text-left px-6 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
-                  <th className="text-left px-6 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Grade</th>
-                  <th className="text-left px-6 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Section</th>
-                  <th className="text-left px-6 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program</th>
-                  <th className="text-left px-6 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {allStudents.filter(s => s.status === "enrolled").slice(0, 6).map((s, idx) => {
-                  const enrollment = allEnrollments.find(e => e.student_id === s.id && e.school_year_id === selectedSYId && e.status === "enrolled");
-                  return (
-                  <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-green-50/50 transition-colors duration-150`}>
-                    <td className="px-6 py-3.5 font-mono text-xs text-gray-500">{s.student_id}</td>
-                    <td className="px-6 py-3.5 font-medium text-gray-900">{s.name}</td>
-                    <td className="px-6 py-3.5 font-mono text-xs text-gray-400">{s.lrn}</td>
-                    <td className="px-6 py-3.5 text-gray-600">Grade {s.grade_level}</td>
-                    <td className="px-6 py-3.5">
-                      {enrollment ? (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200/50">{enrollment.section_name}</span>
-                      ) : (
-                        <span className="text-gray-300 text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-3.5">
-                      {enrollment && enrollment.program ? (
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${PROGRAM_BADGES[enrollment.program]?.bg || "bg-blue-50"} ${PROGRAM_BADGES[enrollment.program]?.text || "text-blue-700"}`}>
-                          {PROGRAM_BADGES[enrollment.program]?.label || enrollment.program}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300 text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-3.5">
-                      <span className="bg-green-50 text-green-700 border border-green-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">Enrolled</span>
-                    </td>
+
+          {recentEnrollments.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-gray-50 ring-1 ring-gray-100 flex items-center justify-center mx-auto mb-3">
+                <UserCheck size={24} className="text-gray-300" />
+              </div>
+              <p className="font-semibold text-gray-500 text-sm">
+                No enrollments yet
+              </p>
+              <p className="text-gray-400 text-xs mt-1">
+                Use one of the options above to enroll your first student.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50/80">
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Student</th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Grade</th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Section</th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program</th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Status</th>
                   </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div> */}
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {recentEnrollments.map(e => (
+                    <tr key={e.id} className="hover:bg-emerald-50/40 transition-colors duration-150">
+                      <td className="px-6 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0">
+                            {e.student_name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 truncate">
+                              {e.student_name}
+                            </p>
+                            <p className="text-[11px] text-gray-400 font-mono">
+                              {e.student_display_id || `#${e.id}`}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3.5 font-mono text-xs text-gray-400">
+                        {e.lrn}
+                      </td>
+                      <td className="px-6 py-3.5 text-gray-600">
+                        Grade {e.grade_level}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        {e.section_name ? (
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200/50">
+                            {e.section_name}
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/50">
+                            Pending Section
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        {PROGRAM_BADGES[e.program] ? (
+                          <span
+                            className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${PROGRAM_BADGES[e.program]?.bg || 'bg-blue-50'} ${PROGRAM_BADGES[e.program]?.text || 'text-blue-700'}`}>
+                            {PROGRAM_BADGES[e.program]?.label || e.program}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        {e.status === 'enrolled' ? (
+                          <span className="bg-green-50 text-green-700 border border-green-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
+                            Enrolled
+                          </span>
+                        ) : e.status === 'dropped' ? (
+                          <span className="bg-red-50 text-red-600 border border-red-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
+                            Dropped
+                          </span>
+                        ) : (
+                          <span className="bg-amber-50 text-amber-700 border border-amber-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
+                            Transferred
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1669,7 +1905,7 @@ export function EnrollmentModule() {
                   Previous Grade
                 </p>
                 <p className="font-semibold text-gray-700">
-                  Grade {foundStudent.grade_level}
+                  Grade {prevGradeLevel}
                 </p>
               </div>
               <div>
@@ -1953,7 +2189,7 @@ export function EnrollmentModule() {
                     <FileText size={13} /> Previous Academic Record
                   </p>
                   {[
-                    ['Previous Grade', `Grade ${foundStudent.grade_level}`],
+                    ['Previous Grade', `Grade ${prevGradeLevel}`],
                     ['Guardian', foundStudent.guardian || '—'],
                     ['Contact', foundStudent.contact || '—']
                   ].map(([k, v]) => (
@@ -1966,6 +2202,25 @@ export function EnrollmentModule() {
                   ))}
                 </div>
               </div>
+
+              {alreadyEnrolledThisSY && (
+                <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-800 leading-relaxed">
+                    <p className="font-semibold">
+                      Already enrolled for {currentSYLabel}
+                    </p>
+                    <p className="mt-0.5">
+                      {foundStudent.name} already has an enrollment for this school
+                      year, so confirming here will be blocked (a student can only be
+                      enrolled once per school year). To move them forward, create the
+                      next school year (e.g. 2026-2027) and set it as current in{' '}
+                      <span className="font-semibold">Admin → Academic Year Mgmt.</span>,
+                      or use Bulk Promotion for the year-end rollover.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1988,31 +2243,88 @@ export function EnrollmentModule() {
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
                   Grade Level *
                 </label>
+
+                {prevGradeLevel != null && (
+                  <div
+                    className={`mb-3 rounded-xl border px-4 py-3 ${
+                      completedGrade12
+                        ? 'bg-amber-50/60 border-amber-200/60 text-amber-800'
+                        : 'bg-blue-50/50 border-blue-100 text-blue-800'
+                    }`}>
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <AlertCircle size={14} className="flex-shrink-0" />
+                      {completedGrade12
+                        ? 'This student has completed Grade 12'
+                        : `Previous Grade: Grade ${prevGradeLevel}`}
+                    </p>
+                    <p className="text-xs mt-0.5 opacity-80">
+                      {completedGrade12
+                        ? 'They should be marked as Graduated rather than re-enrolled. Only Grade 12 (repeating) is available here.'
+                        : `New grade is limited to${
+                            recommendedRetGrade ? ` Grade ${recommendedRetGrade} (next level)` : ''
+                          }${
+                            recommendedRetGrade && allowedRetGrades.includes(prevGradeLevel) ? ' or' : ''
+                          }${
+                            allowedRetGrades.includes(prevGradeLevel) ? ` Grade ${prevGradeLevel} (repeating)` : ''
+                          }.`}
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {GRADE_LEVELS.map(g => (
-                    <button
-                      key={g}
-                      onClick={() => setRetGrade(g)}
-                      className={`p-4 sm:p-5 rounded-xl border-2 text-center transition-all duration-200 ${
-                        retGrade === g
-                          ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100/50'
-                          : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm'
-                      }`}>
-                      <p
-                        className={`font-bold text-lg ${retGrade === g ? 'text-emerald-700' : 'text-gray-700'}`}>
-                        Grade {g}
-                      </p>
-                      <p
-                        className={`text-[11px] mt-0.5 font-medium ${retGrade === g ? 'text-emerald-500' : 'text-gray-400'}`}>
-                        {g <= 10 ? 'Junior High' : 'Senior High'}
-                      </p>
-                      {retGrade === g && (
-                        <div className="mt-2 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-sm">
-                          <Check size={11} strokeWidth={3} />
+                  {GRADE_LEVELS.map(g => {
+                    const isAllowed = allowedRetGrades.includes(g);
+                    const isRecommended = recommendedRetGrade === g;
+                    const isSameGrade = prevGradeLevel === g;
+                    const isSelected = retGrade === g;
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => isAllowed && setRetGrade(g)}
+                        disabled={!isAllowed}
+                        className={`relative p-4 sm:p-5 rounded-xl border-2 text-center transition-all duration-200 ${
+                          !isAllowed
+                            ? 'border-gray-100 bg-gray-50/40 opacity-45 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100/50'
+                              : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm'
+                        }`}>
+                        <p
+                          className={`font-bold text-lg ${
+                            !isAllowed ? 'text-gray-400' : isSelected ? 'text-emerald-700' : 'text-gray-700'
+                          }`}>
+                          Grade {g}
+                        </p>
+                        <p
+                          className={`text-[11px] mt-0.5 font-medium ${
+                            !isAllowed ? 'text-gray-300' : isSelected ? 'text-emerald-500' : 'text-gray-400'
+                          }`}>
+                          {g <= 10 ? 'Junior High' : 'Senior High'}
+                        </p>
+                        <div className="mt-2 flex items-center justify-center gap-1">
+                          {isAllowed && (
+                            <>
+                              {isRecommended ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wide">
+                                  <Check size={10} strokeWidth={3} /> Next level
+                                </span>
+                              ) : isSameGrade ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wide">
+                                  <RefreshCw size={10} /> Repeating
+                                </span>
+                              ) : null}
+                            </>
+                          )}
+                          {isSelected && (
+                            <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-sm">
+                              <Check size={11} strokeWidth={3} />
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2117,8 +2429,9 @@ export function EnrollmentModule() {
                   ['Student Name', foundStudent.name],
                   ['Student ID', foundStudent.student_id],
                   ['LRN', foundStudent.lrn],
-                  ['Previous Grade', `Grade ${foundStudent.grade_level}`],
+                  ['Previous Grade', `Grade ${prevGradeLevel}`],
                   ['New Grade Level', `Grade ${retGrade}`],
+                  ['School Year', currentSYLabel || '—'],
                   ['Assigned Section', getSection(null)],
                   ['Program', PROGRAM_BADGES[program]?.label || 'Regular']
                 ].map(([k, v]) => (
@@ -2148,7 +2461,10 @@ export function EnrollmentModule() {
           {retStep < 4 ? (
             <button
               onClick={handleRetNext}
-              disabled={retStep === 3 && !retGrade}
+              disabled={
+                retStep === 3 &&
+                (retGrade == null || !allowedRetGrades.includes(retGrade))
+              }
               className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               Next Step <ChevronRight size={15} />
             </button>

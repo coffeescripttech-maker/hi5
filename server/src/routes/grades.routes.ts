@@ -8,6 +8,7 @@ import {
   lockGrades,
   unlockGrades,
   computeAverages,
+  getGradeHistory,
   getGradeDistribution,
   getGradeSubmissionStatus,
 } from "../controllers/grades.controller";
@@ -19,6 +20,7 @@ router.use(authenticate);
 // Grade queries — all authenticated roles can view
 router.get("/", getGrades);
 router.get("/distribution", getGradeDistribution);
+router.get("/history", getGradeHistory);
 router.get("/compute/averages", computeAverages);
 router.get("/submission-status", getGradeSubmissionStatus);
 

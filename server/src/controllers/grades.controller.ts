@@ -367,6 +367,100 @@ export async function computeAverages(req: Request, res: Response): Promise<void
 }
 
 /**
+ * GET /api/grades/history — Full grade history for a student, grouped by school year
+ * Query: ?student_id=1
+ *
+ * Unlike the standard pivot (which only lists subjects for the student's CURRENT
+ * grade level), history is driven by the student's enrollments so past school
+ * years (e.g. Grade 7 after promotion to Grade 8) still appear. MAPEH components
+ * are collapsed into a single subject row, matching the report card.
+ */
+export async function getGradeHistory(req: Request, res: Response): Promise<void> {
+  try {
+    const student_id = parseInt(req.query.student_id as string);
+    if (!student_id || isNaN(student_id)) {
+      res.status(400).json({ error: "student_id is required." });
+      return;
+    }
+
+    // Every school year the student was enrolled in, with that year's section grade level
+    const enrollments = await query<RowDataPacket[]>(
+      `SELECT e.school_year_id, sec.grade_level, sec.name AS section_name, sy.sy_label
+       FROM enrollments e
+       LEFT JOIN sections sec ON e.section_id = sec.id
+       JOIN school_years sy ON e.school_year_id = sy.id
+       WHERE e.student_id = ?
+       ORDER BY e.school_year_id ASC`,
+      [student_id]
+    );
+
+    const MAPEH_NAMES = ["Music", "Arts", "Physical Education", "Health"];
+    const mean = (vals: (number | null)[]) => {
+      const present = vals.filter((v): v is number => v !== null && v !== undefined);
+      return present.length > 0
+        ? Math.round((present.reduce((a, b) => a + b, 0) / present.length) * 100) / 100
+        : null;
+    };
+
+    const schoolYears: any[] = [];
+    for (const enroll of enrollments as any[]) {
+      const subjects = await query<RowDataPacket[]>(
+        `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type,
+                MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
+                MAX(CASE WHEN g.quarter = 2 THEN g.grade END) AS q2,
+                MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
+                MAX(CASE WHEN g.quarter = 4 THEN g.grade END) AS q4,
+                ROUND(AVG(g.grade), 2) AS final_average
+         FROM grades g
+         JOIN subjects s ON g.subject_id = s.id
+         WHERE g.student_id = ? AND g.school_year_id = ?
+         GROUP BY s.id, s.name, s.subject_type
+         ORDER BY s.name ASC`,
+        [student_id, enroll.school_year_id]
+      );
+
+      // Collapse MAPEH components into one subject row
+      const mapehRows = subjects.filter((s: any) => MAPEH_NAMES.includes(s.subject_name));
+      const otherRows = subjects.filter((s: any) => !MAPEH_NAMES.includes(s.subject_name));
+
+      let collapsed = otherRows.map((s: any) => ({ ...s }));
+      if (mapehRows.length > 0) {
+        collapsed.push({
+          subject_id: -1,
+          subject_name: "MAPEH",
+          subject_type: "core",
+          q1: mean(mapehRows.map((m: any) => m.q1)),
+          q2: mean(mapehRows.map((m: any) => m.q2)),
+          q3: mean(mapehRows.map((m: any) => m.q3)),
+          q4: mean(mapehRows.map((m: any) => m.q4)),
+          final_average: mean(mapehRows.map((m: any) => m.final_average)),
+        });
+        collapsed.sort((a: any, b: any) => a.subject_name.localeCompare(b.subject_name));
+      }
+
+      const graded = collapsed.filter((s: any) => s.final_average !== null);
+      const general_average = graded.length > 0
+        ? Math.round(graded.reduce((sum: number, s: any) => sum + parseFloat(s.final_average), 0) / graded.length * 100) / 100
+        : null;
+
+      schoolYears.push({
+        school_year_id: enroll.school_year_id,
+        sy_label: enroll.sy_label,
+        grade_level: enroll.grade_level ?? null,
+        section_name: enroll.section_name ?? null,
+        general_average,
+        subjects: collapsed,
+      });
+    }
+
+    res.json({ student_id, school_years: schoolYears });
+  } catch (error) {
+    console.error("Grade history error:", error);
+    res.status(500).json({ error: "Failed to fetch grade history." });
+  }
+}
+
+/**
  * GET /api/grades/distribution — Grade distribution per subject
  * Query: ?school_year_id=1&grade_level=7&section_id=1
  *

@@ -65,6 +65,7 @@ export function GradeManagement() {
   const [showLockModal, setShowLockModal] = useState(false);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [correctionSubject, setCorrectionSubject] = useState("");
+  const [correctionQuarter, setCorrectionQuarter] = useState("");
   const [correctionJustification, setCorrectionJustification] = useState("");
   const [correctionSubmitted, setCorrectionSubmitted] = useState(false);
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
@@ -230,7 +231,7 @@ export function GradeManagement() {
       await gradesApi.lock({ student_id: selectedStudent.id, school_year_id: schoolYearId });
       setLocked(true);
       setShowLockModal(false);
-      showToast("success", "Grades locked. Corrections can be requested individually.");
+      showToast("success", "Grades locked. A correction request can be submitted for registrar approval.");
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to lock grades");
     } finally {
@@ -239,15 +240,15 @@ export function GradeManagement() {
   };
 
   const handleSubmitCorrection = async () => {
-    if (!selectedStudent || !correctionSubject) return;
+    if (!selectedStudent || !correctionJustification) return;
     setSubmittingCorrection(true);
     try {
       const sub = grades.find(g => g.subject === correctionSubject);
       await gradesApi.requestCorrection({
         student_id: selectedStudent.id,
-        subject_id: sub?.subject_id || 0,
+        subject_id: correctionSubject ? (sub?.subject_id ?? null) : null,
         school_year_id: schoolYearId,
-        quarter: 1,
+        quarter: correctionQuarter ? Number(correctionQuarter) : null,
         justification: correctionJustification,
       });
       setCorrectionSubmitted(true);
@@ -642,8 +643,22 @@ export function GradeManagement() {
                       onChange={e => setCorrectionSubject(e.target.value)}
                       className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white transition"
                     >
-                      <option value="">Select subject...</option>
+                      <option value="">All subjects</option>
                       {grades.map(g => <option key={g.subject}>{g.subject}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Quarter</label>
+                    <select
+                      value={correctionQuarter}
+                      onChange={e => setCorrectionQuarter(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white transition"
+                    >
+                      <option value="">All quarters</option>
+                      <option value="1">1st Quarter</option>
+                      <option value="2">2nd Quarter</option>
+                      <option value="3">3rd Quarter</option>
+                      <option value="4">4th Quarter</option>
                     </select>
                   </div>
                   <div>
@@ -657,7 +672,7 @@ export function GradeManagement() {
                   </div>
                   <button
                     onClick={handleSubmitCorrection}
-                    disabled={!correctionSubject || !correctionJustification || submittingCorrection}
+                    disabled={!correctionJustification || submittingCorrection}
                     className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
                   >
                     {submittingCorrection ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}

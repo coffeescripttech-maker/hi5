@@ -50,6 +50,7 @@ export function AcademicYearManagement() {
   const [promotionSummary, setPromotionSummary] = useState<GradeTransition[]>(GRADE_TRANSITIONS);
   const [newSYLabel, setNewSYLabel] = useState("");
   const [creating, setCreating] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   // Sort school years ascending by label (2025-2026 before 2026-2027)
   const sortYears = (years: SchoolYearRow[]) =>
@@ -111,6 +112,26 @@ export function AcademicYearManagement() {
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Promotion failed");
       setStep("idle");
+    }
+  };
+
+  // Open/close enrollment for a school year — available right here so admins
+  // don't have to jump to School Settings to flip the enrollment window.
+  const toggleEnrollment = async (id: number, open: number) => {
+    setTogglingId(id);
+    try {
+      const updated = await schoolYearsApi.update(id, { enrollment_open: open });
+      showToast(
+        "success",
+        `Enrollment for ${updated.sy_label} is now ${open ? "open" : "closed"}.`
+      );
+      const sys = await schoolYearsApi.list();
+      setSchoolYears(sortYears(sys));
+      refreshSchoolInfo();
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Failed to update enrollment.");
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -283,7 +304,27 @@ export function AcademicYearManagement() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2 flex-shrink-0">
+                          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                            <button
+                              onClick={() =>
+                                toggleEnrollment(
+                                  sy.id,
+                                  sy.enrollment_open === 1 ? 0 : 1
+                                )
+                              }
+                              disabled={togglingId === sy.id}
+                              className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition disabled:opacity-50 ${
+                                sy.enrollment_open === 1
+                                  ? "text-red-600 hover:bg-red-50 border-red-200 hover:border-red-300"
+                                  : "text-emerald-600 hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300"
+                              }`}
+                            >
+                              {togglingId === sy.id
+                                ? "Updating..."
+                                : sy.enrollment_open === 1
+                                  ? "Close Enrollment"
+                                  : "Open Enrollment"}
+                            </button>
                             {!isCurrent ? (
                               <button
                                 onClick={async () => {

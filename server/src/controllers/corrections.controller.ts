@@ -13,12 +13,14 @@ export async function listCorrections(req: Request, res: Response): Promise<void
 
     let sql = `
       SELECT gcr.*, s.name AS student_name, s.student_id,
-             sub.name AS subject_name,
+             COALESCE(sub.name, 'All subjects') AS subject_name,
+             sy.sy_label,
              req.name AS requested_by_name,
              rev.name AS reviewed_by_name
       FROM grade_correction_requests gcr
       JOIN students s ON gcr.student_id = s.id
-      JOIN subjects sub ON gcr.subject_id = sub.id
+      LEFT JOIN subjects sub ON gcr.subject_id = sub.id
+      JOIN school_years sy ON gcr.school_year_id = sy.id
       JOIN users req ON gcr.requested_by = req.id
       LEFT JOIN users rev ON gcr.reviewed_by = rev.id
     `;
@@ -28,6 +30,12 @@ export async function listCorrections(req: Request, res: Response): Promise<void
     if (status) { conditions.push("gcr.status = ?"); params.push(status); }
     if (student_id) { conditions.push("gcr.student_id = ?"); params.push(parseInt(student_id as string)); }
     if (school_year_id) { conditions.push("gcr.school_year_id = ?"); params.push(parseInt(school_year_id as string)); }
+
+    // Teachers only see their own requests; admin/registrar see all
+    if (req.user!.role === "teacher") {
+      conditions.push("gcr.requested_by = ?");
+      params.push(req.user!.userId);
+    }
 
     if (conditions.length > 0) sql += " WHERE " + conditions.join(" AND ");
     sql += " ORDER BY gcr.created_at DESC";
@@ -49,12 +57,12 @@ export async function getCorrectionById(req: Request, res: Response): Promise<vo
 
     const corrections = await query<RowDataPacket[]>(
       `SELECT gcr.*, s.name AS student_name, s.student_id, s.lrn,
-              sub.name AS subject_name, sub.grade_level,
+              COALESCE(sub.name, 'All subjects') AS subject_name, sub.grade_level,
               req.name AS requested_by_name, req.employee_id AS requested_by_emp,
               rev.name AS reviewed_by_name
        FROM grade_correction_requests gcr
        JOIN students s ON gcr.student_id = s.id
-       JOIN subjects sub ON gcr.subject_id = sub.id
+       LEFT JOIN subjects sub ON gcr.subject_id = sub.id
        JOIN users req ON gcr.requested_by = req.id
        LEFT JOIN users rev ON gcr.reviewed_by = rev.id
        WHERE gcr.id = ?`,
@@ -81,29 +89,29 @@ export async function createCorrection(req: Request, res: Response): Promise<voi
   try {
     const { student_id, subject_id, school_year_id, quarter, justification } = req.body;
 
-    if (!student_id || !subject_id || !school_year_id || !justification) {
-      res.status(400).json({ error: "Missing required fields: student_id, subject_id, school_year_id, justification." });
+    if (!student_id || !school_year_id || !justification) {
+      res.status(400).json({ error: "Missing required fields: student_id, school_year_id, justification." });
       return;
     }
 
     const result = await query<ResultSetHeader>(
       `INSERT INTO grade_correction_requests (student_id, subject_id, school_year_id, quarter, requested_by, justification)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [student_id, subject_id, school_year_id, quarter || null, req.user!.userId, justification]
+      [student_id, subject_id || null, school_year_id, quarter || null, req.user!.userId, justification]
     );
 
     await logActivity(
       req.user!.userId,
-      `Created grade correction request for student ID ${student_id}, subject ID ${subject_id}`,
+      `Created grade correction request for student ID ${student_id}${subject_id ? `, subject ID ${subject_id}` : " (all subjects)"}`,
       "grade_correction_requests",
       result.insertId
     );
 
     const newRequest = await query<RowDataPacket[]>(
-      `SELECT gcr.*, s.name AS student_name, sub.name AS subject_name
+      `SELECT gcr.*, s.name AS student_name, COALESCE(sub.name, 'All subjects') AS subject_name
        FROM grade_correction_requests gcr
        JOIN students s ON gcr.student_id = s.id
-       JOIN subjects sub ON gcr.subject_id = sub.id
+       LEFT JOIN subjects sub ON gcr.subject_id = sub.id
        WHERE gcr.id = ?`,
       [result.insertId]
     );
@@ -121,7 +129,7 @@ export async function createCorrection(req: Request, res: Response): Promise<voi
  */
 export async function reviewCorrection(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
     const { status } = req.body;
 
     if (!status || !["approved", "rejected"].includes(status)) {
@@ -149,6 +157,24 @@ export async function reviewCorrection(req: Request, res: Response): Promise<voi
       [status, req.user!.userId, id]
     );
 
+    // On approval, unlock the student's whole grade sheet for that school year so
+    // the teacher can re-enter the corrected values. The teacher's "Lock Grades"
+    // action locks every row for the student at once, so approval re-opens the
+    // entire sheet (the grade page blocks saving if ANY row is still locked).
+    if (status === "approved") {
+      const target = existing[0];
+      const unlockResult = await query<ResultSetHeader>(
+        "UPDATE grades SET is_locked = 0, locked_at = NULL, locked_by = NULL WHERE student_id = ? AND school_year_id = ?",
+        [target.student_id, target.school_year_id]
+      );
+      await logActivity(
+        req.user!.userId,
+        `Unlocked ${unlockResult.affectedRows} grade row(s) for approved correction request #${id}`,
+        "grades",
+        id
+      );
+    }
+
     await logActivity(
       req.user!.userId,
       `${status === "approved" ? "Approved" : "Rejected"} grade correction request #${id}`,
@@ -157,11 +183,12 @@ export async function reviewCorrection(req: Request, res: Response): Promise<voi
     );
 
     const updated = await query<RowDataPacket[]>(
-      `SELECT gcr.*, s.name AS student_name, sub.name AS subject_name,
+      `SELECT gcr.*, s.name AS student_name,
+              COALESCE(sub.name, 'All subjects') AS subject_name,
               req.name AS requested_by_name, rev.name AS reviewed_by_name
        FROM grade_correction_requests gcr
        JOIN students s ON gcr.student_id = s.id
-       JOIN subjects sub ON gcr.subject_id = sub.id
+       LEFT JOIN subjects sub ON gcr.subject_id = sub.id
        JOIN users req ON gcr.requested_by = req.id
        LEFT JOIN users rev ON gcr.reviewed_by = rev.id
        WHERE gcr.id = ?`,

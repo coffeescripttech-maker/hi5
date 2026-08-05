@@ -72,8 +72,16 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
       promotionId
     );
 
+    const promotedCount = results.filter(r => r.to_section_id != null).length;
+    const retainedCount = results.filter(r => r.is_retained).length;
+    const incompleteCount = results.filter(r => !r.grade_complete).length;
+    const plural = (n: number) => (n === 1 ? "student" : "students");
+
     res.status(201).json({
-      message: `Promotion completed. ${results.length} students processed.`,
+      message:
+        promotedCount === results.length && results.length > 0
+          ? `Promotion completed. ${results.length} ${plural(results.length)} promoted to Grade ${processedGrade}.`
+          : `Promotion processed ${results.length} ${plural(results.length)}: ${promotedCount} promoted, ${retainedCount} retained, ${incompleteCount} incomplete (grades not complete).`,
       promotion_id: promotionId,
       from_section: section.name,
       from_grade: section.grade_level,
@@ -82,7 +90,7 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     console.error("Promotion error:", error);
-    res.status(500).json({ error: "Failed to process promotion." });
+    res.status(500).json({ error: (error as Error).message || "Failed to process promotion." });
   }
 }
 
@@ -100,27 +108,33 @@ async function promoteSectionCore(
 ): Promise<{ promotionId: number; toGrade: number; results: any[] }> {
   const toGrade = section.grade_level + 1;
 
-  // Get enrolled students with their averages
+  // Get enrolled students with their averages + grade completeness.
+  // grade_complete = every subject has all 4 quarters of grades entered.
   const students = await query<RowDataPacket[]>(
-    `SELECT ps.enrollment_id, ps.student_id,
-            ROUND(AVG(ps.subject_avg), 2) AS general_average
-     FROM (
-       SELECT e.id AS enrollment_id, e.student_id,
-              ROUND(AVG(g.grade), 2) AS subject_avg
-       FROM enrollments e
-       JOIN grades g ON g.student_id = e.student_id AND g.school_year_id = e.school_year_id
+    `SELECT e.id AS enrollment_id, e.student_id,
+            COALESCE(ROUND(AVG(ss.subject_avg), 2), NULL) AS general_average,
+            COUNT(ss.subject_key) AS subject_count,
+            COALESCE(MIN(ss.quarters_present), 0) AS min_quarters
+     FROM enrollments e
+     LEFT JOIN (
+       SELECT g.student_id, g.school_year_id,
+              CASE WHEN s.name IN ('Music','Arts','Physical Education','Health')
+                   THEN 'MAPEH' ELSE s.name END AS subject_key,
+              ROUND(AVG(g.grade), 2) AS subject_avg,
+              COUNT(DISTINCT CASE WHEN g.grade IS NOT NULL THEN g.quarter END) AS quarters_present
+       FROM grades g
        JOIN subjects s ON g.subject_id = s.id
-       WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-       GROUP BY e.id, e.student_id,
-         CASE WHEN s.name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE s.name END
-     ) ps
-     GROUP BY ps.enrollment_id, ps.student_id
+       WHERE g.school_year_id = ?
+       GROUP BY g.student_id, g.school_year_id, subject_key
+     ) ss ON ss.student_id = e.student_id AND ss.school_year_id = e.school_year_id
+     WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+     GROUP BY e.id, e.student_id
      ORDER BY general_average DESC`,
-    [section.id, schoolYearId]
+    [schoolYearId, section.id, schoolYearId]
   );
 
   if (students.length === 0) {
-    throw new Error(`No enrolled students with grades found in section "${section.name}".`);
+    throw new Error(`No enrolled students found in section "${section.name}".`);
   }
 
   // Get available sections for the next grade level
@@ -151,11 +165,16 @@ async function promoteSectionCore(
     if (student.length === 0) continue;
 
     const avg = parseFloat(s.general_average || "0");
-    const isRetained = avg < 75 ? 1 : 0;
+    const subjectCount = parseInt(s.subject_count || "0", 10);
+    const minQuarters = parseInt(s.min_quarters || "0", 10);
+    const gradeComplete = subjectCount > 0 && minQuarters >= 4;
+    const isIncomplete = !gradeComplete;
+    // Only students with complete grades are judged by their average
+    const isRetained = isIncomplete ? 0 : (avg < 75 ? 1 : 0);
 
-    // Find target section based on average
+    // Find target section based on average (only for complete, non-retained students)
     let targetSectionId: number | null = null;
-    if (!isRetained) {
+    if (gradeComplete && !isRetained) {
       // Find the highest section type their average qualifies for
       for (const tSec of targetSections) {
         if (avg >= parseFloat(tSec.min_average)) {
@@ -180,13 +199,13 @@ async function promoteSectionCore(
 
     // Insert promotion_student record
     await query<ResultSetHeader>(
-      `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [promotionId, s.student_id, section.id, targetSectionId, avg, isRetained]
+      `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained, grade_complete)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [promotionId, s.student_id, section.id, targetSectionId, gradeComplete ? avg : null, isRetained, gradeComplete ? 1 : 0]
     );
 
-    // If assigned to a section, update student's grade level and create enrollment for next SY
-    if (targetSectionId && !isRetained) {
+    // Promoted: move to next grade and enroll in the next SY
+    if (targetSectionId) {
       await query<ResultSetHeader>(
         "UPDATE students SET grade_level = ? WHERE id = ?",
         [toGrade, s.student_id]
@@ -211,8 +230,8 @@ async function promoteSectionCore(
           [s.student_id, targetSectionId, nextSchoolYearId, userId]
         );
       }
-    } else if (opts.enrollRetained && isRetained) {
-      // Keep retained students in the SAME section for the next school year
+    } else if (opts.enrollRetained && (isRetained || isIncomplete)) {
+      // Retained or incomplete students stay in the SAME section for the next school year
       const existingEnroll = await query<RowDataPacket[]>(
         "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
         [s.student_id, nextSchoolYearId]
@@ -229,8 +248,9 @@ async function promoteSectionCore(
     results.push({
       student_id: s.student_id,
       name: student[0].name,
-      general_average: avg,
+      general_average: gradeComplete ? avg : null,
       is_retained: isRetained === 1,
+      grade_complete: gradeComplete,
       to_section_id: targetSectionId,
     });
   }
@@ -328,6 +348,7 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
       students_processed: number;
       promoted: number;
       retained: number;
+      incomplete: number;
       completed: number;
     }> = {};
     const failures: { section_name: string; grade_level: number; error: string }[] = [];
@@ -343,6 +364,7 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
           students_processed: 0,
           promoted: 0,
           retained: 0,
+          incomplete: 0,
           completed: 0,
         };
       }
@@ -363,6 +385,7 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
           byGrade[g].students_processed += results.length;
           for (const r of results) {
             if (r.is_retained) byGrade[g].retained += 1;
+            else if (!r.grade_complete) byGrade[g].incomplete += 1;
             else byGrade[g].promoted += 1;
           }
         }
@@ -395,7 +418,7 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
     });
   } catch (error) {
     console.error("Bulk promotion error:", error);
-    res.status(500).json({ error: "Failed to process bulk promotion." });
+    res.status(500).json({ error: (error as Error).message || "Failed to process bulk promotion." });
   }
 }
 

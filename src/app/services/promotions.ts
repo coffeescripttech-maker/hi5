@@ -30,6 +30,8 @@ export interface PromotionStudentRow {
   to_section_name: string | null;
   general_average: number | null;
   is_retained: number;
+  /** 0 when the student was blocked from promotion due to incomplete grades */
+  grade_complete?: number;
 }
 
 export interface CreatePromotionPayload {
@@ -51,6 +53,7 @@ export interface BulkPromoteSummaryRow {
   students_processed: number;
   promoted: number;
   retained: number;
+  incomplete: number;
   completed: number;
 }
 
