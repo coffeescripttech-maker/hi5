@@ -34,4 +34,6 @@ export const schoolYearsApi = {
     api.put<SchoolYearRow>(`/school-years/${id}`, data),
   setCurrent: (id: number) =>
     api.post<SchoolYearRow>(`/school-years/${id}/set-current`),
+  archive: (id: number) =>
+    api.post<{ message: string; archived: SchoolYearRow; next: SchoolYearRow }>(`/school-years/${id}/archive`),
 };

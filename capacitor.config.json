@@ -1,0 +1,13 @@
+{
+  "appId": "ph.edu.dspmnhs.hi5portal",
+  "appName": "Hi5 Portal",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true
+  }
+}

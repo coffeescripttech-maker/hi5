@@ -32,6 +32,7 @@ export interface StudentDetail extends StudentRow {
     school_year_id: number;
     sy_label: string;
     status: string;
+    enrollment_date: string;
   };
 }
 

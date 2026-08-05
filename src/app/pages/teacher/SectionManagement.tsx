@@ -5,7 +5,7 @@ import {
   X, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight,
   ChevronFirst, ChevronLast, Building2, UserCheck, BookOpen,
   AlertCircle, Info, Clock, MapPin, Filter, School, Activity,
-  Loader2,
+  Loader2, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { studentsApi, StudentRow } from "../../services/students";

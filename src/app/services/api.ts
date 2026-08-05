@@ -231,4 +231,8 @@ export const authApi = {
   updateMe: (data: { name?: string; email?: string; phone?: string; address?: string }) =>
     api.put<UserProfile>("/auth/me", data),
   logout: () => api.post<{ message: string }>("/auth/logout"),
+  forgotPassword: (data: { email: string }) =>
+    api.post<{ message: string; reset_code?: string; reset_expires?: string }>("/auth/forgot-password", data),
+  resetPassword: (data: { email: string; code: string; new_password: string }) =>
+    api.post<{ message: string }>("/auth/reset-password", data),
 };

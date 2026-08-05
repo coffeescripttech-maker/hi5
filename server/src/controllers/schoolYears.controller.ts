@@ -147,3 +147,87 @@ export async function setCurrentSchoolYear(req: Request, res: Response): Promise
     res.status(500).json({ error: "Failed to set current school year." });
   }
 }
+
+/**
+ * POST /api/school-years/:id/archive — Archive the current school year
+ *
+ * Closes enrollment for the current school year, finds/creates the next one
+ * (label +1), and makes the next one the active school year with enrollment open.
+ */
+export async function archiveSchoolYear(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+
+    const existing = await query<RowDataPacket[]>("SELECT * FROM school_years WHERE id = ?", [id]);
+    if (existing.length === 0) {
+      res.status(404).json({ error: "School year not found." });
+      return;
+    }
+
+    const current = existing[0];
+    if (current.is_current !== 1) {
+      res.status(400).json({ error: "Only the current school year can be archived." });
+      return;
+    }
+
+    // Determine the next school year label (e.g. 2025-2026 → 2026-2027)
+    const parts = String(current.sy_label).split(/[-–]/);
+    let nextLabel: string | null = null;
+    if (parts.length === 2 && !Number.isNaN(parseInt(parts[0])) && !Number.isNaN(parseInt(parts[1]))) {
+      nextLabel = `${parseInt(parts[0]) + 1}-${parseInt(parts[1]) + 1}`;
+    }
+
+    if (!nextLabel) {
+      res.status(400).json({ error: "Could not determine the next school year label." });
+      return;
+    }
+
+    // Find or create the next school year
+    const nxt = await query<RowDataPacket[]>(
+      "SELECT * FROM school_years WHERE sy_label = ?",
+      [nextLabel]
+    );
+    let next: RowDataPacket;
+    if (nxt.length > 0) {
+      next = nxt[0];
+    } else {
+      const ins = await query<ResultSetHeader>(
+        "INSERT INTO school_years (sy_label, enrollment_open) VALUES (?, 1)",
+        [nextLabel]
+      );
+      next = (await query<RowDataPacket[]>("SELECT * FROM school_years WHERE id = ?", [ins.insertId]))[0];
+    }
+
+    // Archive the current year and activate the next
+    await query<ResultSetHeader>(
+      "UPDATE school_years SET is_current = 0, enrollment_open = 0 WHERE id = ?",
+      [id]
+    );
+    await query<ResultSetHeader>(
+      "UPDATE school_years SET is_current = 1, enrollment_open = 1 WHERE id = ?",
+      [next.id]
+    );
+
+    // Keep school_settings in sync
+    await query<ResultSetHeader>(
+      "UPDATE school_settings SET current_sy_id = ? WHERE id = 1",
+      [next.id]
+    );
+
+    await logActivity(
+      req.user!.userId,
+      `Archived "${current.sy_label}" and activated "${next.sy_label}"`,
+      "school_years",
+      next.id
+    );
+
+    res.json({
+      message: `School year ${current.sy_label} archived. ${next.sy_label} is now active.`,
+      archived: current,
+      next,
+    });
+  } catch (error) {
+    console.error("Archive school year error:", error);
+    res.status(500).json({ error: "Failed to archive school year." });
+  }
+}

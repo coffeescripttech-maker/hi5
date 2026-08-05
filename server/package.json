@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "migrate": "tsx src/config/migrate.ts",
     "seed": "tsx src/config/seed.ts",
-    "db:setup": "npm run migrate && npm run seed"
+    "db:setup": "npm run migrate && npm run seed",
+    "db:reset": "tsx src/config/reset.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

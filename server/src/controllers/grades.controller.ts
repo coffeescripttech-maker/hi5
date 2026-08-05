@@ -504,6 +504,82 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
   }
 }
 
+/**
+ * GET /api/grades/submission-status — Per-section grade submission status
+ * Query: ?school_year_id=1 (defaults to the current school year)
+ *
+ * Returns, for every active section: how many students are enrolled, how many
+ * already have grades entered, and how many grade rows are locked.
+ * A section is considered "submitted" when every enrolled student has grades.
+ */
+export async function getGradeSubmissionStatus(req: Request, res: Response): Promise<void> {
+  try {
+    // Resolve school year
+    let syId: number;
+    if (req.query.school_year_id) {
+      syId = parseInt(req.query.school_year_id as string);
+    } else {
+      const currentSY = await query<RowDataPacket[]>(
+        "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+      );
+      syId = currentSY.length > 0 ? currentSY[0].id : 0;
+    }
+
+    if (!syId) {
+      res.status(400).json({ error: "No school year found. Specify school_year_id or set one as current." });
+      return;
+    }
+
+    const sections = await query<RowDataPacket[]>(
+      `SELECT
+         sec.id AS section_id,
+         sec.name AS section_name,
+         sec.grade_level,
+         u.name AS adviser_name,
+         COUNT(DISTINCT e.student_id) AS total_students,
+         COUNT(DISTINCT CASE WHEN g.id IS NOT NULL THEN e.student_id END) AS graded_students,
+         COUNT(g.id) AS grade_rows,
+         COUNT(CASE WHEN g.is_locked = 1 THEN g.id END) AS locked_rows
+       FROM sections sec
+       LEFT JOIN users u ON sec.adviser_id = u.id
+       LEFT JOIN enrollments e ON e.section_id = sec.id AND e.school_year_id = ? AND e.status = 'enrolled'
+       LEFT JOIN grades g ON g.student_id = e.student_id AND g.school_year_id = e.school_year_id
+       WHERE sec.is_active = 1
+       GROUP BY sec.id, sec.name, sec.grade_level, u.name
+       ORDER BY sec.grade_level ASC, sec.name ASC`,
+      [syId]
+    );
+
+    const byGrade = [7, 8, 9, 10, 11, 12]
+      .map(g => {
+        const rows = sections.filter((s: any) => s.grade_level === g);
+        const submitted = rows.filter((s: any) => s.total_students > 0 && s.graded_students === s.total_students).length;
+        return {
+          grade_level: g,
+          sections: rows,
+          submitted,
+          total: rows.length,
+          pct: rows.length > 0 ? Math.round((submitted / rows.length) * 100) : 0,
+        };
+      })
+      .filter((g: any) => g.sections.length > 0);
+
+    const totalSections = sections.length;
+    const submittedSections = byGrade.reduce((a: number, g: any) => a + g.submitted, 0);
+
+    res.json({
+      school_year_id: syId,
+      total_sections: totalSections,
+      submitted_sections: submittedSections,
+      overall_pct: totalSections > 0 ? Math.round((submittedSections / totalSections) * 100) : 0,
+      by_grade: byGrade,
+    });
+  } catch (error) {
+    console.error("Grade submission status error:", error);
+    res.status(500).json({ error: "Failed to fetch grade submission status." });
+  }
+}
+
 function serializeSubject(r: any) {
   return {
     subject_id: r.subject_id,

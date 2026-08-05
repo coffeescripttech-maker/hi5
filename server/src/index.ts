@@ -40,10 +40,24 @@ const PORT = parseInt(process.env.PORT || "3001");
 
 // ─── Middleware ─────────────────────────────────────────────────────────────────
 
+// Capacitor/Cordova webview origins (the packaged app calls the API from localhost)
+const MOBILE_ORIGINS = [
+  "http://localhost",
+  "https://localhost",
+  "capacitor://localhost",
+  "http://127.0.0.1",
+  "https://127.0.0.1",
+];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === "production"
-    ? process.env.FRONTEND_URL || "http://localhost:5173"
-    : ["http://localhost:5173", "http://localhost:3000"],
+  origin: (origin, callback) => {
+    // Allow requests with no Origin (curl, server-to-server) and known origins
+    if (!origin) return callback(null, true);
+    const allowed = origin === (process.env.FRONTEND_URL || "http://localhost:5173")
+      || MOBILE_ORIGINS.includes(origin)
+      || (process.env.NODE_ENV !== "production" && ["http://localhost:3000"].includes(origin));
+    callback(null, allowed);
+  },
   credentials: true,
 }));
 

@@ -4,11 +4,11 @@
  */
 import { api } from "./api";
 
-interface ExportParams {
+type ExportParams = {
   school_year_id?: number;
   grade_level?: number;
   section_id?: number;
-}
+};
 
 async function downloadCSV(url: string, params: ExportParams | undefined, defaultFilename: string): Promise<void> {
   const response = await api.getBlob(url, params || {});

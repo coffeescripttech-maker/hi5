@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowUpCircle, Archive, CheckCircle, AlertTriangle, Info, Calendar, Users, Lock, Plus, Star } from "lucide-react";
 import { schoolYearsApi, SchoolYearRow } from "../../services/schoolYears";
-import { promotionsApi } from "../../services/promotions";
+import { promotionsApi, PromotionRow } from "../../services/promotions";
 import { useApp } from "../../context/AppContext";
 
 type Step = "idle" | "confirm-promote" | "promoting" | "promoted" | "confirm-archive" | "archiving" | "archived";
@@ -23,6 +23,21 @@ const GRADE_TRANSITIONS: GradeTransition[] = [
   { fromGrade: 11, toGrade: 12, label: "Grade 11 → Grade 12", total: 0, promoted: 0, retained: 0 },
   { fromGrade: 12, toGrade: 13, label: "Grade 12 → Graduated", total: 0, promoted: 0, retained: 0 },
 ];
+
+/** Derive the per-transition summary from the promotions list */
+const deriveSummary = (proms: PromotionRow[]): GradeTransition[] =>
+  GRADE_TRANSITIONS.map(t => {
+    const matching = proms.filter(p => p.to_grade_level === t.toGrade);
+    const total = matching.reduce((a, p) => a + p.student_count, 0);
+    const completed = matching.filter(p => p.status === "completed");
+    const promotedCount = completed.reduce((a, p) => a + p.student_count, 0);
+    return {
+      ...t,
+      total,
+      promoted: promotedCount,
+      retained: total - promotedCount,
+    };
+  });
 
 export function AcademicYearManagement() {
   const { showToast, refreshSchoolInfo } = useApp();
@@ -60,19 +75,7 @@ export function AcademicYearManagement() {
         }
       }
 
-      const summary = GRADE_TRANSITIONS.map(t => {
-        const matching = proms.filter(p => p.to_grade_level === t.toGrade);
-        const total = matching.reduce((a, p) => a + p.student_count, 0);
-        const completed = matching.filter(p => p.status === "completed");
-        const promotedCount = completed.reduce((a, p) => a + p.student_count, 0);
-        return {
-          ...t,
-          total,
-          promoted: promotedCount,
-          retained: total - promotedCount,
-        };
-      });
-      setPromotionSummary(summary);
+      setPromotionSummary(deriveSummary(proms));
     }).catch(err => {
       showToast("error", "Failed to load academic year data: " + (err.detail?.error || err.message));
     }).finally(() => setLoading(false));
@@ -86,9 +89,25 @@ export function AcademicYearManagement() {
     setStep("promoting");
     try {
       showToast("info", "Bulk promotion initiated. Processing...");
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      const res = await promotionsApi.bulkPromote();
+
+      // Map the live backend summary onto the transition table
+      const byGrade = new Map(res.summary.map(s => [s.to_grade_level, s]));
+      setPromotionSummary(GRADE_TRANSITIONS.map(t => {
+        const m = byGrade.get(t.toGrade);
+        if (!m) return { ...t, total: 0, promoted: 0, retained: 0 };
+        if (t.toGrade === 13) {
+          // Grade 12 → Graduated (completers)
+          return { ...t, total: m.students_processed, promoted: m.completed, retained: 0 };
+        }
+        return { ...t, total: m.students_processed, promoted: m.promoted, retained: m.retained };
+      }));
+
+      if (res.failures && res.failures.length > 0) {
+        showToast("warning", `${res.failures.length} section(s) encountered errors during promotion. Review the grade data for those sections and try again.`);
+      }
+      showToast("success", res.message || "Bulk promotion completed.");
       setStep("promoted");
-      showToast("success", `Bulk promotion completed — ${totalPromoted} students promoted, ${totalRetained} retained.`);
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Promotion failed");
       setStep("idle");
@@ -99,10 +118,18 @@ export function AcademicYearManagement() {
     setStep("archiving");
     try {
       const current = schoolYears.find(sy => sy.is_current === 1);
-      if (current) {
-        await schoolYearsApi.update(current.id, { enrollment_open: 0 });
-        showToast("success", `School Year ${currentSY} has been archived. ${nextSY} is now active.`);
-      }
+      if (!current) throw new Error("No current school year found.");
+
+      const res = await schoolYearsApi.archive(current.id);
+
+      // Refresh the school year list so the new active year shows as current
+      const sys = await schoolYearsApi.list();
+      setSchoolYears(sortYears(sys));
+      const cur = sys.find(s => s.is_current === 1);
+      if (cur) setCurrentSY(cur.sy_label);
+
+      refreshSchoolInfo();
+      showToast("success", res.message || `School Year ${currentSY} archived. ${nextSY} is now active.`);
       setStep("archived");
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Archive failed");

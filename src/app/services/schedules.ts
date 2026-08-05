@@ -49,7 +49,7 @@ export const schedulesApi = {
     section_id?: number;
     subject_id?: number;
     school_year_id?: number;
-  }) => api.get<ScheduleRow[]>("/schedules", { params }),
+  }) => api.get<ScheduleRow[]>("/schedules", params),
   get: (id: number) => api.get<ScheduleRow>(`/schedules/${id}`),
   create: (data: CreateSchedulePayload) =>
     api.post<ScheduleRow>("/schedules", data),

@@ -1,7 +1,3 @@
-"use client"
-
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
 import { Printer } from "lucide-react"
 
 /* ---------------------------------------------------------------- */
@@ -92,9 +88,9 @@ export function SF9Card() {
           </h1>
           <p className="text-sm text-muted-foreground">Fillable report card. Use Print for the official layout.</p>
         </div>
-        <Button size="sm" onClick={() => window.print()}>
+        <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700">
           <Printer className="size-4" /> Print
-        </Button>
+        </button>
       </div>
 
       <div className="sf1-sheet mx-auto w-fit max-w-full space-y-8 overflow-x-auto bg-white p-6 text-black shadow-sm">
@@ -186,7 +182,7 @@ export function SF9Card() {
 
               {/* Letterhead */}
               <div className="flex items-center justify-center gap-2 text-center">
-                <Image
+                <img
                   src="/deped-seal.png"
                   alt="Department of Education seal"
                   width={48}
@@ -257,7 +253,7 @@ export function SF9Card() {
         <div className="sf1-page" style={{ minWidth: "900px" }}>
           {/* Title block: logo left, title center, logo right */}
           <div className="mb-4 flex items-center justify-between gap-4">
-            <Image
+            <img
               src="/deped-seal.png"
               alt="Department of Education seal"
               width={64}
@@ -268,7 +264,7 @@ export function SF9Card() {
               <h2 className="text-[14px] font-bold">School Form 9 (SF9)</h2>
               <p className="text-[11px] font-semibold">Learner&apos;s Progress Report Card</p>
             </div>
-            <Image
+            <img
               src="/right-logo.png"
               alt="Department of Education logo"
               width={140}

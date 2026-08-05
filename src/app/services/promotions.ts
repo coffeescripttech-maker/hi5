@@ -43,6 +43,26 @@ export interface CompleteSectionPayload {
   school_year_id: number;
 }
 
+export interface BulkPromoteSummaryRow {
+  grade_level: number;
+  to_grade_level: number;
+  label: string;
+  sections: number;
+  students_processed: number;
+  promoted: number;
+  retained: number;
+  completed: number;
+}
+
+export interface BulkPromoteResponse {
+  message: string;
+  school_year_id: number;
+  next_school_year_id: number;
+  next_sy_label: string | null;
+  summary: BulkPromoteSummaryRow[];
+  failures: { section_name: string; grade_level: number; error: string }[];
+}
+
 export const promotionsApi = {
   list: () => api.get<PromotionRow[]>("/promotions"),
   get: (id: number) =>
@@ -55,4 +75,6 @@ export const promotionsApi = {
     api.post<{ message: string; promotion_id: number; section_name: string; student_count: number; students: any[] }>(
       "/promotions/complete", data
     ),
+  bulkPromote: () =>
+    api.post<BulkPromoteResponse>("/promotions/bulk-promote"),
 };

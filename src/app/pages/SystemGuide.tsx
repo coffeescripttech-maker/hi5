@@ -184,35 +184,30 @@ export function SystemGuide() {
     const svg = container.querySelector("svg");
     if (!svg) return;
 
-    // Find all text-bearing elements inside node groups
-    const textElements = svg.querySelectorAll("text, foreignObject");
-    textElements.forEach(el => {
-      const text = (el.textContent || "").trim();
+    // Attach navigation ONLY to real node groups (`g.node`). Edge labels and
+    // cluster titles live outside `.node` groups — the old climb-to-parent
+    // logic escaped the <svg> and bound click handlers on <body>, hijacking
+    // every click on the page (wrong destination + sidebar stopped working).
+    const nodeGroups = svg.querySelectorAll("g.node") as NodeListOf<SVGGElement>;
+    nodeGroups.forEach(nodeGroup => {
+      const text = (nodeGroup.textContent || "").trim();
       if (!text) return;
 
-      // Try to match against any route entry
       for (const [match, path, label] of NODE_ROUTES) {
         if (text.includes(match)) {
-          // Walk up to the closest <g> that represents the node
-          let target = el.closest("g");
-          // Mermaid wraps nodes in a <g> with class 'node' near the top
-          while (target && !target.classList.contains("node") && target.parentElement) {
-            target = target.parentElement;
-          }
-          if (target) {
-            (target as HTMLElement).style.cursor = "pointer";
-            (target as HTMLElement).title = `Click to go to: ${label}`;
-            target.addEventListener("click", (e) => {
-              e.stopPropagation();
-              navigate(path);
-            });
-          }
-          break; // only first match per element
+          nodeGroup.style.cursor = "pointer";
+          nodeGroup.setAttribute("title", `Click to go to: ${label}`);
+          nodeGroup.addEventListener("click", (e) => {
+            e.stopPropagation();
+            navigate(path);
+          });
+          break; // only first match per node
         }
       }
     });
 
-    // Also add clickable overlay hint text
+    // Also add clickable overlay hint text (once)
+    if (container.querySelector(".clickable-hint")) return;
     const hint = document.createElement("div");
     hint.className = "clickable-hint";
     hint.style.cssText =

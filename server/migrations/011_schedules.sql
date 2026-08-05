@@ -28,8 +28,9 @@ CREATE TABLE IF NOT EXISTS schedules (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Insert sample schedule entries for existing teacher-section-subject assignments
+-- (INSERT IGNORE — safe to re-run; unique keys prevent duplicates)
 -- Teacher 2 (Mr. Ramon Dela Cruz) → Section 1 (7-Mabini) → Subject 3 (Mathematics G7)
-INSERT INTO schedules (teacher_id, section_id, subject_id, school_year_id, day_of_week, start_time, end_time, room)
+INSERT IGNORE INTO schedules (teacher_id, section_id, subject_id, school_year_id, day_of_week, start_time, end_time, room)
 VALUES
   (2, 1, 3, 1, 1, '07:30:00', '08:30:00', 'Room 101'),
   (2, 1, 3, 1, 3, '07:30:00', '08:30:00', 'Room 101'),

@@ -57,145 +57,17 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
     );
     const nextSchoolYearId = nextSY.length > 0 ? nextSY[0].id : school_year_id;
 
-    // Get enrolled students with their averages
-    const students = await query<RowDataPacket[]>(
-      `SELECT ps.enrollment_id, ps.student_id,
-              ROUND(AVG(ps.subject_avg), 2) AS general_average
-       FROM (
-         SELECT e.id AS enrollment_id, e.student_id,
-                ROUND(AVG(g.grade), 2) AS subject_avg
-         FROM enrollments e
-         JOIN grades g ON g.student_id = e.student_id AND g.school_year_id = e.school_year_id
-         JOIN subjects s ON g.subject_id = s.id
-         WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-         GROUP BY e.id, e.student_id,
-           CASE WHEN s.name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE s.name END
-       ) ps
-       GROUP BY ps.enrollment_id, ps.student_id
-       ORDER BY general_average DESC`,
-      [section_id, school_year_id]
-    );
-
-    if (students.length === 0) {
-      res.status(400).json({ error: "No enrolled students with grades found in this section." });
-      return;
-    }
-
-    // Get section type configs for the next grade level
-    const typeConfigs = await query<RowDataPacket[]>(
-      `SELECT * FROM section_type_config WHERE grade_level = ? ORDER BY max_average DESC`,
-      [toGrade]
-    );
-
-    // Get available sections for the next grade level
-    const targetSections = await query<RowDataPacket[]>(
-      `SELECT * FROM sections WHERE grade_level = ? AND is_active = 1 ORDER BY min_average DESC`,
-      [toGrade]
-    );
-
-    if (targetSections.length === 0) {
-      res.status(400).json({ error: `No active sections found for grade ${toGrade}. Create sections first.` });
-      return;
-    }
-
-    // Create promotion record
-    const promoResult = await query<ResultSetHeader>(
-      `INSERT INTO promotions (section_id, to_grade_level, school_year_id, promoted_by, status)
-       VALUES (?, ?, ?, ?, 'pending_review')`,
-      [section_id, toGrade, school_year_id, req.user!.userId]
-    );
-    const promotionId = promoResult.insertId;
-
-    // Process each student
-    const results: any[] = [];
-    for (const s of students) {
-      const student = await query<RowDataPacket[]>(
-        "SELECT id, name, grade_level FROM students WHERE id = ?",
-        [s.student_id]
-      );
-      if (student.length === 0) continue;
-
-      const avg = parseFloat(s.general_average || "0");
-      const isRetained = avg < 75 ? 1 : 0;
-
-      // Find target section based on average
-      let targetSectionId: number | null = null;
-      if (!isRetained) {
-        // Find the highest section type their average qualifies for
-        for (const tSec of targetSections) {
-          if (avg >= parseFloat(tSec.min_average)) {
-            // Check if section has capacity
-            if (tSec.current_count < tSec.capacity) {
-              targetSectionId = tSec.id;
-              break;
-            }
-          }
-        }
-
-        // Fallback: find any section with capacity
-        if (!targetSectionId) {
-          for (const tSec of targetSections) {
-            if (tSec.current_count < tSec.capacity) {
-              targetSectionId = tSec.id;
-              break;
-            }
-          }
-        }
-      }
-
-      // Insert promotion_student record
-      await query<ResultSetHeader>(
-        `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [promotionId, s.student_id, section_id, targetSectionId, avg, isRetained]
-      );
-
-      // If assigned to a section, update student's grade level and create enrollment for next SY
-      if (targetSectionId && !isRetained) {
-        await query<ResultSetHeader>(
-          "UPDATE students SET grade_level = ? WHERE id = ?",
-          [toGrade, s.student_id]
-        );
-
-        // Update section counts
-        await query<ResultSetHeader>(
-          "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
-          [targetSectionId]
-        );
-
-        // Check if already enrolled in next SY
-        const existingEnroll = await query<RowDataPacket[]>(
-          "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
-          [s.student_id, nextSchoolYearId]
-        );
-
-        if (existingEnroll.length === 0) {
-          await query<ResultSetHeader>(
-            `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status)
-             VALUES (?, ?, ?, CURDATE(), ?, 'enrolled')`,
-            [s.student_id, targetSectionId, nextSchoolYearId, req.user!.userId]
-          );
-        }
-      }
-
-      results.push({
-        student_id: s.student_id,
-        name: student[0].name,
-        general_average: avg,
-        is_retained: isRetained === 1,
-        to_section_id: targetSectionId,
-      });
-    }
-
-    // Mark promotion as completed
-    await query<ResultSetHeader>(
-      "UPDATE promotions SET status = 'completed' WHERE id = ?",
-      [promotionId]
+    const { promotionId, results, toGrade: processedGrade } = await promoteSectionCore(
+      req.user!.userId,
+      section,
+      school_year_id,
+      nextSchoolYearId,
+      { enrollRetained: false }
     );
 
     await logActivity(
       req.user!.userId,
-      `Promoted section "${section.name}" (G${section.grade_level} → G${toGrade}): ${results.length} students`,
+      `Promoted section "${section.name}" (G${section.grade_level} → G${processedGrade}): ${results.length} students`,
       "promotions",
       promotionId
     );
@@ -205,12 +77,325 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
       promotion_id: promotionId,
       from_section: section.name,
       from_grade: section.grade_level,
-      to_grade: toGrade,
+      to_grade: processedGrade,
       students: results,
     });
   } catch (error) {
     console.error("Promotion error:", error);
     res.status(500).json({ error: "Failed to process promotion." });
+  }
+}
+
+/**
+ * Shared per-section promotion logic. Extracted so both the single-section
+ * endpoint and the year-end bulk promotion can reuse the same algorithm.
+ * Throws on failure so the caller decides how to surface it.
+ */
+async function promoteSectionCore(
+  userId: number,
+  section: RowDataPacket,
+  schoolYearId: number,
+  nextSchoolYearId: number,
+  opts: { enrollRetained: boolean } = { enrollRetained: false }
+): Promise<{ promotionId: number; toGrade: number; results: any[] }> {
+  const toGrade = section.grade_level + 1;
+
+  // Get enrolled students with their averages
+  const students = await query<RowDataPacket[]>(
+    `SELECT ps.enrollment_id, ps.student_id,
+            ROUND(AVG(ps.subject_avg), 2) AS general_average
+     FROM (
+       SELECT e.id AS enrollment_id, e.student_id,
+              ROUND(AVG(g.grade), 2) AS subject_avg
+       FROM enrollments e
+       JOIN grades g ON g.student_id = e.student_id AND g.school_year_id = e.school_year_id
+       JOIN subjects s ON g.subject_id = s.id
+       WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+       GROUP BY e.id, e.student_id,
+         CASE WHEN s.name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE s.name END
+     ) ps
+     GROUP BY ps.enrollment_id, ps.student_id
+     ORDER BY general_average DESC`,
+    [section.id, schoolYearId]
+  );
+
+  if (students.length === 0) {
+    throw new Error(`No enrolled students with grades found in section "${section.name}".`);
+  }
+
+  // Get available sections for the next grade level
+  const targetSections = await query<RowDataPacket[]>(
+    `SELECT * FROM sections WHERE grade_level = ? AND is_active = 1 ORDER BY min_average DESC`,
+    [toGrade]
+  );
+
+  if (targetSections.length === 0) {
+    throw new Error(`No active sections found for grade ${toGrade}. Create sections first.`);
+  }
+
+  // Create promotion record
+  const promoResult = await query<ResultSetHeader>(
+    `INSERT INTO promotions (section_id, to_grade_level, school_year_id, promoted_by, status)
+     VALUES (?, ?, ?, ?, 'pending_review')`,
+    [section.id, toGrade, schoolYearId, userId]
+  );
+  const promotionId = promoResult.insertId;
+
+  // Process each student
+  const results: any[] = [];
+  for (const s of students) {
+    const student = await query<RowDataPacket[]>(
+      "SELECT id, name, grade_level FROM students WHERE id = ?",
+      [s.student_id]
+    );
+    if (student.length === 0) continue;
+
+    const avg = parseFloat(s.general_average || "0");
+    const isRetained = avg < 75 ? 1 : 0;
+
+    // Find target section based on average
+    let targetSectionId: number | null = null;
+    if (!isRetained) {
+      // Find the highest section type their average qualifies for
+      for (const tSec of targetSections) {
+        if (avg >= parseFloat(tSec.min_average)) {
+          // Check if section has capacity
+          if (tSec.current_count < tSec.capacity) {
+            targetSectionId = tSec.id;
+            break;
+          }
+        }
+      }
+
+      // Fallback: find any section with capacity
+      if (!targetSectionId) {
+        for (const tSec of targetSections) {
+          if (tSec.current_count < tSec.capacity) {
+            targetSectionId = tSec.id;
+            break;
+          }
+        }
+      }
+    }
+
+    // Insert promotion_student record
+    await query<ResultSetHeader>(
+      `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [promotionId, s.student_id, section.id, targetSectionId, avg, isRetained]
+    );
+
+    // If assigned to a section, update student's grade level and create enrollment for next SY
+    if (targetSectionId && !isRetained) {
+      await query<ResultSetHeader>(
+        "UPDATE students SET grade_level = ? WHERE id = ?",
+        [toGrade, s.student_id]
+      );
+
+      // Update section counts
+      await query<ResultSetHeader>(
+        "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
+        [targetSectionId]
+      );
+
+      // Check if already enrolled in next SY
+      const existingEnroll = await query<RowDataPacket[]>(
+        "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
+        [s.student_id, nextSchoolYearId]
+      );
+
+      if (existingEnroll.length === 0) {
+        await query<ResultSetHeader>(
+          `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status)
+           VALUES (?, ?, ?, CURDATE(), ?, 'enrolled')`,
+          [s.student_id, targetSectionId, nextSchoolYearId, userId]
+        );
+      }
+    } else if (opts.enrollRetained && isRetained) {
+      // Keep retained students in the SAME section for the next school year
+      const existingEnroll = await query<RowDataPacket[]>(
+        "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
+        [s.student_id, nextSchoolYearId]
+      );
+      if (existingEnroll.length === 0) {
+        await query<ResultSetHeader>(
+          `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status)
+           VALUES (?, ?, ?, CURDATE(), ?, 'enrolled')`,
+          [s.student_id, section.id, nextSchoolYearId, userId]
+        );
+      }
+    }
+
+    results.push({
+      student_id: s.student_id,
+      name: student[0].name,
+      general_average: avg,
+      is_retained: isRetained === 1,
+      to_section_id: targetSectionId,
+    });
+  }
+
+  // Mark promotion as completed
+  await query<ResultSetHeader>(
+    "UPDATE promotions SET status = 'completed' WHERE id = ?",
+    [promotionId]
+  );
+
+  return { promotionId, toGrade, results };
+}
+
+/**
+ * POST /api/promotions/bulk-promote — Year-end bulk promotion
+ * Body: { school_year_id? } (defaults to the current school year)
+ *
+ * Promotes every grade 7-11 section (GA >= 75 promoted, < 75 retained) and
+ * marks grade 12 sections as completers. Creates/uses the next school year
+ * for the new enrollments. Individual section failures are collected and
+ * reported rather than aborting the whole run.
+ */
+export async function bulkPromote(req: Request, res: Response): Promise<void> {
+  try {
+    // Resolve school year
+    let schoolYearId: number;
+    if (req.body?.school_year_id) {
+      schoolYearId = parseInt(req.body.school_year_id);
+    } else {
+      const cur = await query<RowDataPacket[]>(
+        "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+      );
+      if (cur.length === 0) {
+        res.status(400).json({ error: "No current school year set." });
+        return;
+      }
+      schoolYearId = cur[0].id;
+    }
+
+    const sy = await query<RowDataPacket[]>(
+      "SELECT * FROM school_years WHERE id = ?",
+      [schoolYearId]
+    );
+    if (sy.length === 0) {
+      res.status(404).json({ error: "School year not found." });
+      return;
+    }
+    const currentSY = sy[0];
+
+    // Determine (and create if needed) the next school year for new enrollments
+    const parts = String(currentSY.sy_label).split(/[-–]/);
+    let nextLabel: string | null = null;
+    if (parts.length === 2 && !Number.isNaN(parseInt(parts[0])) && !Number.isNaN(parseInt(parts[1]))) {
+      nextLabel = `${parseInt(parts[0]) + 1}-${parseInt(parts[1]) + 1}`;
+    }
+
+    let nextSchoolYearId = schoolYearId;
+    if (nextLabel) {
+      const existing = await query<RowDataPacket[]>(
+        "SELECT id FROM school_years WHERE sy_label = ?",
+        [nextLabel]
+      );
+      if (existing.length > 0) {
+        nextSchoolYearId = existing[0].id;
+      } else {
+        const ins = await query<ResultSetHeader>(
+          "INSERT INTO school_years (sy_label, enrollment_open) VALUES (?, 1)",
+          [nextLabel]
+        );
+        nextSchoolYearId = ins.insertId;
+      }
+    }
+
+    // Sections with enrolled students in the current school year
+    const sections = await query<RowDataPacket[]>(
+      `SELECT DISTINCT sec.*
+       FROM sections sec
+       JOIN enrollments e ON e.section_id = sec.id AND e.school_year_id = ? AND e.status = 'enrolled'
+       WHERE sec.is_active = 1
+       ORDER BY sec.grade_level ASC, sec.name ASC`,
+      [schoolYearId]
+    );
+
+    if (sections.length === 0) {
+      res.status(400).json({ error: "No sections with enrolled students found for this school year." });
+      return;
+    }
+
+    // Run promotion per section, tolerating individual failures
+    const byGrade: Record<number, {
+      grade_level: number;
+      to_grade_level: number;
+      label: string;
+      sections: number;
+      students_processed: number;
+      promoted: number;
+      retained: number;
+      completed: number;
+    }> = {};
+    const failures: { section_name: string; grade_level: number; error: string }[] = [];
+
+    for (const section of sections) {
+      const g = section.grade_level;
+      if (!byGrade[g]) {
+        byGrade[g] = {
+          grade_level: g,
+          to_grade_level: g === 12 ? 13 : g + 1,
+          label: g === 12 ? "Grade 12 → Graduated" : `Grade ${g} → Grade ${g + 1}`,
+          sections: 0,
+          students_processed: 0,
+          promoted: 0,
+          retained: 0,
+          completed: 0,
+        };
+      }
+
+      try {
+        if (g === 12) {
+          const { results } = await completeSectionCore(req.user!.userId, section, schoolYearId);
+          byGrade[g].students_processed += results.length;
+          byGrade[g].completed += results.length;
+        } else if (g >= 7 && g <= 11) {
+          const { results } = await promoteSectionCore(
+            req.user!.userId,
+            section,
+            schoolYearId,
+            nextSchoolYearId,
+            { enrollRetained: true }
+          );
+          byGrade[g].students_processed += results.length;
+          for (const r of results) {
+            if (r.is_retained) byGrade[g].retained += 1;
+            else byGrade[g].promoted += 1;
+          }
+        }
+        byGrade[g].sections += 1;
+      } catch (err) {
+        failures.push({
+          section_name: section.name,
+          grade_level: g,
+          error: (err as Error).message || String(err),
+        });
+      }
+    }
+
+    const summary = Object.values(byGrade);
+
+    await logActivity(
+      req.user!.userId,
+      `Bulk year-end promotion executed across ${sections.length} sections (${sections.length - failures.length} succeeded, ${failures.length} failed)`,
+      "promotions",
+      null
+    );
+
+    res.json({
+      message: `Bulk promotion completed. ${sections.length} sections processed (${sections.length - failures.length} succeeded).`,
+      school_year_id: schoolYearId,
+      next_school_year_id: nextSchoolYearId,
+      next_sy_label: nextLabel,
+      summary,
+      failures,
+    });
+  } catch (error) {
+    console.error("Bulk promotion error:", error);
+    res.status(500).json({ error: "Failed to process bulk promotion." });
   }
 }
 
@@ -312,61 +497,7 @@ export async function completeSection(req: Request, res: Response): Promise<void
       return;
     }
 
-    // Get enrolled students in this section for this school year
-    const students = await query<RowDataPacket[]>(
-      `SELECT e.id AS enrollment_id, e.student_id, s.name, s.student_id AS display_id
-       FROM enrollments e
-       JOIN students s ON e.student_id = s.id
-       WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'`,
-      [section_id, school_year_id]
-    );
-
-    if (students.length === 0) {
-      res.status(400).json({ error: "No enrolled students found in this section." });
-      return;
-    }
-
-    // Create a promotion-like record for audit trail
-    const promoResult = await query<ResultSetHeader>(
-      `INSERT INTO promotions (section_id, to_grade_level, school_year_id, promoted_by, status)
-       VALUES (?, 12, ?, ?, 'completed')`,
-      [section_id, school_year_id, req.user!.userId]
-    );
-    const promotionId = promoResult.insertId;
-
-    // Process each student
-    const results: any[] = [];
-    for (const s of students) {
-      // Mark enrollment as completed
-      await query<ResultSetHeader>(
-        "UPDATE enrollments SET status = 'completed', remarks = 'Grade 12 completed' WHERE id = ?",
-        [s.enrollment_id]
-      );
-
-      // Update student status to graduated
-      await query<ResultSetHeader>(
-        "UPDATE students SET status = 'graduated' WHERE id = ?",
-        [s.student_id]
-      );
-
-      // Insert promotion_student record for audit
-      await query<ResultSetHeader>(
-        `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained)
-         VALUES (?, ?, ?, NULL, NULL, 0)`,
-        [promotionId, s.student_id, section_id]
-      );
-
-      results.push({
-        student_id: s.student_id,
-        name: s.name,
-      });
-    }
-
-    // Decrement section counts since students have left
-    await query<ResultSetHeader>(
-      "UPDATE sections SET current_count = GREATEST(current_count - ?, 0) WHERE id = ?",
-      [students.length, section_id]
-    );
+    const { promotionId, results } = await completeSectionCore(req.user!.userId, section, school_year_id);
 
     await logActivity(
       req.user!.userId,
@@ -386,4 +517,72 @@ export async function completeSection(req: Request, res: Response): Promise<void
     console.error("Complete section error:", error);
     res.status(500).json({ error: "Failed to complete section." });
   }
+}
+
+/**
+ * Shared Grade 12 completion logic. Extracted so both the single-section
+ * endpoint and the year-end bulk promotion can reuse the same code.
+ * Throws on failure so the caller decides how to surface it.
+ */
+async function completeSectionCore(
+  userId: number,
+  section: RowDataPacket,
+  schoolYearId: number
+): Promise<{ promotionId: number; results: any[] }> {
+  // Get enrolled students in this section for this school year
+  const students = await query<RowDataPacket[]>(
+    `SELECT e.id AS enrollment_id, e.student_id, s.name, s.student_id AS display_id
+     FROM enrollments e
+     JOIN students s ON e.student_id = s.id
+     WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'`,
+    [section.id, schoolYearId]
+  );
+
+  if (students.length === 0) {
+    throw new Error(`No enrolled students found in section "${section.name}".`);
+  }
+
+  // Create a promotion-like record for audit trail
+  const promoResult = await query<ResultSetHeader>(
+    `INSERT INTO promotions (section_id, to_grade_level, school_year_id, promoted_by, status)
+     VALUES (?, 12, ?, ?, 'completed')`,
+    [section.id, schoolYearId, userId]
+  );
+  const promotionId = promoResult.insertId;
+
+  // Process each student
+  const results: any[] = [];
+  for (const s of students) {
+    // Mark enrollment as completed
+    await query<ResultSetHeader>(
+      "UPDATE enrollments SET status = 'completed', remarks = 'Grade 12 completed' WHERE id = ?",
+      [s.enrollment_id]
+    );
+
+    // Update student status to graduated
+    await query<ResultSetHeader>(
+      "UPDATE students SET status = 'graduated' WHERE id = ?",
+      [s.student_id]
+    );
+
+    // Insert promotion_student record for audit
+    await query<ResultSetHeader>(
+      `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained)
+       VALUES (?, ?, ?, NULL, NULL, 0)`,
+      [promotionId, s.student_id, section.id]
+    );
+
+    results.push({
+      student_id: s.student_id,
+      name: s.name,
+    });
+  }
+
+  // Decrement section counts since students have left
+  await query<ResultSetHeader>(
+    "UPDATE sections SET current_count = GREATEST(current_count - ?, 0) WHERE id = ?",
+    [students.length, section.id]
+  );
+
+  return { promotionId, results };
 }

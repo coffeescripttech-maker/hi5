@@ -15,7 +15,10 @@ const TYPE_LABEL: Record<string, string> = {
   specialized: "Specialized",
 };
 
-const emptyForm = { name: "", grade_level: 7, hours_per_week: 4, subject_type: "core" as const };
+type SubjectType = "core" | "applied" | "specialized";
+
+const emptyForm: { name: string; grade_level: number; hours_per_week: number; subject_type: SubjectType } =
+  { name: "", grade_level: 7, hours_per_week: 4, subject_type: "core" };
 
 export function SubjectManagement() {
   const { showToast } = useApp();

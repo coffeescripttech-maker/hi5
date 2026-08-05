@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Calendar, Clock, BookOpen, Users, MapPin, Loader2 } from "lucide-react";
 import { schedulesApi, ScheduleRow } from "../../services/schedules";
 import { schoolYearsApi } from "../../services/schoolYears";
+import { authApi } from "../../services/api";
 import { useApp } from "../../context/AppContext";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -14,24 +15,33 @@ function formatTime(t: string) {
 }
 
 export function TeacherSchedule() {
-  const { user, showToast } = useApp();
+  const { showToast } = useApp();
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [syLabel, setSyLabel] = useState("");
+  const [teacherName, setTeacherName] = useState("");
 
   useEffect(() => {
-    if (!user) return;
-    Promise.all([
-      schedulesApi.list({ teacher_id: user.id }),
-      schoolYearsApi.list().then(years => years.find(y => y.is_current)?.sy_label || ""),
-    ])
-      .then(([scheds, label]) => {
+    let cancelled = false;
+    authApi.me()
+      .then(me => {
+        if (cancelled) return null;
+        setTeacherName(me.name || me.username);
+        return Promise.all([
+          schedulesApi.list({ teacher_id: me.id }),
+          schoolYearsApi.list().then(years => years.find(y => y.is_current)?.sy_label || ""),
+        ]);
+      })
+      .then((res) => {
+        if (cancelled || !res) return;
+        const [scheds, label] = res;
         setSchedules(scheds);
         setSyLabel(label);
       })
-      .catch(err => showToast("error", "Failed to load schedule: " + (err.detail?.error || err.message)))
-      .finally(() => setLoading(false));
-  }, [user]);
+      .catch((err: any) => showToast("error", "Failed to load schedule: " + (err?.detail?.error || err?.message)))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [showToast]);
 
   // Group schedules by day
   const byDay = DAYS.map((_, i) => {
@@ -58,7 +68,7 @@ export function TeacherSchedule() {
           <div>
             <h2 className="font-bold text-gray-800">My Teaching Schedule</h2>
             <p className="text-gray-500 text-sm">
-              {user?.name} · {syLabel || "Current School Year"}
+              {teacherName} · {syLabel || "Current School Year"}
             </p>
           </div>
         </div>

@@ -648,7 +648,7 @@ export function EnrollmentReport() {
                       <span className="bg-gray-100 text-gray-700 text-[11px] px-2.5 py-1 rounded-full font-medium">Gr. {s.grade_level}</span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium border ${sectionBadge[s.section_name] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                      <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium border ${sectionBadge[s.section_name ?? ""] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
                         {s.section_name || "—"}
                       </span>
                     </td>

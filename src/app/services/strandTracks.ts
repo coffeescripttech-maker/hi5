@@ -36,7 +36,11 @@ export interface UpdateStrandTrackPayload {
 
 export const strandTracksApi = {
   list: (params?: { track_type?: string; grade_level?: number; include_inactive?: boolean }) =>
-    api.get<StrandTrackRow[]>("/strand-tracks", { params }),
+    api.get<StrandTrackRow[]>("/strand-tracks", {
+      track_type: params?.track_type,
+      grade_level: params?.grade_level,
+      include_inactive: params?.include_inactive ? 1 : undefined,
+    }),
   get: (id: number) => api.get<StrandTrackRow>(`/strand-tracks/${id}`),
   create: (data: CreateStrandTrackPayload) =>
     api.post<StrandTrackRow>("/strand-tracks", data),

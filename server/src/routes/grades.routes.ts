@@ -9,6 +9,7 @@ import {
   unlockGrades,
   computeAverages,
   getGradeDistribution,
+  getGradeSubmissionStatus,
 } from "../controllers/grades.controller";
 
 const router = Router();
@@ -19,6 +20,7 @@ router.use(authenticate);
 router.get("/", getGrades);
 router.get("/distribution", getGradeDistribution);
 router.get("/compute/averages", computeAverages);
+router.get("/submission-status", getGradeSubmissionStatus);
 
 // Grade mutations — teachers, registrars, and admin
 router.post("/", authorize("admin", "teacher", "registrar"), upsertGrade);

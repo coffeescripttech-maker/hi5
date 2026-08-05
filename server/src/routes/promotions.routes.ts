@@ -6,6 +6,7 @@ import {
   getPromotionById,
   promoteSection,
   completeSection,
+  bulkPromote,
 } from "../controllers/promotions.controller";
 
 const router = Router();
@@ -16,5 +17,6 @@ router.get("/", listPromotions);
 router.get("/:id", getPromotionById);
 router.post("/", authorize("admin", "teacher", "registrar"), promoteSection);
 router.post("/complete", authorize("admin", "teacher", "registrar"), completeSection);
+router.post("/bulk-promote", authorize("admin"), bulkPromote);
 
 export default router;

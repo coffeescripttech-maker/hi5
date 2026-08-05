@@ -1,14 +1,31 @@
 import { useState, useEffect } from "react";
 import {
   Users, Plus, Edit2, Trash2, X, Search, Shield,
-  GraduationCap, FileText, CheckCircle, AlertTriangle,
+  GraduationCap, FileText, CheckCircle, AlertTriangle, AlertCircle,
   Key, Mail, User, Lock, Eye, EyeOff, Filter, Clock, Info
 } from "lucide-react";
+import { z } from "zod";
 import { usersApi, UserRow, CreateUserPayload, UpdateUserPayload } from "../../services/users";
 import { useApp } from "../../context/AppContext";
 
 type UserRole = "admin" | "teacher" | "registrar" | "principal";
 const ROLES: UserRole[] = ["admin", "teacher", "registrar", "principal"];
+
+/* ── Zod Validation Schema ─────────────────────────── */
+const MIN_PASSWORD = 8;
+const userSchema = z.object({
+  name: z.string().trim().min(1, "Full name is required").min(2, "Full name must be at least 2 characters"),
+  username: z
+    .string()
+    .trim()
+    .min(1, "Username is required")
+    .min(3, "Username must be at least 3 characters")
+    .regex(/^[a-zA-Z0-9_.-]+$/, "Username may only contain letters, numbers, dots, dashes, and underscores"),
+  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
+  password: z.string().refine(v => v === "" || v.length >= MIN_PASSWORD, `Password must be at least ${MIN_PASSWORD} characters, or leave blank for default`),
+});
+type UserFieldErrors = Partial<Record<"name" | "username" | "email" | "password", string>>;
+/* ── End Validation ─────────────────────────────────────────────────── */
 
 const PERMISSIONS: Record<string, string[]> = {
   admin: [
@@ -80,6 +97,39 @@ export function UserManagement() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [showPermissions, setShowPermissions] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<UserFieldErrors>({});
+
+  /** Validate a single modal field (password skipped when editing) */
+  const validateField = (field: keyof UserFieldErrors, value: string) => {
+    if (editUser && field === "password") return;
+    const result = userSchema.shape[field].safeParse(value);
+    setFieldErrors(prev => ({ ...prev, [field]: result.success ? "" : result.error.issues[0]?.message || "" }));
+  };
+
+  /** Full validation before saving; returns true when valid */
+  const validateAll = (): boolean => {
+    const values = editUser
+      ? { name: editUser.name, username: editUser.username, email: editUser.email }
+      : { name: newUser.name, username: newUser.username, email: newUser.email, password };
+    const result = userSchema
+      .pick(editUser ? { name: true, username: true, email: true } : { name: true, username: true, email: true, password: true })
+      .safeParse(values);
+    if (result.success) { setFieldErrors({}); return true; }
+    const errs: UserFieldErrors = {};
+    result.error.issues.forEach(i => {
+      const p = i.path[0] as keyof UserFieldErrors;
+      if (p && !errs[p]) errs[p] = i.message;
+    });
+    setFieldErrors(errs);
+    return false;
+  };
+
+  /** Clear a single field error + update the underlying value */
+  const handleChange = (field: string, value: string) => {
+    if (editUser) setEditUser({ ...editUser, [field]: value });
+    else setNewUser({ ...newUser, [field]: value });
+    if ((field as keyof UserFieldErrors) in fieldErrors) setFieldErrors(prev => ({ ...prev, [field]: "" }));
+  };
 
   const fetchUsers = () => {
     setLoading(true);
@@ -105,6 +155,7 @@ export function UserManagement() {
   };
 
   const handleSave = async () => {
+    if (!validateAll()) return; // inline field errors shown
     try {
       if (editUser) {
         const payload: UpdateUserPayload = {
@@ -153,11 +204,6 @@ export function UserManagement() {
   const formValue = (field: string): string => {
     if (editUser) return (editUser as any)[field] ?? "";
     return (newUser as any)[field] ?? "";
-  };
-
-  const handleChange = (field: string, value: string) => {
-    if (editUser) setEditUser({ ...editUser, [field]: value });
-    else setNewUser({ ...newUser, [field]: value });
   };
 
   return (
@@ -393,31 +439,58 @@ export function UserManagement() {
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Full Name</label>
                 <div className="relative">
-                  <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={formValue("name")} onChange={e => handleChange("name", e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400"
+                  <User size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.name ? "text-red-400" : "text-gray-400"}`} />
+                  <input type="text" value={formValue("name")}
+                    onChange={e => handleChange("name", e.target.value)}
+                    onBlur={e => validateField("name", e.target.value)}
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
+                      fieldErrors.name ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                    }`}
                     placeholder="e.g. Juan dela Cruz" />
                 </div>
+                {fieldErrors.name && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                    <AlertCircle size={12} className="flex-shrink-0" />{fieldErrors.name}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Username</label>
                   <div className="relative">
-                    <Key size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="text" value={formValue("username")} onChange={e => handleChange("username", e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 font-mono"
+                    <Key size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.username ? "text-red-400" : "text-gray-400"}`} />
+                    <input type="text" value={formValue("username")}
+                      onChange={e => handleChange("username", e.target.value)}
+                      onBlur={e => validateField("username", e.target.value)}
+                      className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white font-mono ${
+                        fieldErrors.username ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                      }`}
                       placeholder="e.g. teacher05" />
                   </div>
+                  {fieldErrors.username && (
+                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                      <AlertCircle size={12} className="flex-shrink-0" />{fieldErrors.username}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Email Address</label>
                   <div className="relative">
-                    <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="email" value={formValue("email")} onChange={e => handleChange("email", e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400"
+                    <Mail size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.email ? "text-red-400" : "text-gray-400"}`} />
+                    <input type="email" value={formValue("email")}
+                      onChange={e => handleChange("email", e.target.value)}
+                      onBlur={e => validateField("email", e.target.value)}
+                      className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
+                        fieldErrors.email ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                      }`}
                       placeholder="user@school.edu.ph" />
                   </div>
+                  {fieldErrors.email && (
+                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                      <AlertCircle size={12} className="flex-shrink-0" />{fieldErrors.email}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -425,14 +498,24 @@ export function UserManagement() {
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Password</label>
                   <div className="relative">
-                    <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
-                      className="w-full pl-9 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400"
+                    <Lock size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.password ? "text-red-400" : "text-gray-400"}`} />
+                    <input type={showPassword ? "text" : "password"} value={password}
+                      onChange={e => { setPassword(e.target.value); if (fieldErrors.password) setFieldErrors(p => ({ ...p, password: "" })); }}
+                      onBlur={e => validateField("password", e.target.value)}
+                      className={`w-full pl-9 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
+                        fieldErrors.password ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                      }`}
                       placeholder="Minimum 8 characters" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
+                  {fieldErrors.password && (
+                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                      <AlertCircle size={12} className="flex-shrink-0" />{fieldErrors.password}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-gray-400 mt-1.5">Leave blank to use the default temporary password.</p>
                 </div>
               )}
 

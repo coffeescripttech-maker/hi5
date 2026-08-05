@@ -62,7 +62,7 @@ export function BulkPromotion() {
       setShowConfirm(false);
       setShowSuccess(true);
       setSelectedSectionId("");
-    } catch (err) {
+    } catch (err: any) {
       showToast("error", err?.detail?.error || err?.message || "Failed to process section");
       // Refresh promotion history
       const updatedPromotions = await promotionsApi.list();

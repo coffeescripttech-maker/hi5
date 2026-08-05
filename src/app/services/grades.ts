@@ -80,6 +80,31 @@ export interface GradeDistribution {
   subjects: SubjectDistribution[];
 }
 
+export interface SectionGradeSubmission {
+  section_id: number;
+  section_name: string;
+  grade_level: number;
+  adviser_name: string | null;
+  total_students: number;
+  graded_students: number;
+  grade_rows: number;
+  locked_rows: number;
+}
+
+export interface GradeSubmissionStatus {
+  school_year_id: number;
+  total_sections: number;
+  submitted_sections: number;
+  overall_pct: number;
+  by_grade: {
+    grade_level: number;
+    sections: SectionGradeSubmission[];
+    submitted: number;
+    total: number;
+    pct: number;
+  }[];
+}
+
 export const gradesApi = {
   list: (params?: { student_id?: number; section_id?: number; school_year_id?: number; subject_id?: number }) => {
     const query = params
@@ -112,5 +137,15 @@ export const gradesApi = {
         ).toString()
       : "";
     return api.get<GradeDistribution>(`/grades/distribution${query}`);
+  },
+  submissionStatus: (params?: { school_year_id?: number }) => {
+    const query = params
+      ? "?" + new URLSearchParams(
+          Object.entries(params)
+            .filter(([_, v]) => v !== undefined)
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : "";
+    return api.get<GradeSubmissionStatus>(`/grades/submission-status${query}`);
   },
 };
