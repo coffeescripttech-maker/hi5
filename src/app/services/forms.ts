@@ -79,26 +79,45 @@ export interface SF9Row {
   }>;
 }
 
-export interface SF10Row {
-  student_name: string;
-  lrn: string;
-  birthdate: string;
-  address: string | null;
-  guardian: string | null;
-  elementary: string | null;
-  sy_label: string;
+export interface SF10Subject {
+  subject_name: string;
+  subject_type: string;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  q4: number | null;
+  final_average: number | null;
+}
+
+export interface SF10SchoolYear {
   grade_level: number;
   section_name: string;
-  subjects: Array<{
-    name: string;
-    q1: number | null;
-    q2: number | null;
-    q3: number | null;
-    q4: number | null;
-    final_grade: number | null;
-    remarks: string;
-  }>;
+  sy_label: string;
   general_average: number | null;
+  subjects: SF10Subject[];
+}
+
+export interface SF10Row {
+  form: string;
+  school: {
+    school_name: string;
+    school_id: string;
+  } | null;
+  student: {
+    id: number;
+    student_id: string;
+    lrn: string;
+    name: string;
+    grade_level: number;
+    sex: string;
+    birthdate: string;
+    address: string | null;
+    guardian: string | null;
+    contact: string | null;
+    status: string;
+  } | null;
+  /** Keyed by school year label (e.g. "2025-2026") */
+  school_years: Record<string, SF10SchoolYear>;
 }
 
 export const formsApi = {

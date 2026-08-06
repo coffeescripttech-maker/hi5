@@ -21,6 +21,7 @@ import { useApp } from '../../context/AppContext';
 import { SF1Register } from './sf1-register';
 import { SF5Report } from './sf5-report';
 import { SF9Report } from './sf9-report';
+import { SF10Report } from './sf10-report';
 
 // --- Form Definitions ---
 interface SchoolForm {
@@ -186,6 +187,11 @@ export function SchoolForms() {
   // SF9 gets the full report card with grade+section+student filters
   if (formCode?.toUpperCase() === 'SF9') {
     return <SF9Report />;
+  }
+
+  // SF10 gets the full permanent academic record page
+  if (formCode?.toUpperCase() === 'SF10') {
+    return <SF10Report />;
   }
 
   return (

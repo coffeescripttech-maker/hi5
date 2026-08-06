@@ -246,6 +246,7 @@ export function SF9Report() {
   const [transferFields, setTransferFields] = useState<Record<string, string>>(
     {}
   );
+  const [signerNames, setSignerNames] = useState({ principal: '', adviser: '' });
 
   const handleAttendanceChange = useCallback(
     (rowLabel: string, month: string, value: string) => {
@@ -438,12 +439,27 @@ export function SF9Report() {
     setError(null);
     formsApi
       .sf9(selectedStudentId, syId)
-      .then(data => setSf9Data(data))
+      .then(data => {
+        setSf9Data(data);
+        // Prefill Class Adviser from the student's section for that SY
+        // (manual edits are preserved — this only runs on selection change).
+        const enrollment = enrollments.find(
+          e => e.student_id === selectedStudentId && e.school_year_id === syId
+        );
+        const sec =
+          enrollment?.section_id != null
+            ? sections.find(s => s.id === enrollment.section_id)
+            : null;
+        setSignerNames(prev => ({
+          principal: prev.principal,
+          adviser: sec?.adviser_name || prev.adviser
+        }));
+      })
       .catch(err =>
         setError(err.detail?.error || err.message || 'Failed to generate SF9')
       )
       .finally(() => setLoadingReport(false));
-  }, [selectedStudentId, syId]);
+  }, [selectedStudentId, syId, enrollments, sections]);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
   const subjectRows = sf9Data?.subjects
@@ -1071,12 +1087,34 @@ export function SF9Report() {
                   {/* Signatures */}
                   <div className="flex justify-between pt-6 text-center text-[10px]">
                     <div className="flex-1">
-                      <span className="border-t border-black block mx-2 pt-0.5 italic">
-                        Principal IV
-                      </span>
+                      <input
+                        type="text"
+                        className="block w-full mx-2 border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] italic outline-none focus:bg-amber-50"
+                        value={signerNames.principal}
+                        onChange={e =>
+                          setSignerNames(prev => ({
+                            ...prev,
+                            principal: e.target.value
+                          }))
+                        }
+                        placeholder="Name"
+                      />
+                      <div className="italic mt-0.5">Principal IV</div>
                     </div>
                     <div className="flex-1">
-                      <div className="font-bold">CLASS ADVISER</div>
+                      <input
+                        type="text"
+                        className="block w-full mx-2 border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
+                        value={signerNames.adviser}
+                        onChange={e =>
+                          setSignerNames(prev => ({
+                            ...prev,
+                            adviser: e.target.value
+                          }))
+                        }
+                        placeholder="Name"
+                      />
+                      <div className="mt-0.5 font-bold">CLASS ADVISER</div>
                       <div className="italic">Adviser</div>
                     </div>
                   </div>

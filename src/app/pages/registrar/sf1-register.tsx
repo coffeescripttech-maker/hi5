@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { Printer, Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import './sf1.css';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
+import { SchoolFormTitleBlock } from '../../components/school-form-title';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
@@ -112,6 +113,17 @@ function computeAge(birthdate: string): number {
   return age;
 }
 
+/** Format a date value as YYYY-MM-DD in local time (for <input type="date">). */
+function formatDateInput(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value.slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 /* ---------------------------------------------------------------- */
 /* Reusable inline editable cell — shared via school-form-header     */
 /* ---------------------------------------------------------------- */
@@ -145,6 +157,13 @@ export function SF1Register() {
     gradeLevel: '7',
     section: ''
   });
+  // REGISTERED/BoSY/EoSY counts (rows: MALE, FEMALE, TOTAL; cols: BoSY, EoSY)
+  const [registeredCounts, setRegisteredCounts] = useState<string[][]>([]);
+  // BoSY / EoSY dates shared across both signature blocks
+  const [signatureDates, setSignatureDates] = useState({
+    bosyDate: '',
+    eosyDate: ''
+  });
 
   // ── Load data on mount ──
   useEffect(() => {
@@ -162,7 +181,8 @@ export function SF1Register() {
       setEnrollments(enrs);
       setSchoolYears(years);
       const currentYear = years.find((y: any) => y.is_current === 1);
-      setSyId(currentYear?.id || years[0]?.id || 1);
+      const targetSy = currentYear?.id || years[0]?.id || 1;
+      setSyId(targetSy);
       setHeader(prev => ({
         ...prev,
         schoolId: settings.school_id || prev.schoolId,
@@ -171,7 +191,30 @@ export function SF1Register() {
         district: settings.district || prev.district,
         schoolName: settings.school_name || prev.schoolName,
       }));
-      const g7 = secs.filter(s => s.grade_level === 7 && s.is_active === 1);
+      const active = secs.filter(s => s.is_active === 1);
+      // Default to the first section (grade-ascending) that actually has
+      // enrolled students in the selected school year, so the register never
+      // opens on an empty section.
+      const enrolledSection = enrs
+        .filter(
+          e => e.school_year_id === targetSy && e.status === 'enrolled'
+        )
+        .sort(
+          (a, b) =>
+            (a.section_grade_level ?? 99) - (b.section_grade_level ?? 99)
+        )
+        .find(e => e.section_id != null);
+      if (enrolledSection && enrolledSection.section_id != null) {
+        const sec = active.find(s => s.id === enrolledSection.section_id);
+        if (sec) {
+          setSelectedGrade(
+            String(enrolledSection.section_grade_level ?? sec.grade_level)
+          );
+          setSelectedSection(sec.name);
+          return;
+        }
+      }
+      const g7 = active.filter(s => s.grade_level === 7);
       if (g7.length > 0) setSelectedSection(g7[0].name);
     }).finally(() => setDataLoading(false));
   }, []);
@@ -216,6 +259,7 @@ export function SF1Register() {
     );
     if (!section) {
       console.log('[SF1] No section found for', selectedSection, 'grade', selectedGrade);
+      setRegisteredCounts([]);
       return;
     }
     console.log('[SF1] Found section:', section.id, section.name);
@@ -229,6 +273,23 @@ export function SF1Register() {
     const enrolled = matchingEnrs
       .map(e => students.find(s => s.id === e.student_id))
       .filter(Boolean) as StudentRow[];
+    // REGISTERED/BoSY/EoSY counts from the loaded roster (sex breakdown).
+    // The data model holds a single enrollment snapshot per SY, so BoSY and
+    // EoSY reflect the same enrolled roster until dropouts are tracked.
+    const male = enrolled.filter(s => s.sex === 'male').length;
+    const female = enrolled.filter(s => s.sex === 'female').length;
+    const total = enrolled.length;
+    setRegisteredCounts([
+      [String(male), String(male)],
+      [String(female), String(female)],
+      [String(total), String(total)]
+    ]);
+    // BoSY/EoSY dates from the selected school year's enrollment window.
+    const sy = schoolYears.find(y => y.id === syId);
+    setSignatureDates({
+      bosyDate: formatDateInput(sy?.enrollment_start_date ?? null),
+      eosyDate: formatDateInput(sy?.enrollment_end_date ?? null)
+    });
     const newRows: RowData[] = enrolled.map(s => ({
       lrn: s.lrn || '',
       name: formatName(s.name || ''),
@@ -247,7 +308,7 @@ export function SF1Register() {
     }));
     while (newRows.length < TOTAL_ROWS) newRows.push({});
     setRows(newRows);
-  }, [selectedSection, selectedGrade, syId, enrollments, students, sections]);
+  }, [selectedSection, selectedGrade, syId, enrollments, students, sections, schoolYears]);
 
   // ── Cell / header helpers ──
   const setCell = (rowIndex: number, key: string, val: string) => {
@@ -358,31 +419,10 @@ export function SF1Register() {
       <div id="sf1-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
         <div className="sf1-page" style={{ minWidth: '1340px' }}>
           {/* ---------- Title block ---------- */}
-          <div className="mb-4 flex items-center justify-between gap-6">
-            <img
-              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS_96lFoHFcY7YTT3NbY84OBer4jAMloUcfne1cTKV6lQ&s"
-              alt="Department of Education seal"
-              width={72}
-              height={72}
-              className="size-16 shrink-0 object-contain"
-            />
-            <div className="px-4 text-center">
-              <h2 className="text-[15px] font-bold">
-                School Form 1 (SF 1) School Register
-              </h2>
-              <p className="text-[9px] italic text-black/80">
-                (This replaces Form 1, Master List &amp; STS Form 2-Family
-                Background and Profile)
-              </p>
-            </div>
-            <img
-              src="data:image/png;base64,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"
-              alt="Department of Education logo"
-              width={150}
-              height={82}
-              className="h-12 w-auto shrink-0 object-contain"
-            />
-          </div>
+          <SchoolFormTitleBlock
+            title="School Form 1 (SF 1) School Register"
+            subtitle="(This replaces Form 1, Master List & STS Form 2-Family Background and Profile)"
+          />
 
           {/* ---------- Header fields ---------- */}
           <SchoolFormHeader header={header} onChange={setH} />
@@ -515,7 +555,12 @@ export function SF1Register() {
           </table>
 
           {/* ---------- Legend + summary + signatures footer ---------- */}
-          <SF1Footer />
+          <SF1Footer
+            registeredCounts={registeredCounts}
+            setRegisteredCounts={setRegisteredCounts}
+            signatureDates={signatureDates}
+            setSignatureDates={setSignatureDates}
+          />
         </div>
       </div>
     </div>
@@ -526,7 +571,19 @@ export function SF1Register() {
 /* Footer: indicator legend, summary counts, signatures             */
 /* ---------------------------------------------------------------- */
 
-function SF1Footer() {
+function SF1Footer({
+  registeredCounts,
+  setRegisteredCounts,
+  signatureDates,
+  setSignatureDates
+}: {
+  registeredCounts: string[][];
+  setRegisteredCounts: Dispatch<SetStateAction<string[][]>>;
+  signatureDates: { bosyDate: string; eosyDate: string };
+  setSignatureDates: Dispatch<
+    SetStateAction<{ bosyDate: string; eosyDate: string }>
+  >;
+}) {
   const leftLegend = [
     [
       'Transferred Out',
@@ -609,16 +666,38 @@ function SF1Footer() {
               </tr>
             </thead>
             <tbody>
-              {['MALE', 'FEMALE', 'TOTAL'].map(label => (
+              {['MALE', 'FEMALE', 'TOTAL'].map((label, i) => (
                 <tr key={label}>
                   <td className="border border-black px-2 py-0.5 text-left font-semibold">
                     {label}
                   </td>
                   <td className="border border-black p-0">
-                    <input className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50" />
+                    <input
+                      className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50"
+                      value={registeredCounts[i]?.[0] ?? ''}
+                      onChange={e =>
+                        setRegisteredCounts(prev => {
+                          const next = prev.map(r => [...r]);
+                          if (!next[i]) next[i] = ['', ''];
+                          next[i][0] = e.target.value;
+                          return next;
+                        })
+                      }
+                    />
                   </td>
                   <td className="border border-black p-0">
-                    <input className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50" />
+                    <input
+                      className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50"
+                      value={registeredCounts[i]?.[1] ?? ''}
+                      onChange={e =>
+                        setRegisteredCounts(prev => {
+                          const next = prev.map(r => [...r]);
+                          if (!next[i]) next[i] = ['', ''];
+                          next[i][1] = e.target.value;
+                          return next;
+                        })
+                      }
+                    />
                   </td>
                 </tr>
               ))}
@@ -641,14 +720,37 @@ function SF1Footer() {
         ].map(s => (
           <div key={s.role}>
             <p className="font-semibold">{s.role}</p>
-            <div className="mt-6 border-t border-black pt-0.5 text-center">
-              {s.caption}
-            </div>
-            <div className="mt-2 flex gap-4">
-              <span>BoSY Date:</span>
-              <span className="flex-1 border-b border-black" />
-              <span>EoSY Date:</span>
-              <span className="flex-1 border-b border-black" />
+            <input
+              type="text"
+              className="mt-5 w-full border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
+              placeholder="Name"
+            />
+            <div className="mt-0.5 text-center">{s.caption}</div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="whitespace-nowrap">BoSY Date:</span>
+              <input
+                type="date"
+                className="flex-1 border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
+                value={signatureDates.bosyDate}
+                onChange={e =>
+                  setSignatureDates(prev => ({
+                    ...prev,
+                    bosyDate: e.target.value
+                  }))
+                }
+              />
+              <span className="whitespace-nowrap">EoSY Date:</span>
+              <input
+                type="date"
+                className="flex-1 border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
+                value={signatureDates.eosyDate}
+                onChange={e =>
+                  setSignatureDates(prev => ({
+                    ...prev,
+                    eosyDate: e.target.value
+                  }))
+                }
+              />
             </div>
           </div>
         ))}

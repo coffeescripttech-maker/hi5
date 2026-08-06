@@ -769,9 +769,11 @@ export function SF5Report() {
                 ].map(s => (
                   <div key={s.role}>
                     <p className="font-semibold">{s.role}</p>
-                    <div className="mt-6 border-t border-black pt-0.5 text-center font-semibold">
-                      {s.caption}
-                    </div>
+                    <input
+                      type="text"
+                      className="mt-5 w-full border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
+                      placeholder={s.caption}
+                    />
                     <div className="text-center text-[9px]">
                       (Name and Signature)
                     </div>
