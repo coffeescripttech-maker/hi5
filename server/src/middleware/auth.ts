@@ -33,6 +33,9 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     token = authHeader.substring(7);
   } else if (req.cookies?.token) {
     token = req.cookies.token;
+  } else if (typeof req.query.token === "string") {
+    // window.open download links can't set headers — token passed as query param
+    token = req.query.token;
   }
 
   if (!token) {

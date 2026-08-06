@@ -83,10 +83,14 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   const token = getToken();
 
-  const hdrs: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...headers,
-  };
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
+  const hdrs: Record<string, string> = { ...headers };
+
+  // For FormData the browser must set Content-Type (with the multipart boundary) itself.
+  if (!isFormData) {
+    hdrs["Content-Type"] = "application/json";
+  }
 
   if (token) {
     hdrs["Authorization"] = `Bearer ${token}`;
@@ -95,7 +99,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: hdrs,
-    body: body ? JSON.stringify(body) : undefined,
+    body: isFormData ? body : body ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {

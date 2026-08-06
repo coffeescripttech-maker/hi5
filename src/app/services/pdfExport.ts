@@ -1,14 +1,23 @@
 /**
- * PDF Export utility using html2canvas + jsPDF
+ * PDF Export utility using html-to-pdfmake + pdfmake.
  *
- * Handles modern CSS color formats (oklch, oklab, Display P3) by resolving
- * them to standard rgb() values using pure mathematical conversion, then
- * applying them as !important inline styles so they override Tailwind
- * class definitions.
+ * html-to-pdfmake parses an HTML *string* and only reads inline `style`
+ * attributes — it does not understand stylesheet/Tailwind classes, modern
+ * oklch()/oklab()/color-mix() colors, or <input>/<select>/<textarea>
+ * elements. So before converting we produce a clean copy of the print area
+ * where:
+ *   - every element's computed style is inlined as plain hex/rgb values,
+ *   - `.no-print` elements are hidden,
+ *   - form controls are replaced with <span>s carrying their current value,
+ *   - remote <img> URLs are converted to base64 data URLs (best effort).
  */
 
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import htmlToPdfmake from "html-to-pdfmake";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+
+// Register the Roboto virtual file system bundled with pdfmake.
+pdfMake.addVirtualFileSystem(pdfFonts);
 
 export interface PdfExportOptions {
   /** ID of the element to capture */
@@ -19,19 +28,11 @@ export interface PdfExportOptions {
   orientation?: "portrait" | "landscape";
   /** Page format */
   format?: "a4" | "letter" | "legal";
-  /** Scale factor for rendering (higher = better quality, slower) */
+  /** Accepted for API compatibility — pdfmake is vector so scale is a no-op. */
   scale?: number;
 }
 
-/* ── Pure-math color conversion (oklch → sRGB) ── */
-
-/**
- * Convert a single CSS color function string to sRGB using pure math.
- * Handles: oklch(), oklab(), rgb(), rgba() — anything else is returned as-is.
- *
- * This avoids the Canvas API entirely since some browsers/versions silently
- * fail on oklch() fillStyle values and default to black.
- */
+/* ── Pure-math color conversion (oklch/oklab → sRGB) ── */
 
 /** CCT — clamp, convert channel to [0,1] hex byte */
 const c = (v: number): string =>
@@ -63,7 +64,6 @@ function oklchToSrgb(l: number, c: number, h: number): [number, number, number] 
   const b = c * Math.sin(hRad);
 
   // Step 2: oklab → linear sRGB (via LMS matrix)
-  // The matrix is: [lms] = M1 * [lab], then [rgb_linear] = M2 * [lms^3]
   const l_ = l + 0.3963377774 * a + 0.2158037573 * b;
   const m_ = l - 0.1055613458 * a - 0.0638541728 * b;
   const s_ = l - 0.0894841775 * a - 1.291485548 * b;
@@ -84,19 +84,23 @@ function oklchToSrgb(l: number, c: number, h: number): [number, number, number] 
 }
 
 /**
- * Parse an oklch() string and return rgb(r,g,b).
+ * Parse an oklch() string and return rgb()/rgba().
  * Accepts formats:
  *   oklch(l c h)
  *   oklch(l c h / a)
  *   oklch(l% c h)
+ *   oklch(l c h / a%)
  */
 function parseOklch(val: string): string | null {
-  const match = val.match(/oklch\s*\(\s*([\d.]+%?)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*[\d.]+%?)?\s*\)/i);
+  const match = val.match(
+    /oklch\s*\(\s*([\d.]+%?)\s+([-\d.e]+)\s+([-\d.e]+)\s*(?:\/\s*([\d.]+%?))?\s*\)/i
+  );
   if (!match) return null;
 
   const lRaw = match[1];
   const c = parseFloat(match[2]);
   const h = parseFloat(match[3]);
+  const aRaw = match[4];
 
   let l: number;
   if (lRaw.endsWith("%")) {
@@ -105,24 +109,28 @@ function parseOklch(val: string): string | null {
     l = parseFloat(lRaw);
   }
 
-  // Normalize: CSS oklch L is typically in [0, 1] but can also be expressed as percentage
-  // A value like 0.623 → 62.3% lightness. Values > 1 are treated as-is (some CSS uses this).
-
   const [r, g, b] = oklchToSrgb(l, c, h);
+  if (aRaw !== undefined) {
+    const alpha = aRaw.endsWith("%") ? parseFloat(aRaw) / 100 : parseFloat(aRaw);
+    return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, alpha))})`;
+  }
   return `rgb(${r},${g},${b})`;
 }
 
 /**
- * Parse an oklab() string and return rgb(r,g,b).
+ * Parse an oklab() string and return rgb()/rgba().
  * oklab(l a b) or oklab(l a b / alpha)
  */
 function parseOklab(val: string): string | null {
-  const match = val.match(/oklab\s*\(\s*([\d.]+%?)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*[\d.]+%?)?\s*\)/i);
+  const match = val.match(
+    /oklab\s*\(\s*([\d.]+%?)\s+([-\d.e]+)\s+([-\d.e]+)\s*(?:\/\s*([\d.]+%?))?\s*\)/i
+  );
   if (!match) return null;
 
   const lRaw = match[1];
   const a = parseFloat(match[2]);
   const b = parseFloat(match[3]);
+  const aRaw = match[4];
 
   let l: number;
   if (lRaw.endsWith("%")) {
@@ -144,6 +152,10 @@ function parseOklab(val: string): string | null {
   const g = Math.round(Math.max(0, Math.min(255, linearToSrgb(-1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3) * 255)));
   const bl = Math.round(Math.max(0, Math.min(255, linearToSrgb(-0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3) * 255)));
 
+  if (aRaw !== undefined) {
+    const alpha = aRaw.endsWith("%") ? parseFloat(aRaw) / 100 : parseFloat(aRaw);
+    return `rgba(${r},${g},${bl},${Math.max(0, Math.min(1, alpha))})`;
+  }
   return `rgb(${r},${g},${bl})`;
 }
 
@@ -174,19 +186,14 @@ function resolveToRgb(cssColorValue: string): string {
     canvas.height = 1;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      // Store previous fillStyle
       const prev = ctx.fillStyle;
       ctx.fillStyle = trimmed;
 
       // Read back — if it changed to a non-oklch format, the canvas accepted it
       const readback = ctx.fillStyle.toString();
       if (readback !== trimmed) {
-        // The canvas resolved it, now get actual pixel values
         ctx.fillRect(0, 0, 1, 1);
         const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-
-        // Sanity check: if the input was clearly not black but output is black,
-        // the resolution might have failed silently — return the original value.
         if (r !== 0 || g !== 0 || b !== 0) {
           return `rgb(${r},${g},${b})`;
         }
@@ -200,90 +207,280 @@ function resolveToRgb(cssColorValue: string): string {
   return cssColorValue;
 }
 
-/* ── Color properties html2canvas struggles with ── */
-
-const COLOR_PROPERTIES = [
+const MODERN_COLOR_FN_NAMES = [
+  "oklch",
+  "oklab",
+  "lab",
+  "lch",
+  "hwb",
   "color",
-  "background-color",
-  "border-top-color",
-  "border-right-color",
-  "border-bottom-color",
-  "border-left-color",
-  "outline-color",
-  "text-decoration-color",
-  "column-rule-color",
-  "caret-color",
-  "accent-color",
-  "border-color",
+  "display-p3",
+  "color-mix",
 ];
 
-const GRADIENT_PROPERTIES = ["background-image", "border-image"];
+/**
+ * Replace every modern color function token inside a (possibly compound)
+ * value string — e.g. a box-shadow list, border-color shorthand, a gradient,
+ * or scrollbar-color pair — with its rgb() equivalent.
+ *
+ * Scans for balanced parentheses so nested functions like
+ * `color-mix(in oklab, rgb(...) 30%, blue)` are captured whole.
+ * Unknown functions and already-rgb values pass through untouched.
+ */
+function resolveColorsInValue(value: string): string {
+  if (!value) return value;
+  if (
+    value === "transparent" ||
+    value === "inherit" ||
+    value === "initial" ||
+    value === "none"
+  ) {
+    return value;
+  }
+  const lower = value.toLowerCase();
+  let out = "";
+  let i = 0;
+  while (i < value.length) {
+    let match: { start: number; open: number } | null = null;
+    for (const fn of MODERN_COLOR_FN_NAMES) {
+      if (lower.startsWith(fn, i)) {
+        let j = i + fn.length;
+        while (j < value.length && value[j] === " ") j++;
+        if (value[j] === "(") {
+          match = { start: i, open: j };
+          break;
+        }
+      }
+    }
+    if (!match) {
+      out += value[i];
+      i++;
+      continue;
+    }
+    // find the matching close paren
+    let depth = 0;
+    let k = match.open;
+    for (; k < value.length; k++) {
+      if (value[k] === "(") depth++;
+      else if (value[k] === ")") {
+        depth--;
+        if (depth === 0) {
+          k++;
+          break;
+        }
+      }
+    }
+    const token = value.slice(match.start, k);
+    out += resolveToRgb(token);
+    i = k;
+  }
+  return out;
+}
+
+/* ── Computed-style inlining for html-to-pdfmake ── */
+
+const mmToPt = 72 / 25.4;
+
+/** Convert a single rgb()/rgba() color string to a #rrggbb hex string. */
+function rgbToHex(color: string): string {
+  const m = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return color;
+  return (
+    "#" +
+    [m[1], m[2], m[3]]
+      .map((v) =>
+        Math.max(0, Math.min(255, Number(v))).toString(16).padStart(2, "0")
+      )
+      .join("")
+      .toUpperCase()
+  );
+}
 
 /**
- * Deep-clone `source` and for every element whose computed style contains a
- * color format html2canvas cannot parse, set an !important inline override
- * with the resolved rgb() value.
+ * Resolve any modern color functions inside `value` (oklch, oklab, color-mix,
+ * …) to plain rgb(), then coerce every rgb()/rgba() token to hex so pdfmake
+ * never sees a color format it cannot parse.
  */
-function cloneWithResolvedColors(source: HTMLElement): HTMLElement {
-  const clone = source.cloneNode(true) as HTMLElement;
+function toPdfColor(value: string): string {
+  return resolveColorsInValue(value).replace(
+    /rgba?\(([^)]+)\)/g,
+    (_whole, inner: string) => rgbToHex(`rgb(${inner})`)
+  );
+}
 
-  const walk = (origEl: Element, clonedEl: Element) => {
-    if (origEl.nodeType !== Node.ELEMENT_NODE) return;
+/**
+ * Inline a cell/element's four borders as `border-<side>` shorthands.
+ * All four sides are always written so html-to-pdfmake's border fill-gap logic
+ * does not add a default visible border on the missing sides.
+ */
+function inlineBorders(el: HTMLElement, cs: CSSStyleDeclaration) {
+  const sides = ["left", "top", "right", "bottom"] as const;
+  const visible: Partial<Record<(typeof sides)[number], string>> = {};
+  let anyVisible = false;
 
-    const oEl = origEl as HTMLElement;
-    const cEl = clonedEl as HTMLElement;
-    const cs = getComputedStyle(oEl);
+  for (const side of sides) {
+    const width = cs.getPropertyValue(`border-${side}-width`);
+    const style = cs.getPropertyValue(`border-${side}-style`);
+    const color = cs.getPropertyValue(`border-${side}-color`);
+    const w = parseFloat(width);
+    if (w > 0 && style && style !== "none" && style !== "hidden") {
+      anyVisible = true;
+      visible[side] = `${width} ${style} ${toPdfColor(color)}`;
+    }
+  }
 
-    for (const prop of COLOR_PROPERTIES) {
-      const val = cs.getPropertyValue(prop);
-      if (!val || val === "transparent" || val === "inherit" || val === "initial") continue;
-      try {
-        const rgb = resolveToRgb(val);
-        if (rgb !== val) {
-          cEl.style.setProperty(prop, rgb, "important");
-        }
-      } catch {
-        // skip
-      }
+  if (!anyVisible) return;
+
+  for (const side of sides) {
+    el.style.setProperty(
+      `border-${side}`,
+      visible[side] || "0px none #000000"
+    );
+  }
+}
+
+/**
+ * Deep-walk `root`, copying the computed style properties html-to-pdfmake
+ * understands onto each element as inline styles. Colors are resolved to hex
+ * so modern oklch()/oklab() values never reach the converter.
+ */
+function inlineComputedStyles(root: HTMLElement) {
+  const walk = (el: Element) => {
+    if (el.nodeType !== Node.ELEMENT_NODE) return;
+    const hEl = el as HTMLElement;
+    const cs = getComputedStyle(hEl);
+    const nodeName = el.nodeName;
+
+    // Hide anything marked not-print.
+    if (hEl.classList.contains("no-print")) {
+      hEl.style.display = "none";
     }
 
-    for (const prop of GRADIENT_PROPERTIES) {
-      const val = cs.getPropertyValue(prop);
-      if (!val || val === "none") continue;
-      try {
-        const resolved = val.replace(
-          /(oklch|oklab|color|hwb|lab|lch|display-p3)\s*\([^)]+\)/gi,
-          (match) => resolveToRgb(match)
-        );
-        if (resolved !== val) {
-          cEl.style.setProperty(prop, resolved, "important");
-        }
-      } catch {
-        // skip
-      }
+    // Font & text properties.
+    if (cs.fontSize) hEl.style.setProperty("font-size", cs.fontSize);
+    if (cs.fontWeight) hEl.style.setProperty("font-weight", cs.fontWeight);
+    if (cs.fontStyle === "italic") hEl.style.setProperty("font-style", "italic");
+
+    const align = cs.textAlign;
+    if (align && align !== "start") {
+      hEl.style.setProperty("text-align", align === "end" ? "right" : align);
     }
 
-    for (let i = 0; i < origEl.children.length; i++) {
-      walk(origEl.children[i], clonedEl.children[i]);
+    const deco = cs.textDecorationLine;
+    if (deco && deco !== "none" && deco !== "auto") {
+      hEl.style.setProperty("text-decoration", deco);
+    }
+
+    // Colors — resolved to hex.
+    const bg = cs.backgroundColor;
+    if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
+      hEl.style.setProperty("background-color", toPdfColor(bg));
+    }
+    const color = cs.color;
+    if (color && color !== "transparent") {
+      hEl.style.setProperty("color", toPdfColor(color));
+    }
+
+    inlineBorders(hEl, cs);
+
+    // Full-width tables keep spanning the whole page.
+    if (nodeName === "TABLE" && hEl.classList.contains("w-full")) {
+      hEl.style.setProperty("width", "100%");
+    }
+
+    // Images keep their laid-out size.
+    if (nodeName === "IMG") {
+      const w = cs.width;
+      const h = cs.height;
+      if (w && w !== "auto") hEl.style.setProperty("width", w);
+      if (h && h !== "auto") hEl.style.setProperty("height", h);
+    }
+
+    for (let i = 0; i < el.children.length; i++) {
+      walk(el.children[i]);
     }
   };
+  walk(root);
+}
 
-  walk(source, clone);
-  return clone;
+/**
+ * html-to-pdfmake cannot render form controls, so replace every
+ * input/select/textarea with a <span> that carries the control's current
+ * value (its inline styles were already inlined in a previous pass).
+ */
+function replaceFormControls(root: HTMLElement) {
+  const controls = Array.from(root.querySelectorAll("input, select, textarea"));
+  for (const el of controls) {
+    const span = document.createElement("span");
+    span.style.cssText = (el as HTMLElement).style.cssText;
+
+    if (el instanceof HTMLInputElement) {
+      if (el.type === "checkbox" || el.type === "radio") {
+        span.textContent = el.checked ? "☑" : "☐"; // ☑ / ☐
+      } else {
+        span.textContent = el.value;
+      }
+    } else if (el instanceof HTMLSelectElement) {
+      span.textContent = el.selectedOptions[0]?.text ?? "";
+    } else {
+      span.textContent = (el as HTMLTextAreaElement).value;
+    }
+
+    el.replaceWith(span);
+  }
+}
+
+/** Load a remote image and return it as a base64 PNG data URL (or null). */
+function fetchAsDataUrl(src: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || 72;
+        canvas.height = img.naturalHeight || 72;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+/** Best-effort conversion of remote <img> URLs to base64 data URLs. */
+async function inlineRemoteImages(root: HTMLElement) {
+  const imgs = Array.from(root.querySelectorAll("img"));
+  const jobs = imgs.map(async (img) => {
+    const src = img.getAttribute("src") || "";
+    if (!/^https?:\/\//i.test(src)) return;
+    try {
+      const dataUrl = await fetchAsDataUrl(src);
+      if (dataUrl) img.setAttribute("src", dataUrl);
+    } catch {
+      // Leave the URL — imagesByReference lets pdfmake try to fetch it.
+    }
+  });
+  await Promise.all(jobs);
 }
 
 /* ── Main export ── */
 
 /**
- * Export an HTML element to PDF by rendering it as a canvas.
- * Handles multi-page content by splitting across pages.
+ * Export an HTML element to PDF by converting it to a pdfmake document.
+ * Tables split across pages automatically; orientation/format control the
+ * page size.
  */
 export async function exportToPdf({
   elementId,
   filename = "document",
   orientation = "landscape",
   format = "letter",
-  scale = 2,
 }: PdfExportOptions): Promise<void> {
   const element = document.getElementById(elementId);
   if (!element) {
@@ -291,104 +488,53 @@ export async function exportToPdf({
     return;
   }
 
-  // Clone and resolve unsupported colour formats
-  const resolvedEl = cloneWithResolvedColors(element);
-
-  // Hide no-print elements on the clone
-  resolvedEl.querySelectorAll(".no-print").forEach((el) => {
-    (el as HTMLElement).style.display = "none";
-  });
-
-  // Temporarily place the clone in the DOM so stylesheets apply to it
-  resolvedEl.style.position = "absolute";
-  resolvedEl.style.left = "-9999px";
-  resolvedEl.style.top = "0";
-  resolvedEl.style.width = element.offsetWidth + "px";
-  document.body.appendChild(resolvedEl);
+  // Clone into the live DOM (inserted before the source so inherited styles
+  // resolve identically), positioned off-screen while we compute.
+  const clone = element.cloneNode(true) as HTMLElement;
+  clone.style.position = "absolute";
+  clone.style.left = "-9999px";
+  clone.style.top = "0";
+  clone.style.width = element.offsetWidth + "px";
+  (element.parentNode ?? document.body).insertBefore(clone, element);
 
   try {
-    const canvas = await html2canvas(resolvedEl, {
-      scale,
-      useCORS: true,
-      allowTaint: false,
-      backgroundColor: "#ffffff",
-      logging: false,
+    // Inline computed styles, drop no-print content, materialise inputs, and
+    // make images embeddable — then serialize to HTML for html-to-pdfmake.
+    inlineComputedStyles(clone);
+    replaceFormControls(clone);
+    await inlineRemoteImages(clone);
+
+    const html = clone.outerHTML;
+    const converted = htmlToPdfmake(html, {
+      tableAutoSize: false,
+      imagesByReference: true,
     });
 
-    const imgData = canvas.toDataURL("image/png");
-    const imgWidth = canvas.width;
-    const imgHeight = canvas.height;
-
-    // jsPDF uses mm internally
-    const marginX = 7; // 7mm left/right margin
-    const marginY = 5; // 5mm top/bottom margin
-    const formatSizes: Record<string, [number, number]> = {
-      letter: [215.9, 279.4],
-      a4: [210, 297],
-      legal: [215.9, 355.6],
+    const formatSizes: Record<string, string> = {
+      letter: "LETTER",
+      a4: "A4",
+      legal: "LEGAL",
     };
 
-    const [pageWidth, pageHeight] = formatSizes[format] || formatSizes.letter;
-    const outputWidth = orientation === "landscape" ? pageHeight : pageWidth;
-    const outputHeight = orientation === "landscape" ? pageWidth : pageHeight;
-
-    const pdf = new jsPDF({
+    const docDefinition = {
+      ...converted,
+      pageSize: formatSizes[format] || "LETTER",
       orientation,
-      unit: "mm",
-      format,
-    });
+      pageMargins: [
+        Math.round(7 * mmToPt),
+        Math.round(5 * mmToPt),
+        Math.round(7 * mmToPt),
+        Math.round(5 * mmToPt),
+      ],
+    };
 
-    // Available area after margins
-    const availW = outputWidth - 2 * marginX;
-    const availH = outputHeight - 2 * marginY;
-
-    // Scale image to fit within available area, preserving aspect ratio
-    const scaleX = availW / imgWidth;
-    const scaleY = availH / imgHeight;
-    const fitScale = Math.min(scaleX, scaleY);
-
-    const renderW = imgWidth * fitScale;
-    const renderH = imgHeight * fitScale;
-
-    // Center on page
-    const offsetX = (outputWidth - renderW) / 2;
-    const offsetY = (outputHeight - renderH) / 2;
-
-    if (renderH <= availH) {
-      // Single page — fits within margins
-      pdf.addImage(imgData, "PNG", offsetX, offsetY, renderW, renderH, undefined, "FAST");
-    } else {
-      // Multi-page: slice the canvas into page-sized chunks
-      const pxPerMm = imgWidth / renderW;
-      const sliceHmm = availH;
-      const sliceHpx = Math.floor(sliceHmm * pxPerMm);
-      const totalPages = Math.ceil(imgHeight / sliceHpx);
-
-      for (let i = 0; i < totalPages; i++) {
-        if (i > 0) pdf.addPage();
-        const srcY = i * sliceHpx;
-        const curSliceHpx = Math.min(sliceHpx, imgHeight - srcY);
-        const curSliceHmm = curSliceHpx / pxPerMm;
-
-        const canvasSlice = document.createElement("canvas");
-        canvasSlice.width = imgWidth;
-        canvasSlice.height = curSliceHpx;
-        const ctx = canvasSlice.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(canvas, 0, srcY, imgWidth, curSliceHpx, 0, 0, imgWidth, curSliceHpx);
-          const sliceData = canvasSlice.toDataURL("image/png");
-          pdf.addImage(sliceData, "PNG", offsetX, offsetY, renderW, curSliceHmm, undefined, "FAST");
-        }
-      }
-    }
-
-    pdf.save(`${filename}.pdf`);
+    pdfMake.createPdf(docDefinition).download(`${filename}.pdf`);
   } catch (error) {
     console.error("PDF export failed:", error);
     throw error;
   } finally {
-    if (resolvedEl.parentNode) {
-      resolvedEl.parentNode.removeChild(resolvedEl);
+    if (clone.parentNode) {
+      clone.parentNode.removeChild(clone);
     }
   }
 }

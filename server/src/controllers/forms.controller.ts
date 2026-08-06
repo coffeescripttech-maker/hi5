@@ -264,6 +264,8 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
     // Get grades grouped by school year
     const gradesBySY: Record<string, any> = {};
     for (const enroll of enrollments) {
+      // Like SF9, list ALL active subjects for that school year's grade level
+      // (LEFT JOIN), so learning areas without encoded grades still appear.
       const syGrades = await query<RowDataPacket[]>(
         `SELECT sub.name AS subject_name, sub.subject_type,
                 MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
@@ -271,12 +273,13 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
                 MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
                 MAX(CASE WHEN g.quarter = 4 THEN g.grade END) AS q4,
                 ROUND(AVG(g.grade), 2) AS final_average
-         FROM grades g
-         JOIN subjects sub ON g.subject_id = sub.id
-         WHERE g.student_id = ? AND g.school_year_id = ?
+         FROM subjects sub
+         LEFT JOIN grades g ON g.subject_id = sub.id
+           AND g.student_id = ? AND g.school_year_id = ?
+         WHERE sub.is_active = 1 AND sub.grade_level = ?
          GROUP BY sub.id, sub.name, sub.subject_type
          ORDER BY sub.name ASC`,
-        [student_id, enroll.school_year_id]
+        [student_id, enroll.school_year_id, enroll.grade_level]
       );
 
       const genAvg = syGrades.length > 0

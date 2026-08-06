@@ -191,3 +191,86 @@ export async function deleteSubject(req: Request, res: Response): Promise<void> 
     res.status(500).json({ error: "Failed to delete subject." });
   }
 }
+
+/**
+ * POST /api/subjects/populate — Bulk-create subjects from a curriculum preset
+ * Body: { items: [{ name, grade_level, hours_per_week, subject_type }] }
+ *
+ * Idempotent: rows matching an existing (name, grade_level) pair are skipped so
+ * running a preset twice (or against a partially-populated grade) never duplicates.
+ * Returns: { created: SubjectRow[], created_count, skipped_count }
+ */
+export async function populateSubjects(req: Request, res: Response): Promise<void> {
+  try {
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: "items array is required." });
+      return;
+    }
+
+    const VALID_GRADES = [7, 8, 9, 10, 11, 12];
+    const cleaned: { name: string; grade_level: number; hours_per_week: number; subject_type: string }[] = [];
+
+    for (const [idx, item] of items.entries()) {
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      const grade_level = parseInt(item.grade_level);
+      const hours_per_week = parseFloat(item.hours_per_week);
+      const subject_type = item.subject_type;
+
+      if (!name) {
+        res.status(400).json({ error: `Item ${idx + 1}: name is required.` });
+        return;
+      }
+      if (!VALID_GRADES.includes(grade_level) || isNaN(grade_level)) {
+        res.status(400).json({ error: `Item ${idx + 1} ("${name}"): grade_level must be between 7 and 12.` });
+        return;
+      }
+      if (isNaN(hours_per_week) || hours_per_week <= 0) {
+        res.status(400).json({ error: `Item ${idx + 1} ("${name}"): invalid hours_per_week.` });
+        return;
+      }
+      if (!["core", "applied", "specialized"].includes(subject_type)) {
+        res.status(400).json({ error: `Item ${idx + 1} ("${name}"): invalid subject_type.` });
+        return;
+      }
+      cleaned.push({ name, grade_level, hours_per_week, subject_type });
+    }
+
+    // Snapshot existing (name, grade) pairs so we never insert duplicates
+    const existing = await query<RowDataPacket[]>("SELECT name, grade_level FROM subjects");
+    const existingKeys = new Set(existing.map((e: any) => `${String(e.name).toLowerCase()}|${e.grade_level}`));
+
+    const toCreate = cleaned.filter(c => !existingKeys.has(`${c.name.toLowerCase()}|${c.grade_level}`));
+    const skippedCount = cleaned.length - toCreate.length;
+
+    let createdCount = 0;
+    if (toCreate.length > 0) {
+      const placeholders = toCreate.map(() => "(?, ?, ?, ?, ?)").join(", ");
+      const params = toCreate.flatMap(c => [c.name, c.grade_level, c.hours_per_week, c.subject_type, 1]);
+      const result = await query<ResultSetHeader>(
+        `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, is_active)
+         VALUES ${placeholders}`,
+        params
+      );
+      createdCount = result.affectedRows;
+    }
+
+    if (createdCount > 0) {
+      await logActivity(req.user!.userId, `Populated ${createdCount} subject(s), skipped ${skippedCount} duplicate(s)`, "subjects", 0);
+    }
+
+    // Return the freshly created rows so the UI can refresh without a second call
+    const created = toCreate.length > 0
+      ? await query<SubjectRow[]>(
+          `SELECT * FROM subjects WHERE (name, grade_level) IN (${toCreate.map(() => "(?, ?)").join(", ")})`,
+          toCreate.flatMap(c => [c.name, c.grade_level])
+        )
+      : [];
+
+    res.json({ created, created_count: createdCount, skipped_count: skippedCount });
+  } catch (error) {
+    console.error("Populate subjects error:", error);
+    res.status(500).json({ error: "Failed to populate subjects." });
+  }
+}

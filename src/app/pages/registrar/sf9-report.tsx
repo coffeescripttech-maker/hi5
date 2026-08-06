@@ -121,9 +121,11 @@ function lrnDigits(lrn: string): string[] {
 }
 
 /**
- * Group subjects from the API into rows for the SF9 table.
- * MAPEH sub-areas (Music, Arts, PE, Health) are grouped into one "MAPEH" row
- * with the average of all 4 MAPEH subjects as the final rating.
+ * Build subject rows for the SF9 table.
+ * MAPEH is rendered as one grouped block: a bold "MAPEH" header row carrying
+ * the averaged ratings, followed by its four component rows (Music, Arts,
+ * Physical Education, Health). The learner's per-component grades are visible
+ * but stay organized under one label instead of looking scattered.
  */
 interface SubjectRow {
   name: string;
@@ -133,6 +135,8 @@ interface SubjectRow {
   q4: number | null;
   final: number | null;
   remarks: string;
+  isMapehHeader?: boolean;
+  isMapehComponent?: boolean;
 }
 
 function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
@@ -164,45 +168,50 @@ function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
     };
   });
 
-  // Group MAPEH sub-areas into one row
+  // Group MAPEH sub-areas under one "MAPEH" header row, then list each
+  // component separately so its own ratings are readable.
   if (mapehItems.length > 0) {
-    const q1Vals = mapehItems
-      .map(s => toNum(s.q1))
-      .filter(v => v !== null) as number[];
-    const q2Vals = mapehItems
-      .map(s => toNum(s.q2))
-      .filter(v => v !== null) as number[];
-    const q3Vals = mapehItems
-      .map(s => toNum(s.q3))
-      .filter(v => v !== null) as number[];
-    const q4Vals = mapehItems
-      .map(s => toNum(s.q4))
-      .filter(v => v !== null) as number[];
-    const finals = mapehItems
-      .map(s => toNum(s.final_average))
-      .filter(v => v !== null) as number[];
+    const avgOf = (pick: (s: (typeof subjects)[number]) => number | null) => {
+      const vals = mapehItems.map(pick).filter(v => v !== null) as number[];
+      return vals.length > 0
+        ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100
+        : null;
+    };
 
-    const avg = (arr: number[]) =>
-      arr.length > 0
-        ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100
-        : null;
-    const mapehFinal =
-      finals.length > 0
-        ? Math.round(
-            (finals.reduce((a, b) => a + b, 0) / finals.length) * 100
-          ) / 100
-        : null;
+    const mapehFinal = avgOf(s => toNum(s.final_average));
 
     rows.push({
       name: 'MAPEH',
-      q1: avg(q1Vals),
-      q2: avg(q2Vals),
-      q3: avg(q3Vals),
-      q4: avg(q4Vals),
+      isMapehHeader: true,
+      q1: avgOf(s => toNum(s.q1)),
+      q2: avgOf(s => toNum(s.q2)),
+      q3: avgOf(s => toNum(s.q3)),
+      q4: avgOf(s => toNum(s.q4)),
       final: mapehFinal,
-      remarks:
-        mapehFinal !== null ? (mapehFinal >= 75 ? 'Passed' : 'Failed') : '—'
+      remarks: mapehFinal !== null ? (mapehFinal >= 75 ? 'Passed' : 'Failed') : '—'
     });
+
+    // Render components in the canonical DepEd order: Music, Arts, PE, Health
+    const orderedMapeh = [...mapehItems].sort(
+      (a, b) => MAPEH_SUBJECTS.indexOf(a.subject_name) - MAPEH_SUBJECTS.indexOf(b.subject_name)
+    );
+    for (const s of orderedMapeh) {
+      const q1 = toNum(s.q1);
+      const q2 = toNum(s.q2);
+      const q3 = toNum(s.q3);
+      const q4 = toNum(s.q4);
+      const final = toNum(s.final_average);
+      rows.push({
+        name: s.subject_name,
+        isMapehComponent: true,
+        q1,
+        q2,
+        q3,
+        q4,
+        final,
+        remarks: final !== null ? (final >= 75 ? 'Passed' : 'Failed') : '—'
+      });
+    }
   }
 
   return rows;
@@ -1198,20 +1207,31 @@ export function SF9Report() {
                     </thead>
                     <tbody>
                       {subjectRows.map((row, i) => (
-                        <tr key={row.name}>
-                          <td className="border border-black px-1 py-0.5 text-left font-medium">
+                        <tr key={`${row.name}-${i}`} className={row.isMapehHeader ? 'bg-gray-50' : ''}>
+                          <td
+                            className={`border border-black px-1 py-0.5 text-left ${
+                              row.isMapehHeader
+                                ? 'font-bold uppercase'
+                                : row.isMapehComponent
+                                  ? 'font-medium pl-6'
+                                  : 'font-medium'
+                            }`}>
                             {row.name}
                           </td>
-                          <td className="border border-black px-1 py-0.5 text-center">
+                          <td
+                            className={`border border-black px-1 py-0.5 text-center ${row.isMapehHeader ? 'font-bold' : ''}`}>
                             {row.q1 !== null ? row.q1.toFixed(2) : '—'}
                           </td>
-                          <td className="border border-black px-1 py-0.5 text-center">
+                          <td
+                            className={`border border-black px-1 py-0.5 text-center ${row.isMapehHeader ? 'font-bold' : ''}`}>
                             {row.q2 !== null ? row.q2.toFixed(2) : '—'}
                           </td>
-                          <td className="border border-black px-1 py-0.5 text-center">
+                          <td
+                            className={`border border-black px-1 py-0.5 text-center ${row.isMapehHeader ? 'font-bold' : ''}`}>
                             {row.q3 !== null ? row.q3.toFixed(2) : '—'}
                           </td>
-                          <td className="border border-black px-1 py-0.5 text-center">
+                          <td
+                            className={`border border-black px-1 py-0.5 text-center ${row.isMapehHeader ? 'font-bold' : ''}`}>
                             {row.q4 !== null ? row.q4.toFixed(2) : '—'}
                           </td>
                           <td

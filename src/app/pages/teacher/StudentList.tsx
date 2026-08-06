@@ -2,9 +2,19 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Search, Eye, Users, GraduationCap, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronFirst, ChevronLast, SlidersHorizontal, X } from "lucide-react";
 import { studentsApi, StudentRow } from "../../services/students";
+import { atRiskApi, StudentRiskTrend } from "../../services/atRisk";
+import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
 
 const GRADE_LEVELS = [7, 8, 9, 10, 11, 12];
+
+/** Color-coded risk chips (mirrors the At-Risk detection pages). */
+const RISK_BADGE: Record<string, { cls: string; label: string }> = {
+  at_risk: { cls: "bg-red-50 text-red-700 border-red-200/70", label: "At-Risk" },
+  needs_monitoring: { cls: "bg-amber-50 text-amber-700 border-amber-200/70", label: "Needs Monitoring" },
+  on_track: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200/70", label: "On Track" },
+  no_data: { cls: "bg-gray-50 text-gray-500 border-gray-200/70", label: "No Data" },
+};
 
 type SortKey = "name" | "lrn" | "grade_level" | "sex" | "status";
 interface SortConfig { key: SortKey; dir: "asc" | "desc" }
@@ -30,6 +40,9 @@ export function StudentList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Predictive risk (linear regression) keyed by student DB id.
+  const [riskMap, setRiskMap] = useState<Map<number, StudentRiskTrend>>(new Map());
+
   const STATUSES = ["all", "awaiting_section", "enrolled", "pending", "dropped", "transferred", "graduated"];
 
   useEffect(() => {
@@ -38,6 +51,31 @@ export function StudentList() {
       .catch(err => showToast("error", "Failed to load students: " + (err.detail?.error || err.message)))
       .finally(() => setLoading(false));
   }, []);
+
+  // Load the linear-regression risk classification for the current school year.
+  useEffect(() => {
+    schoolYearsApi.current()
+      .then(sy => atRiskApi.trends({ school_year_id: sy.id }))
+      .then(res => {
+        const map = new Map<number, StudentRiskTrend>();
+        res.students.forEach(t => map.set(t.student_id, t));
+        setRiskMap(map);
+      })
+      .catch(() => { /* risk indicators are optional — ignore failures */ });
+  }, []);
+
+  // Risk counts for THIS teacher's roster (not the whole school).
+  const riskSummary = useMemo(() => {
+    const counts = { on_track: 0, needs_monitoring: 0, at_risk: 0, no_data: 0 };
+    for (const s of students) {
+      const t = riskMap.get(s.id);
+      if (!t || t.risk_level === null) counts.no_data++;
+      else if (t.risk_level === "at_risk") counts.at_risk++;
+      else if (t.risk_level === "needs_monitoring") counts.needs_monitoring++;
+      else counts.on_track++;
+    }
+    return counts;
+  }, [students, riskMap]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -147,6 +185,33 @@ export function StudentList() {
             <span className="text-gray-300">|</span>
             <span className="text-amber-600 font-medium">{students.filter(s => s.section_id == null && s.status === "enrolled").length}</span> await section
           </div>
+        </div>
+      </div>
+
+      {/* Predictive risk summary */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-sm font-semibold text-gray-800">Predictive Risk</h3>
+          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-full">
+            Linear Regression
+          </span>
+          <span className="ml-auto text-[11px] text-gray-400 hidden sm:inline">Based on quarterly grade trends</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "On Track", count: riskSummary.on_track, bar: "bg-emerald-500", text: "text-emerald-700" },
+            { label: "Needs Monitoring", count: riskSummary.needs_monitoring, bar: "bg-amber-500", text: "text-amber-700" },
+            { label: "At-Risk", count: riskSummary.at_risk, bar: "bg-red-500", text: "text-red-700" },
+            { label: "No Data", count: riskSummary.no_data, bar: "bg-gray-300", text: "text-gray-600" },
+          ].map(c => (
+            <div key={c.label} className="rounded-xl border border-gray-100 bg-gray-50/40 p-3.5">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{c.label}</p>
+              <p className={`text-2xl font-bold ${c.text}`}>{c.count}</p>
+              <div className="h-1 rounded-full bg-gray-200 mt-2 overflow-hidden">
+                <div className={`h-full w-full rounded-full ${c.bar}`} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -308,6 +373,9 @@ export function StudentList() {
                         </th>
                       ))}
                       <th className="px-6 py-3.5 text-left">
+                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Risk Status</span>
+                      </th>
+                      <th className="px-6 py-3.5 text-left">
                         <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Section</span>
                       </th>
                     </tr>
@@ -328,6 +396,9 @@ export function StudentList() {
                       const badgeInfo = isEnrolledPending
                         ? { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Awaiting Section" }
                         : statusBadge[s.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", label: s.status };
+                      const riskTrend = riskMap.get(s.id);
+                      const riskKey = riskTrend?.risk_level ?? "no_data";
+                      const riskInfo = RISK_BADGE[riskKey];
                       return (
                         <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/50 transition-colors duration-150`}>
                           <td className="px-6 py-3.5">
@@ -346,6 +417,15 @@ export function StudentList() {
                           <td className="px-6 py-3.5"><span className="text-sm text-gray-600 capitalize">{s.sex}</span></td>
                           <td className="px-6 py-3.5">
                             <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${badgeInfo.bg}`}>{badgeInfo.label}</span>
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <span
+                              title={riskTrend
+                                ? `Current avg: ${riskTrend.current_average ?? "—"} · Projected: ${riskTrend.projected ?? "—"} · Trend: ${riskTrend.trend}`
+                                : "No grades encoded yet"}
+                              className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${riskInfo.cls}`}>
+                              {riskInfo.label}
+                            </span>
                           </td>
                           <td className="px-6 py-3.5">
                             {hasSection ? (

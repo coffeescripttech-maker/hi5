@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { enrollmentsApi, EnrollmentRow, DashboardStats } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { useApp } from "../../context/AppContext";
+import { StudentRiskOverview } from "../../components/StudentRiskOverview";
 
 const CLASSIF_COLORS: Record<string, string> = {
   "4ps": "#6366f1",
@@ -240,6 +241,9 @@ export function RegistrarDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── STUDENT RISK OVERVIEW ── */}
+      <StudentRiskOverview />
 
       {/* ── SCHOOL FORM GENERATION ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

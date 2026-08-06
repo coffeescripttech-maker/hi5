@@ -1,7 +1,131 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { classifyStudent } from "../utils/linearRegression";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+
+/**
+ * GET /api/at-risk/trends — Live linear-regression classification of enrolled
+ * students (always fresh — computed on-the-fly, no storage required).
+ * Query: ?school_year_id=3&section_id=2&grade_level=7
+ */
+export async function getStudentRiskTrends(req: Request, res: Response): Promise<void> {
+  try {
+    const { section_id, grade_level } = req.query;
+
+    // Resolve school year — default to the current one.
+    let schoolYearId = req.query.school_year_id
+      ? parseInt(req.query.school_year_id as string, 10)
+      : null;
+    if (!schoolYearId) {
+      const rows = await query<RowDataPacket[]>(
+        "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+      );
+      schoolYearId = rows[0]?.id ?? null;
+    }
+    if (!schoolYearId) {
+      res.status(400).json({ error: "No school year selected and none is current." });
+      return;
+    }
+
+    const params: any[] = [schoolYearId];
+    const filters: string[] = ["e.status = 'enrolled'", "e.school_year_id = ?"];
+    if (section_id) {
+      filters.push("e.section_id = ?");
+      params.push(parseInt(section_id as string, 10));
+    }
+    if (grade_level) {
+      filters.push("s.grade_level = ?");
+      params.push(parseInt(grade_level as string, 10));
+    }
+
+    const students = await query<RowDataPacket[]>(
+      `SELECT e.student_id, s.name AS student_name, s.lrn, s.grade_level,
+              e.section_id, sec.name AS section_name
+       FROM enrollments e
+       JOIN students s ON s.id = e.student_id
+       LEFT JOIN sections sec ON sec.id = e.section_id
+       WHERE ${filters.join(" AND ")}
+       ORDER BY s.name ASC`,
+      params
+    );
+
+    const emptySummary = {
+      total: 0,
+      at_risk: 0,
+      needs_monitoring: 0,
+      on_track: 0,
+      no_data: 0,
+    };
+
+    if (students.length === 0) {
+      res.json({ school_year_id: schoolYearId, summary: emptySummary, students: [] });
+      return;
+    }
+
+    // Per-quarter general averages for every student in scope, one query.
+    const idList = students.map((s: any) => s.student_id);
+    const placeholders = idList.map(() => "?").join(",");
+    const gradeRows = await query<RowDataPacket[]>(
+      `SELECT g.student_id, g.quarter, ROUND(AVG(g.grade), 2) AS avg_grade
+       FROM grades g
+       WHERE g.school_year_id = ? AND g.student_id IN (${placeholders})
+       GROUP BY g.student_id, g.quarter
+       ORDER BY g.student_id ASC, g.quarter ASC`,
+      [schoolYearId, ...idList]
+    );
+
+    const quartersByStudent: Record<number, (number | null)[]> = {};
+    for (const g of gradeRows as any[]) {
+      if (!quartersByStudent[g.student_id]) {
+        quartersByStudent[g.student_id] = [null, null, null, null];
+      }
+      quartersByStudent[g.student_id][g.quarter - 1] = Number(g.avg_grade);
+    }
+
+    const result: any[] = [];
+    for (const st of students as any[]) {
+      const quarters = quartersByStudent[st.student_id] ?? [null, null, null, null];
+      result.push({
+        student_id: st.student_id,
+        student_name: st.student_name,
+        lrn: st.lrn,
+        grade_level: st.grade_level,
+        section_id: st.section_id,
+        section_name: st.section_name,
+        ...classifyStudent(quarters),
+      });
+    }
+
+    // Order: at-risk → needs-monitoring → on-track → no-data; within a level,
+    // lowest current average first.
+    const levelOrder: Record<string, number> = {
+      at_risk: 0,
+      needs_monitoring: 1,
+      on_track: 2,
+      "": 3,
+    };
+    result.sort((a, b) => {
+      const ao = levelOrder[a.risk_level ?? ""];
+      const bo = levelOrder[b.risk_level ?? ""];
+      if (ao !== bo) return ao - bo;
+      return (a.current_average ?? 100) - (b.current_average ?? 100);
+    });
+
+    const summary = {
+      total: result.length,
+      at_risk: result.filter((r: any) => r.risk_level === "at_risk").length,
+      needs_monitoring: result.filter((r: any) => r.risk_level === "needs_monitoring").length,
+      on_track: result.filter((r: any) => r.risk_level === "on_track").length,
+      no_data: result.filter((r: any) => r.risk_level === null).length,
+    };
+
+    res.json({ school_year_id: schoolYearId, summary, students: result });
+  } catch (error) {
+    console.error("Student risk trends error:", error);
+    res.status(500).json({ error: "Failed to compute student risk trends." });
+  }
+}
 
 /**
  * GET /api/at-risk — List predictions with filters

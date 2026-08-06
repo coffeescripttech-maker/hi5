@@ -178,43 +178,6 @@ function parseName(name: string): {
   };
 }
 
-/** Preferred curriculum order for JHS learning areas */
-const SUBJECT_ORDER = [
-  'Filipino',
-  'English',
-  'Mathematics',
-  'Math',
-  'Science',
-  'Araling Panlipunan',
-  'Music',
-  'Arts',
-  'Physical Education',
-  'Health',
-  'TLE',
-  'TLE/EPP',
-  'Edukasyon sa Pagpapakatao',
-  'Values Education'
-];
-
-function subjectRank(name: string): number {
-  const lower = name.toLowerCase();
-  const idx = SUBJECT_ORDER.findIndex(
-    s => s.toLowerCase() === lower || lower.includes(s.toLowerCase())
-  );
-  return idx === -1 ? 999 : idx;
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
 function fmt(v: number | string | null | undefined): string {
   if (v === null || v === undefined || v === '') return '';
   const n = Number(v);
@@ -225,6 +188,89 @@ function fmt(v: number | string | null | undefined): string {
 function remarksFor(avg: number | null | undefined): string {
   if (avg === null || avg === undefined || isNaN(Number(avg))) return '';
   return Number(avg) >= 75 ? 'Passed' : 'Failed';
+}
+
+/* ── MAPEH grouping (mirrors SF9 / Grade Management) ── */
+const MAPEH_ORDER = ['Music', 'Arts', 'Physical Education', 'Health'];
+
+function isMapehSubject(name: string): boolean {
+  const lower = name.trim().toLowerCase();
+  return MAPEH_ORDER.some(s => s.toLowerCase() === lower);
+}
+
+/** Average grade strings, ignoring blanks/non-numeric values. */
+function avgOfStrings(vals: string[]): string {
+  const nums = vals
+    .map(v => (v === '' ? null : Number(v)))
+    .filter((v): v is number => v !== null && !isNaN(v));
+  if (nums.length === 0) return '';
+  return fmt(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+
+type LearningAreaDisplay =
+  | {
+      kind: 'header';
+      label: string;
+      q1: string;
+      q2: string;
+      q3: string;
+      q4: string;
+      finalRating: string;
+      remarks: string;
+    }
+  | { kind: 'row'; index: number; area: LearningAreaRow };
+
+/**
+ * Group the MAPEH components (Music, Arts, Physical Education, Health) under a
+ * single averaged "MAPEH" header row while still listing each component
+ * separately. The header's values are recomputed live from the editable
+ * component rows on every render, so editing a component updates the average.
+ */
+function buildLearningAreaDisplay(
+  areas: LearningAreaRow[]
+): LearningAreaDisplay[] {
+  if (areas.length === 0) return [];
+
+  const components: { index: number; area: LearningAreaRow }[] = [];
+  const result: LearningAreaDisplay[] = [];
+
+  areas.forEach((area, index) => {
+    if (isMapehSubject(area.subject)) components.push({ index, area });
+    else result.push({ kind: 'row', index, area });
+  });
+
+  if (components.length === 0) return result;
+
+  // Canonical DepEd order: Music, Arts, PE, Health
+  const ordered = [...components].sort(
+    (a, b) =>
+      MAPEH_ORDER.indexOf(a.area.subject) - MAPEH_ORDER.indexOf(b.area.subject)
+  );
+
+  const q1 = avgOfStrings(ordered.map(c => c.area.q1));
+  const q2 = avgOfStrings(ordered.map(c => c.area.q2));
+  const q3 = avgOfStrings(ordered.map(c => c.area.q3));
+  const q4 = avgOfStrings(ordered.map(c => c.area.q4));
+  const finalRating = avgOfStrings(ordered.map(c => c.area.finalRating));
+
+  const header: LearningAreaDisplay = {
+    kind: 'header',
+    label: 'MAPEH',
+    q1,
+    q2,
+    q3,
+    q4,
+    finalRating,
+    remarks: finalRating === '' ? '' : remarksFor(Number(finalRating))
+  };
+
+  // Like SF9: keep the regular learning areas in their listed (alphabetical)
+  // order, then append the grouped MAPEH block — header + components.
+  result.push(
+    header,
+    ...ordered.map(c => ({ kind: 'row' as const, index: c.index, area: c.area }))
+  );
+  return result;
 }
 
 function checkboxInput(props: {
@@ -263,6 +309,7 @@ export function SF10Report() {
   const [sf10Data, setSf10Data] = useState<SF10Row | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   /* ── Lookups ── */
   const [sections, setSections] = useState<SectionRow[]>([]);
@@ -352,9 +399,7 @@ export function SF10Report() {
       middleName: p.middle,
       sex: (student?.sex || '').toUpperCase(),
       lrn: student?.lrn || '',
-      birthDate: student?.birthdate
-        ? formatDate(student.birthdate)
-        : ''
+      birthDate: student?.birthdate || ''
     });
 
     const yrs = Object.values(data.school_years || {}).sort((a, b) =>
@@ -380,10 +425,8 @@ export function SF10Report() {
           signature: '',
           generalAverage: fmt(sy.general_average),
           learningAreas: [...(sy.subjects || [])]
-            .sort(
-              (a, b) =>
-                subjectRank(a.subject_name) - subjectRank(b.subject_name)
-            )
+            // Same ordering as SF9: subjects listed alphabetically by name.
+            .sort((a, b) => a.subject_name.localeCompare(b.subject_name))
             .map(sub => ({
               subject: sub.subject_name,
               q1: fmt(sub.q1),
@@ -479,6 +522,8 @@ export function SF10Report() {
   };
 
   const handleExportPdf = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
       await exportToPdf({
         elementId: 'sf10-print-area',
@@ -489,6 +534,8 @@ export function SF10Report() {
       showToast('success', 'PDF exported successfully.');
     } catch {
       showToast('error', 'Failed to export PDF. Please try again.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -522,6 +569,7 @@ export function SF10Report() {
           .no-print { display: none !important; }
           #sf10-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0.15in; }
           #sf10-print-area .print-page { page-break-after: always; }
+          #sf10-print-area .print-page:last-child { page-break-after: avoid; }
           @page { size: letter landscape; margin: 0.3in; }
         }
       `}</style>
@@ -549,9 +597,14 @@ export function SF10Report() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleExportPdf}
-                  disabled={!sf10Data}
+                  disabled={!sf10Data || exporting}
                   className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm">
-                  <Download size={14} /> PDF
+                  {exporting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Download size={14} />
+                  )}
+                  {exporting ? 'Generating…' : 'PDF'}
                 </button>
                 <button
                   onClick={handlePrint}
@@ -693,11 +746,11 @@ export function SF10Report() {
       {/* SF10 Official DepEd Learner's Permanent Academic Record        */}
       {/* ────────────────────────────────────────────────────────────── */}
       {!loadingReport && sf10Data && selectedStudent && (
-        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
+        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-x-auto">
           <div
             id="sf10-print-area"
             className="p-4 sm:p-6 text-[10px] leading-tight text-black">
-            <div style={{ minWidth: '1100px' }}>
+            <div style={{ minWidth: '960px' }}>
               {/* ── Shared letterhead title block (same as SF1) ── */}
               <SchoolFormTitleBlock
                 title="Learner's Permanent Academic Record for Junior High School (SF10-JHS)"
@@ -752,10 +805,10 @@ export function SF10Report() {
                   </div>
                   <div className="flex items-end gap-1">
                     <span className="font-bold whitespace-nowrap">
-                      Birthdate (mm/dd/yyyy):
+                      Birthdate:
                     </span>
                     <input
-                      type="text"
+                      type="date"
                       value={learner.birthDate}
                       onChange={e =>
                         setLearnerField('birthDate', e.target.value)
@@ -781,40 +834,48 @@ export function SF10Report() {
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2">
                 ELIGIBILITY FOR JHS ENROLMENT
               </div>
-              <div className="border-2 border-gray-800 p-2 mb-2">
-                <div className="mb-3">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
+              <div className="border-2 border-gray-800 p-3 mb-2">
+                {/* Row 1 — Elementary completer + general average + citation */}
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-3">
+                  <div className="col-span-12 sm:col-span-4 flex items-center gap-2">
                     {checkboxInput({
                       checked: eligibility.elementaryCompleter,
-                      onChange: v =>
-                        setEligField('elementaryCompleter', v),
+                      onChange: v => setEligField('elementaryCompleter', v),
                       label: 'Elementary School Completer'
                     })}
-                    <span className="ml-4">
-                      General Average:{' '}
-                      <input
-                        type="text"
-                        value={eligibility.generalAverage}
-                        onChange={e =>
-                          setEligField('generalAverage', e.target.value)
-                        }
-                        className="sf1-input inline border-b-2 border-gray-800 w-20 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                    </span>
-                    <span className="ml-4">
-                      Citation: (If Any){' '}
-                      <input
-                        type="text"
-                        value={eligibility.citation}
-                        onChange={e =>
-                          setEligField('citation', e.target.value)
-                        }
-                        className="sf1-input inline border-b-2 border-gray-800 w-20 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                    </span>
                   </div>
-                  <div className="pl-6 flex items-end gap-1 flex-wrap">
-                    <span className="font-bold">
+                  <div className="col-span-6 sm:col-span-4 flex items-baseline gap-1">
+                    <span className="font-bold whitespace-nowrap">
+                      General Average:
+                    </span>
+                    <input
+                      type="text"
+                      value={eligibility.generalAverage}
+                      onChange={e =>
+                        setEligField('generalAverage', e.target.value)
+                      }
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
+                    />
+                  </div>
+                  <div className="col-span-6 sm:col-span-4 flex items-baseline gap-1">
+                    <span className="font-bold whitespace-nowrap">
+                      Citation (If Any):
+                    </span>
+                    <input
+                      type="text"
+                      value={eligibility.citation}
+                      onChange={e =>
+                        setEligField('citation', e.target.value)
+                      }
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2 — Elementary school details */}
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-3">
+                  <div className="col-span-12 sm:col-span-5 flex items-baseline gap-1">
+                    <span className="font-bold whitespace-nowrap">
                       Name of Elementary School:
                     </span>
                     <input
@@ -823,88 +884,83 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('elementarySchoolName', e.target.value)
                       }
-                      className="sf1-input inline border-b-2 border-gray-800 w-40 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
-                    <span className="ml-4 font-bold">School ID:</span>
+                  </div>
+                  <div className="col-span-6 sm:col-span-3 flex items-baseline gap-1">
+                    <span className="font-bold whitespace-nowrap">
+                      School ID:
+                    </span>
                     <input
                       type="text"
                       value={eligibility.schoolId}
-                      onChange={e =>
-                        setEligField('schoolId', e.target.value)
-                      }
-                      className="sf1-input inline border-b-2 border-gray-800 w-20 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      onChange={e => setEligField('schoolId', e.target.value)}
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
-                    <span className="ml-4 font-bold">Address of School:</span>
+                  </div>
+                  <div className="col-span-6 sm:col-span-4 flex items-baseline gap-1">
+                    <span className="font-bold whitespace-nowrap">
+                      Address of School:
+                    </span>
                     <input
                       type="text"
                       value={eligibility.schoolAddress}
                       onChange={e =>
                         setEligField('schoolAddress', e.target.value)
                       }
-                      className="sf1-input inline border-b-2 border-gray-800 w-32 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
                 </div>
 
-                <div className="text-xs italic font-bold mb-2">
-                  Other Credential Presented
+                {/* Sub-header — Other Credential Presented */}
+                <div className="border border-gray-800 bg-gray-200 px-2 py-1 font-bold text-center text-[11px] mb-3">
+                  OTHER CREDENTIALS PRESENTED
                 </div>
-                <div className="grid grid-cols-2 gap-4 mb-2">
-                  <div className="flex items-center gap-2">
+
+                {/* Row 3 — PEPT / ALS */}
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-2">
+                  <div className="col-span-6 flex items-center gap-2">
                     {checkboxInput({
                       checked: eligibility.peptPasser,
                       onChange: v => setEligField('peptPasser', v),
-                      label: 'PEPT Passer Rating:'
+                      label: 'PEPT Passer'
                     })}
+                    <span className="font-bold whitespace-nowrap">
+                      Rating:
+                    </span>
                     <input
                       type="text"
                       value={eligibility.peptRating}
                       onChange={e =>
                         setEligField('peptRating', e.target.value)
                       }
-                      className="sf1-input inline border-b-2 border-gray-800 w-20 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input w-16 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="col-span-6 flex items-center gap-2">
                     {checkboxInput({
                       checked: eligibility.alsAE,
                       onChange: v => setEligField('alsAE', v),
-                      label: 'ALS A & E Passer Rating:'
+                      label: 'ALS A & E Passer'
                     })}
+                    <span className="font-bold whitespace-nowrap">
+                      Rating:
+                    </span>
                     <input
                       type="text"
                       value={eligibility.alsAERating}
                       onChange={e =>
                         setEligField('alsAERating', e.target.value)
                       }
-                      className="sf1-input inline border-b-2 border-gray-800 w-20 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input w-16 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
                     />
                   </div>
                 </div>
-                <div className="flex items-end gap-1 flex-wrap">
-                  <span className="font-bold">
-                    Date of Examination/Assessment (mm/dd/yyyy):
-                  </span>
-                  <input
-                    type="text"
-                    value={eligibility.examDate}
-                    onChange={e =>
-                      setEligField('examDate', e.target.value)
-                    }
-                    className="sf1-input inline border-b-2 border-gray-800 w-32 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                  />
-                  <span className="ml-4 font-bold">
-                    Name and Address of Testing Center:
-                  </span>
-                  <input
-                    type="text"
-                    value={eligibility.testingCenter}
-                    onChange={e =>
-                      setEligField('testingCenter', e.target.value)
-                    }
-                    className="sf1-input inline border-b-2 border-gray-800 w-40 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                  />
-                  <span className="ml-4 flex items-center gap-2">
+
+                {/* Row 4 — Others + exam date + testing center */}
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
+                  <div className="col-span-12 sm:col-span-4 flex items-center gap-2">
                     {checkboxInput({
                       checked: eligibility.others,
                       onChange: v => setEligField('others', v),
@@ -916,9 +972,33 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('othersSpecify', e.target.value)
                       }
-                      className="sf1-input inline border-b-2 border-gray-800 w-40 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
-                  </span>
+                  </div>
+                  <div className="col-span-12 sm:col-span-4 flex items-baseline gap-1">
+                    <span className="font-bold whitespace-nowrap">
+                      Date of Examination/Assessment:
+                    </span>
+                    <input
+                      type="date"
+                      value={eligibility.examDate}
+                      onChange={e => setEligField('examDate', e.target.value)}
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                    />
+                  </div>
+                  <div className="col-span-12 sm:col-span-4 flex items-baseline gap-1">
+                    <span className="font-bold whitespace-nowrap">
+                      Name and Address of Testing Center:
+                    </span>
+                    <input
+                      type="text"
+                      value={eligibility.testingCenter}
+                      onChange={e =>
+                        setEligField('testingCenter', e.target.value)
+                      }
+                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1032,9 +1112,28 @@ export function SF10Report() {
                   <table className="w-full border-collapse text-[11px] border-2 border-gray-800 border-t-0">
                     <thead>
                       <tr className="bg-gray-300">
-                        <th className="border border-gray-800 p-1 font-bold text-left">
+                        <th
+                          rowSpan={2}
+                          className="border border-gray-800 p-1 font-bold text-left w-[38%]">
                           LEARNING AREAS
                         </th>
+                        <th
+                          colSpan={4}
+                          className="border border-gray-800 p-1 font-bold">
+                          QUARTERS
+                        </th>
+                        <th
+                          rowSpan={2}
+                          className="border border-gray-800 p-1 font-bold">
+                          FINAL RATING
+                        </th>
+                        <th
+                          rowSpan={2}
+                          className="border border-gray-800 p-1 font-bold">
+                          REMARKS
+                        </th>
+                      </tr>
+                      <tr className="bg-gray-300">
                         <th className="border border-gray-800 p-1 font-bold">
                           1
                         </th>
@@ -1047,112 +1146,141 @@ export function SF10Report() {
                         <th className="border border-gray-800 p-1 font-bold">
                           4
                         </th>
-                        <th className="border border-gray-800 p-1 font-bold">
-                          FINAL RATING
-                        </th>
-                        <th className="border border-gray-800 p-1 font-bold">
-                          REMARKS
-                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {record.learningAreas.map((area, li) => (
-                        <tr key={`${record.schoolYear}-${area.subject}-${li}`}>
-                          <td className="border border-gray-800 p-1 font-medium">
-                            {area.subject}
-                          </td>
-                          <td className="border border-gray-800 p-0">
-                            <input
-                              type="text"
-                              value={area.q1}
-                              onChange={e =>
-                                updateLearningArea(
-                                  idx,
-                                  li,
-                                  'q1',
-                                  e.target.value
-                                )
-                              }
-                              className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
-                            />
-                          </td>
-                          <td className="border border-gray-800 p-0">
-                            <input
-                              type="text"
-                              value={area.q2}
-                              onChange={e =>
-                                updateLearningArea(
-                                  idx,
-                                  li,
-                                  'q2',
-                                  e.target.value
-                                )
-                              }
-                              className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
-                            />
-                          </td>
-                          <td className="border border-gray-800 p-0">
-                            <input
-                              type="text"
-                              value={area.q3}
-                              onChange={e =>
-                                updateLearningArea(
-                                  idx,
-                                  li,
-                                  'q3',
-                                  e.target.value
-                                )
-                              }
-                              className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
-                            />
-                          </td>
-                          <td className="border border-gray-800 p-0">
-                            <input
-                              type="text"
-                              value={area.q4}
-                              onChange={e =>
-                                updateLearningArea(
-                                  idx,
-                                  li,
-                                  'q4',
-                                  e.target.value
-                                )
-                              }
-                              className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
-                            />
-                          </td>
-                          <td className="border border-gray-800 p-0">
-                            <input
-                              type="text"
-                              value={area.finalRating}
-                              onChange={e =>
-                                updateLearningArea(
-                                  idx,
-                                  li,
-                                  'finalRating',
-                                  e.target.value
-                                )
-                              }
-                              className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] font-bold outline-none focus:bg-amber-50"
-                            />
-                          </td>
-                          <td className="border border-gray-800 p-1">
-                            <input
-                              type="text"
-                              value={area.remarks}
-                              onChange={e =>
-                                updateLearningArea(
-                                  idx,
-                                  li,
-                                  'remarks',
-                                  e.target.value
-                                )
-                              }
-                              className="sf1-input w-full text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
-                            />
-                          </td>
-                        </tr>
-                      ))}
+                      {buildLearningAreaDisplay(record.learningAreas).map(
+                        (display, di) => {
+                          if (display.kind === 'header') {
+                            return (
+                              <tr
+                                key={`${record.schoolYear}-mapeh-header`}
+                                className="bg-gray-200">
+                                <td className="border border-gray-800 p-1 text-left font-bold uppercase">
+                                  {display.label}
+                                </td>
+                                <td className="border border-gray-800 p-1 text-center font-bold">
+                                  {display.q1}
+                                </td>
+                                <td className="border border-gray-800 p-1 text-center font-bold">
+                                  {display.q2}
+                                </td>
+                                <td className="border border-gray-800 p-1 text-center font-bold">
+                                  {display.q3}
+                                </td>
+                                <td className="border border-gray-800 p-1 text-center font-bold">
+                                  {display.q4}
+                                </td>
+                                <td className="border border-gray-800 p-1 text-center font-bold">
+                                  {display.finalRating}
+                                </td>
+                                <td className="border border-gray-800 p-1 text-center font-bold">
+                                  {display.remarks}
+                                </td>
+                              </tr>
+                            );
+                          }
+                          const { index: li, area } = display;
+                          return (
+                            <tr
+                              key={`${record.schoolYear}-${area.subject}-${li}`}>
+                              <td className="border border-gray-800 p-1 font-medium pl-6">
+                                {area.subject}
+                              </td>
+                              <td className="border border-gray-800 p-0">
+                                <input
+                                  type="text"
+                                  value={area.q1}
+                                  onChange={e =>
+                                    updateLearningArea(
+                                      idx,
+                                      li,
+                                      'q1',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
+                                />
+                              </td>
+                              <td className="border border-gray-800 p-0">
+                                <input
+                                  type="text"
+                                  value={area.q2}
+                                  onChange={e =>
+                                    updateLearningArea(
+                                      idx,
+                                      li,
+                                      'q2',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
+                                />
+                              </td>
+                              <td className="border border-gray-800 p-0">
+                                <input
+                                  type="text"
+                                  value={area.q3}
+                                  onChange={e =>
+                                    updateLearningArea(
+                                      idx,
+                                      li,
+                                      'q3',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
+                                />
+                              </td>
+                              <td className="border border-gray-800 p-0">
+                                <input
+                                  type="text"
+                                  value={area.q4}
+                                  onChange={e =>
+                                    updateLearningArea(
+                                      idx,
+                                      li,
+                                      'q4',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
+                                />
+                              </td>
+                              <td className="border border-gray-800 p-0">
+                                <input
+                                  type="text"
+                                  value={area.finalRating}
+                                  onChange={e =>
+                                    updateLearningArea(
+                                      idx,
+                                      li,
+                                      'finalRating',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] font-bold outline-none focus:bg-amber-50"
+                                />
+                              </td>
+                              <td className="border border-gray-800 p-1">
+                                <input
+                                  type="text"
+                                  value={area.remarks}
+                                  onChange={e =>
+                                    updateLearningArea(
+                                      idx,
+                                      li,
+                                      'remarks',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="sf1-input w-full text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        }
+                      )}
                       {record.learningAreas.length === 0 && (
                         <tr>
                           <td
@@ -1194,10 +1322,10 @@ export function SF10Report() {
                           Remedial Classes
                         </th>
                         <th className="border border-gray-800 p-1 font-bold text-center">
-                          Conducted from (mm/dd/yyyy)
+                          Conducted from
                         </th>
                         <th className="border border-gray-800 p-1 font-bold text-center">
-                          to (mm/dd/yyyy)
+                          to
                         </th>
                       </tr>
                     </thead>
@@ -1206,7 +1334,7 @@ export function SF10Report() {
                         <td className="border border-gray-800 p-1"></td>
                         <td className="border border-gray-800 p-1">
                           <input
-                            type="text"
+                            type="date"
                             value={record.remedialsFrom}
                             onChange={e =>
                               updateRecord(
@@ -1220,7 +1348,7 @@ export function SF10Report() {
                         </td>
                         <td className="border border-gray-800 p-1">
                           <input
-                            type="text"
+                            type="date"
                             value={record.remedialsTo}
                             onChange={e =>
                               updateRecord(
@@ -1378,10 +1506,9 @@ export function SF10Report() {
                 <div className="grid grid-cols-3 gap-6 mt-8">
                   <div className="text-center">
                     <input
-                      type="text"
+                      type="date"
                       value={cert.certDate}
                       onChange={e => setCertField('certDate', e.target.value)}
-                      placeholder="mm/dd/yyyy"
                       className="sf1-input w-full border-b-2 border-gray-800 mb-1 h-12 bg-transparent text-center text-[11px] outline-none focus:bg-amber-50"
                     />
                     <div className="text-[11px] font-bold">Date</div>

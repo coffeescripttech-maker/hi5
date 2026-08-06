@@ -7,6 +7,7 @@ import {
   createSubject,
   updateSubject,
   deleteSubject,
+  populateSubjects,
 } from "../controllers/subjects.controller";
 
 const router = Router();
@@ -14,6 +15,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/", listSubjects);
+router.post("/populate", authorize("admin"), populateSubjects);
 router.get("/:id", getSubjectById);
 router.post("/", authorize("admin"), createSubject);
 router.put("/:id", authorize("admin"), updateSubject);

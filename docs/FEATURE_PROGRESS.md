@@ -1,6 +1,6 @@
 # HI5 Portal — Feature Progress Checklist
 
-> **Last Updated:** 2026-08-05
+> **Last Updated:** 2026-08-06
 > **Legend:** ✅ Done | ⚠️ Partial | ❌ Missing
 
 ---
@@ -39,7 +39,7 @@
 | 2.2 | Process transfer / withdrawal | ✅ Done | Enrollment update with dropped/transferred status |
 | 2.3 | Monitor real-time enrollment stats | ✅ Done | [RegistrarDashboard.tsx](../src/app/pages/registrar/RegistrarDashboard.tsx) |
 | 2.4 | View document completion per student | ✅ Done | [DocumentCompletion.tsx](../src/app/pages/registrar/DocumentCompletion.tsx) — section selector + requirement checklist table |
-| 2.5 | View teacher-uploaded grade files | ✅ Done | [SubjectView.tsx](../src/app/pages/registrar/SubjectView.tsx) |
+| 2.5 | View teacher-uploaded grade files | ✅ Done | [DocumentManagement.tsx](../src/app/pages/teacher/DocumentManagement.tsx) — per subject × per section with section/subject names resolved server-side |
 | 2.6 | View computed general averages | ✅ Done | `GET /api/grades/compute/averages` |
 | 2.7 | JHS regular: random distribution + confirm | ✅ Done | SectionAssignment — Random workflow |
 | 2.8 | STE/SPFL: flag exam passers + place + confirm | ✅ Done | SectionAssignment — Placement workflow |
@@ -54,7 +54,8 @@
 | 2.17 | Section population report | ✅ Done | Dashboard + EnrollmentReport |
 | 2.18 | Promotion & retention stats | ✅ Done | [PromotionRecords.tsx](../src/app/pages/registrar/PromotionRecords.tsx) |
 | 2.19 | Grade distribution report | ✅ Done | [GradeDistribution.tsx](../src/app/pages/registrar/GradeDistribution.tsx) — stacked bar charts per subject with pass rates |
-| 2.20 | View At-Risk Students (read-only) | ✅ Done | [RegistrarAtRisk.tsx](../src/app/pages/registrar/RegistrarAtRisk.tsx) |
+| 2.20 | View At-Risk Students (read-only) | ✅ Done | [RegistrarAtRisk.tsx](../src/app/pages/registrar/RegistrarAtRisk.tsx) — live `/at-risk/trends` via shared [StudentRiskList.tsx](../src/app/components/StudentRiskList.tsx) |
+| 2.21 | Student Risk Overview dashboard panel (live linear-regression counts + top at-risk list) | ✅ Done | [StudentRiskOverview.tsx](../src/app/components/StudentRiskOverview.tsx) on [RegistrarDashboard.tsx](../src/app/pages/registrar/RegistrarDashboard.tsx) — `GET /api/at-risk/trends` |
 
 ---
 
@@ -72,21 +73,23 @@
 | 3.8 | View schedules (web) | ✅ Done | [TeacherSchedule.tsx](../src/app/pages/teacher/TeacherSchedule.tsx) — weekly timetable grid |
 | 3.9 | Encode quarterly grades per subject | ✅ Done | [GradeManagement.tsx](../src/app/pages/teacher/GradeManagement.tsx) |
 | 3.10 | MAPEH as 4 separate entries | ✅ Done | Seed has 24 entries (4 subjects × 6 grades); grades grid renders them individually |
-| 3.11 | Bulk-import grades via template | ✅ Done | [UploadGrades.tsx](../src/app/pages/teacher/UploadGrades.tsx) |
+| 3.11 | Bulk-import grades via template | ✅ Done | [UploadGrades.tsx](../src/app/pages/teacher/UploadGrades.tsx) — real flow: Section/Subject/Quarter selectors → downloads LRN\|Name\|Grade template → uploads → row-by-row validation preview → import with locked/blank/invalid handling (SheetJS) |
 | 3.12 | Submit & lock grades | ✅ Done | Lock/unlock endpoints + modal |
 | 3.13 | Grade correction requests | ✅ Done | Correction modal + API |
-| 3.14 | Track grade submission status | ✅ Done | [DocumentManagement.tsx](../src/app/pages/teacher/DocumentManagement.tsx) |
+| 3.14 | Track grade submission status | ✅ Done | [DocumentManagement.tsx](../src/app/pages/teacher/DocumentManagement.tsx) — per subject × per section, subject/section names resolved server-side |
 | 3.15 | Generate SF1 PDF | ✅ Done | SchoolForms page |
 | 3.16 | Generate SF5 PDF | ✅ Done | SchoolForms page |
 | 3.17 | Generate SF9 PDF (Report Card) | ✅ Done | SchoolForms page + card view |
 | 3.18 | Generate SF10 PDF | ✅ Done | SchoolForms page |
 | 3.19 | Submit forms to LIS Officer | ✅ Done | Server-side CSV generation + download page at `/admin/lis-export` |
-| 3.20 | Import DepEd SF files (Excel/PDF) | ✅ Done | UploadGrades with validation preview |
+| 3.20 | Import DepEd SF files (Excel/PDF) | ✅ Done | [UploadGrades.tsx](../src/app/pages/teacher/UploadGrades.tsx) — real Excel parsing/validation (`.xlsx`/`.xls` via SheetJS) with per-row preview; PDF/DOCX uploads are tracked as documents but not parsed |
 | 3.21 | Bulk promotion for advisory section | ✅ Done | [BulkPromotion.tsx](../src/app/pages/teacher/BulkPromotion.tsx) — per-section failures surfaced with specific errors; success screen reports promoted / retained / incomplete honestly (incl. "No Students Promoted" state) |
 | 3.22 | GA < 75 → Retained; incomplete grades → held back | ✅ Done | Promotions controller threshold check + `grade_complete` guard (every subject must have all 4 quarters before judging by average) |
 | 3.23 | Grade 12 → Completers | ✅ Done | `completeSection` endpoint + `BulkPromotion.tsx` completers flow + `enrollments.status='completed'` |
-| 3.24 | AI at-risk prediction | ✅ Done | [AtRiskDetection.tsx](../src/app/pages/teacher/AtRiskDetection.tsx) |
+| 3.24 | AI at-risk prediction | ✅ Done | [AtRiskDetection.tsx](../src/app/pages/teacher/AtRiskDetection.tsx) — live regression (no manual run needed), shared [StudentRiskList.tsx](../src/app/components/StudentRiskList.tsx) |
 | 3.25 | Color-coded badges (On Track / Needs Monitoring / At-Risk) | ✅ Done | RISK_CONFIG styling |
+| 3.26 | Real linear-regression risk model (least-squares on quarterly GAs → projected final grade) | ✅ Done | [linearRegression.ts](../server/src/utils/linearRegression.ts) + live `GET /api/at-risk/trends` (no storage, always fresh) |
+| 3.27 | Risk Status column + predictive summary strip in class list | ✅ Done | [StudentList.tsx](../src/app/pages/teacher/StudentList.tsx) — green/amber/red/gray chips with tooltip (avg / projected / trend) |
 
 ---
 
@@ -99,9 +102,10 @@
 | 4.3 | 4Ps / PWD counts | ✅ Done | Included in enrollment figures |
 | 4.4 | Section population data | ✅ Done | SectionPopulation component |
 | 4.5 | Grade submission progress across sections | ✅ Done | GradeProgress component |
-| 4.6 | View at-risk classifications | ✅ Done | AtRiskView component |
+| 4.6 | View at-risk classifications | ✅ Done | [AtRiskView.tsx](../src/app/pages/principal/AtRiskView.tsx) — live regression via shared [StudentRiskList.tsx](../src/app/components/StudentRiskList.tsx) |
 | 4.7 | Real-time enrollment figures | ✅ Done | Principal dashboard + trend charts |
 | 4.8 | Promotion / retention statistics | ✅ Done | PromotionStats component |
+| 4.9 | Student Risk Overview dashboard panel (live linear-regression counts + top at-risk list) | ✅ Done | [StudentRiskOverview.tsx](../src/app/components/StudentRiskOverview.tsx) on [PrincipalDashboard.tsx](../src/app/pages/principal/PrincipalDashboard.tsx) |
 
 ---
 
@@ -128,8 +132,8 @@
 | Role | Total | ✅ Done | ⚠️ Partial | ❌ Missing |
 |------|-------|---------|------------|-----------|
 | **Admin (ICT)** | 19 | 19 | 0 | 0 |
-| **Registrar** | 20 | 20 | 0 | 0 |
-| **Teacher** | 25 | 25 | 0 | 0 |
-| **Principal** | 8 | 8 | 0 | 0 |
+| **Registrar** | 21 | 21 | 0 | 0 |
+| **Teacher** | 27 | 27 | 0 | 0 |
+| **Principal** | 9 | 9 | 0 | 0 |
 | **Cross-cutting** | 11 | 10 | 0 | 1 |
-| **Overall** | **83** | **82** | **0** | **1** |
+| **Overall** | **87** | **86** | **0** | **1** |

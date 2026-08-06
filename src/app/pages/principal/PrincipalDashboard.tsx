@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { useApp } from "../../context/AppContext";
+import { StudentRiskOverview } from "../../components/StudentRiskOverview";
 
 const COLORS = ["#6366f1", "#8b5cf6", "#06b6d4", "#f59e0b", "#ef4444", "#9ca3af"];
 
@@ -147,6 +148,9 @@ export function PrincipalDashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* STUDENT RISK OVERVIEW */}
+      <StudentRiskOverview />
 
       {/* SECTION POPULATION TABLE */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

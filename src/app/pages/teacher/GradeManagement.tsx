@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   BookOpen, Lock, Save, CheckCircle, Info, MessageSquare, Send, X, AlertTriangle,
@@ -48,6 +48,64 @@ const getDescriptor = (val: string): { label: string; color: string } => {
   if (n >= 75) return { label: "Fairly Satisfactory", color: "text-yellow-600" };
   return { label: "Did Not Meet Expectations", color: "text-red-500" };
 };
+
+/** Canonical DepEd order for MAPEH component subjects. */
+const MAPEH_ORDER = ["Music", "Arts", "Physical Education", "Health"];
+
+const descBadge = (label: string) =>
+  label === "Outstanding" ? "bg-green-50 text-green-700" :
+  label === "Very Satisfactory" ? "bg-blue-50 text-blue-700" :
+  label === "Satisfactory" ? "bg-teal-50 text-teal-700" :
+  label === "Fairly Satisfactory" ? "bg-yellow-50 text-yellow-700" :
+  label === "Did Not Meet Expectations" ? "bg-red-50 text-red-700" :
+  "bg-gray-50 text-gray-400";
+
+/**
+ * Render rows for the grades table. MAPEH components (Music, Arts, PE, Health)
+ * are pulled out of the raw order and shown as one grouped block under a bold
+ * "MAPEH" header, in canonical order, with a live MAPEH average in the header.
+ */
+type DisplayItem =
+  | { kind: "header"; label: string; final: string }
+  | { kind: "grade"; row: GradeEntry; idx: number };
+
+function buildDisplayRows(grades: GradeEntry[]): DisplayItem[] {
+  const mapehByName = new Map<string, GradeEntry>();
+  let firstMapehPos = -1;
+  grades.forEach((g, i) => {
+    if (MAPEH_ORDER.includes(g.subject)) {
+      mapehByName.set(g.subject, g);
+      if (firstMapehPos === -1) firstMapehPos = i;
+    }
+  });
+
+  // No MAPEH components — render rows exactly as-is
+  if (firstMapehPos === -1) {
+    return grades.map((row, idx) => ({ kind: "grade", row, idx }));
+  }
+
+  const rows: DisplayItem[] = [];
+  for (let i = 0; i < grades.length; i++) {
+    const g = grades[i];
+    if (MAPEH_ORDER.includes(g.subject)) {
+      // Emit the grouped block once, at the first MAPEH component's position
+      if (i === firstMapehPos) {
+        rows.push({
+          kind: "header",
+          label: "MAPEH",
+          final: allAvg([...mapehByName.values()]),
+        });
+        for (const name of MAPEH_ORDER) {
+          const m = mapehByName.get(name);
+          if (m) rows.push({ kind: "grade", row: m, idx: grades.indexOf(m) });
+        }
+      }
+      continue;
+    }
+    rows.push({ kind: "grade", row: g, idx: i });
+  }
+  return rows;
+}
 
 export function GradeManagement() {
   const { showToast } = useApp();
@@ -276,6 +334,10 @@ export function GradeManagement() {
   const overallAvg = allAvg(grades);
   const descriptor = getDescriptor(overallAvg);
 
+  // MAPEH components grouped under one header, in canonical order
+  // (hooks must run before any early return)
+  const displayRows = useMemo(() => buildDisplayRows(grades), [grades]);
+
   // ── Loading skeleton ──
   if (loading) {
     return (
@@ -483,12 +545,34 @@ export function GradeManagement() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {grades.map((row, idx) => {
+                    {displayRows.map(item => {
+                      // MAPEH group header
+                      if (item.kind === "header") {
+                        const desc = getDescriptor(item.final);
+                        return (
+                          <tr key="mapeh-header" className="bg-emerald-50/70 border-y border-emerald-100">
+                            <td colSpan={5} className="pl-5 pr-3 py-2.5 font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">
+                              {item.label}
+                            </td>
+                            <td className="px-3 py-2.5 text-center font-bold text-gray-800 text-sm">
+                              {item.final}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${descBadge(desc.label)}`}>
+                                {desc.label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      const { row, idx } = item;
                       const finalGrade = avg(row);
                       const desc = getDescriptor(finalGrade);
+                      const isMapeh = MAPEH_ORDER.includes(row.subject);
                       return (
                         <tr key={row.subject} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
-                          <td className="pl-5 pr-3 py-3 font-semibold text-gray-700 text-sm">{row.subject}</td>
+                          <td className={`pr-3 py-3 text-sm ${isMapeh ? "pl-8 font-medium text-gray-600" : "pl-5 font-semibold text-gray-700"}`}>{row.subject}</td>
                           {(["q1", "q2", "q3", "q4"] as const).map(q => (
                             <td key={q} className="px-3 py-2.5 text-center">
                               <input
@@ -504,14 +588,9 @@ export function GradeManagement() {
                           ))}
                           <td className="px-3 py-3 text-center font-extrabold text-gray-800 text-base">{finalGrade}</td>
                           <td className="px-3 py-3 text-center">
-                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                              desc.label === "Outstanding" ? "bg-green-50 text-green-700" :
-                              desc.label === "Very Satisfactory" ? "bg-blue-50 text-blue-700" :
-                              desc.label === "Satisfactory" ? "bg-teal-50 text-teal-700" :
-                              desc.label === "Fairly Satisfactory" ? "bg-yellow-50 text-yellow-700" :
-                              desc.label === "Did Not Meet Expectations" ? "bg-red-50 text-red-700" :
-                              "bg-gray-50 text-gray-400"
-                            }`}>{desc.label}</span>
+                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${descBadge(desc.label)}`}>
+                              {desc.label}
+                            </span>
                           </td>
                         </tr>
                       );

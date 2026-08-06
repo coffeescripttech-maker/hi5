@@ -8,6 +8,9 @@ import {
   downloadDocument,
   uploadDocument,
   updateDocumentStatus,
+  getTemplate,
+  previewDocument,
+  importDocument,
 } from "../controllers/documents.controller";
 
 const UPLOADS_DIR = path.resolve(__dirname, "../../uploads");
@@ -39,8 +42,11 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/", listDocuments);
+router.get("/template", authorize("admin", "teacher", "registrar"), getTemplate);
 router.get("/:id/download", downloadDocument);
+router.get("/:id/preview", authorize("admin", "teacher", "registrar"), previewDocument);
 router.post("/upload", authorize("admin", "teacher", "registrar"), upload.single("file"), uploadDocument);
+router.post("/:id/import", authorize("admin", "teacher", "registrar"), importDocument);
 router.put("/:id/status", authorize("admin"), updateDocumentStatus);
 
 export default router;
