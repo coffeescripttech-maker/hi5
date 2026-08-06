@@ -36,3 +36,11 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Python AI service artifacts
+ai-service/.venv/
+ai-service/data/*.csv
+ai-service/saved/
+!ai-service/saved/.gitkeep
+__pycache__/
+*.pyc

@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
-import { classifyStudent } from "../utils/linearRegression";
+import { classifyStudent, StudentRisk } from "../utils/linearRegression";
+import { getAiProvider, predictWithPython } from "../services/aiService";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
@@ -83,9 +84,26 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
       quartersByStudent[g.student_id][g.quarter - 1] = Number(g.avg_grade);
     }
 
+    // Classification provider — 'python' uses the FastAPI/scikit-learn service
+    // (with fallback to the built-in regression if it's unreachable).
+    const aiProvider = getAiProvider();
+
     const result: any[] = [];
     for (const st of students as any[]) {
       const quarters = quartersByStudent[st.student_id] ?? [null, null, null, null];
+
+      let classification: StudentRisk;
+      if (aiProvider === "python") {
+        try {
+          classification = await predictWithPython(st.student_id, quarters);
+        } catch (error) {
+          console.warn("AI service unavailable — falling back to local regression.", error);
+          classification = classifyStudent(quarters);
+        }
+      } else {
+        classification = classifyStudent(quarters);
+      }
+
       result.push({
         student_id: st.student_id,
         student_name: st.student_name,
@@ -93,7 +111,7 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
         grade_level: st.grade_level,
         section_id: st.section_id,
         section_name: st.section_name,
-        ...classifyStudent(quarters),
+        ...classification,
       });
     }
 

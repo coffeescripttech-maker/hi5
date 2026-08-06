@@ -124,6 +124,7 @@
 | 5.9 | Schedule / timetable component | ✅ Done | `schedules` table + TeacherSchedule weekly grid |
 | 5.10 | Android app (real-time sync) | ❌ Missing | — |
 | 5.11 | LIS Officer submission integration | ✅ Done | 3 CSV endpoints (learner profile, grades, enrolled list) + `/admin/lis-export` UI |
+| 5.12 | Pluggable AI provider (built-in Node regression ↔ Python FastAPI/scikit-learn service) | ✅ Done | [ai-service/README.md](../ai-service/README.md) — `AI_PROVIDER=node|python` in `server/.env`, auto-fallbacks to the local regression if Python is down |
 
 ---
 
@@ -135,5 +136,5 @@
 | **Registrar** | 21 | 21 | 0 | 0 |
 | **Teacher** | 27 | 27 | 0 | 0 |
 | **Principal** | 9 | 9 | 0 | 0 |
-| **Cross-cutting** | 11 | 10 | 0 | 1 |
-| **Overall** | **87** | **86** | **0** | **1** |
+| **Cross-cutting** | 12 | 11 | 0 | 1 |
+| **Overall** | **88** | **87** | **0** | **1** |
