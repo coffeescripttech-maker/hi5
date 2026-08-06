@@ -202,7 +202,9 @@ export function EnrollmentModule() {
   const [enrolledSectionName, setEnrolledSectionName] = useState('');
   const [program, setProgram] = useState('regular');
   const [strandTracks, setStrandTracks] = useState<StrandTrackRow[]>([]);
-  const [selectedStrandTrackId, setSelectedStrandTrackId] = useState<number | null>(null);
+  const [selectedStrandTrackId, setSelectedStrandTrackId] = useState<
+    number | null
+  >(null);
   const [requirements, setRequirements] = useState<Record<string, boolean>>({
     psa_birth_cert: false,
     previous_grade_card: false,
@@ -279,7 +281,8 @@ export function EnrollmentModule() {
     if (!grade) return;
     setSelectedStrandTrackId(null);
     const trackType = grade >= 11 ? 'shs_strand' : 'tle';
-    strandTracksApi.list({ track_type: trackType, grade_level: grade })
+    strandTracksApi
+      .list({ track_type: trackType, grade_level: grade })
       .then(setStrandTracks)
       .catch(() => setStrandTracks([]));
   }, [newGrade, retGrade]);
@@ -491,8 +494,10 @@ export function EnrollmentModule() {
   const allowedRetGrades = (() => {
     if (prevGradeLevel == null) return GRADE_LEVELS;
     const allowed = new Set<number>();
-    if (prevGradeLevel >= 7 && prevGradeLevel <= 12) allowed.add(prevGradeLevel); // retained / repeating
-    if (prevGradeLevel >= 7 && prevGradeLevel < 12) allowed.add(prevGradeLevel + 1); // next level
+    if (prevGradeLevel >= 7 && prevGradeLevel <= 12)
+      allowed.add(prevGradeLevel); // retained / repeating
+    if (prevGradeLevel >= 7 && prevGradeLevel < 12)
+      allowed.add(prevGradeLevel + 1); // next level
     return GRADE_LEVELS.filter(g => allowed.has(g));
   })();
   const recommendedRetGrade =
@@ -512,7 +517,8 @@ export function EnrollmentModule() {
   const handleRetNext = () => {
     if (retStep === 3) {
       // Block advancing unless a grade that is valid for this student is selected
-      if (retGrade != null && allowedRetGrades.includes(retGrade)) setRetStep(4);
+      if (retGrade != null && allowedRetGrades.includes(retGrade))
+        setRetStep(4);
       return;
     }
     if (retStep < 4) setRetStep((retStep + 1) as RetStep);
@@ -808,8 +814,7 @@ export function EnrollmentModule() {
         code: 'NEW',
         title: 'Enroll New Student',
         subtitle: 'First-time enrollees · Grades 7–12',
-        desc:
-          'Complete data entry for new students with auto-generated Student ID and placement in the pending section queue.',
+        desc: 'Complete data entry for new students with auto-generated Student ID and placement in the pending section queue.',
         icon: UserPlus,
         iconCls: 'text-emerald-600',
         bandBg: 'bg-emerald-50',
@@ -828,8 +833,7 @@ export function EnrollmentModule() {
         code: 'RETURN',
         title: 'Enroll Returning Student',
         subtitle: 'Re-enrollment · Grades 7–12',
-        desc:
-          'Search by LRN or Student ID to auto-populate existing records, then promote the student to their new grade level.',
+        desc: 'Search by LRN or Student ID to auto-populate existing records, then promote the student to their new grade level.',
         icon: RefreshCw,
         iconCls: 'text-blue-600',
         bandBg: 'bg-blue-50',
@@ -848,8 +852,7 @@ export function EnrollmentModule() {
         code: 'DROP',
         title: 'Student Drop / Transfer',
         subtitle: 'Status management · All grades',
-        desc:
-          'Process dropout or school transfer with official reason documentation. Academic records are preserved for SF10.',
+        desc: 'Process dropout or school transfer with official reason documentation. Academic records are preserved for SF10.',
         icon: UserMinus,
         iconCls: 'text-red-500',
         bandBg: 'bg-red-50',
@@ -865,7 +868,7 @@ export function EnrollmentModule() {
     ];
 
     return (
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="space-y-6 max-w-8xl mx-auto">
         {/* Header hero */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-blue-500" />
@@ -913,10 +916,13 @@ export function EnrollmentModule() {
               <Lock size={20} className="text-red-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-red-800 text-sm">Enrollment is currently CLOSED</p>
+              <p className="font-bold text-red-800 text-sm">
+                Enrollment is currently CLOSED
+              </p>
               <p className="text-red-600 text-xs mt-0.5 leading-relaxed">
-                New enrollments and returning student enrollments are disabled while enrollment is closed.
-                You may still process student drop/transfer requests.
+                New enrollments and returning student enrollments are disabled
+                while enrollment is closed. You may still process student
+                drop/transfer requests.
               </p>
             </div>
           </div>
@@ -1035,17 +1041,31 @@ export function EnrollmentModule() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50/80">
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Student</th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Grade</th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Section</th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program</th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Status</th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                      Student
+                    </th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                      LRN
+                    </th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                      Grade
+                    </th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                      Section
+                    </th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                      Program
+                    </th>
+                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {recentEnrollments.map(e => (
-                    <tr key={e.id} className="hover:bg-emerald-50/40 transition-colors duration-150">
+                    <tr
+                      key={e.id}
+                      className="hover:bg-emerald-50/40 transition-colors duration-150">
                       <td className="px-6 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0">
@@ -1570,7 +1590,9 @@ export function EnrollmentModule() {
               {strandTracks.length > 0 && (
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
-                    {newGrade && newGrade >= 11 ? 'SHS Strand *' : 'TLE Specialization (optional)'}
+                    {newGrade && newGrade >= 11
+                      ? 'SHS Strand *'
+                      : 'TLE Specialization (optional)'}
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {strandTracks.map(t => {
@@ -1578,22 +1600,30 @@ export function EnrollmentModule() {
                       return (
                         <button
                           key={t.id}
-                          onClick={() => setSelectedStrandTrackId(active ? null : t.id)}
+                          onClick={() =>
+                            setSelectedStrandTrackId(active ? null : t.id)
+                          }
                           className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
                             active
                               ? 'border-emerald-400 bg-emerald-50'
                               : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
                           }`}>
-                          <div className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
-                            active ? 'border-emerald-500' : 'border-gray-300'
-                          }`}>
-                            {active && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
+                              active ? 'border-emerald-500' : 'border-gray-300'
+                            }`}>
+                            {active && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
+                            <p
+                              className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
                               {t.name}
                             </p>
-                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">{t.code}</p>
+                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">
+                              {t.code}
+                            </p>
                           </div>
                         </button>
                       );
@@ -2205,18 +2235,24 @@ export function EnrollmentModule() {
 
               {alreadyEnrolledThisSY && (
                 <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                  <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle
+                    size={16}
+                    className="text-amber-600 flex-shrink-0 mt-0.5"
+                  />
                   <div className="text-xs text-amber-800 leading-relaxed">
                     <p className="font-semibold">
                       Already enrolled for {currentSYLabel}
                     </p>
                     <p className="mt-0.5">
-                      {foundStudent.name} already has an enrollment for this school
-                      year, so confirming here will be blocked (a student can only be
-                      enrolled once per school year). To move them forward, create the
-                      next school year (e.g. 2026-2027) and set it as current in{' '}
-                      <span className="font-semibold">Admin → Academic Year Mgmt.</span>,
-                      or use Bulk Promotion for the year-end rollover.
+                      {foundStudent.name} already has an enrollment for this
+                      school year, so confirming here will be blocked (a student
+                      can only be enrolled once per school year). To move them
+                      forward, create the next school year (e.g. 2026-2027) and
+                      set it as current in{' '}
+                      <span className="font-semibold">
+                        Admin → Academic Year Mgmt.
+                      </span>
+                      , or use Bulk Promotion for the year-end rollover.
                     </p>
                   </div>
                 </div>
@@ -2261,11 +2297,18 @@ export function EnrollmentModule() {
                       {completedGrade12
                         ? 'They should be marked as Graduated rather than re-enrolled. Only Grade 12 (repeating) is available here.'
                         : `New grade is limited to${
-                            recommendedRetGrade ? ` Grade ${recommendedRetGrade} (next level)` : ''
+                            recommendedRetGrade
+                              ? ` Grade ${recommendedRetGrade} (next level)`
+                              : ''
                           }${
-                            recommendedRetGrade && allowedRetGrades.includes(prevGradeLevel) ? ' or' : ''
+                            recommendedRetGrade &&
+                            allowedRetGrades.includes(prevGradeLevel)
+                              ? ' or'
+                              : ''
                           }${
-                            allowedRetGrades.includes(prevGradeLevel) ? ` Grade ${prevGradeLevel} (repeating)` : ''
+                            allowedRetGrades.includes(prevGradeLevel)
+                              ? ` Grade ${prevGradeLevel} (repeating)`
+                              : ''
                           }.`}
                     </p>
                   </div>
@@ -2292,13 +2335,21 @@ export function EnrollmentModule() {
                         }`}>
                         <p
                           className={`font-bold text-lg ${
-                            !isAllowed ? 'text-gray-400' : isSelected ? 'text-emerald-700' : 'text-gray-700'
+                            !isAllowed
+                              ? 'text-gray-400'
+                              : isSelected
+                                ? 'text-emerald-700'
+                                : 'text-gray-700'
                           }`}>
                           Grade {g}
                         </p>
                         <p
                           className={`text-[11px] mt-0.5 font-medium ${
-                            !isAllowed ? 'text-gray-300' : isSelected ? 'text-emerald-500' : 'text-gray-400'
+                            !isAllowed
+                              ? 'text-gray-300'
+                              : isSelected
+                                ? 'text-emerald-500'
+                                : 'text-gray-400'
                           }`}>
                           {g <= 10 ? 'Junior High' : 'Senior High'}
                         </p>
@@ -2375,7 +2426,9 @@ export function EnrollmentModule() {
               {strandTracks.length > 0 && (
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
-                    {retGrade && retGrade >= 11 ? 'SHS Strand *' : 'TLE Specialization (optional)'}
+                    {retGrade && retGrade >= 11
+                      ? 'SHS Strand *'
+                      : 'TLE Specialization (optional)'}
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {strandTracks.map(t => {
@@ -2383,22 +2436,30 @@ export function EnrollmentModule() {
                       return (
                         <button
                           key={t.id}
-                          onClick={() => setSelectedStrandTrackId(active ? null : t.id)}
+                          onClick={() =>
+                            setSelectedStrandTrackId(active ? null : t.id)
+                          }
                           className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
                             active
                               ? 'border-emerald-400 bg-emerald-50'
                               : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
                           }`}>
-                          <div className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
-                            active ? 'border-emerald-500' : 'border-gray-300'
-                          }`}>
-                            {active && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
+                              active ? 'border-emerald-500' : 'border-gray-300'
+                            }`}>
+                            {active && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
+                            <p
+                              className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
                               {t.name}
                             </p>
-                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">{t.code}</p>
+                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">
+                              {t.code}
+                            </p>
                           </div>
                         </button>
                       );

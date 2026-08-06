@@ -1,6 +1,6 @@
 # HI5 Portal — Feature Progress Checklist
 
-> **Last Updated:** 2026-07-02
+> **Last Updated:** 2026-08-05
 > **Legend:** ✅ Done | ⚠️ Partial | ❌ Missing
 
 ---
@@ -11,11 +11,11 @@
 |---|---------|--------|---------------|
 | 1.1 | Create, update, manage user accounts | ✅ Done | [UserManagement.tsx](../src/app/pages/admin/UserManagement.tsx) |
 | 1.2 | Assign roles (Admin, Registrar, Teacher, Principal) | ✅ Done | `users.role` ENUM, roleGuard middleware |
-| 1.3 | Configure school years | ✅ Done | [AcademicYearManagement.tsx](../src/app/pages/admin/AcademicYearManagement.tsx) |
+| 1.3 | Configure school years | ✅ Done | [AcademicYearManagement.tsx](../src/app/pages/admin/AcademicYearManagement.tsx) — bulk promotion auto-creates the next SY |
 | 1.4 | Configure grade levels | ✅ Done | Built into sections/subjects (7–12) |
 | 1.5 | Configure sections | ✅ Done | [SectionCreation.tsx](../src/app/pages/admin/SectionCreation.tsx) |
 | 1.6 | Configure subject offerings | ✅ Done | [SubjectManagement.tsx](../src/app/pages/admin/SubjectManagement.tsx) |
-| 1.7 | Open / close enrollment period | ✅ Done | Backend 403 guard + EnrollmentModule closed banner + AppContext |
+| 1.7 | Open / close enrollment period | ✅ Done | Backend 403 guard + EnrollmentModule closed banner + AppContext + per-SY toggle in [AcademicYearManagement.tsx](../src/app/pages/admin/AcademicYearManagement.tsx) |
 | 1.8 | Manage MATATAG core JHS subjects | ✅ Done | Subject system supports any subjects |
 | 1.9 | STE Research / SPFL language subjects | ✅ Done | Program field on enrollments |
 | 1.10 | MAPEH as 4 separate subjects | ✅ Done | Subjects split; computeAverages groups MAPEH; promotions SQL uses subquery CASE GROUP BY |
@@ -35,7 +35,7 @@
 
 | # | Feature | Status | Module / File |
 |---|---------|--------|---------------|
-| 2.1 | View & manage student records | ✅ Done | [StudentSearch.tsx](../src/app/pages/registrar/StudentSearch.tsx) |
+| 2.1 | View & manage student records | ✅ Done | [StudentSearch.tsx](../src/app/pages/registrar/StudentSearch.tsx) + [StudentProfile.tsx](../src/app/pages/StudentProfile.tsx) with per-school-year Grade History and Section History (per-SY grade level from the section, not current grade) |
 | 2.2 | Process transfer / withdrawal | ✅ Done | Enrollment update with dropped/transferred status |
 | 2.3 | Monitor real-time enrollment stats | ✅ Done | [RegistrarDashboard.tsx](../src/app/pages/registrar/RegistrarDashboard.tsx) |
 | 2.4 | View document completion per student | ✅ Done | [DocumentCompletion.tsx](../src/app/pages/registrar/DocumentCompletion.tsx) — section selector + requirement checklist table |
@@ -63,7 +63,7 @@
 | # | Feature | Status | Module / File |
 |---|---------|--------|---------------|
 | 3.1 | Enroll new students (all 5 programs) | ✅ Done | [EnrollmentModule.tsx](../src/app/pages/teacher/EnrollmentModule.tsx) — New flow |
-| 3.2 | Enroll returning students (by LRN/ID) | ✅ Done | Returning flow with LRN auto-populate |
+| 3.2 | Enroll returning students (by LRN/ID) | ✅ Done | Returning flow with LRN auto-populate, previous-grade derived from enrollment history, valid-grade-level guard (prev/prev+1 only), and block on duplicate enrollment in the current SY |
 | 3.3 | Enroll Balik-aral students | ✅ Done | Part of returning flow via LRN lookup |
 | 3.4 | Enrollment requirements checklist | ✅ Done | Requirements list + DB storage |
 | 3.5 | Flag incomplete requirements | ✅ Done | Backend validation |
@@ -82,8 +82,8 @@
 | 3.18 | Generate SF10 PDF | ✅ Done | SchoolForms page |
 | 3.19 | Submit forms to LIS Officer | ✅ Done | Server-side CSV generation + download page at `/admin/lis-export` |
 | 3.20 | Import DepEd SF files (Excel/PDF) | ✅ Done | UploadGrades with validation preview |
-| 3.21 | Bulk promotion for advisory section | ✅ Done | [BulkPromotion.tsx](../src/app/pages/teacher/BulkPromotion.tsx) |
-| 3.22 | GA < 75 → Retained flag | ✅ Done | Promotions controller threshold check |
+| 3.21 | Bulk promotion for advisory section | ✅ Done | [BulkPromotion.tsx](../src/app/pages/teacher/BulkPromotion.tsx) — per-section failures surfaced with specific errors; success screen reports promoted / retained / incomplete honestly (incl. "No Students Promoted" state) |
+| 3.22 | GA < 75 → Retained; incomplete grades → held back | ✅ Done | Promotions controller threshold check + `grade_complete` guard (every subject must have all 4 quarters before judging by average) |
 | 3.23 | Grade 12 → Completers | ✅ Done | `completeSection` endpoint + `BulkPromotion.tsx` completers flow + `enrollments.status='completed'` |
 | 3.24 | AI at-risk prediction | ✅ Done | [AtRiskDetection.tsx](../src/app/pages/teacher/AtRiskDetection.tsx) |
 | 3.25 | Color-coded badges (On Track / Needs Monitoring / At-Risk) | ✅ Done | RISK_CONFIG styling |

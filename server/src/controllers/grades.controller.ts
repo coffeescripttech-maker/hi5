@@ -92,10 +92,11 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
                 g.quarter, g.grade, g.is_locked
          FROM enrollments e
          JOIN students st ON e.student_id = st.id
+         JOIN sections sec ON e.section_id = sec.id
          CROSS JOIN subjects s
          LEFT JOIN grades g ON g.student_id = st.id AND g.subject_id = s.id AND g.school_year_id = e.school_year_id
          WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-           AND s.grade_level = st.grade_level
+           AND s.grade_level = sec.grade_level
          ORDER BY st.name ASC, s.name ASC, g.quarter ASC`,
         [section_id, school_year_id]
       );
@@ -104,9 +105,11 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Raw grades list with filters
+    // Raw grades list with filters.
+    // Note: g.* already carries the numeric student_id FK — alias the student's
+    // display id so it doesn't shadow it.
     let sql = `
-      SELECT g.*, s.name AS student_name, s.student_id, sub.name AS subject_name
+      SELECT g.*, s.name AS student_name, s.student_id AS student_display_id, sub.name AS subject_name
       FROM grades g
       JOIN students s ON g.student_id = s.id
       JOIN subjects sub ON g.subject_id = sub.id

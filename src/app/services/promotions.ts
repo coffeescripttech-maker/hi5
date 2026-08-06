@@ -57,6 +57,27 @@ export interface BulkPromoteSummaryRow {
   completed: number;
 }
 
+export interface PromotionPreviewStudent {
+  student_id: number;
+  name: string;
+  general_average: number | null;
+  grade_complete: boolean;
+  is_retained: boolean;
+  promoted: boolean;
+}
+
+export interface PromotionPreview {
+  section_id: number;
+  section_name: string;
+  grade_level: number;
+  school_year_id: number;
+  total: number;
+  promoted: number;
+  retained: number;
+  incomplete: number;
+  students: PromotionPreviewStudent[];
+}
+
 export interface BulkPromoteResponse {
   message: string;
   school_year_id: number;
@@ -68,6 +89,8 @@ export interface BulkPromoteResponse {
 
 export const promotionsApi = {
   list: () => api.get<PromotionRow[]>("/promotions"),
+  preview: (params: { section_id: number; school_year_id: number }) =>
+    api.get<PromotionPreview>("/promotions/preview", params),
   get: (id: number) =>
     api.get<{ promotion: PromotionRow; students: PromotionStudentRow[] }>(
       `/promotions/${id}`

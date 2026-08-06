@@ -24,16 +24,28 @@ export interface SF1Row {
 }
 
 export interface SF5Row {
-  student_name: string;
+  student_id: number;
+  student_id_display: string;
   lrn: string;
+  name: string;
+  grade_level: number;
   sex: string;
-  subjects: Array<{
-    name: string;
-    final_grade: number | null;
-    action: string;
-  }>;
+  section_name: string;
+  section_type: string;
   general_average: number | null;
-  remarks: string;
+  promotion_status: 'PROMOTED' | 'RETAINED';
+}
+
+export interface SF5Response {
+  form: string;
+  school: {
+    school_name: string;
+    school_id: string;
+  } | null;
+  total_students: number;
+  promoted: number;
+  retained: number;
+  students: SF5Row[];
 }
 
 export interface SF9Row {
@@ -95,7 +107,7 @@ export const formsApi = {
       `/forms/sf1?section_id=${sectionId}&school_year_id=${schoolYearId}`
     ),
   sf5: (sectionId: number, schoolYearId: number) =>
-    api.get<{ section: string; grade_level: number; students: SF5Row[] }>(
+    api.get<SF5Response>(
       `/forms/sf5?section_id=${sectionId}&school_year_id=${schoolYearId}`
     ),
   sf9: (studentId: number, schoolYearId: number) =>

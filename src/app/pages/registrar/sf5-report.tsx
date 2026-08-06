@@ -8,6 +8,8 @@ import { SchoolFormHeader } from '../../components/school-form-header';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
+import { gradesApi, GradeRow } from '../../services/grades';
 import { settingsApi } from '../../services/settings';
 import { useApp } from '../../context/AppContext';
 import { exportToPdf } from '../../services/pdfExport';
@@ -61,11 +63,74 @@ function formatName(name: string): string {
   return `${last}, ${parts.join(' ')}`;
 }
 
+/** Group grade rows by student id. */
+function groupGrades(rows: GradeRow[]): Map<number, GradeRow[]> {
+  const m = new Map<number, GradeRow[]>();
+  for (const r of rows) {
+    const arr = m.get(r.student_id);
+    if (arr) arr.push(r);
+    else m.set(r.student_id, [r]);
+  }
+  return m;
+}
+
+/**
+ * Per-subject final averages from raw per-quarter rows.
+ * A subject's final = mean of its non-null quarter grades.
+ */
+function subjectFinals(
+  rows: GradeRow[]
+): Map<number, { name: string; avg: number }> {
+  const acc = new Map<number, { name: string; sum: number; n: number }>();
+  for (const r of rows) {
+    if (r.grade == null) continue;
+    const cur = acc.get(r.subject_id);
+    if (cur) {
+      cur.sum += Number(r.grade);
+      cur.n += 1;
+    } else {
+      acc.set(r.subject_id, {
+        name: r.subject_name,
+        sum: Number(r.grade),
+        n: 1
+      });
+    }
+  }
+  const out = new Map<number, { name: string; avg: number }>();
+  for (const [sid, v] of acc) out.set(sid, { name: v.name, avg: v.sum / v.n });
+  return out;
+}
+
+function mean(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+/** Column totals (MALE, FEMALE, TOTAL) across a MiniCountTable's rows. */
+function colTotals(values: string[][]): number[] {
+  const t = [0, 0, 0];
+  for (const r of values) {
+    for (let c = 0; c < 3; c++) t[c] += parseInt(r[c] || '0', 10) || 0;
+  }
+  return t;
+}
+
 /* ---------------------------------------------------------------- */
 /* MiniCountTable — reusable summary table with input cells          */
 /* ---------------------------------------------------------------- */
 
-function MiniCountTable({ title, rows }: { title: string; rows: string[][] }) {
+function MiniCountTable({
+  title,
+  rows,
+  values,
+  onChange,
+  total
+}: {
+  title: string;
+  rows: string[][];
+  values?: string[][];
+  onChange?: (row: number, col: number, val: string) => void;
+  total?: number[];
+}) {
   return (
     <table className="w-full border-collapse text-center text-[10px]">
       <thead>
@@ -82,7 +147,7 @@ function MiniCountTable({ title, rows }: { title: string; rows: string[][] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map(r => (
+        {rows.map((r, i) => (
           <tr key={r[0]}>
             <td className="border border-black px-1 py-2 text-left font-semibold leading-tight">
               {r[0]}
@@ -90,11 +155,28 @@ function MiniCountTable({ title, rows }: { title: string; rows: string[][] }) {
             </td>
             {[0, 1, 2].map(c => (
               <td key={c} className="border border-black p-0">
-                <input className="sf1-input h-9 w-full text-center outline-none focus:bg-amber-50" />
+                <input
+                  className="sf1-input h-9 w-full text-center outline-none focus:bg-amber-50"
+                  value={values?.[i]?.[c] ?? ''}
+                  onChange={
+                    onChange ? e => onChange(i, c, e.target.value) : undefined
+                  }
+                  readOnly={!onChange}
+                />
               </td>
             ))}
           </tr>
         ))}
+        {total && (
+          <tr className="font-bold">
+            <td className="border border-black px-1 py-2 text-left">TOTAL</td>
+            {total.map((t, c) => (
+              <td key={c} className="border border-black bg-gray-100 px-1">
+                {t || ''}
+              </td>
+            ))}
+          </tr>
+        )}
       </tbody>
     </table>
   );
@@ -107,9 +189,11 @@ export function SF5Report() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
+  const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   // ── Filter selections ──
+  const [syId, setSyId] = useState(1);
   const [selectedGrade, setSelectedGrade] = useState('7');
   const [selectedSection, setSelectedSection] = useState('');
 
@@ -118,6 +202,9 @@ export function SF5Report() {
     Array.from({ length: TOTAL_ROWS }, () => ({}))
   );
   const [enrolledStudents, setEnrolledStudents] = useState<StudentRow[]>([]);
+  // Auto-computed counts for the two summary tables (3 cols: MALE, FEMALE, TOTAL)
+  const [summaryCounts, setSummaryCounts] = useState<string[][]>([]);
+  const [progressCounts, setProgressCounts] = useState<string[][]>([]);
   const [header, setHeader] = useState({
     schoolId: '',
     region: 'Region VIII',
@@ -135,9 +222,10 @@ export function SF5Report() {
       studentsApi.list(),
       sectionsApi.list(),
       enrollmentsApi.list(),
-      settingsApi.get()
+      settingsApi.get(),
+      schoolYearsApi.list()
     ])
-      .then(([studs, secs, enrs, settings]) => {
+      .then(([studs, secs, enrs, settings, years]) => {
         console.log(
           '[SF5] Students:',
           studs.length,
@@ -149,6 +237,10 @@ export function SF5Report() {
         setStudents(studs);
         setSections(secs);
         setEnrollments(enrs);
+        setSchoolYears(years);
+        const currentYear = years.find((y: any) => y.is_current === 1);
+        const targetSy = currentYear?.id || years[0]?.id || 1;
+        setSyId(targetSy);
         setHeader(prev => ({
           ...prev,
           schoolId: settings.school_id || prev.schoolId,
@@ -157,20 +249,46 @@ export function SF5Report() {
           district: settings.district || prev.district,
           schoolName: settings.school_name || prev.schoolName
         }));
-        const g7 = secs.filter(s => s.grade_level === 7 && s.is_active === 1);
+        const active = secs.filter(s => s.is_active === 1);
+        // Default to the first section (grade-ascending) that actually has
+        // enrolled students in the selected school year, so the sheet never
+        // opens on an empty section.
+        const enrolledSection = enrs
+          .filter(
+            e => e.school_year_id === targetSy && e.status === 'enrolled'
+          )
+          .sort(
+            (a, b) =>
+              (a.section_grade_level ?? 99) - (b.section_grade_level ?? 99)
+          )
+          .find(e => e.section_id != null);
+        if (enrolledSection && enrolledSection.section_id != null) {
+          const sec = active.find(s => s.id === enrolledSection.section_id);
+          if (sec) {
+            setSelectedGrade(
+              String(enrolledSection.section_grade_level ?? sec.grade_level)
+            );
+            setSelectedSection(sec.name);
+            return;
+          }
+        }
+        const g7 = active.filter(s => s.grade_level === 7);
         if (g7.length > 0) setSelectedSection(g7[0].name);
       })
       .finally(() => setDataLoading(false));
   }, []);
 
-  // ── Sync school name & year from context ──
+  // ── Sync school name & year (selected school year takes precedence) ──
   useEffect(() => {
     setHeader(prev => ({
       ...prev,
       schoolName: schoolName || prev.schoolName,
-      schoolYear: schoolYearLabel || prev.schoolYear
+      schoolYear:
+        schoolYears.find(y => y.id === syId)?.sy_label ||
+        schoolYearLabel ||
+        prev.schoolYear
     }));
-  }, [schoolName, schoolYearLabel]);
+  }, [schoolName, schoolYearLabel, schoolYears, syId]);
 
   // ── Sync grade/section to header ──
   useEffect(() => {
@@ -212,7 +330,8 @@ export function SF5Report() {
     if (!section) return;
     const matchingEnrs = enrollments.filter(
       e =>
-        e.grade_level === parseInt(selectedGrade) &&
+        e.school_year_id === syId &&
+        e.section_grade_level === parseInt(selectedGrade) &&
         e.section_id === section.id &&
         e.status === 'enrolled'
     );
@@ -230,7 +349,119 @@ export function SF5Report() {
     while (newRows.length < TOTAL_ROWS) newRows.push({});
     setRows(newRows);
     setEnrolledStudents(enrolled);
-  }, [selectedSection, selectedGrade, enrollments, students, sections]);
+
+    // Clear derived tables while the section's grade data loads.
+    setSummaryCounts([]);
+    setProgressCounts([]);
+
+    let cancelled = false;
+    if (enrolled.length > 0) {
+      // Previous school year for the "completed from previous SY" column.
+      const sortedSy = [...schoolYears].sort((a, b) => a.id - b.id);
+      const idx = sortedSy.findIndex(y => y.id === syId);
+      const prevSyId = idx > 0 ? sortedSy[idx - 1].id : null;
+      const enrolledIds = new Set(enrolled.map(s => s.id));
+
+      Promise.all([
+        gradesApi.list({ school_year_id: syId }),
+        prevSyId ? gradesApi.list({ school_year_id: prevSyId }) : Promise.resolve<GradeRow[]>([])
+      ])
+        .then(([cur, prev]) => {
+          if (cancelled) return;
+          const curByStudent = groupGrades(
+            cur.filter(g => enrolledIds.has(g.student_id))
+          );
+          const prevByStudent = groupGrades(
+            prev.filter(g => enrolledIds.has(g.student_id))
+          );
+
+          const nextStats: Record<
+            number,
+            {
+              average: string;
+              action: string;
+              incompleteCurrent: string;
+              incompleteCompleted: string;
+            }
+          > = {};
+          const summary = SUMMARY_STATUS.map(() => ({ male: 0, female: 0, total: 0 }));
+          const progress = PROGRESS_LEVELS.map(() => ({ male: 0, female: 0, total: 0 }));
+
+          enrolled.forEach(s => {
+            const finals = subjectFinals(curByStudent.get(s.id) || []);
+            const failedNow = [...finals.values()]
+              .filter(f => f.avg < 75)
+              .map(f => f.name);
+            const genAvg = finals.size ? mean([...finals.values()].map(f => f.avg)) : null;
+
+            const prevFinals = subjectFinals(prevByStudent.get(s.id) || []);
+            const prevFailed = [...prevFinals.values()]
+              .filter(f => f.avg < 75)
+              .map(f => f.name);
+            const completed = prevFailed.filter(n => !failedNow.includes(n));
+
+            let action = '';
+            if (genAvg != null) {
+              if (failedNow.length === 0) action = 'PROMOTED';
+              else if (failedNow.length <= 2) action = '*Conditionally Promoted';
+              else action = 'RETAINED';
+            }
+
+            nextStats[s.id] = {
+              average: genAvg != null ? String(Math.round(genAvg)) : '',
+              action,
+              incompleteCurrent: failedNow.join(', '),
+              incompleteCompleted: completed.join(', ')
+            };
+
+            if (genAvg != null) {
+              // SUMMARY TABLE buckets: PROMOTED, *CONDITIONALLY PROMOTED, RETAINED
+              const si = failedNow.length === 0 ? 0 : failedNow.length <= 2 ? 1 : 2;
+              summary[si].total++;
+              if (s.sex === 'male') summary[si].male++;
+              else if (s.sex === 'female') summary[si].female++;
+
+              // LEVEL OF PROGRESS AND ACHIEVEMENT band by general average
+              const pi =
+                genAvg >= 90 ? 4 : genAvg >= 85 ? 3 : genAvg >= 80 ? 2 : genAvg >= 75 ? 1 : 0;
+              progress[pi].total++;
+              if (s.sex === 'male') progress[pi].male++;
+              else if (s.sex === 'female') progress[pi].female++;
+            }
+          });
+
+          setSummaryCounts(
+            summary.map(x => [String(x.male), String(x.female), String(x.total)])
+          );
+          setProgressCounts(
+            progress.map(x => [String(x.male), String(x.female), String(x.total)])
+          );
+
+          setRows(prev => {
+            const next = [...prev];
+            enrolled.forEach((s, i) => {
+              const st = nextStats[s.id];
+              if (st) {
+                next[i] = {
+                  ...next[i],
+                  average: st.average,
+                  action: st.action,
+                  incomplete_completed: st.incompleteCompleted,
+                  incomplete_current: st.incompleteCurrent
+                };
+              }
+            });
+            return next;
+          });
+        })
+        .catch(() => {
+          /* keep manual entry */
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSection, selectedGrade, syId, enrollments, students, sections, schoolYears]);
 
   // ── Cell helper ──
   const setCell = (rowIndex: number, key: string, val: string) => {
@@ -305,7 +536,8 @@ export function SF5Report() {
                   &amp; Achievement
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Select grade &amp; section to auto-populate, or fill manually.
+                  Select school year, grade &amp; section to auto-populate, or fill
+                  manually.
                 </p>
               </div>
             </div>
@@ -325,6 +557,23 @@ export function SF5Report() {
       <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-5 sm:p-6">
           <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">School Year</label>
+              <select
+                value={syId}
+                onChange={e => setSyId(parseInt(e.target.value))}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 bg-white transition">
+                {schoolYears.length === 0 && (
+                  <option value="">Loading years...</option>
+                )}
+                {schoolYears.map(y => (
+                  <option key={y.id} value={y.id}>
+                    {y.sy_label}
+                    {y.is_current === 1 ? ' (Current)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Grade Level</label>
               <select
@@ -478,10 +727,34 @@ export function SF5Report() {
               <MiniCountTable
                 title="SUMMARY TABLE"
                 rows={SUMMARY_STATUS.map(s => [s, ''])}
+                values={summaryCounts}
+                onChange={(i, c, v) =>
+                  setSummaryCounts(prev => {
+                    const next = prev.map(r => [...r]);
+                    if (!next[i]) next[i] = ['', '', ''];
+                    next[i][c] = v;
+                    return next;
+                  })
+                }
+                total={
+                  summaryCounts.length ? colTotals(summaryCounts) : undefined
+                }
               />
               <MiniCountTable
                 title="LEVEL OF PROGRESS AND ACHIEVEMENT"
                 rows={PROGRESS_LEVELS}
+                values={progressCounts}
+                onChange={(i, c, v) =>
+                  setProgressCounts(prev => {
+                    const next = prev.map(r => [...r]);
+                    if (!next[i]) next[i] = ['', '', ''];
+                    next[i][c] = v;
+                    return next;
+                  })
+                }
+                total={
+                  progressCounts.length ? colTotals(progressCounts) : undefined
+                }
               />
 
               {/* Signatures */}

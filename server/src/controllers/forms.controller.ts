@@ -170,6 +170,23 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Get enrollment for the requested school year first — it drives the
+    // subject set for historical report cards (a student was a different
+    // grade level in previous years than they are today).
+    const enrollments = await query<RowDataPacket[]>(
+      `SELECT e.*, sec.name AS section_name, sec.section_type, sec.grade_level AS grade_level, sy.sy_label
+       FROM enrollments e
+       JOIN sections sec ON e.section_id = sec.id
+       JOIN school_years sy ON e.school_year_id = sy.id
+       WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : ""}
+       ORDER BY sy.is_current DESC LIMIT 1`,
+      school_year_id ? [student_id, school_year_id] : [student_id]
+    );
+
+    const subjectGradeLevel =
+      enrollments[0]?.grade_level ?? student[0].grade_level;
+    params.push(subjectGradeLevel);
+
     const grades = await query<RowDataPacket[]>(
       `SELECT s.name AS subject_name, s.subject_type, s.hours_per_week,
               MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
@@ -179,21 +196,10 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
               ROUND(AVG(g.grade), 2) AS final_average
        FROM subjects s
        LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
-       WHERE s.is_active = 1 AND s.grade_level = (SELECT grade_level FROM students WHERE id = ?)
+       WHERE s.is_active = 1 AND s.grade_level = ?
        GROUP BY s.id, s.name, s.subject_type, s.hours_per_week
        ORDER BY s.name ASC`,
-      [...params, student_id]
-    );
-
-    // Get enrollment info
-    const enrollments = await query<RowDataPacket[]>(
-      `SELECT e.*, sec.name AS section_name, sec.section_type, sy.sy_label
-       FROM enrollments e
-       JOIN sections sec ON e.section_id = sec.id
-       JOIN school_years sy ON e.school_year_id = sy.id
-       WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : ""}
-       ORDER BY sy.is_current DESC LIMIT 1`,
-      school_year_id ? [student_id, school_year_id] : [student_id]
+      params
     );
 
     const gradesWithValues = grades.filter((g: any) => g.final_average !== null);

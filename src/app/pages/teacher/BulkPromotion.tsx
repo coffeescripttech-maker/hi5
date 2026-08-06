@@ -4,7 +4,7 @@ import {
   BookOpen, Loader2, Target, ListOrdered, GraduationCap,
 } from "lucide-react";
 import { sectionsApi, SectionRow } from "../../services/sections";
-import { promotionsApi, PromotionRow } from "../../services/promotions";
+import { promotionsApi, PromotionRow, PromotionPreview } from "../../services/promotions";
 import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
 
@@ -19,6 +19,8 @@ export function BulkPromotion() {
   const [syId, setSyId] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [promoting, setPromoting] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [preview, setPreview] = useState<PromotionPreview | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -54,6 +56,20 @@ export function BulkPromotion() {
     ].join(", ");
     return { promoted, retained, incomplete, total, breakdown };
   })();
+
+  // Load a real promotion preview for the selected section — the counts shown in
+  // the preview panel come from the backend's grade-completeness computation so
+  // they match what the actual promotion run will do (no records are written).
+  useEffect(() => {
+    const sectionId = parseInt(selectedSectionId);
+    if (!sectionId || !syId || isCompleters) return;
+    setPreview(null);
+    setPreviewLoading(true);
+    promotionsApi.preview({ section_id: sectionId, school_year_id: syId })
+      .then(setPreview)
+      .catch(() => setPreview(null))
+      .finally(() => setPreviewLoading(false));
+  }, [selectedSectionId, syId, isCompleters]);
 
   const handlePromote = async () => {
     if (!selectedSection) return;
@@ -249,22 +265,22 @@ export function BulkPromotion() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-3 text-center text-xs mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs mb-4">
                   <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs">
-                    <p className="text-emerald-700 font-bold text-xl">{selectedSection.current_count}</p>
+                    <p className="text-emerald-700 font-bold text-xl">{preview ? preview.total : selectedSection.current_count}</p>
                     <p className="text-gray-500 font-medium mt-0.5">Total Enrolled</p>
                   </div>
                   <div className="bg-white rounded-xl p-3 border border-green-100 shadow-xs">
-                    <p className="text-green-600 font-bold text-xl">
-                      {selectedSection.current_count > 0 ? Math.max(1, Math.round(selectedSection.current_count * 0.9)) : 0}
-                    </p>
+                    <p className="text-green-600 font-bold text-xl">{previewLoading ? "…" : (preview?.promoted ?? 0)}</p>
                     <p className="text-gray-500 font-medium mt-0.5">For Promotion</p>
                   </div>
                   <div className="bg-white rounded-xl p-3 border border-red-100 shadow-xs">
-                    <p className="text-red-500 font-bold text-xl">
-                      {selectedSection.current_count > 0 ? Math.max(1, Math.round(selectedSection.current_count * 0.1)) : 0}
-                    </p>
+                    <p className="text-red-500 font-bold text-xl">{previewLoading ? "…" : (preview?.retained ?? 0)}</p>
                     <p className="text-gray-500 font-medium mt-0.5">For Retention</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-amber-100 shadow-xs">
+                    <p className="text-amber-600 font-bold text-xl">{previewLoading ? "…" : (preview?.incomplete ?? 0)}</p>
+                    <p className="text-gray-500 font-medium mt-0.5">Incomplete</p>
                   </div>
                 </div>
               )}
@@ -440,7 +456,7 @@ export function BulkPromotion() {
               )}
               <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                 <span className="text-gray-500">{isCompleters ? "Students graduating:" : "Students to promote:"}</span>
-                <span className="font-bold text-gray-900">{selectedSection.current_count}</span>
+                <span className="font-bold text-gray-900">{isCompleters ? selectedSection.current_count : (preview?.promoted ?? selectedSection.current_count)}</span>
               </div>
             </div>
 
@@ -451,10 +467,21 @@ export function BulkPromotion() {
                 will reflect <strong>Graduated</strong>. The section count will also be adjusted.
               </p>
             ) : (
-              <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-                This promotion will process all students with grades. Students below 75 will be retained.
-                Promoted students will be auto-assigned to appropriate sections in Grade {toGrade}.
-              </p>
+              <>
+                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                  This promotion will process all students with grades. Students below 75 will be retained.
+                  Promoted students will be auto-assigned to appropriate sections in Grade {toGrade}.
+                </p>
+                {preview && preview.incomplete > 0 && (
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2.5 mb-5">
+                    <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>{preview.incomplete}</strong> student{preview.incomplete !== 1 ? "s" : ""} with incomplete
+                      grades will be held back and NOT promoted.
+                    </span>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="flex gap-3">

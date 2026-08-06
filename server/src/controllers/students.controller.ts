@@ -176,7 +176,7 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
 
     res.json({
       ...students[0],
-      current_enrollment: enrollments[0] || null,
+      enrollment: enrollments[0] || null,
       classifications,
     });
   } catch (error) {

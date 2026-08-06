@@ -617,7 +617,7 @@ export function Login() {
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={13} className="text-emerald-500" />
                 <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Demo Quick Access</p>
-                <span className="text-[10px] text-gray-400 ml-auto hidden sm:inline">password: <code className="font-mono text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">demo</code></span>
+                <span className="text-[10px] text-gray-400 ml-auto hidden sm:inline">password: <code className="font-mono text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">password123</code></span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {DEMO_ACCOUNTS.map(a => {

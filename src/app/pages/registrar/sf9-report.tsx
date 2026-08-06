@@ -5,7 +5,7 @@ import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { formsApi, SF9Row } from '../../services/forms';
-import { schoolYearsApi } from '../../services/schoolYears';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
 import { exportToPdf } from '../../services/pdfExport';
 import './sf1.css';
@@ -210,7 +210,7 @@ function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
 
 /* ── Component ── */
 export function SF9Report() {
-  const { showToast, role } = useApp();
+  const { showToast } = useApp();
   const [searchParams] = useSearchParams();
   const preselectedStudentId = searchParams.get('student_id');
   const preselectedSyId = searchParams.get('school_year_id');
@@ -224,6 +224,7 @@ export function SF9Report() {
     null
   );
   const [syId, setSyId] = useState(1);
+  const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
 
   /* ── Data ── */
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -302,22 +303,15 @@ export function SF9Report() {
   );
 
   useEffect(() => {
-    const loadData =
-      role === 'teacher'
-        ? Promise.all([
-            studentsApi.listMyStudents(),
-            sectionsApi.listMySections(),
-            enrollmentsApi.list(),
-            schoolYearsApi.list()
-          ])
-        : Promise.all([
-            studentsApi.list(),
-            sectionsApi.list(),
-            enrollmentsApi.list(),
-            schoolYearsApi.list()
-          ]);
-
-    loadData
+    // Load all sections and students (the SF9 endpoint is available to any
+    // authenticated user) so previous school years remain reachable even when
+    // the student was under a different adviser's section that year.
+    Promise.all([
+      studentsApi.list(),
+      sectionsApi.list(),
+      enrollmentsApi.list(),
+      schoolYearsApi.list()
+    ])
       .then(([studs, secs, enrs, years]) => {
         const activeSections = secs.filter(
           (s: SectionRow) => s.is_active === 1
@@ -325,6 +319,7 @@ export function SF9Report() {
         setStudents(studs);
         setSections(activeSections);
         setEnrollments(enrs);
+        setSchoolYears(years);
 
         // Use provided school_year_id or find current
         const targetSyId = preselectedSyId
@@ -335,12 +330,21 @@ export function SF9Report() {
         // Check for pre-selected student from query params
         if (preselectedStudentId) {
           const sid = parseInt(preselectedStudentId);
-          const enrollment = enrs.find(
-            (e: EnrollmentRow) =>
-              e.student_id === sid && e.status === 'enrolled'
-          );
+          // Prefer the enrollment for the requested school year; fall back to
+          // any active enrollment so the student is still reachable.
+          const enrollment =
+            enrs.find(
+              (e: EnrollmentRow) =>
+                e.student_id === sid &&
+                e.school_year_id === targetSyId &&
+                e.status === 'enrolled'
+            ) ||
+            enrs.find(
+              (e: EnrollmentRow) =>
+                e.student_id === sid && e.status === 'enrolled'
+            );
           if (enrollment) {
-            setSelectedGrade(String(enrollment.grade_level));
+            setSelectedGrade(String(enrollment.section_grade_level));
             // Set section and student — the effects will preserve these
             const sec = activeSections.find(
               (s: SectionRow) => s.id === enrollment.section_id
@@ -351,11 +355,25 @@ export function SF9Report() {
           }
         }
 
-        // Default: first section for Grade 7
-        const g7 = activeSections.filter(
-          (s: SectionRow) => s.grade_level === 7
+        // Default: jump to the first student enrolled in the target school
+        // year so the page opens on a populated roster.
+        const syEnr = enrs.find(
+          (e: EnrollmentRow) =>
+            e.school_year_id === targetSyId && e.status === 'enrolled'
         );
-        if (g7.length > 0) setSelectedSectionId(g7[0].id);
+        if (syEnr) {
+          setSelectedGrade(String(syEnr.section_grade_level));
+          const sec = activeSections.find(
+            (s: SectionRow) => s.id === syEnr.section_id
+          );
+          if (sec) setSelectedSectionId(sec.id);
+          setSelectedStudentId(syEnr.student_id);
+        } else {
+          const g7 = activeSections.filter(
+            (s: SectionRow) => s.grade_level === 7
+          );
+          if (g7.length > 0) setSelectedSectionId(g7[0].id);
+        }
       })
       .catch(err =>
         showToast(
@@ -376,12 +394,13 @@ export function SF9Report() {
     return enrollments
       .filter(
         e =>
-          e.grade_level === parseInt(selectedGrade) &&
+          e.school_year_id === syId &&
+          e.section_grade_level === parseInt(selectedGrade) &&
           e.section_id === selectedSectionId &&
           e.status === 'enrolled'
       )
       .map(e => e.student_id);
-  }, [enrollments, selectedGrade, selectedSectionId]);
+  }, [enrollments, selectedGrade, selectedSectionId, syId]);
 
   const enrolledStudents = useMemo(
     () => students.filter(s => sectionEnrollmentIds.includes(s.id)),
@@ -401,7 +420,7 @@ export function SF9Report() {
       setSelectedStudentId(null);
     }
     setSf9Data(null);
-  }, [selectedGrade, selectedSectionId]);
+  }, [selectedGrade, selectedSectionId, syId]);
 
   // Reset section when grade changes — only if current section doesn't belong to the new grade
   useEffect(() => {
@@ -495,9 +514,9 @@ export function SF9Report() {
                     SF9 — Learner's Progress Report Card
                   </h2>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    {role === 'teacher'
-                      ? 'Showing only your sections and students. Select grade, section, and student to generate the official report card.'
-                      : 'Select grade level, section, and student to generate the official report card.'}
+                    Pick a school year, then grade, section, and student to
+                    generate the official report card. Previous years show that
+                    year's own section and grades.
                   </p>
                 </div>
               </div>
@@ -514,7 +533,45 @@ export function SF9Report() {
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
+                  School Year
+                </label>
+                <select
+                  value={syId}
+                  onChange={e => {
+                    const nextSy = parseInt(e.target.value);
+                    setSyId(nextSy);
+                    setSf9Data(null);
+                    // If a student is selected and was enrolled that year,
+                    // jump the grade/section to their section for that year
+                    // so the dropdowns match the report card.
+                    if (selectedStudentId) {
+                      const enr = enrollments.find(
+                        en =>
+                          en.student_id === selectedStudentId &&
+                          en.school_year_id === nextSy &&
+                          en.status === 'enrolled'
+                      );
+                      if (enr && enr.section_id) {
+                        setSelectedGrade(String(enr.section_grade_level));
+                        setSelectedSectionId(enr.section_id);
+                      }
+                    }
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 bg-white transition">
+                  {schoolYears.length === 0 && (
+                    <option value="">Loading years...</option>
+                  )}
+                  {schoolYears.map(y => (
+                    <option key={y.id} value={y.id}>
+                      {y.sy_label}
+                      {y.is_current === 1 ? ' (Current)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
                   Grade Level
@@ -577,7 +634,9 @@ export function SF9Report() {
                 {enrolledStudents.length !== 1 ? 's' : ''} · Grade{' '}
                 {selectedGrade} ·{' '}
                 {gradeSections.find(s => s.id === selectedSectionId)?.name ||
-                  '—'}
+                  '—'}{' '}
+                ·{' '}
+                {schoolYears.find(y => y.id === syId)?.sy_label || '—'}
               </span>
             </div>
           </div>
@@ -638,7 +697,9 @@ export function SF9Report() {
               No students enrolled
             </p>
             <p className="text-gray-400 text-xs mt-1">
-              Select a different grade level or section.
+              No one was enrolled in this section for{' '}
+              {schoolYears.find(y => y.id === syId)?.sy_label || 'this school year'}.
+              Select a different grade level, section, or school year.
             </p>
           </div>
         </div>
@@ -951,7 +1012,9 @@ export function SF9Report() {
                           Grade :
                         </span>
                         <span className="flex-1 border-b border-black text-[11px] pl-1">
-                          {sf9Data.student?.grade_level || ''}
+                          {sf9Data.enrollment?.grade_level ||
+                            sf9Data.student?.grade_level ||
+                            ''}
                         </span>
                       </div>
                       <div className="flex items-end gap-1 flex-1">

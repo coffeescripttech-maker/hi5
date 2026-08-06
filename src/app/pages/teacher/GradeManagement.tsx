@@ -88,7 +88,15 @@ export function GradeManagement() {
       setStudents(studs);
       setSubjects(subs);
       setSchoolYearId(sy);
-      if (studs.length > 0) setSelectedStudent(studs[0]);
+      // If opened from a student profile (?student_id=...), pre-select that student
+      const params = new URLSearchParams(window.location.search);
+      const preselectedId = params.get("student_id");
+      const match = preselectedId
+        ? studs.find(s => s.id === Number(preselectedId))
+        : undefined;
+      if (match) setSelectedStudent(match);
+      else if (studs.length > 0) setSelectedStudent(studs[0]);
+      else if (preselectedId) showToast("info", "Selected student is not in your current roster.");
     }).catch(err => {
       showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
     }).finally(() => {
@@ -123,6 +131,11 @@ export function GradeManagement() {
     setSearchQuery(s.lrn + " — " + s.name);
     setShowSuggestions(false);
   };
+
+  // Keep the search box in sync with the selected student (incl. pre-selected from profile)
+  useEffect(() => {
+    if (selectedStudent) setSearchQuery(selectedStudent.lrn + " — " + selectedStudent.name);
+  }, [selectedStudent]);
 
   // Fetch grades when student changes
   useEffect(() => {

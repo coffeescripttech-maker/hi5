@@ -6,6 +6,7 @@ import { SchoolFormHeader } from '../../components/school-form-header';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { settingsApi } from '../../services/settings';
 import { useApp } from '../../context/AppContext';
 import { exportToPdf } from '../../services/pdfExport';
@@ -122,9 +123,11 @@ export function SF1Register() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
+  const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   // ── Filter selections ──
+  const [syId, setSyId] = useState(1);
   const [selectedGrade, setSelectedGrade] = useState("7");
   const [selectedSection, setSelectedSection] = useState("");
 
@@ -150,12 +153,16 @@ export function SF1Register() {
       sectionsApi.list(),
       enrollmentsApi.list(),
       settingsApi.get(),
-    ]).then(([studs, secs, enrs, settings]) => {
+      schoolYearsApi.list(),
+    ]).then(([studs, secs, enrs, settings, years]) => {
       console.log('[SF1] Students:', studs.length, 'Sections:', secs.length, 'Enrollments:', enrs.length);
       console.log('[SF1] Enrollments sample:', enrs.slice(0, 3));
       setStudents(studs);
       setSections(secs);
       setEnrollments(enrs);
+      setSchoolYears(years);
+      const currentYear = years.find((y: any) => y.is_current === 1);
+      setSyId(currentYear?.id || years[0]?.id || 1);
       setHeader(prev => ({
         ...prev,
         schoolId: settings.school_id || prev.schoolId,
@@ -169,14 +176,17 @@ export function SF1Register() {
     }).finally(() => setDataLoading(false));
   }, []);
 
-  // ── Sync school name & year from context ──
+  // ── Sync school name & year (selected school year takes precedence) ──
   useEffect(() => {
     setHeader(prev => ({
       ...prev,
       schoolName: schoolName || prev.schoolName,
-      schoolYear: schoolYearLabel || prev.schoolYear,
+      schoolYear:
+        schoolYears.find(y => y.id === syId)?.sy_label ||
+        schoolYearLabel ||
+        prev.schoolYear,
     }));
-  }, [schoolName, schoolYearLabel]);
+  }, [schoolName, schoolYearLabel, schoolYears, syId]);
 
   // ── Sync grade/section to header ──
   useEffect(() => {
@@ -210,7 +220,10 @@ export function SF1Register() {
     }
     console.log('[SF1] Found section:', section.id, section.name);
     const matchingEnrs = enrollments.filter(
-      e => e.grade_level === parseInt(selectedGrade) && e.section_id === section.id && e.status === 'enrolled'
+      e => e.school_year_id === syId &&
+        e.section_grade_level === parseInt(selectedGrade) &&
+        e.section_id === section.id &&
+        e.status === 'enrolled'
     );
     console.log('[SF1] Matching enrollments:', matchingEnrs.length, matchingEnrs.slice(0, 2));
     const enrolled = matchingEnrs
@@ -234,7 +247,7 @@ export function SF1Register() {
     }));
     while (newRows.length < TOTAL_ROWS) newRows.push({});
     setRows(newRows);
-  }, [selectedSection, selectedGrade, enrollments, students, sections]);
+  }, [selectedSection, selectedGrade, syId, enrollments, students, sections]);
 
   // ── Cell / header helpers ──
   const setCell = (rowIndex: number, key: string, val: string) => {
@@ -290,7 +303,7 @@ export function SF1Register() {
                   School Form 1 (SF1) — School Register
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Select grade &amp; section to auto-populate, or fill manually.
+                  Select school year, grade &amp; section to auto-populate, or fill manually.
                 </p>
               </div>
             </div>
@@ -310,6 +323,14 @@ export function SF1Register() {
       <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-5 sm:p-6">
           <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">School Year</label>
+              <select value={syId} onChange={e => setSyId(parseInt(e.target.value))}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                {schoolYears.length === 0 && <option value="">Loading years...</option>}
+                {schoolYears.map(y => <option key={y.id} value={y.id}>{y.sy_label}{y.is_current === 1 ? ' (Current)' : ''}</option>)}
+              </select>
+            </div>
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Grade Level</label>
               <select value={selectedGrade} onChange={e => setSelectedGrade(e.target.value)}

@@ -95,6 +95,90 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
 }
 
 /**
+ * GET /api/promotions/preview?section_id=&school_year_id=
+ * Read-only preview of how a section's students would be classified by the
+ * promotion algorithm (promoted / retained / incomplete) — no records written.
+ * Mirrors promoteSectionCore's grade-completeness computation so the preview
+ * matches the actual run.
+ */
+export async function previewSection(req: Request, res: Response): Promise<void> {
+  try {
+    const sectionId = parseInt(req.query.section_id as string);
+    const schoolYearId = parseInt(req.query.school_year_id as string);
+
+    if (!sectionId || !schoolYearId) {
+      res.status(400).json({ error: "section_id and school_year_id are required." });
+      return;
+    }
+
+    const sections = await query<RowDataPacket[]>(
+      "SELECT id, name, grade_level, current_count FROM sections WHERE id = ?",
+      [sectionId]
+    );
+    if (sections.length === 0) {
+      res.status(404).json({ error: "Section not found." });
+      return;
+    }
+    const section = sections[0];
+
+    const students = await query<RowDataPacket[]>(
+      `SELECT e.id AS enrollment_id, e.student_id, st.name,
+              COALESCE(ROUND(AVG(ss.subject_avg), 2), NULL) AS general_average,
+              COUNT(ss.subject_key) AS subject_count,
+              COALESCE(MIN(ss.quarters_present), 0) AS min_quarters
+       FROM enrollments e
+       JOIN students st ON st.id = e.student_id
+       LEFT JOIN (
+         SELECT g.student_id, g.school_year_id,
+                CASE WHEN s.name IN ('Music','Arts','Physical Education','Health')
+                     THEN 'MAPEH' ELSE s.name END AS subject_key,
+                ROUND(AVG(g.grade), 2) AS subject_avg,
+                COUNT(DISTINCT CASE WHEN g.grade IS NOT NULL THEN g.quarter END) AS quarters_present
+         FROM grades g
+         JOIN subjects s ON g.subject_id = s.id
+         WHERE g.school_year_id = ?
+         GROUP BY g.student_id, g.school_year_id, subject_key
+       ) ss ON ss.student_id = e.student_id AND ss.school_year_id = e.school_year_id
+       WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+       GROUP BY e.id, e.student_id
+       ORDER BY general_average DESC`,
+      [schoolYearId, sectionId, schoolYearId]
+    );
+
+    const results = students.map(s => {
+      const subjectCount = parseInt(s.subject_count || "0", 10);
+      const minQuarters = parseInt(s.min_quarters || "0", 10);
+      const gradeComplete = subjectCount > 0 && minQuarters >= 4;
+      const avg = s.general_average != null ? parseFloat(s.general_average) : NaN;
+      const isRetained = gradeComplete && !isNaN(avg) && avg < 75;
+      return {
+        student_id: s.student_id,
+        name: s.name,
+        general_average: gradeComplete ? s.general_average : null,
+        grade_complete: gradeComplete,
+        is_retained: isRetained,
+        promoted: gradeComplete && !isRetained,
+      };
+    });
+
+    res.json({
+      section_id: section.id,
+      section_name: section.name,
+      grade_level: section.grade_level,
+      school_year_id: schoolYearId,
+      total: results.length,
+      promoted: results.filter(r => r.promoted).length,
+      retained: results.filter(r => r.is_retained).length,
+      incomplete: results.filter(r => !r.grade_complete).length,
+      students: results,
+    });
+  } catch (error) {
+    console.error("Promotion preview error:", error);
+    res.status(500).json({ error: "Failed to load promotion preview." });
+  }
+}
+
+/**
  * Shared per-section promotion logic. Extracted so both the single-section
  * endpoint and the year-end bulk promotion can reuse the same algorithm.
  * Throws on failure so the caller decides how to surface it.

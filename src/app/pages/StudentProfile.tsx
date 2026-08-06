@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
-  ArrowLeft, User, BookOpen, BarChart2, FileSpreadsheet, Layers,
+  ArrowLeft, User, BookOpen, BarChart2, FileSpreadsheet, Layers, ClipboardEdit,
   Phone, MapPin, Calendar, ChevronRight, CheckCircle, AlertCircle,
   GraduationCap, Hash, Shield, Download, Clock, Award, IdCard,
   Mail, Globe, Star, Activity, ExternalLink, MoreHorizontal,
@@ -39,7 +39,7 @@ interface DetailRowProps {
 export function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { showToast } = useApp();
+  const { showToast, role } = useApp();
   const [activeTab, setActiveTab] = useState("personal");
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
@@ -72,6 +72,10 @@ export function StudentProfile() {
   // ── helpers ──
   const getInitials = (name: string): string =>
     name.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?";
+
+  /** Format an ISO date string (e.g. "2026-08-04T16:00:00.000Z") as "August 4, 2026" */
+  const formatDate = (d?: string | null): string =>
+    d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—";
 
   const getDescriptor = (val: number | null | undefined): { label: string; color: string } => {
     const n = typeof val === "string" ? parseFloat(val) : val;
@@ -221,12 +225,24 @@ export function StudentProfile() {
                     <p className="text-gray-400 text-sm font-mono">ID: {student.student_id}</p>
                   </div>
                 </div>
-                {statusBadge && (
-                  <span className={`inline-flex self-start items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border shadow-sm ${statusBadge.bg}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.ring} bg-current`} />
-                    {statusBadge.label}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {statusBadge && (
+                    <span className={`inline-flex self-start items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border shadow-sm ${statusBadge.bg}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.ring} bg-current`} />
+                      {statusBadge.label}
+                    </span>
+                  )}
+                  {role === "teacher" && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/teacher/grades?student_id=${student.id}`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                      title="Enter or edit this student's grades"
+                    >
+                      <ClipboardEdit size={12} /> Manage Grades
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Badge row */}
@@ -253,7 +269,7 @@ export function StudentProfile() {
         {[
           { icon: GraduationCap, label: "Grade Level", value: `Grade ${student.grade_level}`, color: "emerald" },
           { icon: BookOpen, label: "Current Section", value: student.enrollment?.section_name || "—", color: "blue" },
-          { icon: Calendar, label: "Enrolled Date", value: student.enrollment?.enrollment_date || "—", color: "amber" },
+          { icon: Calendar, label: "Enrolled Date", value: formatDate(student.enrollment?.enrollment_date), color: "amber" },
           { icon: Activity, label: "Status", value: statusBadge?.label || student.status, color: student.status === "enrolled" ? "green" : student.status === "pending" ? "amber" : "gray" },
         ].map((stat, i) => {
           const colorMap: Record<string, string> = {
@@ -417,7 +433,7 @@ export function StudentProfile() {
                             <td className="px-5 py-4">
                               <span className="text-[11px] font-medium text-gray-500 capitalize bg-gray-100 px-2 py-0.5 rounded-md">{e.program || "regular"}</span>
                             </td>
-                            <td className="px-5 py-4 text-gray-500 text-sm">{e.enrollment_date}</td>
+                            <td className="px-5 py-4 text-gray-500 text-sm">{formatDate(e.enrollment_date)}</td>
                             <td className="px-5 py-4">
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border capitalize ${badge.bg}`}>
                                 <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -636,7 +652,7 @@ export function StudentProfile() {
                                   </span>
                                   <span className="inline-flex items-center gap-1.5">
                                     <Clock size={12} className="text-gray-400" />
-                                    {e.enrollment_date}
+                                    {formatDate(e.enrollment_date)}
                                   </span>
                                 </div>
                               </div>
