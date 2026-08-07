@@ -8,9 +8,10 @@
  * once a student is loaded.
  */
 import React, { useEffect, useState } from "react";
-import { Download, FileText, Printer } from "lucide-react";
+import { Download, FileText, Loader2, Printer } from "lucide-react";
 import { certificatesApi, CertificateResponse, CertificateSchool } from "../../services/certificates";
 import { exportToPdf } from "../../services/pdfExport";
+import { downloadRenderedPdf } from "../../services/pdfRender";
 import { settingsApi } from "../../services/settings";
 import type { StudentRow } from "../../services/students";
 import { useApp } from "../../context/AppContext";
@@ -27,6 +28,7 @@ export function CertificateOfEnrollment() {
   const [school, setSchool] = useState<CertificateSchool | null>(null);
   const [data, setData] = useState<CertificateResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Load school info up-front so the letterhead + signatories show immediately.
   useEffect(() => {
@@ -51,15 +53,28 @@ export function CertificateOfEnrollment() {
   };
 
   const handleExport = async () => {
+    const options = {
+      elementId: "cert-enrollment-content",
+      filename: `Certificate_of_Enrollment_${data?.student.lrn || "unknown"}`,
+      orientation: "portrait" as const,
+      format: "letter" as const,
+    };
+    setExporting(true);
     try {
-      await exportToPdf({
-        elementId: "cert-enrollment-content",
-        filename: `Certificate_of_Enrollment_${data?.student.lrn || "unknown"}`,
-        orientation: "portrait",
-        format: "letter",
-      });
+      // Primary path: render server-side in Chrome so the PDF matches the
+      // browser's Print Preview exactly, then auto-download.
+      await downloadRenderedPdf(options);
     } catch {
-      showToast("error", "Failed to generate the PDF. Please try again.");
+      // Server render unavailable (e.g. Chrome missing) — fall back to the
+      // client-side pdfmake export so the button still works.
+      try {
+        await exportToPdf(options);
+        showToast("info", "Server render unavailable — used local fallback.");
+      } catch {
+        showToast("error", "Failed to generate the PDF. Please try again.");
+      }
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -107,9 +122,10 @@ export function CertificateOfEnrollment() {
         </button>
         <button
           onClick={handleExport}
-          disabled={!data || loading}
+          disabled={!data || loading || exporting}
           className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg ${accent.tileShadow} ${accent.button} transition disabled:cursor-not-allowed disabled:opacity-50`}>
-          <Download size={14} /> Download PDF
+          {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {exporting ? "Generating…" : "Download PDF"}
         </button>
       </div>
 

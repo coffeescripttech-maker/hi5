@@ -409,8 +409,9 @@ function inlineComputedStyles(root: HTMLElement) {
  * html-to-pdfmake cannot render form controls, so replace every
  * input/select/textarea with a <span> that carries the control's current
  * value (its inline styles were already inlined in a previous pass).
+ * Exported so the server-side render path (pdfRender.ts) can reuse it.
  */
-function replaceFormControls(root: HTMLElement) {
+export function replaceFormControls(root: HTMLElement) {
   const controls = Array.from(root.querySelectorAll("input, select, textarea"));
   for (const el of controls) {
     const span = document.createElement("span");
@@ -455,8 +456,8 @@ function fetchAsDataUrl(src: string): Promise<string | null> {
   });
 }
 
-/** Best-effort conversion of <img> URLs to base64 data URLs. */
-async function inlineRemoteImages(root: HTMLElement) {
+/** Best-effort conversion of <img> URLs to base64 data URLs. Exported for pdfRender.ts. */
+export async function inlineRemoteImages(root: HTMLElement) {
   const imgs = Array.from(root.querySelectorAll("img"));
   const jobs = imgs.map(async (img) => {
     // `img.src` resolves relative/hashed asset paths (e.g. /assets/logo.png)
@@ -474,8 +475,8 @@ async function inlineRemoteImages(root: HTMLElement) {
   await Promise.all(jobs);
 }
 
-/** Fetch a same-origin asset and return it as a base64 string (for the font vfs). */
-async function fetchAsBase64(src: string): Promise<string> {
+/** Fetch a same-origin asset and return it as a base64 string (for the font vfs). Exported for pdfRender.ts. */
+export async function fetchAsBase64(src: string): Promise<string> {
   const res = await fetch(src);
   const buf = await res.arrayBuffer();
   const bytes = new Uint8Array(buf);

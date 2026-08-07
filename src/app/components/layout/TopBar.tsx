@@ -83,7 +83,11 @@ export function TopBar({
                 : 'Collapse sidebar'
           }
           className={`hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 md:inline-flex dark:text-slate-400 dark:hover:bg-slate-800 ${ringClass}`}>
-          {isHidden ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          {isHidden ? (
+            <PanelLeftOpen size={20} />
+          ) : (
+            <PanelLeftClose size={20} />
+          )}
         </button>
 
         {/* Breadcrumb + page title */}
@@ -131,13 +135,13 @@ export function TopBar({
 
           <NotificationsDropdown />
 
-          <button
+          {/* <button
             onClick={toggleDarkMode}
             aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             className={`inline-flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 lg:h-10 lg:w-10 dark:text-slate-400 dark:hover:bg-slate-800 ${ringClass}`}>
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+          </button> */}
 
           <ProfileDropdown />
         </div>

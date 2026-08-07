@@ -180,6 +180,23 @@ export const api = {
     return fetch(`${API_BASE}${path}${qs}`, { headers });
   },
 
+  /**
+   * Post JSON and get a raw Response back for binary downloads (PDF, etc.).
+   * The caller decides whether to read a blob or the error JSON.
+   */
+  postBlob(path: string, body: unknown): Promise<Response> {
+    const token = getToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    return fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+  },
+
   upload<T>(path: string, formData: FormData): Promise<T> {
     const token = getToken();
     const headers: Record<string, string> = {};
