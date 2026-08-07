@@ -32,15 +32,15 @@ export async function getSettings(_req: Request, res: Response): Promise<void> {
  */
 export async function updateSettings(req: Request, res: Response): Promise<void> {
   try {
-    const { school_name, school_id, region, division, district, current_sy_id } = req.body;
+    const { school_name, school_id, region, division, district, current_sy_id, principal_name, registrar_name } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM school_settings WHERE id = 1");
     if (existing.length === 0) {
       // Create settings row if it doesn't exist
       await query<ResultSetHeader>(
-        `INSERT INTO school_settings (school_name, school_id, region, division, district, current_sy_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [school_name || "Don Servillano Platon Memorial National High School", school_id || "", region || "", division || "", district || null, current_sy_id || null]
+        `INSERT INTO school_settings (school_name, school_id, region, division, district, principal_name, registrar_name, current_sy_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [school_name || "Don Servillano Platon Memorial National High School", school_id || "", region || "", division || "", district || null, principal_name || "", registrar_name || "", current_sy_id || null]
       );
     } else {
       const fields: string[] = [];
@@ -51,6 +51,8 @@ export async function updateSettings(req: Request, res: Response): Promise<void>
       if (region !== undefined) { fields.push("region = ?"); params.push(region); }
       if (division !== undefined) { fields.push("division = ?"); params.push(division); }
       if (district !== undefined) { fields.push("district = ?"); params.push(district); }
+      if (principal_name !== undefined) { fields.push("principal_name = ?"); params.push(principal_name); }
+      if (registrar_name !== undefined) { fields.push("registrar_name = ?"); params.push(registrar_name); }
       if (current_sy_id !== undefined) { fields.push("current_sy_id = ?"); params.push(current_sy_id); }
 
       if (fields.length === 0) {

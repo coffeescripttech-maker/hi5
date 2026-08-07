@@ -10,6 +10,8 @@ export interface SchoolSettingsRow {
   region: string;
   division: string;
   district: string | null;
+  principal_name: string | null;
+  registrar_name: string | null;
   current_sy_id: number | null;
   current_sy_label: string | null;
   updated_at: string;
@@ -21,6 +23,8 @@ export interface UpdateSettingsPayload {
   region?: string;
   division?: string;
   district?: string;
+  principal_name?: string;
+  registrar_name?: string;
 }
 
 export interface SectionTypeThreshold {

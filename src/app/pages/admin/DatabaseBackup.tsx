@@ -129,36 +129,39 @@ export function DatabaseBackup() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <Database size={20} className="text-blue-700" />
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
+        <div className="p-5 sm:p-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-200 flex items-center justify-center">
+            <Database size={22} className="text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-gray-800">Database Backup Management</h2>
+            <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">Database Backup Management</h2>
             <p className="text-gray-500 text-sm">Manage and monitor backups of all Hi5 Portal student and academic records</p>
           </div>
+        </div>
         </div>
       </div>
 
       {/* Status cards */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-green-100 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-green-100 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Last Backup</p><CheckCircle size={13} className="text-green-500" /></div>
           <p className="text-sm font-bold text-green-700">{lastBackupDate}</p>
           <p className="text-xs text-gray-400 mt-0.5">{lastBackup ? (lastBackup.backup_type === "auto" ? "Automatic" : "Manual") : "No backups yet"}</p>
         </div>
-        <div className="bg-white rounded-xl border border-blue-100 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Backup Size</p><HardDrive size={13} className="text-blue-500" /></div>
           <p className="text-sm font-bold text-blue-700">{totalSize}</p>
           <p className="text-xs text-gray-400 mt-0.5">{lastBackup?.record_count?.toLocaleString() || "—"} records</p>
         </div>
-        <div className="bg-white rounded-xl border border-blue-100 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Total Backups</p><Archive size={13} className="text-blue-500" /></div>
           <p className="text-sm font-bold text-blue-700">{backups.length}</p>
           <p className="text-xs text-gray-400 mt-0.5">{successCount} successful</p>
         </div>
-        <div className="bg-white rounded-xl border border-amber-100 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-amber-100 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Auto Backup</p><Clock size={13} className="text-amber-500" /></div>
           {schedLoading ? (
             <p className="text-sm text-gray-400">Loading...</p>
@@ -172,7 +175,7 @@ export function DatabaseBackup() {
       </div>
 
       {/* Manual Backup */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-semibold text-gray-800 mb-1">Manual Backup</h3>
         <p className="text-xs text-gray-500 mb-4">Creates an immediate full backup of all student records, academic data, and system configurations. Recommended before major changes such as bulk promotion or school year archiving.</p>
 
@@ -210,7 +213,7 @@ export function DatabaseBackup() {
       </div>
 
       {/* Backup Schedule Settings */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-800">Automatic Backup Schedule</h3>
           {!schedLoading && (
@@ -275,7 +278,7 @@ export function DatabaseBackup() {
       </div>
 
       {/* Backup History */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800">Backup History</h3>
           <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">{backups.length} records</span>
@@ -383,7 +386,7 @@ export function DatabaseBackup() {
       )}
 
       {/* Compliance notice */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
         <Shield size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-amber-800 leading-relaxed">
           <strong>Data Privacy Act of 2012 (RA 10173) Compliance:</strong> All database backups contain personal student information and must be stored securely. Backup files must not be shared with unauthorized personnel and must be deleted in accordance with the institution's data retention policy and NPC guidelines.

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   Settings, Calendar, Layers, Save,
   AlertTriangle, Info, Lock, Unlock, ChevronDown,
-  GraduationCap, Building2, Hash, MapPin, Globe, CalendarDays
+  GraduationCap, Building2, Hash, MapPin, Globe, CalendarDays,
+  UserCheck, FileText
 } from "lucide-react";
 import { settingsApi, SectionTypeThreshold } from "../../services/settings";
 import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
@@ -22,6 +23,8 @@ export function SchoolSettings() {
   const [schoolId, setSchoolId] = useState("");
   const [region, setRegion] = useState("");
   const [division, setDivision] = useState("");
+  const [principalName, setPrincipalName] = useState("");
+  const [registrarName, setRegistrarName] = useState("");
   const [loading, setLoading] = useState(true);
   const [sectionTypes, setSectionTypes] = useState<SectionType[]>([]);
 
@@ -37,6 +40,8 @@ export function SchoolSettings() {
       setSchoolId(settings.school_id);
       setRegion(settings.region);
       setDivision(settings.division);
+      setPrincipalName(settings.principal_name || "");
+      setRegistrarName(settings.registrar_name || "");
       setThresholds(thresholdsData);
       const current = sys.find(sy => sy.is_current === 1);
       if (current) {
@@ -58,12 +63,16 @@ export function SchoolSettings() {
         school_id: schoolId,
         region,
         division,
+        principal_name: principalName,
+        registrar_name: registrarName,
       });
       // Update local state from the server response so it reflects the persisted values
       setSchoolName(updated.school_name);
       setSchoolId(updated.school_id);
       setRegion(updated.region);
       setDivision(updated.division);
+      setPrincipalName(updated.principal_name || "");
+      setRegistrarName(updated.registrar_name || "");
       // Refresh sidebar/header school name
       refreshSchoolInfo();
       showToast("success", "School information saved successfully.");
@@ -209,6 +218,20 @@ export function SchoolSettings() {
             <div className="relative">
               <Globe size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={division} onChange={e => setDivision(e.target.value)} className={inputClass} placeholder="e.g. Maguindanao Division" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">School Principal</label>
+            <div className="relative">
+              <UserCheck size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type="text" value={principalName} onChange={e => setPrincipalName(e.target.value)} className={inputClass} placeholder="e.g. Dr. Rosario B. Villanueva" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Registrar</label>
+            <div className="relative">
+              <FileText size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type="text" value={registrarName} onChange={e => setRegistrarName(e.target.value)} className={inputClass} placeholder="e.g. Ms. Carla Reyes" />
             </div>
           </div>
         </div>

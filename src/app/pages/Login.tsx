@@ -4,7 +4,7 @@ import { useApp } from "../context/AppContext";
 import { authApi, setToken, LoginResponse } from "../services/api";
 import { ApiError } from "../services/api";
 import { z } from "zod";
-import { Eye, EyeOff, Shield, Lock, User, CheckCircle, AlertCircle, ArrowLeft, Mail, AlertTriangle, Keyboard, GraduationCap, BookOpen, FileText, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Shield, Lock, User, CheckCircle, AlertCircle, ArrowLeft, Mail, AlertTriangle, Keyboard, GraduationCap, BookOpen, FileText, Sparkles, Landmark } from "lucide-react";
 import bgImage from "../../assets/202c9b6425aa8d526006a7e3262187c250e06d15.png";
 import logoImage from "../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png";
 
@@ -62,6 +62,7 @@ const DEMO_ACCOUNTS: { role: string; username: string; label: string; icon: Reac
   { role: "admin", username: "admin", label: "Admin", icon: Shield, desc: "Full system control", color: "from-blue-500 to-indigo-600" },
   { role: "teacher", username: "teacher01", label: "Teacher", icon: BookOpen, desc: "Class & grades", color: "from-emerald-500 to-teal-600" },
   { role: "registrar", username: "registrar01", label: "Registrar", icon: FileText, desc: "Records & sections", color: "from-amber-500 to-orange-600" },
+  { role: "principal", username: "principal01", label: "Principal", icon: Landmark, desc: "School oversight", color: "from-purple-500 to-violet-600" },
 ];
 
 type Screen = "login" | "forgot" | "forgot-reset" | "forgot-sent";
@@ -619,7 +620,7 @@ export function Login() {
                 <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Demo Quick Access</p>
                 <span className="text-[10px] text-gray-400 ml-auto hidden sm:inline">password: <code className="font-mono text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">password123</code></span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 {DEMO_ACCOUNTS.map(a => {
                   const Icon = a.icon;
                   return (

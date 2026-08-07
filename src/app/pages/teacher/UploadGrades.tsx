@@ -232,13 +232,15 @@ export function UploadGrades() {
   return (
     <div className="space-y-5">
       {/* Header + selectors */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-            <FileUp size={20} className="text-emerald-700" />
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400" />
+        <div className="p-5 sm:p-6">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center shrink-0">
+            <FileUp size={22} className="text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-gray-800">Upload Past Grades</h2>
+            <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">Upload Past Grades</h2>
             <p className="text-gray-500 text-sm">Pick a section, subject, and quarter, then download the roster template and fill in grades.</p>
           </div>
         </div>
@@ -323,10 +325,11 @@ export function UploadGrades() {
             Template format: LRN | Student Name | Grade — one file per subject &amp; quarter
           </div>
         </div>
+        </div>
       </div>
 
       {/* Steps guide */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
         <div className="flex items-center">
           {STEPS.map((step, i) => {
             const complete = completedSteps[i];
@@ -363,7 +366,7 @@ export function UploadGrades() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`bg-white rounded-xl border-2 border-dashed p-10 text-center transition-all cursor-pointer ${
+          className={`bg-white rounded-2xl border-2 border-dashed p-10 text-center transition-all cursor-pointer ${
             dragActive ? "border-emerald-500 bg-emerald-50" : "border-gray-300 hover:border-emerald-400 hover:bg-emerald-50/40"
           }`}
           onClick={() => fileInputRef.current?.click()}
@@ -392,7 +395,7 @@ export function UploadGrades() {
 
       {/* Uploading */}
       {stage === "uploading" && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
           <FileSpreadsheet size={32} className="text-emerald-600 mx-auto mb-3" />
           <p className="font-semibold text-gray-700 mb-1">Processing: {fileName}</p>
           <p className="text-gray-400 text-sm mb-4">Validating data format and checking for errors...</p>
@@ -408,25 +411,25 @@ export function UploadGrades() {
         <div className="space-y-4">
           {/* Summary */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
               <p className="text-2xl font-black text-gray-700">{previewRows.length || "—"}</p>
               <p className="text-xs text-gray-500 mt-0.5">Total Records</p>
             </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <p className="text-2xl font-black text-emerald-700">{validRows.length}</p>
                 <CheckCircle size={18} className="text-emerald-500" />
               </div>
               <p className="text-xs text-gray-500 mt-0.5">Ready to Import</p>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <p className="text-2xl font-black text-yellow-600">{skippedRows.length}</p>
                 <SkipForward size={18} className="text-yellow-500" />
               </div>
               <p className="text-xs text-gray-500 mt-0.5">Blank / Skipped</p>
             </div>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <p className="text-2xl font-black text-red-600">{invalidRows.length}</p>
                 <AlertTriangle size={18} className="text-red-500" />
@@ -436,7 +439,7 @@ export function UploadGrades() {
           </div>
 
           {/* Context strip */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Context</span>
             <span className="text-gray-700 font-medium">{context.section || "—"}</span>
             <ArrowRight size={13} className="text-gray-300" />
@@ -449,7 +452,7 @@ export function UploadGrades() {
 
           {/* Error panel */}
           {invalidRows.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
               <div className="flex items-center gap-2 text-red-700 mb-2">
                 <AlertTriangle size={16} />
                 <span className="font-semibold text-sm">{invalidRows.length} Error(s) Found – These rows will be skipped</span>
@@ -466,7 +469,7 @@ export function UploadGrades() {
           )}
 
           {/* Row-by-row preview */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
                 <FileSpreadsheet size={24} className="text-emerald-600" />
@@ -573,7 +576,7 @@ export function UploadGrades() {
 
       {/* Importing */}
       {stage === "importing" && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
           <div className="w-14 h-14 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="font-semibold text-gray-700 mb-1">Importing grades…</p>
           <p className="text-gray-400 text-sm mb-4">Writing validated grades and skipping locked entries</p>
@@ -587,37 +590,40 @@ export function UploadGrades() {
       {/* Done */}
       {stage === "done" && (
         <div className="space-y-5">
-          <div className="bg-white rounded-xl border border-emerald-300 shadow-sm p-8 text-center">
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400" />
+            <div className="p-8 text-center">
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <PartyPopper size={30} className="text-emerald-600" />
             </div>
-            <h3 className="font-bold text-gray-800 text-lg mb-1">Import Successful!</h3>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Import Successful!</h3>
             <p className="text-gray-500 text-sm mb-4">
               <span className="font-medium text-gray-700">{context.subject || "Subject"}</span> grades for{" "}
               <span className="font-medium text-gray-700">{context.section || "section"}</span> · Q{quarter} · {context.sy}
             </p>
             {uploadedDocId && <span className="inline-block bg-gray-100 text-gray-500 text-xs px-3 py-1 rounded-full">Document ID: #{uploadedDocId}</span>}
+            </div>
           </div>
 
           {importResult && (
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-black text-emerald-700">{importResult.imported}</p>
                 <p className="text-xs text-gray-500 mt-0.5">Imported</p>
               </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-black text-gray-700">{importResult.skipped}</p>
                 <p className="text-xs text-gray-500 mt-0.5">Blank / Skipped</p>
               </div>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-black text-emerald-600">{importResult.locked}</p>
                 <p className="text-xs text-gray-500 mt-0.5">Locked</p>
               </div>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-black text-yellow-600">{importResult.invalid}</p>
                 <p className="text-xs text-gray-500 mt-0.5">Invalid</p>
               </div>
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-black text-red-600">{importResult.failed}</p>
                 <p className="text-xs text-gray-500 mt-0.5">Failed</p>
               </div>

@@ -15,6 +15,8 @@
 import htmlToPdfmake from "html-to-pdfmake";
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
+import tinosRegular from "../../assets/fonts/Tinos-Regular.ttf";
+import tinosBold from "../../assets/fonts/Tinos-Bold.ttf";
 
 // Register the Roboto virtual file system bundled with pdfmake.
 pdfMake.addVirtualFileSystem(pdfFonts);
@@ -453,12 +455,15 @@ function fetchAsDataUrl(src: string): Promise<string | null> {
   });
 }
 
-/** Best-effort conversion of remote <img> URLs to base64 data URLs. */
+/** Best-effort conversion of <img> URLs to base64 data URLs. */
 async function inlineRemoteImages(root: HTMLElement) {
   const imgs = Array.from(root.querySelectorAll("img"));
   const jobs = imgs.map(async (img) => {
-    const src = img.getAttribute("src") || "";
-    if (!/^https?:\/\//i.test(src)) return;
+    // `img.src` resolves relative/hashed asset paths (e.g. /assets/logo.png)
+    // to an absolute, fetchable URL — getAttribute("src") would leave them
+    // relative and pdfmake could not resolve them for the PDF.
+    const src = img.src || img.getAttribute("src") || "";
+    if (/^data:/i.test(src) || /^blob:/i.test(src)) return;
     try {
       const dataUrl = await fetchAsDataUrl(src);
       if (dataUrl) img.setAttribute("src", dataUrl);
@@ -467,6 +472,54 @@ async function inlineRemoteImages(root: HTMLElement) {
     }
   });
   await Promise.all(jobs);
+}
+
+/** Fetch a same-origin asset and return it as a base64 string (for the font vfs). */
+async function fetchAsBase64(src: string): Promise<string> {
+  const res = await fetch(src);
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+/**
+ * Lazily register the certificate serif font (Tinos — Times-compatible, OFL)
+ * with pdfmake. The certificate templates use `font-family: serif`, but
+ * pdfmake only ships Roboto, so without this the download throws
+ * "Font 'Serif' in style 'normal' is not defined". The TTFs are bundled as
+ * static assets and inlined into pdfmake's virtual file system the first time
+ * a PDF is exported. Registered under both "serif" and "Serif" since the
+ * converter's family name casing varies.
+ */
+let serifFontReady: Promise<void> | null = null;
+
+function ensureSerifFont(): Promise<void> {
+  if (!serifFontReady) {
+    serifFontReady = (async () => {
+      const [regular, bold] = await Promise.all([
+        fetchAsBase64(tinosRegular),
+        fetchAsBase64(tinosBold),
+      ]);
+      pdfMake.addVirtualFileSystem({
+        "Tinos-Regular.ttf": regular,
+        "Tinos-Bold.ttf": bold,
+      });
+      const serif = {
+        normal: "Tinos-Regular.ttf",
+        bold: "Tinos-Bold.ttf",
+        italics: "Tinos-Regular.ttf",
+        bolditalics: "Tinos-Bold.ttf",
+      };
+      pdfMake.fonts = {
+        ...(pdfMake.fonts || {}),
+        serif,
+        Serif: serif,
+      };
+    })();
+  }
+  return serifFontReady;
 }
 
 /* ── Main export ── */
@@ -503,6 +556,7 @@ export async function exportToPdf({
     inlineComputedStyles(clone);
     replaceFormControls(clone);
     await inlineRemoteImages(clone);
+    await ensureSerifFont();
 
     const html = clone.outerHTML;
     const converted = htmlToPdfmake(html, {

@@ -14,6 +14,26 @@
 }
 .animate-skeleton { animation: skeleton-pulse 1.5s ease-in-out infinite; }
 
+/* App shell animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.2s ease; }
+.animate-scale-in { animation: scale-in 0.2s ease; }
+
+/* Thin scrollbars for the app shell */
+.app-scroll { scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.35) transparent; }
+.app-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.app-scroll::-webkit-scrollbar-track { background: transparent; }
+.app-scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.35); border-radius: 9999px; }
+.sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+
 /* Dark mode base */
 .dark body { background: #0f172a; color: #f1f5f9; }
 .dark .bg-white { background: #1e293b !important; }

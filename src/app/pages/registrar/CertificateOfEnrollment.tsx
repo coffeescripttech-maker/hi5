@@ -1,31 +1,48 @@
-import React, { useState, useRef } from "react";
-import { Search, FileText, User, Download, School } from "lucide-react";
-import { certificatesApi, CertificateResponse } from "../../services/certificates";
+/**
+ * Certificate of Enrollment — registrar module.
+ *
+ * The certificate template is always on screen (letterhead with the school
+ * logo on the right, dynamic school info + Registrar/Principal signatories
+ * from school_settings). Searching a student fills the fields; the search box
+ * autocompletes like the rest of the app. Download PDF + Print are available
+ * once a student is loaded.
+ */
+import React, { useEffect, useState } from "react";
+import { Download, FileText, Printer } from "lucide-react";
+import { certificatesApi, CertificateResponse, CertificateSchool } from "../../services/certificates";
 import { exportToPdf } from "../../services/pdfExport";
+import { settingsApi } from "../../services/settings";
+import type { StudentRow } from "../../services/students";
 import { useApp } from "../../context/AppContext";
 import { useRoleAccent } from "../../utils/roleTheme";
+import {
+  Letterhead, SignatureBlock, FieldValue,
+  printCertificate, pickSignatory
+} from "./CertificateParts";
+import { CertificateStudentSearch } from "./CertificateStudentSearch";
 
 export function CertificateOfEnrollment() {
   const { showToast } = useApp();
   const accent = useRoleAccent();
-  const [lrn, setLrn] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [school, setSchool] = useState<CertificateSchool | null>(null);
   const [data, setData] = useState<CertificateResponse | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = async () => {
-    const trimmed = lrn.trim();
-    if (!trimmed) { showToast("error", "Please enter an LRN."); return; }
+  // Load school info up-front so the letterhead + signatories show immediately.
+  useEffect(() => {
+    settingsApi
+      .get()
+      .then(s => setSchool(s as unknown as CertificateSchool))
+      .catch(() => { /* letterhead falls back to "Loading…" */ });
+  }, []);
+
+  const handlePick = async (student: StudentRow) => {
     setLoading(true);
     setData(null);
     try {
-      // First find the student by LRN
-      const { studentsApi } = await import("../../services/students");
-      const studentsRes = await studentsApi.list({ search: trimmed });
-      const student = Array.isArray(studentsRes) ? studentsRes[0] : null;
-      if (!student) { showToast("error", "No student found with that LRN."); return; }
-
       const result = await certificatesApi.enrollment(student.id);
       setData(result);
+      if (result.school) setSchool(result.school);
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to load certificate data");
     } finally {
@@ -33,168 +50,153 @@ export function CertificateOfEnrollment() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+  const handleExport = async () => {
+    try {
+      await exportToPdf({
+        elementId: "cert-enrollment-content",
+        filename: `Certificate_of_Enrollment_${data?.student.lrn || "unknown"}`,
+        orientation: "portrait",
+        format: "letter",
+      });
+    } catch {
+      showToast("error", "Failed to generate the PDF. Please try again.");
+    }
   };
 
-  const handleExport = () => {
-    exportToPdf({
-      elementId: "cert-enrollment-content",
-      filename: `Certificate_of_Enrollment_${data?.student.lrn || "unknown"}`,
-      orientation: "portrait",
-      format: "letter",
-      scale: 2,
-    });
-  };
+  const signatory = pickSignatory(school, "registrar");
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
-      {/* HEADER */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="mx-auto max-w-4xl space-y-5">
+      {/* ── Header ── */}
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
-        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
-              <FileText size={22} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Certificate of Enrollment</h2>
-              <p className="text-gray-500 text-sm">Generate Certificate of Enrollment for current students</p>
-            </div>
+        <div className="flex items-center gap-4 p-5 sm:p-6">
+          <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow}`}>
+            <FileText size={22} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold tracking-[-0.02em] text-gray-900">Certificate of Enrollment</h2>
+            <p className="text-sm text-gray-500">Generate Certificate of Enrollment for current students</p>
           </div>
         </div>
       </div>
 
-      {/* SEARCH */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text" placeholder="Enter student LRN..."
-              value={lrn} onChange={e => setLrn(e.target.value)} onKeyDown={handleKeyDown}
-              className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 ${accent.ring}`}
-            />
+      {/* ── Search ── */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <CertificateStudentSearch onPick={handlePick} busy={loading} />
+          <div className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2.5 text-xs text-gray-400">
+            {data ? (
+              <>
+                Selected: <span className="font-semibold text-gray-600">{data.student.name}</span>
+              </>
+            ) : (
+              "Type 2+ characters for suggestions"
+            )}
           </div>
-          <button onClick={handleSearch} disabled={loading}
-            className={`${accent.button} text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 flex items-center gap-2`}>
-            {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={14} />}
-            {loading ? "Searching..." : "Search"}
-          </button>
         </div>
       </div>
 
-      {/* CERTIFICATE PREVIEW */}
-      {data && (
-        <>
-          <div className="flex justify-end">
-            <button onClick={handleExport}
-              className={`${accent.button} text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2 shadow-lg ${accent.tileShadow}`}>
-              <Download size={14} /> Download PDF
-            </button>
+      {/* ── Actions ── */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <button
+          onClick={() => printCertificate("cert-enrollment-content")}
+          disabled={!data}
+          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
+          <Printer size={14} /> Print
+        </button>
+        <button
+          onClick={handleExport}
+          disabled={!data || loading}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg ${accent.tileShadow} ${accent.button} transition disabled:cursor-not-allowed disabled:opacity-50`}>
+          <Download size={14} /> Download PDF
+        </button>
+      </div>
+
+      {/* ── Certificate ── */}
+      <div id="cert-enrollment-content" className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="p-10 sm:p-14" style={{ fontFamily: "serif" }}>
+          <Letterhead school={school} />
+
+          <div className="mb-8 border-t-2 border-b border-gray-300" />
+
+          <h1 className="mb-8 text-center text-2xl font-bold uppercase tracking-wider text-gray-900">
+            Certificate of Enrollment
+          </h1>
+
+          <div className="space-y-4 text-[15px] leading-relaxed text-gray-700">
+            <p>
+              This is to certify that{" "}
+              <FieldValue filled={!!data} className="uppercase">
+                {data?.student.name}
+              </FieldValue>,{" "}
+              a{" "}
+              <FieldValue filled={!!data}>
+                {data?.student.sex === "male" ? "male" : "female"}
+              </FieldValue>{" "}
+              student of{" "}
+              <FieldValue filled={!!school?.school_name}>
+                {school?.school_name}
+              </FieldValue>{" "}
+              with LRN <FieldValue filled={!!data?.student.lrn}>{data?.student.lrn}</FieldValue>,{" "}
+              born on{" "}
+              <FieldValue filled={!!data}>
+                {data
+                  ? new Date(data.student.birthdate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                  : undefined}
+              </FieldValue>,{" "}
+              is officially enrolled for School Year{" "}
+              <FieldValue filled={!!data?.school_year}>{data?.school_year}</FieldValue>{" "}
+              in{" "}
+              <FieldValue filled={!!data?.student.grade_level}>
+                Grade {data?.student.grade_level}
+              </FieldValue>.
+            </p>
+
+            {data?.enrollment && (
+              <p>
+                The student is currently attending{" "}
+                <FieldValue>Section {data.enrollment.section_name}</FieldValue>{" "}
+                under the advisership of{" "}
+                <FieldValue>{data.enrollment.adviser_name || "the class adviser"}</FieldValue>.
+                Enrollment was confirmed on{" "}
+                <FieldValue>
+                  {new Date(data.enrollment.enrollment_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </FieldValue>.
+              </p>
+            )}
+
+            <p>
+              This certification is issued upon the request of the concerned student for
+              <strong className="text-gray-900"> lawful purposes</strong>.
+            </p>
+
+            {data?.student.address && (
+              <p className="text-sm text-gray-500">
+                <span className="font-medium text-gray-600">Address:</span>{" "}
+                <span className="border-b border-gray-400 px-1 pb-px text-gray-700">{data.student.address}</span>
+              </p>
+            )}
+            {data?.student.guardian && (
+              <p className="text-sm text-gray-500">
+                <span className="font-medium text-gray-600">Parent/Guardian:</span>{" "}
+                <span className="border-b border-gray-400 px-1 pb-px text-gray-700">{data.student.guardian}</span>
+              </p>
+            )}
           </div>
 
-          <div id="cert-enrollment-content" className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Certificate Inner */}
-            <div className="p-10 sm:p-14" style={{ fontFamily: "serif" }}>
-              {/* School Letterhead */}
-              <div className="text-center mb-8">
-                <p className="text-sm uppercase tracking-[0.15em] text-gray-500 mb-1">Republic of the Philippines</p>
-                <p className="text-sm uppercase tracking-[0.12em] text-gray-500 mb-1">Department of Education</p>
-                {data.school && (
-                  <>
-                    <p className="text-sm text-gray-500">{data.school.region}</p>
-                    <p className="text-sm text-gray-500">{data.school.division}</p>
-                    {data.school.district && (
-                      <p className="text-sm text-gray-500">{data.school.district}</p>
-                    )}
-                    <div className="mt-4 mb-2">
-                      <p className="text-xl font-bold text-gray-800 uppercase tracking-wider">{data.school.school_name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">School ID: {data.school.school_id}</p>
-                    </div>
-                  </>
-                )}
-              </div>
+          <SignatureBlock
+            name={signatory.name}
+            title={signatory.title}
+            schoolName={school?.school_name || null}
+          />
 
-              {/* Horizontal rule */}
-              <div className="border-t-2 border-b border-gray-300 mb-8" />
-
-              {/* Title */}
-              <h1 className="text-center text-2xl font-bold text-gray-900 uppercase tracking-wider mb-8">
-                Certificate of Enrollment
-              </h1>
-
-              {/* Body */}
-              <div className="text-gray-700 leading-relaxed space-y-4 text-[15px]">
-                <p>
-                  This is to certify that{" "}
-                  <strong className="text-gray-900 uppercase">{data.student.name}</strong>,{" "}
-                  a {data.student.sex === "male" ? "male" : "female"} student of{" "}
-                  <strong className="text-gray-900">{data.school?.school_name || "this school"}</strong>{" "}
-                  with LRN <strong className="text-gray-900">{data.student.lrn}</strong>,{" "}
-                  born on{" "}
-                  <strong className="text-gray-900">
-                    {new Date(data.student.birthdate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                  </strong>,{" "}
-                  is officially enrolled for School Year{" "}
-                  <strong className="text-gray-900">{data.school_year || "—"}</strong>{" "}
-                  in Grade{" "}
-                  <strong className="text-gray-900">{data.student.grade_level}</strong>.
-                </p>
-
-                {data.enrollment && (
-                  <p>
-                    The student is currently attending{" "}
-                    <strong className="text-gray-900">Section {data.enrollment.section_name}</strong>{" "}
-                    under the advisership of{" "}
-                    <strong className="text-gray-900">{data.enrollment.adviser_name || "the class adviser"}</strong>.
-                    Enrollment was confirmed on{" "}
-                    <strong className="text-gray-900">
-                      {new Date(data.enrollment.enrollment_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                    </strong>.
-                  </p>
-                )}
-
-                <p>
-                  This certification is issued upon the request of the concerned student for
-                  <strong className="text-gray-900"> lawful purposes</strong>.
-                </p>
-
-                {data.student.address && (
-                  <p className="text-sm text-gray-500">
-                    <span className="font-medium text-gray-600">Address:</span> {data.student.address}
-                  </p>
-                )}
-                {data.student.guardian && (
-                  <p className="text-sm text-gray-500">
-                    <span className="font-medium text-gray-600">Parent/Guardian:</span> {data.student.guardian}
-                  </p>
-                )}
-              </div>
-
-              {/* Signature block */}
-              <div className="mt-12 flex justify-end">
-                <div className="text-center">
-                  <div className="border-t border-gray-400 pt-2 w-64">
-                    <p className="font-bold text-gray-800 uppercase text-sm">
-                      {data.school ? "School Principal / Registrar" : "Authorized Signatory"}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {data.school?.school_name || "School"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="mt-10 text-center text-xs text-gray-400 border-t border-gray-200 pt-4">
-                <p>This certificate is valid only with the official school seal and signature.</p>
-                <p className="mt-1">Not valid if altered or tampered with.</p>
-              </div>
-            </div>
+          <div className="mt-10 border-t border-gray-200 pt-4 text-center text-xs text-gray-400">
+            <p>This certificate is valid only with the official school seal and signature.</p>
+            <p className="mt-1">Not valid if altered or tampered with.</p>
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

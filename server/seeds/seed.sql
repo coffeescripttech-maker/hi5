@@ -21,7 +21,8 @@ INSERT INTO users (username, password_hash, name, email, role, status, employee_
 ('teacher04',   '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'Ms. Patricia Lim',        'plim@school.edu.ph',      'teacher',   'inactive','EMP-2020-002', 'Teacher III',          '2020-06-01', '2026-02-20 14:30:00'),
 ('teacher05',   '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'Mr. Fernando Castro',     'fcastro@school.edu.ph',   'teacher',   'active', 'EMP-2021-001', 'Teacher I',            '2021-06-01', NOW()),
 ('registrar01', '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'Ms. Carla Reyes',         'creyes@school.edu.ph',    'registrar', 'active', 'REG-001',     'Registrar',            '2018-06-01', NOW()),
-('registrar02', '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'Mr. Dennis Soriano',      'dsoriano@school.edu.ph',  'registrar', 'active', 'REG-002',     'Assistant Registrar',  '2019-06-01', NOW());
+('registrar02', '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'Mr. Dennis Soriano',      'dsoriano@school.edu.ph',  'registrar', 'active', 'REG-002',     'Assistant Registrar',  '2019-06-01', NOW()),
+('principal01', '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'Dr. Rosario B. Villanueva','rvillanueva@school.edu.ph','principal','active', 'PRI-001',     'School Principal IV',   '2015-06-01', NOW());
 
 -- ─── Students ───────────────────────────────────────────────────────────────────
 
@@ -253,8 +254,8 @@ INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quart
 
 -- ─── School Settings ────────────────────────────────────────────────────────────
 
-INSERT INTO school_settings (school_name, school_id, region, division, district, current_sy_id) VALUES
-('Don Servillano Platon Memorial National High School', '301234', 'Region V (Bicol)', 'Camarines Sur', 'Tinambac', 1);
+INSERT INTO school_settings (school_name, school_id, region, division, district, principal_name, registrar_name, current_sy_id) VALUES
+('Don Servillano Platon Memorial National High School', '301234', 'Region V (Bicol)', 'Camarines Sur', 'Tinambac', 'Dr. Rosario B. Villanueva', 'Ms. Carla Reyes', 1);
 
 -- ─── Activity Logs ──────────────────────────────────────────────────────────────
 

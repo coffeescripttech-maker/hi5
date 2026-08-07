@@ -21,7 +21,8 @@ INSERT INTO school_years (sy_label, is_current, enrollment_open) VALUES
 -- Change it later via User Management → Edit.
 
 INSERT INTO users (username, password_hash, name, email, role, status, employee_id, designation, date_hired, last_login) VALUES
-('admin', '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'System Administrator', 'admin@school.edu.ph', 'admin', 'active', 'ADM-001', 'School Administrator', '2020-06-01', NOW());
+('admin', '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'System Administrator', 'admin@school.edu.ph', 'admin', 'active', 'ADM-001', 'School Administrator', '2020-06-01', NOW()),
+('principal01', '$2a$10$HlcEUvuWhK1.uVHiyxv2dOdLi6yFvEFdW/WPM01wBEf6Gva3RqnD6', 'Dr. Rosario B. Villanueva', 'rvillanueva@school.edu.ph', 'principal', 'active', 'PRI-001', 'School Principal IV', '2015-06-01', NOW());
 
 -- ─── Section Types (reference) ──────────────────────────────────────────────────
 
@@ -68,5 +69,5 @@ INSERT INTO section_type_config (section_type, grade_level, min_average, max_ave
 
 -- ─── School Settings ────────────────────────────────────────────────────────────
 
-INSERT INTO school_settings (school_name, school_id, region, division, district, current_sy_id) VALUES
-('Don Servillano Platon Memorial National High School', '301234', 'Region V (Bicol)', 'Camarines Sur', 'Tinambac', 1);
+INSERT INTO school_settings (school_name, school_id, region, division, district, principal_name, registrar_name, current_sy_id) VALUES
+('Don Servillano Platon Memorial National High School', '301234', 'Region V (Bicol)', 'Camarines Sur', 'Tinambac', 'Dr. Rosario B. Villanueva', 'Ms. Carla Reyes', 1);

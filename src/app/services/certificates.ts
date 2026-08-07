@@ -26,6 +26,8 @@ export interface CertificateSchool {
   region: string;
   division: string;
   district: string | null;
+  principal_name: string | null;
+  registrar_name: string | null;
 }
 
 export interface CertificateResponse {

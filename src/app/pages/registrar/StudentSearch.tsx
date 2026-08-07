@@ -152,6 +152,9 @@ export function StudentSearch() {
     </button>
   );
 
+  const hasActiveFilters = filterGrade !== "all" || filterStatus !== "all" || filterSex !== "all";
+  const clearFilters = () => { setFilterGrade("all"); setFilterStatus("all"); setFilterSex("all"); };
+
   const handleExport = () => {
     const csv = [
       ["Student ID", "LRN", "Name", "Grade Level", "Sex", "Status"].join(","),
@@ -207,109 +210,9 @@ export function StudentSearch() {
         </div>
       </div>
 
-      {/* ── SEARCH + FILTERS ── */}
+      {/* ── TABLE (compact search + 2-column filters combined) ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {/* Search section */}
-        <div className="p-5 sm:p-6">
-          <div className="relative" ref={searchRef}>
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2.5">
-              <Search size={15} className="text-indigo-500" />
-              Search Students
-            </label>
-            <div className="relative">
-              <input
-                type="text" value={search}
-                onChange={e => { setSearch(e.target.value); setShowSuggestions(e.target.value.length >= 1); }}
-                onFocus={() => { if (search.length >= 1) setShowSuggestions(true); }}
-                placeholder="Search by name, LRN, or Student ID..."
-                className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:border-indigo-400 focus:ring-indigo-100 transition-all bg-white/75"
-              />
-              {search && (
-                <button onClick={() => { setSearch(""); setShowSuggestions(false); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 z-50 overflow-hidden">
-                {suggestions.map(s => (
-                  <button key={s.id} type="button"
-                    onClick={() => { setSearch(s.name); setShowSuggestions(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition text-left border-b border-gray-50 last:border-0">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
-                      {s.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
-                      <p className="text-xs text-gray-400">
-                        <span className="font-mono">{s.lrn}</span> · Grade {s.grade_level} · {s.sex === "male" ? "Male" : "Female"}
-                      </p>
-                    </div>
-                    <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Filters section */}
-        <div className="border-t border-gray-100 bg-gray-50/40 px-5 sm:px-6 py-4">
-          <div className="flex items-center gap-2 mb-3">
-            <SlidersHorizontal size={13} className="text-gray-400" />
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.04em]">Filter Students</span>
-            {(filterGrade !== "all" || filterStatus !== "all" || filterSex !== "all") && (
-              <button
-                onClick={() => { setFilterGrade("all"); setFilterStatus("all"); setFilterSex("all"); }}
-                className="ml-auto text-[11px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
-              >
-                <X size={12} /> Clear all
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-            {/* Grade */}
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Grade</p>
-              <div className="flex flex-wrap gap-1.5">
-                {GRADE_LEVELS.map(g => filterChip(`Grade ${g}`, filterGrade === g, () => setFilterGrade(filterGrade === g ? "all" : g)))}
-              </div>
-            </div>
-            {/* Status */}
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Status</p>
-              <div className="flex flex-wrap gap-1.5">
-                {STATUS_OPTIONS.map(st => {
-                  if (st === "all") return filterChip("All", filterStatus === "all", () => setFilterStatus("all"));
-                  return filterChip(
-                    st.charAt(0).toUpperCase() + st.slice(1),
-                    filterStatus === st,
-                    () => setFilterStatus(filterStatus === st ? "all" : st)
-                  );
-                })}
-              </div>
-            </div>
-            {/* Sex */}
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Sex</p>
-              <div className="flex flex-wrap gap-1.5">
-                {["all", "male", "female"].map(sex =>
-                  filterChip(
-                    sex === "all" ? "All" : sex.charAt(0).toUpperCase() + sex.slice(1),
-                    filterSex === sex,
-                    () => setFilterSex(filterSex === sex ? "all" : sex)
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── TABLE ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <h3 className="font-semibold text-gray-900">Student Records</h3>
             <span className="bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-indigo-100">
@@ -327,8 +230,101 @@ export function StudentSearch() {
           </div>
         </div>
 
+        {/* Compact search with suggestions */}
+        <div className="px-5 sm:px-6 pt-4 relative" ref={searchRef}>
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text" value={search}
+              onChange={e => { setSearch(e.target.value); setShowSuggestions(e.target.value.length >= 1); }}
+              onFocus={() => { if (search.length >= 1) setShowSuggestions(true); }}
+              placeholder="Search by name, LRN, or Student ID…"
+              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:border-indigo-400 focus:ring-indigo-100 transition-all bg-white/75"
+            />
+            {search && (
+              <button onClick={() => { setSearch(""); setShowSuggestions(false); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-5 right-5 mt-1.5 bg-white border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 z-50 overflow-hidden">
+              {suggestions.map(s => (
+                <button key={s.id} type="button"
+                  onClick={() => { setSearch(s.name); setShowSuggestions(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition text-left border-b border-gray-50 last:border-0">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
+                    {s.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
+                    <p className="text-xs text-gray-400">
+                      <span className="font-mono">{s.lrn}</span> · Grade {s.grade_level} · {s.sex === "male" ? "Male" : "Female"}
+                    </p>
+                  </div>
+                  <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Compact 2-column filters */}
+        <div className="px-5 sm:px-6 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            {/* Column 1: Grade + Sex */}
+            <div className="space-y-3">
+              <div>
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                  <SlidersHorizontal size={11} /> Grade
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {GRADE_LEVELS.map(g => filterChip(`Grade ${g}`, filterGrade === g, () => setFilterGrade(filterGrade === g ? "all" : g)))}
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Sex</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {["all", "male", "female"].map(sex =>
+                    filterChip(
+                      sex === "all" ? "All" : sex.charAt(0).toUpperCase() + sex.slice(1),
+                      filterSex === sex,
+                      () => setFilterSex(filterSex === sex ? "all" : sex)
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Column 2: Status + clear */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</p>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-[11px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
+                  >
+                    <X size={12} /> Clear all
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {STATUS_OPTIONS.map(st => {
+                  if (st === "all") return filterChip("All", filterStatus === "all", () => setFilterStatus("all"));
+                  return filterChip(
+                    st.charAt(0).toUpperCase() + st.slice(1),
+                    filterStatus === st,
+                    () => setFilterStatus(filterStatus === st ? "all" : st)
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {processed.length === 0 ? (
-          <div className="p-14 text-center">
+          <div className="p-14 text-center border-t border-gray-100">
             <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
               <Users size={28} className="text-gray-300" />
             </div>
@@ -337,7 +333,7 @@ export function StudentSearch() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto border-t border-gray-100">
               <table className="w-full min-w-[700px]">
                 <thead className="bg-gray-50/80">
                   <tr>

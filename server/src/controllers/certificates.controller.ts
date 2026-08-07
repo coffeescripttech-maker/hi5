@@ -8,11 +8,13 @@ interface SchoolInfo {
   region: string;
   division: string;
   district: string | null;
+  principal_name: string | null;
+  registrar_name: string | null;
 }
 
 async function getSchoolInfo(): Promise<SchoolInfo | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT school_name, school_id, region, division, district FROM school_settings WHERE id = 1 LIMIT 1"
+    "SELECT school_name, school_id, region, division, district, principal_name, registrar_name FROM school_settings WHERE id = 1 LIMIT 1"
   );
   return rows.length > 0 ? (rows[0] as SchoolInfo) : null;
 }

@@ -89,10 +89,10 @@ export function DocumentManagement() {
   if (loading) {
     return (
       <div className="space-y-5 animate-pulse">
-        <div className="h-16 bg-gray-200 rounded-xl" />
-        <div className="grid grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-200 rounded-xl" />)}</div>
-        <div className="h-12 bg-gray-200 rounded-xl" />
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-16 bg-gray-200 rounded-2xl" />
+        <div className="grid grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-200 rounded-2xl" />)}</div>
+        <div className="h-12 bg-gray-200 rounded-2xl" />
+        <div className="h-64 bg-gray-200 rounded-2xl" />
       </div>
     );
   }
@@ -100,14 +100,16 @@ export function DocumentManagement() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400" />
+        <div className="p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <FileSpreadsheet size={20} className="text-emerald-700" />
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center">
+              <FileSpreadsheet size={22} className="text-white" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-800">Document Management</h2>
+              <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">Document Management</h2>
               <p className="text-gray-500 text-sm">View and track all your submitted grade files and their submission status</p>
             </div>
           </div>
@@ -119,6 +121,7 @@ export function DocumentManagement() {
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             Refresh
           </button>
+        </div>
         </div>
       </div>
 
@@ -136,7 +139,7 @@ export function DocumentManagement() {
             <button
               key={s.key}
               onClick={() => toggleStatus(s.key)}
-              className={`bg-white rounded-xl border p-4 shadow-sm text-left transition ${active ? card.ring : "border-gray-200 hover:border-gray-300"} ${active ? card.chip : ""}`}
+              className={`bg-white rounded-2xl border p-4 shadow-sm text-left transition ${active ? card.ring : "border-gray-200 hover:border-gray-300"} ${active ? card.chip : ""}`}
             >
               <p className="text-xs text-gray-500 mb-1">{s.label}{active && " ✓"}</p>
               <p className={`text-2xl font-bold ${card.text}`}>{statusCounts(s.key)}</p>
@@ -147,7 +150,7 @@ export function DocumentManagement() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-wrap gap-3 items-center">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -181,7 +184,7 @@ export function DocumentManagement() {
       </div>
 
       {/* Documents table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800 text-sm">Grade Submission Records</h3>
           <span className="text-xs text-gray-400">
