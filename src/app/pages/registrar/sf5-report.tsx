@@ -14,6 +14,7 @@ import { settingsApi } from '../../services/settings';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
+import { downloadRenderedPdf } from '../../services/pdfRender';
 
 /* ---------------------------------------------------------------- */
 /* DepEd School Form 5 (SF5)                                        */
@@ -184,7 +185,7 @@ function MiniCountTable({
 }
 
 export function SF5Report() {
-  const { schoolName, schoolYearLabel } = useApp();
+  const { schoolName, schoolYearLabel, showToast } = useApp();
   const accent = useRoleAccent();
 
   // ── API data ──
@@ -193,6 +194,7 @@ export function SF5Report() {
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   // ── Filter selections ──
   const [syId, setSyId] = useState(1);
@@ -509,15 +511,29 @@ export function SF5Report() {
 
   // ── PDF Export ──
   const handleExportPdf = async () => {
+    if (exporting) return;
+    setExporting(true);
+    const options = {
+      elementId: 'sf5-print-area',
+      filename: `SF5_Promotion_Grade${selectedGrade}${selectedSection ? '_'+selectedSection : ''}`,
+      orientation: 'landscape' as const,
+      format: 'letter' as const,
+    };
     try {
-      await exportToPdf({
-        elementId: 'sf5-print-area',
-        filename: `SF5_Promotion_Grade${selectedGrade}${selectedSection ? '_'+selectedSection : ''}`,
-        orientation: 'landscape',
-        format: 'letter',
-      });
+      // Primary path: render server-side in Chrome so the PDF matches the
+      // browser's Print Preview exactly (landscape report, page breaks, print
+      // CSS), then auto-download.
+      await downloadRenderedPdf(options);
     } catch {
-      console.error('PDF export failed');
+      // Server render unavailable — fall back to the client-side pdfmake export.
+      try {
+        await exportToPdf(options);
+        showToast('info', 'Server render unavailable — used local fallback.');
+      } catch {
+        showToast('error', 'Failed to export PDF. Please try again.');
+      }
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -544,8 +560,9 @@ export function SF5Report() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleExportPdf} className={`${accent.button} text-white shadow-sm`}>
-                <Download className="size-4" /> PDF
+              <Button size="sm" onClick={handleExportPdf} disabled={exporting} className={`${accent.button} text-white shadow-sm`}>
+                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                {exporting ? 'Generating…' : 'PDF'}
               </Button>
               <Button size="sm" onClick={() => window.print()} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
                 <Printer className="size-4" /> Print

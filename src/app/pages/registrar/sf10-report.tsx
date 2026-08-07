@@ -14,6 +14,7 @@ import { formsApi, SF10Row } from '../../services/forms';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
+import { downloadRenderedPdf } from '../../services/pdfRender';
 import { SchoolFormTitleBlock } from '../../components/school-form-title';
 import {
   SchoolFormHeader,
@@ -526,16 +527,26 @@ export function SF10Report() {
   const handleExportPdf = async () => {
     if (exporting) return;
     setExporting(true);
+    const options = {
+      elementId: 'sf10-print-area',
+      filename: `SF10_${selectedStudent?.lrn || selectedStudentId || 'record'}`,
+      orientation: 'landscape' as const,
+      format: 'letter' as const,
+    };
     try {
-      await exportToPdf({
-        elementId: 'sf10-print-area',
-        filename: `SF10_${selectedStudent?.lrn || selectedStudentId || 'record'}`,
-        orientation: 'landscape',
-        format: 'letter'
-      });
+      // Primary path: render server-side in Chrome so the PDF matches the
+      // browser's Print Preview exactly (landscape table, page breaks, print
+      // CSS), then auto-download.
+      await downloadRenderedPdf(options);
       showToast('success', 'PDF exported successfully.');
     } catch {
-      showToast('error', 'Failed to export PDF. Please try again.');
+      // Server render unavailable — fall back to the client-side pdfmake export.
+      try {
+        await exportToPdf(options);
+        showToast('info', 'Server render unavailable — used local fallback.');
+      } catch {
+        showToast('error', 'Failed to export PDF. Please try again.');
+      }
     } finally {
       setExporting(false);
     }

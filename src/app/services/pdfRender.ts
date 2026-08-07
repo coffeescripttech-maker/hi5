@@ -28,6 +28,14 @@ export interface PdfRenderOptions {
   orientation?: "portrait" | "landscape";
   /** Page format */
   format?: "a4" | "letter" | "legal";
+  /**
+   * Extra stylesheet rules to embed in the standalone page — e.g. an
+   * `@media print { … }` block carrying `@page`, page breaks, or the zoom that
+   * scales the SF registers down to the page width. When omitted, any
+   * print-related `<style>` blocks already in the document are captured
+   * automatically (SF1/SF5/SF9/SF10 all have one; certificates have none).
+   */
+  printCss?: string;
 }
 
 /* ── Computed-style inlining for the standalone page ── */
@@ -88,7 +96,7 @@ const DENY_PREFIXES = [
   "clip",
   "mask",
   "offset-",
-  "-webkit-",
+  "-", // any vendor / internal / custom property (-webkit-*, --tw-*, --color-*)
 ];
 
 function isDenied(prop: string): boolean {
@@ -133,61 +141,115 @@ function isFluidSize(value: string): boolean {
   );
 }
 
+/** Elements processed per chunk before yielding to the event loop. */
+const INLINE_CHUNK = 16;
+
+let uaBaselineFrame: HTMLIFrameElement | null = null;
+const uaBaselines = new Map<string, CSSStyleDeclaration>();
+
+/**
+ * Computed style of a bare element of `tag` inside a pristine (stylesheet-less)
+ * iframe — exactly what the standalone print page would give that element
+ * before we inline anything. Any property already at this value can be skipped:
+ * the print page renders it identically without an inline style, and every
+ * skipped write avoids a style-invalidation pass. (Copying ~750 properties onto
+ * every element made serialization take seconds; the diff is ~10x smaller.)
+ */
+function getUaBaseline(tag: string): CSSStyleDeclaration {
+  let base = uaBaselines.get(tag);
+  if (base) return base;
+  if (!uaBaselineFrame) {
+    uaBaselineFrame = document.createElement("iframe");
+    uaBaselineFrame.style.display = "none";
+    document.body.appendChild(uaBaselineFrame);
+  }
+  const idoc = uaBaselineFrame.contentDocument!;
+  const el = idoc.createElement(tag.toLowerCase());
+  idoc.body.appendChild(el);
+  base = idoc.defaultView!.getComputedStyle(el);
+  uaBaselines.set(tag, base);
+  return base;
+}
+
 /**
  * Deep-walk `root` and copy every computed style property onto each element as
  * inline styles, so the serialized HTML renders identically in a bare page
  * that has no Tailwind stylesheet. The generic `serif` family is remapped to
  * the embedded Tinos font so the @font-face in the document actually applies.
+ *
+ * The walk is breadth-first and yields between chunks, so the main thread
+ * stays responsive (the "exporting" spinner can paint and clicks register)
+ * while serialization is in flight.
  */
-function inlineComputedStylesForChromium(root: HTMLElement) {
-  const walk = (el: Element) => {
-    if (el.nodeType !== Node.ELEMENT_NODE) return;
-    const hEl = el as HTMLElement;
-    const cs = getComputedStyle(hEl);
+async function inlineComputedStylesForChromium(root: HTMLElement) {
+  const queue: Element[] = [root];
+  while (queue.length) {
+    const batch = queue.splice(0, INLINE_CHUNK);
+    for (const el of batch) {
+      const hEl = el as HTMLElement;
+      const cs = getComputedStyle(hEl);
 
-    // Drop anything marked not-print (and its subtree).
-    if (hEl.classList.contains("no-print")) {
-      hEl.style.display = "none";
-      return;
-    }
-
-    const cls = hEl.className || "";
-    const pinSize = shouldPinSize(hEl, cls);
-
-    for (let i = 0; i < cs.length; i++) {
-      const prop = cs[i];
-      if (isDenied(prop)) continue;
-
-      const value = cs.getPropertyValue(prop);
-
-      // Pixel widths/heights on reflowing blocks are skipped so content
-      // re-wraps to the letter page width, like the Print Preview.
-      if (prop === "width" || prop === "height") {
-        if (!pinSize && !isFluidSize(value)) continue;
-      }
-      // min/max sizes are only preserved when they were explicitly set.
-      if (
-        (prop.startsWith("min-") || prop.startsWith("max-")) &&
-        /-[wh]$/.test(prop) &&
-        !pinSize &&
-        !MINMAX_RE.test(cls) &&
-        !(hEl.style[prop as "minWidth"] || hEl.style[prop as "maxWidth"])
-      ) {
+      // Drop anything marked not-print (and its subtree).
+      if (hEl.classList.contains("no-print")) {
+        hEl.style.display = "none";
         continue;
       }
 
-      hEl.style.setProperty(prop, value);
-    }
+      const baseline = getUaBaseline(hEl.tagName);
+      const cls = hEl.className || "";
+      const pinSize = shouldPinSize(hEl, cls);
 
-    // Make the embedded Tinos font apply wherever the page used `serif`.
-    const family = cs.fontFamily;
-    if (family === "serif" || family === '"serif"') {
-      hEl.style.setProperty("font-family", "'Tinos', serif");
-    }
+      for (let i = 0; i < cs.length; i++) {
+        const prop = cs[i];
+        if (isDenied(prop)) continue;
 
-    for (let i = 0; i < el.children.length; i++) walk(el.children[i]);
-  };
-  walk(root);
+        const value = cs.getPropertyValue(prop);
+
+        // Pixel widths/heights on reflowing blocks are skipped so content
+        // re-wraps to the letter page width, like the Print Preview.
+        if (prop === "width" || prop === "height") {
+          if (!pinSize && !isFluidSize(value)) continue;
+        }
+        // min/max sizes are only preserved when they were explicitly set.
+        if (
+          (prop.startsWith("min-") || prop.startsWith("max-")) &&
+          /-[wh]$/.test(prop) &&
+          !pinSize &&
+          !MINMAX_RE.test(cls) &&
+          !(hEl.style[prop as "minWidth"] || hEl.style[prop as "maxWidth"])
+        ) {
+          continue;
+        }
+
+        // Skip properties already at the bare-UA default — the standalone page
+        // renders them identically without an inline style. Border properties
+        // are always inlined: their used value depends on border-style, so the
+        // "0px" width measured on a style-less baseline is NOT the 0px you get
+        // once border-style: solid is applied — the UA falls back to the 3px
+        // `medium` default and draws a box around every element.
+        if (
+          !prop.startsWith("border") &&
+          value === baseline.getPropertyValue(prop)
+        ) {
+          continue;
+        }
+
+        hEl.style.setProperty(prop, value);
+      }
+
+      // Make the embedded Tinos font apply wherever the page used `serif`.
+      const family = cs.fontFamily;
+      if (family === "serif" || family === '"serif"') {
+        hEl.style.setProperty("font-family", "'Tinos', serif");
+      }
+
+      for (let i = 0; i < el.children.length; i++) queue.push(el.children[i]);
+    }
+    if (queue.length) {
+      // Give the browser a frame to paint the spinner / handle input.
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  }
 }
 
 /**
@@ -216,14 +278,25 @@ function fixRootForPrint(root: HTMLElement) {
 
 const PAGE_SIZE = { letter: "letter", a4: "a4", legal: "legal" } as const;
 
+/** Base64 of the embedded Tinos fonts — fetched once, reused across exports. */
+let tinosFontsCache: { regular: string; bold: string } | null = null;
+async function getTinosFonts(): Promise<{ regular: string; bold: string }> {
+  if (!tinosFontsCache) {
+    const [regular, bold] = await Promise.all([
+      fetchAsBase64(tinosRegular),
+      fetchAsBase64(tinosBold),
+    ]);
+    tinosFontsCache = { regular, bold };
+  }
+  return tinosFontsCache;
+}
+
 async function buildPdfDocumentHtml(
   innerHtml: string,
-  opts: { orientation: "portrait" | "landscape"; format: "a4" | "letter" | "legal" }
+  opts: { orientation: "portrait" | "landscape"; format: "a4" | "letter" | "legal" },
+  printCss = ""
 ): Promise<string> {
-  const [regular, bold] = await Promise.all([
-    fetchAsBase64(tinosRegular),
-    fetchAsBase64(tinosBold),
-  ]);
+  const { regular, bold } = await getTinosFonts();
   const pageSize = PAGE_SIZE[opts.format] || "letter";
 
   return `<!DOCTYPE html>
@@ -246,6 +319,7 @@ async function buildPdfDocumentHtml(
     src: url(data:font/ttf;base64,${bold}) format('truetype');
   }
 </style>
+${printCss ? `\n<style>\n${printCss}\n</style>` : ""}
 <script>
   // Kick off both Tinos weights so document.fonts.ready (awaited server-side)
   // actually waits for them before printing.
@@ -266,16 +340,44 @@ ${innerHtml}
 /* ── Public API ── */
 
 /**
+ * Collect every print-related stylesheet block currently in the document.
+ *
+ * The SF forms (SF1/SF5/SF9/SF10) rely on @media print rules — page size and
+ * margins (@page), .no-print hiding, page breaks, and the zoom that scales the
+ * wide register down to the page width — none of which computed-style inlining
+ * captures (they only apply while printing). Puppeteer prints with the print
+ * media type active, so embedding the same rules in the standalone page makes
+ * the PDF match the browser's Print Preview exactly. Document order is
+ * preserved so @page overrides resolve like the live page's cascade.
+ * Certificates have no persistent print styles, so this returns "" for them.
+ */
+function collectPrintCss(): string {
+  const blocks: string[] = [];
+  for (const style of document.querySelectorAll("style")) {
+    const css = style.textContent || "";
+    if (css.includes("@media print") || css.includes("@page")) {
+      blocks.push(css);
+    }
+  }
+  return blocks.join("\n");
+}
+
+/**
  * Serialize a rendered element into a self-contained HTML document ready for
  * /api/pdf/render: full computed styles inline, images/fonts embedded,
  * @page rules attached.
  */
 export async function serializeElementForPdf(
   elementId: string,
-  opts: { orientation: "portrait" | "landscape"; format: "a4" | "letter" | "legal" }
+  opts: { orientation: "portrait" | "landscape"; format: "a4" | "letter" | "legal"; printCss?: string }
 ): Promise<string> {
   const element = document.getElementById(elementId);
   if (!element) throw new Error(`Element #${elementId} not found`);
+
+  // Yield once before any heavy work: the caller (handleExport) just set its
+  // "exporting" state, and this frame is the only chance the loading spinner
+  // has to paint before style inlining takes over the main thread.
+  await new Promise((r) => setTimeout(r, 0));
 
   // Clone into the live DOM, off-screen, so inherited styles resolve and
   // images load — the same trick pdfExport uses for html-to-pdfmake.
@@ -286,12 +388,17 @@ export async function serializeElementForPdf(
   clone.style.width = element.offsetWidth + "px";
   (element.parentNode ?? document.body).insertBefore(clone, element);
 
+  // Print-only styles (page size, zoom, page breaks) come from the page's own
+  // <style> blocks — computed-style inlining can't capture what only applies
+  // while printing. Explicit opt.printCss wins, otherwise auto-capture.
+  const printCss = opts.printCss ?? collectPrintCss();
+
   try {
-    inlineComputedStylesForChromium(clone);
+    await inlineComputedStylesForChromium(clone);
     replaceFormControls(clone);
     await inlineRemoteImages(clone);
     fixRootForPrint(clone);
-    return await buildPdfDocumentHtml(clone.outerHTML, opts);
+    return await buildPdfDocumentHtml(clone.outerHTML, opts, printCss);
   } finally {
     if (clone.parentNode) {
       clone.parentNode.removeChild(clone);
@@ -309,9 +416,10 @@ export async function downloadRenderedPdf(opts: PdfRenderOptions): Promise<void>
     filename = "document",
     orientation = "portrait",
     format = "letter",
+    printCss,
   } = opts;
 
-  const html = await serializeElementForPdf(elementId, { orientation, format });
+  const html = await serializeElementForPdf(elementId, { orientation, format, printCss });
 
   const response = await api.postBlob("/pdf/render", { html, filename });
 

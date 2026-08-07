@@ -41,7 +41,12 @@ function findChromeExecutable(): string {
 
 let browserPromise: Promise<Browser> | null = null;
 
-/** Lazily launch (and reuse) the headless browser. Resets on failure so the next request retries. */
+/**
+ * Lazily launch (and reuse) the headless browser. If the browser process ever
+ * dies — a renderer can crash/OOM while printing the very large SF registers
+ * (tens of thousands of inlined styles) — the singleton is dropped so the next
+ * request launches a fresh Chrome instead of failing forever on a dead browser.
+ */
 function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = puppeteer
@@ -51,12 +56,72 @@ function getBrowser(): Promise<Browser> {
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--hide-scrollbars"],
       })
+      .then((browser) => {
+        browser.on("disconnected", () => {
+          browserPromise = null;
+        });
+        return browser;
+      })
       .catch((err) => {
         browserPromise = null;
         throw err;
       });
   }
   return browserPromise;
+}
+
+/**
+ * Render `html` to a PDF buffer with one crash-recovery retry. The shared
+ * headless Chrome occasionally dies mid-print; relaunching a fresh browser
+ * for the retry is far cheaper than restarting the whole API.
+ */
+async function renderPdfBuffer(html: string): Promise<Buffer> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let page: Page | null = null;
+    let browser: Browser | null = null;
+    try {
+      browser = await getBrowser();
+      page = await browser.newPage();
+
+      // The HTML is fully self-contained (data URLs), so "load" settles fast.
+      await page.setContent(html, { waitUntil: "load" });
+
+      // Wait for the embedded @font-face fonts to finish loading before printing.
+      await Promise.race([
+        page.evaluate(() => document.fonts.ready),
+        new Promise((r) => setTimeout(r, 8000)),
+      ]);
+
+      // preferCSSPageSize makes page.pdf honor the @page { size: …; margin: … }
+      // rules that came in with the client's HTML.
+      const pdf = await page.pdf({
+        printBackground: true,
+        preferCSSPageSize: true,
+      });
+      return Buffer.from(pdf);
+    } catch (err) {
+      lastErr = err;
+      // Drop the (possibly dead) shared browser so the retry launches fresh.
+      browserPromise = null;
+      try {
+        await browser?.close();
+      } catch {
+        // already gone
+      }
+      if (attempt === 0) continue;
+      break;
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+        } catch {
+          // tab already gone
+        }
+      }
+    }
+  }
+  throw lastErr;
 }
 
 const MAX_HTML_BYTES = 5 * 1024 * 1024;
@@ -83,48 +148,21 @@ export async function renderPdf(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  let page: Page | null = null;
   try {
-    const browser = await getBrowser();
-    page = await browser.newPage();
-
-    // The HTML is fully self-contained (data URLs), so "load" settles fast.
-    await page.setContent(html, { waitUntil: "load" });
-
-    // Wait for the embedded @font-face fonts to finish loading before printing.
-    await Promise.race([
-      page.evaluate(() => document.fonts.ready),
-      new Promise((r) => setTimeout(r, 8000)),
-    ]);
-
-    // preferCSSPageSize makes page.pdf honor the @page { size: …; margin: 0 }
-    // rules that came in with the client's HTML. Recent puppeteer versions
-    // return a Uint8Array; Express res.send() would JSON-stringify that, so
-    // wrap it in a real Buffer first.
-    const pdf = await page.pdf({
-      printBackground: true,
-      preferCSSPageSize: true,
-    });
+    // renderPdfBuffer owns page/browser lifecycle and retries once on crash.
+    const pdf = await renderPdfBuffer(html);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${filename}.pdf"`
     );
-    res.send(Buffer.from(pdf));
+    res.send(pdf);
   } catch (err) {
     console.error("PDF render failed:", err);
     res.status(500).json({
       error:
         "PDF rendering failed. Make sure Chrome is installed (or set PDF_CHROME_PATH).",
     });
-  } finally {
-    if (page) {
-      try {
-        await page.close();
-      } catch {
-        // ignore — tab already gone
-      }
-    }
   }
 }

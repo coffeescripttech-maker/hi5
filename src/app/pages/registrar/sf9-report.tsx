@@ -9,6 +9,7 @@ import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
+import { downloadRenderedPdf } from '../../services/pdfRender';
 import './sf1.css';
 /* ── Constants (DepEd SF9 layout) ── */
 const CORE_VALUES: { value: string; statements: string[] }[] = [
@@ -244,6 +245,7 @@ export function SF9Report() {
   const [loading, setLoading] = useState(true);
   const [sf9Data, setSf9Data] = useState<SF9Row | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /* ── Editable cell state (attendance, observed values) ── */
@@ -485,16 +487,30 @@ export function SF9Report() {
   };
 
   const handleExportPdf = async () => {
+    if (exporting) return;
+    setExporting(true);
+    const options = {
+      elementId: 'sf9-print-area',
+      filename: `SF9_${selectedStudent?.lrn || selectedStudentId}`,
+      orientation: 'landscape' as const,
+      format: 'letter' as const,
+    };
     try {
-      await exportToPdf({
-        elementId: 'sf9-print-area',
-        filename: `SF9_${selectedStudent?.lrn || selectedStudentId}`,
-        orientation: 'landscape',
-        format: 'letter'
-      });
+      // Primary path: render server-side in Chrome so the PDF matches the
+      // browser's Print Preview exactly (landscape report card, page breaks,
+      // print CSS), then auto-download.
+      await downloadRenderedPdf(options);
       showToast('success', 'PDF exported successfully.');
     } catch {
-      showToast('error', 'Failed to export PDF. Please try again.');
+      // Server render unavailable — fall back to the client-side pdfmake export.
+      try {
+        await exportToPdf(options);
+        showToast('info', 'Server render unavailable — used local fallback.');
+      } catch {
+        showToast('error', 'Failed to export PDF. Please try again.');
+      }
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -550,8 +566,10 @@ export function SF9Report() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleExportPdf}
-                  className={`inline-flex items-center gap-1.5 ${accent.button} text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm`}>
-                  <Download size={14} /> PDF
+                  disabled={exporting}
+                  className={`inline-flex items-center gap-1.5 ${accent.button} text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm disabled:opacity-40`}>
+                  {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  {exporting ? 'Generating…' : 'PDF'}
                 </button>
                 <button
                   onClick={handlePrint}
