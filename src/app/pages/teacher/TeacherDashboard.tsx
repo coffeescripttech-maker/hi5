@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Layers, Users, TrendingUp, UserPlus, BookOpen, Upload, LayoutDashboard } from "lucide-react";
+import { Layers, Users, TrendingUp, UserPlus, BookOpen, Upload, LayoutDashboard, BarChart3, Zap, PieChart as PieChartIcon } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { studentsApi, StudentRow } from "../../services/students";
@@ -101,44 +101,53 @@ export function TeacherDashboard() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">My Sections</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <Layers size={14} className="text-emerald-600" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 flex items-center justify-center flex-shrink-0">
+              <Layers size={16} className="text-white" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{adviserSections.length}</p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-emerald-600">{adviserSections.length}</p>
+          <p className="relative text-xs text-gray-400 mt-2 truncate">
             {adviserSections.map(s => `Grade ${s.grade_level}`).join(", ") || "No sections yet"}
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-sky-400 via-sky-500 to-sky-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-sky-400 to-sky-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Enrolled Students</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <Users size={14} className="text-emerald-600" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-400 to-sky-600 shadow-md shadow-sky-200/60 flex items-center justify-center flex-shrink-0">
+              <Users size={16} className="text-white" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{totalMyStudents}</p>
-          <p className="text-xs text-gray-400 mt-1">Across all my sections</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-sky-600">{totalMyStudents}</p>
+          <p className="relative text-xs text-gray-400 mt-2 truncate">Across all my sections</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-violet-400 via-violet-500 to-violet-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Section Capacity</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <TrendingUp size={14} className="text-emerald-600" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-200/60 flex items-center justify-center flex-shrink-0">
+              <TrendingUp size={16} className="text-white" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{totalMyCapacity}</p>
-          <p className="text-xs text-gray-400 mt-1">Total slots available</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-violet-600">{totalMyCapacity}</p>
+          <p className="relative text-xs text-gray-400 mt-2 truncate">Total slots available</p>
         </div>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <BarChart3 size={14} className="text-white" />
+            </div>
             <div>
               <h3 className="font-semibold text-gray-800">Students by Grade Level</h3>
               <p className="text-gray-400 text-xs mt-0.5">Distribution across my sections</p>
@@ -160,7 +169,12 @@ export function TeacherDashboard() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-800 mb-2">Gender Distribution</h3>
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <PieChartIcon size={14} className="text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-800">Gender Distribution</h3>
+          </div>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={genderData} cx="50%" cy="45%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
@@ -185,7 +199,10 @@ export function TeacherDashboard() {
 
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm flex items-center justify-center flex-shrink-0">
+            <Zap size={14} className="text-white" />
+          </div>
           <div>
             <h3 className="font-semibold text-gray-800">Quick Actions</h3>
             <p className="text-gray-400 text-xs mt-0.5">Common tasks you perform often</p>
@@ -193,9 +210,9 @@ export function TeacherDashboard() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button onClick={() => navigate("/teacher/enroll")}
-            className="flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
-            <div className="w-11 h-11 bg-emerald-100 group-hover:bg-emerald-200 rounded-xl flex items-center justify-center transition">
-              <UserPlus size={20} className="text-emerald-700" />
+            className="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
+            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 group-hover:shadow-lg group-hover:brightness-105 rounded-xl flex items-center justify-center transition">
+              <UserPlus size={20} className="text-white" />
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-800 text-sm">Enroll Student</p>
@@ -203,9 +220,9 @@ export function TeacherDashboard() {
             </div>
           </button>
           <button onClick={() => navigate("/teacher/grades")}
-            className="flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
-            <div className="w-11 h-11 bg-emerald-100 group-hover:bg-emerald-200 rounded-xl flex items-center justify-center transition">
-              <BookOpen size={20} className="text-emerald-700" />
+            className="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
+            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 group-hover:shadow-lg group-hover:brightness-105 rounded-xl flex items-center justify-center transition">
+              <BookOpen size={20} className="text-white" />
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-800 text-sm">Encode Grades</p>
@@ -213,9 +230,9 @@ export function TeacherDashboard() {
             </div>
           </button>
           <button onClick={() => navigate("/teacher/upload")}
-            className="flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
-            <div className="w-11 h-11 bg-emerald-100 group-hover:bg-emerald-200 rounded-xl flex items-center justify-center transition">
-              <Upload size={20} className="text-emerald-700" />
+            className="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
+            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 group-hover:shadow-lg group-hover:brightness-105 rounded-xl flex items-center justify-center transition">
+              <Upload size={20} className="text-white" />
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-800 text-sm">Upload Past Grades</p>
@@ -227,7 +244,10 @@ export function TeacherDashboard() {
 
       {/* My Sections Summary */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm flex items-center justify-center flex-shrink-0">
+            <Layers size={14} className="text-white" />
+          </div>
           <h3 className="font-semibold text-gray-800">My Sections Overview</h3>
         </div>
         {adviserSections.length === 0 ? (

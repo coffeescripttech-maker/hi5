@@ -4,6 +4,8 @@ import {
   UserCheck,
   RefreshCw,
   Search,
+  ShieldCheck,
+  Sparkles,
   ChevronRight,
   Check,
   AlertCircle,
@@ -15,9 +17,9 @@ import {
   MapPin,
   Phone,
   Clock,
-  CalendarDays,
   BookOpen,
   FileText,
+  GraduationCap,
   X,
   UserMinus,
   Lock
@@ -160,6 +162,295 @@ const REQUIREMENTS_LIST = [
   { key: 'transcript', label: 'Transcript of Records / Form 137' },
   { key: 'lrn_verification', label: 'LRN Verification Slip' }
 ];
+
+// ── Landing-card illustrations (flat vector) ────────────────────────────
+// Hand-drawn inline SVGs so the landing cards stay self-contained — no image
+// assets, no external requests. Each shares a soft blob backdrop in its
+// accent hue and a small friendly character.
+
+function NewStudentIllustration({ className = 'w-full h-auto' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 440 320" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="ns-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E7F1FF" />
+          <stop offset="100%" stopColor="#F8FBFF" />
+        </linearGradient>
+      </defs>
+      {/* backdrop */}
+      <ellipse cx="220" cy="170" rx="196" ry="126" fill="url(#ns-bg)" />
+      <ellipse cx="220" cy="170" rx="150" ry="90" fill="#FFFFFF" opacity="0.55" />
+      {/* sun */}
+      <circle cx="356" cy="60" r="26" fill="#FFD98A" />
+      <circle cx="356" cy="60" r="17" fill="#FFE4A8" />
+      {/* clouds */}
+      <g fill="#FFFFFF" opacity="0.95">
+        <rect x="62" y="58" width="66" height="16" rx="8" />
+        <rect x="72" y="48" width="34" height="12" rx="6" />
+        <rect x="322" y="112" width="54" height="13" rx="6.5" />
+        <rect x="330" y="103" width="30" height="10" rx="5" />
+      </g>
+      {/* school building */}
+      <g>
+        <path d="M80 134 L163 80 L246 134 Z" fill="#7FB2FF" />
+        <rect x="92" y="134" width="142" height="112" rx="12" fill="#FFFFFF" stroke="#CBDFF8" strokeWidth="2" />
+        <path d="M112 122 L163 88 L214 122 Z" fill="#A9C9F8" opacity="0.6" />
+        {/* flag */}
+        <rect x="155" y="60" width="5" height="24" rx="2.5" fill="#A5C6F7" />
+        <path d="M160 63 L186 70 L160 77 Z" fill="#4C8CFF" />
+        {/* clock */}
+        <circle cx="163" cy="166" r="9" fill="#FFE4A8" stroke="#F2C463" strokeWidth="2" />
+        <path d="M163 161 v6 M163 166 l5 3" stroke="#C9973C" strokeWidth="2" strokeLinecap="round" />
+        {/* windows */}
+        <circle cx="118" cy="168" r="11" fill="#EAF3FF" stroke="#A9CCF8" strokeWidth="2" />
+        <circle cx="208" cy="168" r="11" fill="#EAF3FF" stroke="#A9CCF8" strokeWidth="2" />
+        <rect x="113" y="163" width="10" height="3" rx="1.5" fill="#BFDCFF" />
+        <rect x="203" y="163" width="10" height="3" rx="1.5" fill="#BFDCFF" />
+        {/* door */}
+        <rect x="145" y="190" width="36" height="56" rx="18" fill="#BFDBFF" />
+        <circle cx="174" cy="219" r="3.5" fill="#8FB4E8" />
+      </g>
+      {/* student */}
+      <g>
+        <ellipse cx="316" cy="266" rx="42" ry="7" fill="#D6E6FA" />
+        {/* backpack */}
+        <rect x="266" y="192" width="22" height="52" rx="11" fill="#7FB2FF" />
+        <rect x="270" y="204" width="14" height="22" rx="7" fill="#A5C6F7" />
+        {/* legs */}
+        <rect x="292" y="240" width="15" height="26" rx="7.5" fill="#42508C" />
+        <rect x="316" y="240" width="15" height="26" rx="7.5" fill="#42508C" />
+        {/* shoes */}
+        <rect x="287" y="262" width="21" height="9" rx="4.5" fill="#2E3A63" />
+        <rect x="314" y="262" width="21" height="9" rx="4.5" fill="#2E3A63" />
+        {/* body */}
+        <rect x="282" y="186" width="62" height="60" rx="16" fill="#4C8CFF" />
+        <path d="M300 246 l7 -15 h20 l7 15 z" fill="#3E7CE8" />
+        {/* left arm + enrollment paper */}
+        <rect x="266" y="194" width="15" height="42" rx="7.5" fill="#4C8CFF" />
+        <circle cx="272" cy="238" r="8" fill="#FFC9A3" />
+        <rect x="256" y="210" width="24" height="32" rx="4" fill="#FFFFFF" stroke="#CBDFF8" strokeWidth="2" />
+        <rect x="261" y="217" width="14" height="3" rx="1.5" fill="#BFD9F5" />
+        <rect x="261" y="224" width="14" height="3" rx="1.5" fill="#BFD9F5" />
+        <rect x="261" y="231" width="9" height="3" rx="1.5" fill="#BFD9F5" />
+        {/* right arm waving */}
+        <rect x="338" y="194" width="16" height="44" rx="8" fill="#4C8CFF" transform="rotate(12 346 216)" />
+        <circle cx="356" cy="192" r="8" fill="#FFC9A3" />
+        {/* head */}
+        <circle cx="316" cy="164" r="24" fill="#FFC9A3" />
+        <path d="M290 158 a26 26 0 0 1 52 0 l-4 7 h-44 z" fill="#4A3A2A" />
+        {/* face */}
+        <circle cx="306" cy="167" r="2.8" fill="#33281F" />
+        <circle cx="326" cy="167" r="2.8" fill="#33281F" />
+        <path d="M311 176 Q316 181 321 176" stroke="#33281F" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="302" cy="173" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+        <ellipse cx="330" cy="173" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+        {/* graduation cap */}
+        <path d="M316 128 L344 140 L316 152 L288 140 Z" fill="#42508C" />
+        <circle cx="316" cy="140" r="4" fill="#FFD98A" />
+        <path d="M344 140 q13 11 6 21" stroke="#FF9F6B" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <circle cx="350" cy="161" r="3.5" fill="#FF9F6B" />
+      </g>
+      {/* floating */}
+      <g>
+        <path d="M96 98 l4 8 8 4 -8 4 -4 8 -4 -8 -8 -4 8 -4 z" fill="#7FB2FF" />
+        <path d="M356 252 l3.5 7 7 3.5 -7 3.5 -3.5 7 -3.5 -7 -7 -3.5 7 -3.5 z" fill="#FFD98A" />
+        <g fill="#C8E0FC">
+          <circle cx="58" cy="224" r="5" />
+          <circle cx="398" cy="140" r="4" />
+          <circle cx="392" cy="182" r="3" />
+        </g>
+        {/* open book */}
+        <g>
+          <path d="M120 274 q11 -7 22 0 v13 q-11 -7 -22 0 z" fill="#4C8CFF" />
+          <path d="M142 274 q11 -7 22 0 v13 q-11 -7 -22 0 z" fill="#7FB2FF" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function ReturningStudentIllustration({ className = 'w-full h-auto' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 440 320" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="rs-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E5F6ED" />
+          <stop offset="100%" stopColor="#F7FCF9" />
+        </linearGradient>
+      </defs>
+      {/* backdrop */}
+      <ellipse cx="220" cy="170" rx="196" ry="126" fill="url(#rs-bg)" />
+      <ellipse cx="220" cy="170" rx="150" ry="90" fill="#FFFFFF" opacity="0.55" />
+      {/* clouds */}
+      <g fill="#FFFFFF" opacity="0.95">
+        <rect x="60" y="60" width="64" height="16" rx="8" />
+        <rect x="70" y="50" width="34" height="12" rx="6" />
+        <rect x="330" y="104" width="50" height="13" rx="6.5" />
+        <rect x="336" y="95" width="30" height="10" rx="5" />
+      </g>
+      {/* ground shadow */}
+      <ellipse cx="222" cy="266" rx="96" ry="8" fill="#CFEEDD" />
+      {/* laptop on the side */}
+      <g>
+        <rect x="108" y="232" width="72" height="46" rx="7" fill="#E8F6EE" stroke="#9DBBA8" strokeWidth="2" />
+        <rect x="115" y="239" width="58" height="32" rx="4" fill="#A8E2C2" />
+        <path d="M100 282 h88 l-12 10 h-64 z" fill="#9AA5B5" />
+      </g>
+      {/* student */}
+      <g>
+        {/* backpack */}
+        <rect x="176" y="184" width="24" height="54" rx="12" fill="#2E9C63" />
+        <rect x="180" y="196" width="16" height="24" rx="8" fill="#57BE85" />
+        {/* legs walking */}
+        <rect x="198" y="238" width="15" height="28" rx="7.5" fill="#2E3A63" transform="rotate(7 205 252)" />
+        <rect x="228" y="238" width="15" height="28" rx="7.5" fill="#2E3A63" transform="rotate(-7 235 252)" />
+        {/* shoes */}
+        <rect x="195" y="264" width="21" height="9" rx="4.5" fill="#1F2944" />
+        <rect x="227" y="264" width="21" height="9" rx="4.5" fill="#1F2944" />
+        {/* body */}
+        <rect x="192" y="178" width="62" height="64" rx="16" fill="#3EBB79" />
+        <path d="M210 242 l8 -17 h22 l8 17 z" fill="#32A76B" />
+        {/* left arm down */}
+        <rect x="184" y="186" width="16" height="42" rx="8" fill="#3EBB79" />
+        <circle cx="190" cy="228" r="8" fill="#FFC9A3" />
+        {/* right arm holding books */}
+        <rect x="242" y="186" width="16" height="44" rx="8" fill="#3EBB79" transform="rotate(-14 250 208)" />
+        <circle cx="256" cy="190" r="8" fill="#FFC9A3" />
+        {/* books stack */}
+        <g>
+          <rect x="256" y="210" width="54" height="15" rx="5" fill="#F5C46B" />
+          <rect x="261" y="196" width="48" height="14" rx="5" fill="#3EBB79" />
+          <rect x="266" y="184" width="40" height="13" rx="5" fill="#8FD9B0" transform="rotate(7 286 190)" />
+        </g>
+        {/* head */}
+        <circle cx="220" cy="148" r="24" fill="#FFC9A3" />
+        <path d="M196 142 a24 24 0 0 1 48 0 l-4 7 h-40 z" fill="#5B4A2F" />
+        <circle cx="211" cy="150" r="2.8" fill="#33281F" />
+        <circle cx="229" cy="150" r="2.8" fill="#33281F" />
+        <path d="M215 159 Q220 164 225 159" stroke="#33281F" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="207" cy="156" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+        <ellipse cx="233" cy="156" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+      </g>
+      {/* floating */}
+      <g>
+        <path d="M362 92 l4 8 8 4 -8 4 -4 8 -4 -8 -8 -4 8 -4 z" fill="#3EBB79" />
+        <path d="M78 100 q12 -12 24 0 q-5 -15 -24 -15 q-19 0 -24 15 q12 -12 24 0 z" fill="#57BE85" />
+        <path d="M78 190 q9 -9 18 0 q-4 -11 -18 -11 q-14 0 -18 11 q9 -9 18 0 z" fill="#8FD9B0" />
+        <g fill="#B8E7CD">
+          <circle cx="52" cy="160" r="5" />
+          <circle cx="398" cy="210" r="4" />
+          <circle cx="390" cy="120" r="3" />
+        </g>
+        {/* paper plane */}
+        <path d="M332 258 l28 -15 -11 28 -7 -9 z" fill="#57BE85" />
+        <path d="M349 271 l11 -28" stroke="#2E9C63" strokeWidth="1.5" opacity="0.5" />
+      </g>
+    </svg>
+  );
+}
+
+function DropStudentIllustration({ className = 'w-full h-auto' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 440 320" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="ds-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFF1E5" />
+          <stop offset="100%" stopColor="#FFFBF7" />
+        </linearGradient>
+      </defs>
+      {/* backdrop */}
+      <ellipse cx="220" cy="170" rx="196" ry="126" fill="url(#ds-bg)" />
+      <ellipse cx="220" cy="170" rx="150" ry="90" fill="#FFFFFF" opacity="0.55" />
+      {/* counter */}
+      <g>
+        <rect x="64" y="214" width="312" height="30" rx="10" fill="#F2C9A4" />
+        <rect x="64" y="238" width="312" height="18" fill="#E8B891" />
+      </g>
+      {/* registrar */}
+      <g>
+        <rect x="130" y="162" width="42" height="56" rx="12" fill="#F5A25D" />
+        <path d="M148 162 v22" stroke="#E28B47" strokeWidth="2" />
+        <circle cx="151" cy="138" r="22" fill="#E8B48C" />
+        <path d="M129 132 a22 22 0 0 1 44 0 l-3 7 h-38 z" fill="#3A2C24" />
+        <circle cx="127" cy="130" r="7" fill="#3A2C24" />
+        <g stroke="#4C3B2E" strokeWidth="1.8" fill="none">
+          <rect x="140" y="135" width="9" height="7" rx="3" />
+          <rect x="153" y="135" width="9" height="7" rx="3" />
+          <path d="M149 138 h2" />
+        </g>
+        <path d="M145 149 Q151 153 157 149" stroke="#4C3B2E" strokeWidth="2" fill="none" strokeLinecap="round" />
+      </g>
+      {/* counter items */}
+      <g>
+        <rect x="104" y="188" width="30" height="36" rx="4" fill="#FFFFFF" stroke="#F3D8C0" strokeWidth="1.5" />
+        <rect x="108" y="194" width="22" height="3" rx="1.5" fill="#F0CBB0" />
+        <rect x="108" y="201" width="22" height="3" rx="1.5" fill="#F0CBB0" />
+        <rect x="108" y="208" width="14" height="3" rx="1.5" fill="#F0CBB0" />
+        {/* stamp */}
+        <g>
+          <rect x="178" y="196" width="26" height="26" rx="5" fill="#FFE1A6" stroke="#F2C463" strokeWidth="2" />
+          <circle cx="191" cy="209" r="6" fill="#F5C46B" />
+        </g>
+      </g>
+      {/* student */}
+      <g>
+        <ellipse cx="306" cy="272" rx="42" ry="7" fill="#F8DDC8" />
+        {/* legs */}
+        <rect x="290" y="240" width="15" height="30" rx="7.5" fill="#42508C" />
+        <rect x="312" y="240" width="15" height="30" rx="7.5" fill="#42508C" />
+        {/* shoes */}
+        <rect x="286" y="266" width="21" height="9" rx="4.5" fill="#2E3A63" />
+        <rect x="311" y="266" width="21" height="9" rx="4.5" fill="#2E3A63" />
+        {/* body */}
+        <rect x="278" y="180" width="62" height="62" rx="16" fill="#FF8A5C" />
+        <path d="M296 242 l7 -16 h22 l7 16 z" fill="#F27949" />
+        {/* left arm down */}
+        <rect x="334" y="188" width="16" height="42" rx="8" fill="#FF8A5C" />
+        <circle cx="342" cy="230" r="8" fill="#FFC9A3" />
+        {/* right arm handing paper */}
+        <rect x="252" y="182" width="15" height="44" rx="7.5" fill="#FF8A5C" transform="rotate(-18 259 204)" />
+        <circle cx="256" cy="184" r="8" fill="#FFC9A3" />
+        {/* paper */}
+        <rect x="220" y="188" width="28" height="36" rx="4" fill="#FFFFFF" stroke="#F0CBB0" strokeWidth="1.5" />
+        <rect x="225" y="195" width="18" height="3" rx="1.5" fill="#F0CBB0" />
+        <rect x="225" y="202" width="18" height="3" rx="1.5" fill="#F0CBB0" />
+        <rect x="225" y="209" width="12" height="3" rx="1.5" fill="#F0CBB0" />
+        {/* head */}
+        <circle cx="306" cy="156" r="24" fill="#FFC9A3" />
+        <path d="M282 150 a24 24 0 0 1 48 0 l-4 7 h-40 z" fill="#3A2C24" />
+        <circle cx="297" cy="158" r="2.8" fill="#33281F" />
+        <circle cx="315" cy="158" r="2.8" fill="#33281F" />
+        <path d="M301 167 Q306 172 311 167" stroke="#33281F" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="293" cy="164" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+        <ellipse cx="319" cy="164" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+      </g>
+      {/* floating */}
+      <g>
+        {/* clipboard check */}
+        <g>
+          <rect x="368" y="68" width="34" height="44" rx="6" fill="#FFFFFF" stroke="#F3D8C0" strokeWidth="2" />
+          <rect x="374" y="74" width="22" height="4" rx="2" fill="#F0CBB0" />
+          <path d="M382 94 l5 5 8 -10" stroke="#3EBB79" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+        {/* clock */}
+        <g>
+          <circle cx="72" cy="96" r="17" fill="#FFF7EF" stroke="#F0CBB0" strokeWidth="2" />
+          <path d="M72 96 v-8 M72 96 l6 4" stroke="#C9973C" strokeWidth="2" strokeLinecap="round" />
+        </g>
+        {/* padlock */}
+        <g>
+          <path d="M66 176 a9 9 0 0 1 18 0 v8 h-18 z" fill="#F5C46B" />
+          <rect x="64" y="184" width="22" height="16" rx="4" fill="#F5A25D" />
+          <circle cx="75" cy="190" r="2" fill="#B0762F" />
+        </g>
+        <g fill="#F8D4B8">
+          <circle cx="392" cy="208" r="4" />
+          <circle cx="386" cy="128" r="3" />
+        </g>
+      </g>
+    </svg>
+  );
+}
 
 const genStudentID = (grade: number) => {
   const yr = new Date().getFullYear() + 1;
@@ -777,138 +1068,130 @@ export function EnrollmentModule() {
         label: 'Total Enrolled',
         value: enrolledCount,
         icon: UserCheck,
-        iconWrap: 'bg-emerald-50 ring-emerald-100/70',
-        iconCls: 'text-emerald-600',
+        iconTile: 'from-emerald-400 to-emerald-600',
+        tileShadow: 'shadow-emerald-200/60',
+        valueCls: 'text-emerald-600',
+        bar: 'from-emerald-400 via-emerald-500 to-emerald-400',
         hint: 'this school year'
       },
       {
         label: 'Pending Section',
         value: pendingCount,
         icon: Users,
-        iconWrap: 'bg-amber-50 ring-amber-100/70',
-        iconCls: 'text-amber-600',
+        iconTile: 'from-amber-400 to-amber-600',
+        tileShadow: 'shadow-amber-200/60',
+        valueCls: 'text-amber-600',
+        bar: 'from-amber-400 via-amber-500 to-amber-400',
         hint: 'awaiting sectioning'
       },
       {
         label: 'Enrolled Today',
         value: todayCount,
         icon: Clock,
-        iconWrap: 'bg-emerald-50 ring-emerald-100/70',
-        iconCls: 'text-emerald-600',
+        iconTile: 'from-sky-400 to-sky-600',
+        tileShadow: 'shadow-sky-200/60',
+        valueCls: 'text-sky-600',
+        bar: 'from-sky-400 via-sky-500 to-sky-400',
         hint: todayStr
       },
       {
         label: 'Drop / Transfer',
         value: closedCount,
         icon: UserX,
-        iconWrap: 'bg-red-50 ring-red-100/70',
-        iconCls: 'text-red-600',
+        iconTile: 'from-rose-400 to-rose-600',
+        tileShadow: 'shadow-rose-200/60',
+        valueCls: 'text-rose-600',
+        bar: 'from-rose-400 via-rose-500 to-rose-400',
         hint: 'this school year'
       }
     ];
 
-    const flowCards = [
+    const enrollmentTiles = [
       {
         key: 'new',
         flow: 'new' as Flow,
         code: 'NEW',
-        title: 'Enroll New Student',
-        subtitle: 'First-time enrollees · Grades 7–12',
-        desc: 'Complete data entry for new students with auto-generated Student ID and placement in the pending section queue.',
-        icon: UserPlus,
-        iconCls: 'text-emerald-600',
-        bandBg: 'bg-emerald-50',
-        cardBorder: 'border-emerald-200',
-        badge: 'bg-emerald-100 text-emerald-700',
-        accent: 'text-emerald-600',
-        statusOpen: '✓ Open',
-        statusClosed: 'Closed',
-        statusCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        title: 'New Student',
+        subtitle: 'Start your academic journey with us.',
+        desc: 'First-time enrollees · Grades 7–12. Your Student ID is generated automatically and the student is queued for sectioning.',
         action: 'Start Enrollment',
-        disabled: !enrollmentOpen
+        illustration: NewStudentIllustration,
+        featured: true,
+        chips: [
+          { icon: GraduationCap, label: 'Grades 7–12' },
+          { icon: Sparkles, label: 'Auto Student ID' }
+        ],
+        accent: {
+          grad: 'from-sky-400 via-blue-500 to-blue-600',
+          panelBg: 'bg-gradient-to-br from-sky-50 via-blue-50/70 to-white',
+          text: 'text-blue-700',
+          textSoft: 'text-blue-500',
+          chip: 'bg-blue-50 text-blue-700 border-blue-200',
+          dot: 'bg-blue-500',
+          glow: 'hover:shadow-blue-200/70'
+        },
+        disabled: !enrollmentOpen,
+        statusOpen: 'Open',
+        statusClosed: 'Closed'
       },
       {
         key: 'returning',
         flow: 'returning' as Flow,
         code: 'RETURN',
-        title: 'Enroll Returning Student',
-        subtitle: 'Re-enrollment · Grades 7–12',
-        desc: 'Search by LRN or Student ID to auto-populate existing records, then promote the student to their new grade level.',
-        icon: RefreshCw,
-        iconCls: 'text-emerald-600',
-        bandBg: 'bg-emerald-50',
-        cardBorder: 'border-emerald-200',
-        badge: 'bg-emerald-100 text-emerald-700',
-        accent: 'text-emerald-600',
-        statusOpen: '✓ Open',
-        statusClosed: 'Closed',
-        statusCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        action: 'Search Student',
-        disabled: !enrollmentOpen
+        title: 'Returning Student',
+        subtitle: 'Continue your enrollment quickly and easily.',
+        desc: 'Search by LRN or Student ID to auto-fill the record, then promote the student to their next grade level.',
+        action: 'Continue Enrollment',
+        illustration: ReturningStudentIllustration,
+        featured: false,
+        chips: [
+          { icon: Search, label: 'Search by LRN / ID' },
+          { icon: RefreshCw, label: 'Next-grade promotion' }
+        ],
+        accent: {
+          grad: 'from-emerald-400 via-green-500 to-green-600',
+          panelBg: 'bg-gradient-to-br from-emerald-50 via-green-50/70 to-white',
+          text: 'text-green-700',
+          textSoft: 'text-green-500',
+          chip: 'bg-green-50 text-green-700 border-green-200',
+          dot: 'bg-green-500',
+          glow: 'hover:shadow-green-200/70'
+        },
+        disabled: !enrollmentOpen,
+        statusOpen: 'Open',
+        statusClosed: 'Closed'
       },
       {
         key: 'drop',
         flow: 'drop' as Flow,
         code: 'DROP',
-        title: 'Student Drop / Transfer',
-        subtitle: 'Status management · All grades',
-        desc: 'Process dropout or school transfer with official reason documentation. Academic records are preserved for SF10.',
-        icon: UserMinus,
-        iconCls: 'text-red-500',
-        bandBg: 'bg-red-50',
-        cardBorder: 'border-red-200',
-        badge: 'bg-red-100 text-red-700',
-        accent: 'text-red-500',
-        statusOpen: '✓ Available',
-        statusClosed: '✓ Available',
-        statusCls: 'bg-red-50 text-red-600 border-red-200',
-        action: 'Process Request',
-        disabled: false
+        title: 'Dropping Student',
+        subtitle: 'Submit your dropping request securely.',
+        desc: 'Process a dropout or school transfer with an official reason. Academic records are preserved for SF10.',
+        action: 'Proceed',
+        illustration: DropStudentIllustration,
+        featured: false,
+        chips: [
+          { icon: ShieldCheck, label: 'Secure & documented' },
+          { icon: FileText, label: 'Records preserved' }
+        ],
+        accent: {
+          grad: 'from-amber-400 via-orange-500 to-orange-600',
+          panelBg: 'bg-gradient-to-br from-orange-50 via-amber-50/70 to-white',
+          text: 'text-orange-700',
+          textSoft: 'text-orange-500',
+          chip: 'bg-orange-50 text-orange-700 border-orange-200',
+          dot: 'bg-orange-500',
+          glow: 'hover:shadow-orange-200/70'
+        },
+        disabled: false,
+        statusOpen: 'Available',
+        statusClosed: 'Available'
       }
     ];
 
     return (
       <div className="space-y-6 max-w-8xl mx-auto">
-        {/* Header hero */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500" />
-          <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200/60">
-              <UserCheck size={22} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-lg font-bold text-gray-900 tracking-[-0.01em]">
-                  Enrollment Module
-                </h2>
-                {enrollmentOpen ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Open
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 ring-1 ring-red-200/60">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                    Closed
-                  </span>
-                )}
-              </div>
-              <p className="text-gray-400 text-sm mt-1">
-                Manage student enrollment, re-enrollment, and drop/transfer
-                processing
-              </p>
-            </div>
-            {currentSYLabel && (
-              <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-100 flex-shrink-0">
-                <CalendarDays size={14} className="text-gray-400" />
-                <span className="text-xs font-semibold text-gray-500">
-                  SY {currentSYLabel}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Enrollment closed banner */}
         {!enrollmentOpen && (
           <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl p-5 shadow-sm">
@@ -929,78 +1212,92 @@ export function EnrollmentModule() {
         )}
 
         {/* Quick stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {statCards.map(s => (
             <div
               key={s.label}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3.5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-              <div
-                className={`w-10 h-10 rounded-xl ring-1 flex items-center justify-center flex-shrink-0 ${s.iconWrap}`}>
-                <s.icon size={18} className={s.iconCls} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.05em] truncate">
+              className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+              {/* top accent bar */}
+              <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${s.bar}`} />
+              {/* soft radial glow */}
+              <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${s.iconTile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`} />
+              <div className="relative flex items-center justify-between gap-2 mb-3">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
                   {s.label}
-                </p>
-                <p className="text-xl font-bold text-gray-900 leading-tight">
-                  {s.value}
-                </p>
-                <p className="text-[10px] text-gray-400 truncate">{s.hint}</p>
+                </span>
+                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${s.iconTile} shadow-md ${s.tileShadow} flex items-center justify-center flex-shrink-0`}>
+                  <s.icon size={16} className="text-white" />
+                </div>
               </div>
+              <p className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${s.valueCls}`}>
+                {s.value}
+              </p>
+              <p className="relative text-xs text-gray-400 mt-2 truncate">{s.hint}</p>
             </div>
           ))}
         </div>
 
-        {/* Flow cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {flowCards.map(card => (
-            <button
-              key={card.key}
-              onClick={() => setFlow(card.flow)}
-              disabled={card.disabled}
-              className={`bg-white text-left rounded-2xl border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group flex flex-col ${card.cardBorder} disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:-translate-y-0`}>
-              {/* Colored header band */}
-              <div
-                className={`${card.bandBg} px-4 py-3 flex items-center justify-between flex-shrink-0`}>
-                <div className="flex items-center gap-2.5">
-                  <card.icon size={20} className={card.iconCls} />
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${card.badge} border ${card.cardBorder}`}>
+        {/* Enrollment option cards — featured New Student hero + compact secondary, one viewport row */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6 items-start">
+          {enrollmentTiles.map(card => {
+            const a = card.accent;
+            const featured = card.featured;
+            return (
+              <button
+                key={card.key}
+                type="button"
+                onClick={() => setFlow(card.flow)}
+                disabled={card.disabled}
+                className={`group relative w-full text-left bg-white rounded-3xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] hover:shadow-xl ${a.glow} hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col disabled:opacity-55 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_14px_rgba(15,23,42,0.06)] ${
+                  featured ? 'md:col-span-12 lg:col-span-6' : 'md:col-span-6 lg:col-span-3'
+                } ${card.key === 'returning' ? 'lg:mt-6' : ''} ${card.key === 'drop' ? 'lg:mt-14' : ''}`}>
+                {/* Illustration band */}
+                <div className={`relative ${a.panelBg} flex items-center justify-center overflow-hidden ${featured ? 'h-40 sm:h-44 lg:h-52 p-4 sm:p-5' : 'h-28 sm:h-32 p-3.5 sm:p-4'}`}>
+                  <card.illustration className={featured ? 'w-full h-full' : undefined} />
+                  <span className="absolute top-3.5 left-3.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/85 backdrop-blur border border-white/70 shadow-sm text-[10px] font-bold text-gray-600">
                     {card.code}
                   </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-                      card.disabled
-                        ? 'bg-gray-100 text-gray-500 border-gray-200'
-                        : card.statusCls
-                    }`}>
+                  <span className={`absolute top-3.5 right-3.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                    card.disabled
+                      ? 'bg-gray-100/90 text-gray-500 border-gray-200'
+                      : a.chip
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${card.disabled ? 'bg-gray-400' : a.dot} ${card.disabled ? '' : 'animate-pulse'}`} />
                     {card.disabled ? card.statusClosed : card.statusOpen}
                   </span>
-                  <ChevronRight
-                    size={15}
-                    className="text-gray-400 group-hover:translate-x-0.5 transition-transform"
-                  />
                 </div>
-              </div>
-              {/* Body */}
-              <div className="p-4 flex flex-col flex-1">
-                <p className="font-bold text-gray-900 text-sm">{card.title}</p>
-                <p className={`text-sm font-semibold mt-0.5 ${card.accent}`}>
-                  {card.subtitle}
-                </p>
-                <p className="text-gray-500 text-xs mt-2 leading-relaxed flex-1">
-                  {card.desc}
-                </p>
-                <div
-                  className={`mt-3 flex items-center gap-1.5 text-xs font-medium ${card.accent}`}>
-                  <card.icon size={12} />
-                  {card.action}
+                {/* Content */}
+                <div className={`flex flex-col flex-1 ${featured ? 'p-6 sm:p-7' : 'p-5 sm:p-6'}`}>
+                  {featured && (
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r ${a.grad} text-white text-[10px] font-bold tracking-wide shadow-sm self-start`}>
+                      <Sparkles size={11} /> Featured
+                    </span>
+                  )}
+                  <h3 className={`font-bold text-gray-900 tracking-[-0.01em] ${featured ? 'text-xl sm:text-2xl mt-3' : 'text-lg mt-2'}`}>
+                    {card.title}
+                  </h3>
+                  <p className={`text-sm font-semibold mt-0.5 ${a.text}`}>
+                    {card.subtitle}
+                  </p>
+                  <p className="text-sm text-gray-400 mt-2 leading-relaxed flex-1">
+                    {card.desc}
+                  </p>
+                  <div className={`flex flex-wrap gap-2 ${featured ? 'mt-4' : 'mt-3'}`}>
+                    {card.chips.map(ch => (
+                      <span key={ch.label} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${a.chip}`}>
+                        <ch.icon size={12} />
+                        {ch.label}
+                      </span>
+                    ))}
+                  </div>
+                  <span className={`mt-5 inline-flex items-center justify-center gap-2 text-white text-sm font-semibold py-3 rounded-2xl bg-gradient-to-r ${a.grad} shadow-lg transition-all duration-200 group-hover:shadow-xl group-hover:brightness-105`}>
+                    {card.action}
+                    <ChevronRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+                  </span>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
         {/* Recently enrolled */}

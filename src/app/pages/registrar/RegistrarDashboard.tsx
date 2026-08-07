@@ -26,6 +26,15 @@ const CLASSIF_LABELS: Record<string, string> = {
   "regular": "Regular",
 };
 
+const GRADE_ACCENTS = [
+  { tile: "from-indigo-400 to-indigo-600", tileShadow: "shadow-indigo-200/60", bar: "from-indigo-400 via-indigo-500 to-indigo-400", fill: "bg-indigo-500", value: "text-indigo-600" },
+  { tile: "from-violet-400 to-violet-600", tileShadow: "shadow-violet-200/60", bar: "from-violet-400 via-violet-500 to-violet-400", fill: "bg-violet-500", value: "text-violet-600" },
+  { tile: "from-sky-400 to-sky-600", tileShadow: "shadow-sky-200/60", bar: "from-sky-400 via-sky-500 to-sky-400", fill: "bg-sky-500", value: "text-sky-600" },
+  { tile: "from-emerald-400 to-emerald-600", tileShadow: "shadow-emerald-200/60", bar: "from-emerald-400 via-emerald-500 to-emerald-400", fill: "bg-emerald-500", value: "text-emerald-600" },
+  { tile: "from-amber-400 to-amber-600", tileShadow: "shadow-amber-200/60", bar: "from-amber-400 via-amber-500 to-amber-400", fill: "bg-amber-500", value: "text-amber-600" },
+  { tile: "from-rose-400 to-rose-600", tileShadow: "shadow-rose-200/60", bar: "from-rose-400 via-rose-500 to-rose-400", fill: "bg-rose-500", value: "text-rose-600" },
+];
+
 export function RegistrarDashboard() {
   const navigate = useNavigate();
   const { showToast } = useApp();
@@ -117,22 +126,27 @@ export function RegistrarDashboard() {
 
       {/* ── ENROLLMENT PER GRADE ── */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        {enrollmentStats.map(stat => {
+        {enrollmentStats.map((stat, i) => {
           const pct = stat.capacity > 0 ? Math.round((stat.enrolled / stat.capacity) * 100) : 0;
+          const ac = GRADE_ACCENTS[i % GRADE_ACCENTS.length];
           return (
-            <div key={stat.grade} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-all">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">{stat.grade}</p>
-              <p className="text-xl font-bold text-gray-900 mt-1 tracking-[-0.02em]">{stat.enrolled}</p>
-              <div className="flex items-center gap-2 mt-2.5">
-                <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                  <div
-                    className="bg-indigo-500 h-1.5 rounded-full transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
+            <div key={stat.grade} className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-4 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+              <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${ac.bar}`} />
+              <div className={`absolute -top-10 -right-10 w-24 h-24 rounded-full bg-gradient-to-br ${ac.tile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`} />
+              <div className="relative">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">{stat.grade}</p>
+                <p className={`text-xl font-bold mt-1 tracking-[-0.02em] leading-none ${ac.value}`}>{stat.enrolled}</p>
+                <div className="flex items-center gap-2 mt-2.5">
+                  <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                    <div
+                      className={`${ac.fill} h-1.5 rounded-full transition-all`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className={`text-[11px] font-semibold ${ac.value}`}>{pct}%</span>
                 </div>
-                <span className="text-[11px] font-semibold text-gray-400">{pct}%</span>
+                <p className="text-[10px] text-gray-400 mt-1.5">of {stat.capacity} capacity</p>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1.5">of {stat.capacity} capacity</p>
             </div>
           );
         })}
@@ -140,44 +154,48 @@ export function RegistrarDashboard() {
 
       {/* ── SUMMARY CARDS ROW ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-indigo-400 via-indigo-500 to-indigo-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Enrolled</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <Users size={14} className="text-indigo-600" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-200/60 flex items-center justify-center flex-shrink-0">
+              <Users size={16} className="text-white" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalEnrolled}</p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-indigo-600">{totalEnrolled}</p>
+          <p className="relative text-xs text-gray-400 mt-2">
             <span className="text-indigo-600 font-medium">{overallPercent}%</span> of {totalCapacity} total capacity
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-rose-400 via-rose-500 to-rose-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Gender Breakdown</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <UserCheck size={14} className="text-indigo-600" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-200/60 flex items-center justify-center flex-shrink-0">
+              <UserCheck size={16} className="text-white" />
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="relative flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
               <div>
                 <p className="text-lg font-bold text-gray-900">{totalMale}</p>
                 <p className="text-[11px] text-gray-400">Male ({malePct}%)</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-300 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-300 inline-block" />
               <div>
                 <p className="text-lg font-bold text-gray-900">{totalFemale}</p>
                 <p className="text-[11px] text-gray-400">Female ({femalePct}%)</p>
               </div>
             </div>
           </div>
-          <div className="flex gap-0.5 mt-3 h-2 rounded-full overflow-hidden bg-gray-100">
-            <div className="bg-indigo-500 transition-all" style={{ width: `${malePct}%` }} />
-            <div className="bg-indigo-300 transition-all" style={{ width: `${femalePct}%` }} />
+          <div className="relative flex gap-0.5 mt-3 h-2 rounded-full overflow-hidden bg-gray-100">
+            <div className="bg-rose-500 transition-all" style={{ width: `${malePct}%` }} />
+            <div className="bg-rose-300 transition-all" style={{ width: `${femalePct}%` }} />
           </div>
         </div>
       </div>
@@ -186,9 +204,11 @@ export function RegistrarDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Enrollment bar chart */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <BarChart3 size={14} className="text-white" />
+            </div>
             <h3 className="font-semibold text-gray-900 tracking-[-0.01em]">Enrollment per Grade Level</h3>
-            <BarChart3 size={16} className="text-gray-300" />
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={enrollmentStats} barCategoryGap="30%">
@@ -215,7 +235,12 @@ export function RegistrarDashboard() {
 
         {/* Classification pie chart */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-900 tracking-[-0.01em] mb-2">Classifications</h3>
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <HeartHandshake size={14} className="text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-900 tracking-[-0.01em]">Classifications</h3>
+          </div>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={classifData} cx="50%" cy="50%" outerRadius={75} dataKey="value" paddingAngle={2}>
@@ -248,8 +273,10 @@ export function RegistrarDashboard() {
       {/* ── SCHOOL FORM GENERATION ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FileText size={16} className="text-indigo-500" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <FileText size={14} className="text-white" />
+            </div>
             <h3 className="font-semibold text-gray-900 tracking-[-0.01em]">School Form Generation</h3>
           </div>
           <button
@@ -288,9 +315,11 @@ export function RegistrarDashboard() {
 
       {/* ── SECTION POPULATION ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-sm flex items-center justify-center flex-shrink-0">
+            <Layers size={14} className="text-white" />
+          </div>
           <h3 className="font-semibold text-gray-900 tracking-[-0.01em]">Section Population (Top 5)</h3>
-          <Layers size={16} className="text-gray-300" />
         </div>
         <ResponsiveContainer width="100%" height={170}>
           <BarChart data={sectionPopData} layout="vertical" barSize={20}>

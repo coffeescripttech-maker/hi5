@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, Layers, TrendingUp, GraduationCap, BookOpen, Activity, School, AlertTriangle } from "lucide-react";
+import { Users, Layers, TrendingUp, GraduationCap, BookOpen, Activity, School, AlertTriangle, BarChart3, PieChart as PieChartIcon } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
@@ -85,44 +85,57 @@ export function PrincipalDashboard() {
 
       {/* STAT CARDS */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Students</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Users size={14} className="text-purple-600" /></div>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-md shadow-purple-200/60 flex items-center justify-center flex-shrink-0"><Users size={16} className="text-white" /></div>
           </div>
-          <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalEnrolled}</p>
-          <p className="text-xs text-gray-400 mt-1">{overallPercent}% capacity</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-purple-600">{totalEnrolled}</p>
+          <p className="relative text-xs text-gray-400 mt-2">{overallPercent}% capacity</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Sections</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Layers size={14} className="text-purple-600" /></div>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-md shadow-blue-200/60 flex items-center justify-center flex-shrink-0"><Layers size={16} className="text-white" /></div>
           </div>
-          <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalSections}</p>
-          <p className="text-xs text-gray-400 mt-1">Across {gradeLevels.length} grade levels</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-blue-600">{totalSections}</p>
+          <p className="relative text-xs text-gray-400 mt-2">Across {gradeLevels.length} grade levels</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Teachers</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><GraduationCap size={14} className="text-purple-600" /></div>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 flex items-center justify-center flex-shrink-0"><GraduationCap size={16} className="text-white" /></div>
           </div>
-          <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{sections.filter(s => s.adviser_id).length}</p>
-          <p className="text-xs text-gray-400 mt-1">Advisers assigned</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-emerald-600">{sections.filter(s => s.adviser_id).length}</p>
+          <p className="relative text-xs text-gray-400 mt-2">Advisers assigned</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400" />
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
+          <div className="relative flex items-center justify-between gap-2 mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Programs</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><BookOpen size={14} className="text-purple-600" /></div>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-md shadow-amber-200/60 flex items-center justify-center flex-shrink-0"><BookOpen size={16} className="text-white" /></div>
           </div>
-          <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{programData.length}</p>
-          <p className="text-xs text-gray-400 mt-1">{programData.map(p => p.name).join(", ")}</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-amber-600">{programData.length}</p>
+          <p className="relative text-xs text-gray-400 mt-2 truncate">{programData.map(p => p.name).join(", ")}</p>
         </div>
       </div>
 
       {/* CHARTS */}
       <div className="grid grid-cols-2 gap-5">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-800 text-sm mb-4">Enrollment per Grade Level</h3>
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <BarChart3 size={14} className="text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-800 text-sm">Enrollment per Grade Level</h3>
+          </div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={enrollmentByGrade}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -135,7 +148,12 @@ export function PrincipalDashboard() {
           </ResponsiveContainer>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-800 text-sm mb-4">Enrollment by Program</h3>
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <PieChartIcon size={14} className="text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-800 text-sm">Enrollment by Program</h3>
+          </div>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={programData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
@@ -155,7 +173,12 @@ export function PrincipalDashboard() {
       {/* SECTION POPULATION TABLE */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800 text-sm">Top Sections by Population</h3>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <Layers size={14} className="text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-800 text-sm">Top Sections by Population</h3>
+          </div>
           <span className="text-xs text-gray-400">{sectionPopData.length} sections</span>
         </div>
         <div className="overflow-x-auto">

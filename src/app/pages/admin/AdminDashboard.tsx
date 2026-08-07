@@ -9,7 +9,8 @@ import {
   Layers,
   UserCheck,
   BarChart2,
-  ArrowUpRight,
+  Activity,
+  History,
   Clock,
   School
 } from 'lucide-react';
@@ -120,40 +121,44 @@ export function AdminDashboard() {
       value: totalStudents.toString(),
       sub: `Across all grade levels`,
       icon: Users,
-      light: 'bg-blue-100',
-      text: 'text-blue-600',
-      change: 'Current SY',
-      trend: 'neutral'
+      tile: 'from-blue-400 to-blue-600',
+      tileShadow: 'shadow-blue-200/60',
+      bar: 'from-blue-400 via-blue-500 to-blue-400',
+      valueCls: 'text-blue-600',
+      change: 'Current SY'
     },
     {
       label: 'Total Sections',
       value: totalSections.toString(),
       sub: `Capacity: ${totalCapacity}`,
       icon: Layers,
-      light: 'bg-blue-100',
-      text: 'text-blue-600',
-      change: 'Active',
-      trend: 'neutral'
+      tile: 'from-violet-400 to-violet-600',
+      tileShadow: 'shadow-violet-200/60',
+      bar: 'from-violet-400 via-violet-500 to-violet-400',
+      valueCls: 'text-violet-600',
+      change: 'Active'
     },
     {
       label: 'Active Teachers',
       value: totalTeachers.toString(),
       sub: 'Fetched from users',
       icon: BookOpen,
-      light: 'bg-blue-100',
-      text: 'text-blue-600',
-      change: 'Faculty',
-      trend: 'neutral'
+      tile: 'from-emerald-400 to-emerald-600',
+      tileShadow: 'shadow-emerald-200/60',
+      bar: 'from-emerald-400 via-emerald-500 to-emerald-400',
+      valueCls: 'text-emerald-600',
+      change: 'Faculty'
     },
     {
       label: 'System Users',
       value: totalUsers.toString(),
       sub: 'All roles',
       icon: UserCheck,
-      light: 'bg-blue-100',
-      text: 'text-blue-600',
-      change: 'Registered',
-      trend: 'neutral'
+      tile: 'from-amber-400 to-amber-600',
+      tileShadow: 'shadow-amber-200/60',
+      bar: 'from-amber-400 via-amber-500 to-amber-400',
+      valueCls: 'text-amber-600',
+      change: 'Registered'
     }
   ];
 
@@ -194,19 +199,20 @@ export function AdminDashboard() {
           return (
             <div
               key={card.label}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-3">
+              className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+              <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${card.bar}`} />
+              <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${card.tile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`} />
+              <div className="relative flex items-center justify-between gap-2 mb-3">
                 <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">{card.label}</span>
-                <div className={`w-8 h-8 rounded-xl ${card.light} flex items-center justify-center`}>
-                  <Icon size={14} className={card.text} />
+                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${card.tile} shadow-md ${card.tileShadow} flex items-center justify-center flex-shrink-0`}>
+                  <Icon size={16} className="text-white" />
                 </div>
               </div>
-              <p className={`text-2xl font-bold ${card.text} tracking-[-0.02em]`}>{card.value}</p>
-              <p className="text-xs text-gray-400 mt-1">{card.sub}</p>
-              <div className="flex items-center gap-1 mt-2">
-                <span className={`text-[11px] font-semibold ${card.trend === 'up' ? 'text-emerald-600' : 'text-gray-400'}`}>
-                  {card.trend === 'up' && <ArrowUpRight size={11} className="inline" />} {card.change}
-                </span>
+              <p className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${card.valueCls}`}>{card.value}</p>
+              <p className="relative text-xs text-gray-400 mt-2 truncate">{card.sub}</p>
+              <div className="relative flex items-center gap-1.5 mt-2.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${card.valueCls}`} />
+                <span className="text-[11px] font-semibold text-gray-400">{card.change}</span>
               </div>
             </div>
           );
@@ -218,11 +224,16 @@ export function AdminDashboard() {
         {/* Enrollment by Grade */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-gray-800">Enrollment by Grade Level</h3>
-              <p className="text-gray-400 text-xs mt-0.5">
-                Male vs. Female distribution
-              </p>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0">
+                <BarChart2 size={14} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Enrollment by Grade Level</h3>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  Male vs. Female distribution
+                </p>
+              </div>
             </div>
             <span className="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-full font-medium border border-blue-100">
               Live
@@ -276,17 +287,22 @@ export function AdminDashboard() {
 
         {/* System-wide stats placeholder */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="mb-4">
-            <h3 className="font-semibold text-gray-800">System Overview</h3>
-            <p className="text-gray-400 text-xs mt-0.5">
-              Key metrics at a glance
-            </p>
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <Activity size={14} className="text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-800">System Overview</h3>
+              <p className="text-gray-400 text-xs mt-0.5">
+                Key metrics at a glance
+              </p>
+            </div>
           </div>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl">
+            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl hover:bg-blue-50/90 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Users size={16} className="text-blue-600" />
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 shadow-md shadow-blue-200/60 flex items-center justify-center">
+                  <Users size={16} className="text-white" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Total Students</p>
@@ -296,10 +312,10 @@ export function AdminDashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl">
+            <div className="flex items-center justify-between p-3 bg-violet-50/70 rounded-xl hover:bg-violet-50/90 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Layers size={16} className="text-blue-600" />
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-200/60 flex items-center justify-center">
+                  <Layers size={16} className="text-white" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Active Sections</p>
@@ -309,10 +325,10 @@ export function AdminDashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl">
+            <div className="flex items-center justify-between p-3 bg-amber-50/70 rounded-xl hover:bg-amber-50/90 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <UserCheck size={16} className="text-blue-600" />
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 shadow-md shadow-amber-200/60 flex items-center justify-center">
+                  <UserCheck size={16} className="text-white" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">System Users</p>
@@ -331,9 +347,14 @@ export function AdminDashboard() {
         {/* Grade-Level Enrollment Summary */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-gray-800">Grade-Level Enrollment</h3>
-              <p className="text-gray-400 text-xs mt-0.5">Student distribution per grade</p>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0">
+                <Users size={14} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Grade-Level Enrollment</h3>
+                <p className="text-gray-400 text-xs mt-0.5">Student distribution per grade</p>
+              </div>
             </div>
           </div>
           {enrollmentByGender.length > 0 ? (
@@ -387,9 +408,14 @@ export function AdminDashboard() {
         {/* Recent Activity */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-gray-800">Recent System Activity</h3>
-              <p className="text-gray-400 text-xs mt-0.5">Latest actions across the system</p>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 shadow-sm flex items-center justify-center flex-shrink-0">
+                <History size={14} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Recent System Activity</h3>
+                <p className="text-gray-400 text-xs mt-0.5">Latest actions across the system</p>
+              </div>
             </div>
             <button
               onClick={() => navigate('/admin/logs')}
@@ -405,7 +431,7 @@ export function AdminDashboard() {
             ) : (
               activityLogs.map(log => (
                 <div key={log.id} className="px-6 py-3.5 flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-blue-100 text-blue-600">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-sm">
                     <span className="text-xs font-bold">
                       {log.user_name?.charAt(0) || '?'}
                     </span>
