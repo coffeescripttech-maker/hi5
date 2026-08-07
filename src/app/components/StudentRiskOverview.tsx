@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Activity, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { atRiskApi, RiskTrendResponse } from "../services/atRisk";
+import { useRoleAccent } from "../utils/roleTheme";
 
 const RISK_CONFIG: Record<string, { chip: string; text: string; bar: string; dot: string }> = {
   on_track: {
@@ -48,6 +49,7 @@ function TrendIcon({ trend }: { trend: string }) {
  * (GET /api/at-risk/trends). Shared by the Registrar and Principal dashboards.
  */
 export function StudentRiskOverview({ schoolYearId }: { schoolYearId?: number }) {
+  const accent = useRoleAccent();
   const [data, setData] = useState<RiskTrendResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -69,8 +71,8 @@ export function StudentRiskOverview({ schoolYearId }: { schoolYearId?: number })
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-          <Activity size={14} className="text-indigo-600" />
+        <div className={`w-8 h-8 rounded-xl ${accent.softTile} flex items-center justify-center`}>
+          <Activity size={14} />
         </div>
         <div>
           <h3 className="text-sm font-bold text-gray-800">Student Risk Overview</h3>
@@ -80,7 +82,7 @@ export function StudentRiskOverview({ schoolYearId }: { schoolYearId?: number })
 
       {loading ? (
         <div className="h-24 flex items-center justify-center">
-          <div className="animate-spin w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full" />
+          <div className={`animate-spin w-5 h-5 border-2 ${accent.spinnerTrack} ${accent.spinnerArc} rounded-full`} />
         </div>
       ) : !summary ? (
         <p className="text-sm text-gray-400 py-8 text-center">No data available.</p>

@@ -42,9 +42,9 @@ const allAvg = (rows: GradeEntry[]): string => {
 const getDescriptor = (val: string): { label: string; color: string } => {
   const n = parseFloat(val);
   if (isNaN(n)) return { label: "—", color: "text-gray-400" };
-  if (n >= 90) return { label: "Outstanding", color: "text-green-600" };
-  if (n >= 85) return { label: "Very Satisfactory", color: "text-blue-600" };
-  if (n >= 80) return { label: "Satisfactory", color: "text-teal-600" };
+  if (n >= 90) return { label: "Outstanding", color: "text-emerald-600" };
+  if (n >= 85) return { label: "Very Satisfactory", color: "text-emerald-600" };
+  if (n >= 80) return { label: "Satisfactory", color: "text-emerald-600" };
   if (n >= 75) return { label: "Fairly Satisfactory", color: "text-yellow-600" };
   return { label: "Did Not Meet Expectations", color: "text-red-500" };
 };
@@ -53,9 +53,9 @@ const getDescriptor = (val: string): { label: string; color: string } => {
 const MAPEH_ORDER = ["Music", "Arts", "Physical Education", "Health"];
 
 const descBadge = (label: string) =>
-  label === "Outstanding" ? "bg-green-50 text-green-700" :
-  label === "Very Satisfactory" ? "bg-blue-50 text-blue-700" :
-  label === "Satisfactory" ? "bg-teal-50 text-teal-700" :
+  label === "Outstanding" ? "bg-emerald-50 text-emerald-700" :
+  label === "Very Satisfactory" ? "bg-emerald-50 text-emerald-700" :
+  label === "Satisfactory" ? "bg-emerald-50 text-emerald-700" :
   label === "Fairly Satisfactory" ? "bg-yellow-50 text-yellow-700" :
   label === "Did Not Meet Expectations" ? "bg-red-50 text-red-700" :
   "bg-gray-50 text-gray-400";
@@ -343,7 +343,7 @@ export function GradeManagement() {
     return (
       <div className="max-w-6xl mx-auto space-y-5 animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-green-200 to-emerald-200" />
+          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
             <div className="h-5 w-56 bg-gray-100 rounded-lg" />
             <div className="h-4 w-80 bg-gray-50 rounded-md" />
@@ -368,10 +368,10 @@ export function GradeManagement() {
 
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
         <div className="p-5 sm:p-6">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
               <BookOpen size={22} className="text-emerald-700" />
             </div>
             <div>
@@ -396,13 +396,13 @@ export function GradeManagement() {
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60 rounded-xl p-4 sm:p-5 flex gap-3 transition-shadow duration-200 hover:shadow-sm">
-          <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 shadow-xs">
-            <Info size={16} className="text-blue-700" />
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-50 border border-emerald-200/60 rounded-xl p-4 sm:p-5 flex gap-3 transition-shadow duration-200 hover:shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0 shadow-xs">
+            <Info size={16} className="text-emerald-700" />
           </div>
-          <div className="text-sm text-blue-800">
+          <div className="text-sm text-emerald-800">
             <p className="font-bold mb-1">How to Encode Grades</p>
-            <p className="text-blue-700 text-xs leading-relaxed">
+            <p className="text-emerald-700 text-xs leading-relaxed">
               Select a student from the dropdown, enter grades (0–100) for each subject and quarter. When complete, <strong>Lock & Finalize</strong> to prevent further changes.
               Locked grades can only be corrected via a <strong>Correction Request</strong> approved by the Registrar.
             </p>
@@ -413,7 +413,7 @@ export function GradeManagement() {
       {/* ── Student Selector + General Average ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm transition-shadow duration-200 relative z-10">
-          <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+          <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
           <div className="p-4 sm:p-5">
             <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.05em]">Select Student</label>
             <div className="relative" ref={searchRef}>
@@ -444,7 +444,7 @@ export function GradeManagement() {
                       onClick={() => selectStudent(s)}
                       className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50/60 transition border-b border-gray-50 last:border-0"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center flex-shrink-0">
                         <UserCheck size={14} className="text-emerald-700" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -461,7 +461,7 @@ export function GradeManagement() {
 
             {/* Selected student badge */}
             {selectedStudent && !showSuggestions && (
-              <div className="mt-3 flex items-center gap-2.5 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200/60 rounded-xl px-4 py-2.5">
+              <div className="mt-3 flex items-center gap-2.5 bg-gradient-to-br from-emerald-50 to-emerald-50 border border-emerald-200/60 rounded-xl px-4 py-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0 shadow-xs">
                   <UserCheck size={14} className="text-emerald-700" />
                 </div>
@@ -480,11 +480,11 @@ export function GradeManagement() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-          <div className="h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400" />
+          <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
           <div className="p-4 sm:p-5 flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shadow-xs">
-                <GraduationCap size={13} className="text-blue-700" />
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
+                <GraduationCap size={13} className="text-emerald-700" />
               </div>
               <p className="text-xs text-gray-500 font-semibold uppercase tracking-[0.04em]">General Average</p>
             </div>
@@ -503,7 +503,7 @@ export function GradeManagement() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
           <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-xs">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
                 <UserCheck size={16} className="text-emerald-700" />
               </div>
               <div>
@@ -538,7 +538,7 @@ export function GradeManagement() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[700px]">
                   <thead>
-                    <tr className="bg-gradient-to-r from-emerald-50/80 via-green-50/80 to-emerald-50/50 border-b border-emerald-100">
+                    <tr className="bg-gradient-to-r from-emerald-50/80 via-emerald-50/80 to-emerald-50/50 border-b border-emerald-100">
                       {["Subject", "Q1", "Q2", "Q3", "Q4", "Final", "Remarks"].map(h => (
                         <th key={h} className={`${h === "Subject" ? "text-left pl-5" : "text-center px-3"} py-3.5 text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]`}>{h}</th>
                       ))}
@@ -616,7 +616,7 @@ export function GradeManagement() {
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
                     >
                       {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
                       {saving ? "Saving..." : "Save Grades"}
@@ -632,7 +632,7 @@ export function GradeManagement() {
                 ) : (
                   <button
                     onClick={() => { setShowCorrectionModal(true); setCorrectionSubject(""); setCorrectionJustification(""); setCorrectionSubmitted(false); }}
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
                   >
                     <MessageSquare size={15} /> Request Grade Correction
                   </button>
@@ -642,7 +642,7 @@ export function GradeManagement() {
                 {selectedStudent && (
                   <button
                     onClick={() => navigate(`/teacher/forms/sf9?student_id=${selectedStudent.id}&school_year_id=${schoolYearId}`)}
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto"
                   >
                     <FileText size={15} /> <span>SF9 Report Card</span> <ExternalLink size={12} />
                   </button>
@@ -710,30 +710,30 @@ export function GradeManagement() {
       {/* ── Correction Request Modal ── */}
       {showCorrectionModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <MessageSquare size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">Grade Correction Request</h3>
+                  <p className="text-white/70 text-xs">Submit for Registrar approval</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCorrectionModal(false)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+                <X size={18} />
+              </button>
+            </div>
             {!correctionSubmitted ? (
               <>
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shadow-sm">
-                      <MessageSquare size={18} className="text-blue-700" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900">Grade Correction Request</h3>
-                      <p className="text-xs text-gray-400">Submit for Registrar approval</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setShowCorrectionModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition">
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="space-y-4">
+              <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Subject</label>
                     <select
                       value={correctionSubject}
                       onChange={e => setCorrectionSubject(e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white transition"
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
                     >
                       <option value="">All subjects</option>
                       {grades.map(g => <option key={g.subject}>{g.subject}</option>)}
@@ -744,7 +744,7 @@ export function GradeManagement() {
                     <select
                       value={correctionQuarter}
                       onChange={e => setCorrectionQuarter(e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white transition"
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
                     >
                       <option value="">All quarters</option>
                       <option value="1">1st Quarter</option>
@@ -759,29 +759,38 @@ export function GradeManagement() {
                       value={correctionJustification}
                       onChange={e => setCorrectionJustification(e.target.value)}
                       rows={4} placeholder="Explain why the grade needs to be corrected..."
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white transition resize-none"
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
                     />
                   </div>
-                  <button
-                    onClick={handleSubmitCorrection}
-                    disabled={!correctionJustification || submittingCorrection}
-                    className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
-                  >
-                    {submittingCorrection ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                    {submittingCorrection ? "Submitting..." : "Submit Correction Request"}
-                  </button>
                 </div>
+              <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+                <button
+                  onClick={() => setShowCorrectionModal(false)}
+                  disabled={submittingCorrection}
+                  className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitCorrection}
+                  disabled={!correctionJustification || submittingCorrection}
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all inline-flex items-center justify-center gap-2"
+                >
+                  {submittingCorrection ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  {submittingCorrection ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
               </>
             ) : (
-              <div className="text-center py-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <CheckCircle size={32} className="text-green-600" />
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
+                  <CheckCircle size={32} className="text-emerald-600" />
                 </div>
                 <h3 className="font-bold text-gray-900 text-lg mb-1">Request Submitted</h3>
                 <p className="text-sm text-gray-500 mb-5">Your correction request has been forwarded to the Registrar for review.</p>
                 <button
                   onClick={() => setShowCorrectionModal(false)}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
+                  className="w-full bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
                 >
                   Done
                 </button>

@@ -10,7 +10,8 @@ import {
   UserCheck,
   BarChart2,
   ArrowUpRight,
-  Clock
+  Clock,
+  School
 } from 'lucide-react';
 import {
   BarChart,
@@ -32,6 +33,7 @@ export function AdminDashboard() {
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalSections, setTotalSections] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [totalTeachers, setTotalTeachers] = useState(0);
   const [totalCapacity, setTotalCapacity] = useState(0);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   // Chart data (populated from API where possible)
@@ -77,7 +79,9 @@ export function AdminDashboard() {
       usersApi
         .list()
         .then(users => {
-          if (!cancelled) setTotalUsers(users.length);
+          if (cancelled) return;
+          setTotalUsers(users.length);
+          setTotalTeachers(users.filter(u => u.role === 'teacher').length);
         })
         .catch(() => {}),
       logsApi
@@ -97,15 +101,14 @@ export function AdminDashboard() {
   if (loading) {
     return (
       <div className="space-y-5 animate-pulse">
-        <div className="h-28 bg-gray-200 rounded-2xl" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 bg-gray-200 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 h-64 bg-gray-200 rounded-xl" />
-          <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
+          <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+            <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+          <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
         </div>
       </div>
     );
@@ -117,10 +120,8 @@ export function AdminDashboard() {
       value: totalStudents.toString(),
       sub: `Across all grade levels`,
       icon: Users,
-      color: 'bg-blue-600',
-      light: 'bg-blue-50',
-      border: 'border-blue-200',
-      text: 'text-blue-700',
+      light: 'bg-blue-100',
+      text: 'text-blue-600',
       change: 'Current SY',
       trend: 'neutral'
     },
@@ -129,23 +130,19 @@ export function AdminDashboard() {
       value: totalSections.toString(),
       sub: `Capacity: ${totalCapacity}`,
       icon: Layers,
-      color: 'bg-indigo-600',
-      light: 'bg-indigo-50',
-      border: 'border-indigo-200',
-      text: 'text-indigo-700',
+      light: 'bg-blue-100',
+      text: 'text-blue-600',
       change: 'Active',
       trend: 'neutral'
     },
     {
       label: 'Active Teachers',
-      value: '—',
+      value: totalTeachers.toString(),
       sub: 'Fetched from users',
       icon: BookOpen,
-      color: 'bg-emerald-600',
-      light: 'bg-emerald-50',
-      border: 'border-emerald-200',
-      text: 'text-emerald-700',
-      change: '—',
+      light: 'bg-blue-100',
+      text: 'text-blue-600',
+      change: 'Faculty',
       trend: 'neutral'
     },
     {
@@ -153,36 +150,38 @@ export function AdminDashboard() {
       value: totalUsers.toString(),
       sub: 'All roles',
       icon: UserCheck,
-      color: 'bg-violet-600',
-      light: 'bg-violet-50',
-      border: 'border-violet-200',
-      text: 'text-violet-700',
+      light: 'bg-blue-100',
+      text: 'text-blue-600',
       change: 'Registered',
       trend: 'neutral'
     }
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Page Intro */}
-      <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-2xl p-5 text-white shadow-lg">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2 className="font-bold text-lg">Admin Analytics Dashboard</h2>
-            <p className="text-blue-200 text-sm mt-0.5">
-              Hi5 Portal · Data loaded from database
-            </p>
+    <div className="space-y-5 max-w-6xl mx-auto">
+      {/* HEADER */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
+        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
+              <BarChart2 size={22} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Admin Analytics Dashboard</h2>
+              <p className="text-gray-500 text-sm">Hi5 Portal · live data from the database</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => navigate('/admin/users')}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
-              <Users size={15} /> Manage Users
+              onClick={() => navigate('/admin/settings')}
+              className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              <School size={15} /> School Settings
             </button>
             <button
-              onClick={() => navigate('/admin/settings')}
-              className="bg-white text-blue-800 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
-              <BarChart2 size={15} /> School Settings
+              onClick={() => navigate('/admin/users')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              <Users size={15} /> Manage Users
             </button>
           </div>
         </div>
@@ -195,21 +194,20 @@ export function AdminDashboard() {
           return (
             <div
               key={card.label}
-              className={`bg-white rounded-xl border ${card.border} p-4 shadow-sm hover:shadow-md transition`}>
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className={`${card.color} w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                  <Icon size={18} className="text-white" />
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">{card.label}</span>
+                <div className={`w-8 h-8 rounded-xl ${card.light} flex items-center justify-center`}>
+                  <Icon size={14} className={card.text} />
                 </div>
-                {card.trend === 'up' && (
-                  <span className="flex items-center gap-0.5 text-xs text-emerald-600 font-medium">
-                    <ArrowUpRight size={12} /> {card.change}
-                  </span>
-                )}
               </div>
-              <p className={`text-2xl font-bold ${card.text}`}>{card.value}</p>
-              <p className="text-gray-500 text-xs mt-0.5">{card.label}</p>
-              <p className="text-gray-400 text-xs mt-1">{card.sub}</p>
+              <p className={`text-2xl font-bold ${card.text} tracking-[-0.02em]`}>{card.value}</p>
+              <p className="text-xs text-gray-400 mt-1">{card.sub}</p>
+              <div className="flex items-center gap-1 mt-2">
+                <span className={`text-[11px] font-semibold ${card.trend === 'up' ? 'text-emerald-600' : 'text-gray-400'}`}>
+                  {card.trend === 'up' && <ArrowUpRight size={11} className="inline" />} {card.change}
+                </span>
+              </div>
             </div>
           );
         })}
@@ -218,26 +216,24 @@ export function AdminDashboard() {
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Enrollment by Grade */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-semibold text-gray-800">
-                Enrollment by Grade Level
-              </h3>
+              <h3 className="font-semibold text-gray-800">Enrollment by Grade Level</h3>
               <p className="text-gray-400 text-xs mt-0.5">
                 Male vs. Female distribution
               </p>
             </div>
-            <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full font-medium border border-blue-100">
+            <span className="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-full font-medium border border-blue-100">
               Live
             </span>
           </div>
           {enrollmentByGender.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={enrollmentByGender} barCategoryGap="30%">
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#f1f5f9"
+                  stroke="#f0f0f0"
                   vertical={false}
                 />
                 <XAxis
@@ -259,38 +255,39 @@ export function AdminDashboard() {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                 />
-                <Bar dataKey="Male" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Female" fill="#a78bfa" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Male" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Female" fill="#93c5fd" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">
+            <div className="h-[240px] flex items-center justify-center text-gray-400 text-sm">
               No enrollment data available
             </div>
           )}
           <div className="flex gap-4 mt-2 justify-center">
             <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <span className="w-3 h-3 rounded bg-blue-500 inline-block" /> Male
+              <span className="w-3 h-3 rounded bg-blue-600 inline-block" /> Male
             </span>
             <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <span className="w-3 h-3 rounded bg-violet-400 inline-block" />{' '}
-              Female
+              <span className="w-3 h-3 rounded bg-blue-300 inline-block" /> Female
             </span>
           </div>
         </div>
 
         {/* System-wide stats placeholder */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="mb-4">
             <h3 className="font-semibold text-gray-800">System Overview</h3>
             <p className="text-gray-400 text-xs mt-0.5">
               Key metrics at a glance
             </p>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl">
               <div className="flex items-center gap-3">
-                <Users size={18} className="text-blue-600" />
+                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Users size={16} className="text-blue-600" />
+                </div>
                 <div>
                   <p className="text-xs text-gray-500">Total Students</p>
                   <p className="font-bold text-gray-800 text-lg">
@@ -299,9 +296,11 @@ export function AdminDashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-indigo-50 rounded-xl">
+            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl">
               <div className="flex items-center gap-3">
-                <Layers size={18} className="text-indigo-600" />
+                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Layers size={16} className="text-blue-600" />
+                </div>
                 <div>
                   <p className="text-xs text-gray-500">Active Sections</p>
                   <p className="font-bold text-gray-800 text-lg">
@@ -310,9 +309,11 @@ export function AdminDashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-violet-50 rounded-xl">
+            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl">
               <div className="flex items-center gap-3">
-                <UserCheck size={18} className="text-violet-600" />
+                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <UserCheck size={16} className="text-blue-600" />
+                </div>
                 <div>
                   <p className="text-xs text-gray-500">System Users</p>
                   <p className="font-bold text-gray-800 text-lg">
@@ -328,46 +329,47 @@ export function AdminDashboard() {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Grade-Level Enrollment Summary */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-800">
-              Grade-Level Enrollment
-            </h3>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-800">Grade-Level Enrollment</h3>
+              <p className="text-gray-400 text-xs mt-0.5">Student distribution per grade</p>
+            </div>
           </div>
           {enrollmentByGender.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-blue-50 border-b border-blue-100">
-                    <th className="text-left px-5 py-3 text-blue-700 font-semibold text-xs uppercase">
+                  <tr className="bg-blue-50/60 border-b border-blue-100">
+                    <th className="text-left px-6 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
                       Grade
                     </th>
-                    <th className="text-center px-4 py-3 text-blue-700 font-semibold text-xs uppercase">
+                    <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
                       Male
                     </th>
-                    <th className="text-center px-4 py-3 text-blue-700 font-semibold text-xs uppercase">
+                    <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
                       Female
                     </th>
-                    <th className="text-center px-4 py-3 text-blue-700 font-semibold text-xs uppercase">
+                    <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
                       Total
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {enrollmentByGender.map((stat: any) => (
+                  {enrollmentByGender.map((stat: any, idx: number) => (
                     <tr
                       key={stat.grade}
-                      className="hover:bg-gray-50 transition">
-                      <td className="px-5 py-3 font-medium text-gray-800 text-sm">
+                      className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors`}>
+                      <td className="px-6 py-3.5 font-medium text-gray-800">
                         {stat.grade}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">
+                      <td className="px-4 py-3.5 text-center text-gray-600">
                         {stat.Male}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">
+                      <td className="px-4 py-3.5 text-center text-gray-600">
                         {stat.Female}
                       </td>
-                      <td className="px-4 py-3 text-center font-bold text-blue-700">
+                      <td className="px-4 py-3.5 text-center font-bold text-blue-600">
                         {stat.Total}
                       </td>
                     </tr>
@@ -376,18 +378,19 @@ export function AdminDashboard() {
               </table>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-400 text-sm">
+            <div className="p-12 text-center text-gray-400 text-sm">
               No data available
             </div>
           )}
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-800">
-              Recent System Activity
-            </h3>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-800">Recent System Activity</h3>
+              <p className="text-gray-400 text-xs mt-0.5">Latest actions across the system</p>
+            </div>
             <button
               onClick={() => navigate('/admin/logs')}
               className="text-blue-600 text-xs font-medium hover:underline">
@@ -396,13 +399,13 @@ export function AdminDashboard() {
           </div>
           <div className="divide-y divide-gray-50">
             {activityLogs.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 text-sm">
+              <div className="p-12 text-center text-gray-400 text-sm">
                 No recent activity
               </div>
             ) : (
               activityLogs.map(log => (
-                <div key={log.id} className="px-5 py-3 flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-gray-100 text-gray-500">
+                <div key={log.id} className="px-6 py-3.5 flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-blue-100 text-blue-600">
                     <span className="text-xs font-bold">
                       {log.user_name?.charAt(0) || '?'}
                     </span>

@@ -155,8 +155,8 @@ export function RegistrarDashboard() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Gender Breakdown</span>
-            <div className="w-8 h-8 rounded-xl bg-pink-100 flex items-center justify-center">
-              <UserCheck size={14} className="text-pink-600" />
+            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+              <UserCheck size={14} className="text-indigo-600" />
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -168,7 +168,7 @@ export function RegistrarDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-pink-400 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-300 inline-block" />
               <div>
                 <p className="text-lg font-bold text-gray-900">{totalFemale}</p>
                 <p className="text-[11px] text-gray-400">Female ({femalePct}%)</p>
@@ -177,7 +177,7 @@ export function RegistrarDashboard() {
           </div>
           <div className="flex gap-0.5 mt-3 h-2 rounded-full overflow-hidden bg-gray-100">
             <div className="bg-indigo-500 transition-all" style={{ width: `${malePct}%` }} />
-            <div className="bg-pink-400 transition-all" style={{ width: `${femalePct}%` }} />
+            <div className="bg-indigo-300 transition-all" style={{ width: `${femalePct}%` }} />
           </div>
         </div>
       </div>

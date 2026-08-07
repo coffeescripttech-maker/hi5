@@ -11,6 +11,7 @@ import { studentsApi, StudentDetail } from "../services/students";
 import { enrollmentsApi, EnrollmentRow } from "../services/enrollments";
 import { gradesApi, GradeHistoryYear } from "../services/grades";
 import { useApp } from "../context/AppContext";
+import { useRoleAccent } from "../utils/roleTheme";
 
 const TABS = [
   { id: "personal", label: "Personal Information", icon: User },
@@ -40,6 +41,7 @@ export function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showToast, role } = useApp();
+  const accent = useRoleAccent();
   const [activeTab, setActiveTab] = useState("personal");
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
@@ -102,7 +104,7 @@ export function StudentProfile() {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.05em]">{label}</p>
-        <p className={`text-sm mt-0.5 ${highlight ? "font-bold text-emerald-700" : "font-medium text-gray-800"}`}>
+        <p className={`text-sm mt-0.5 ${highlight ? `font-bold ${accent.text}` : "font-medium text-gray-800"}`}>
           {value || "—"}
         </p>
       </div>
@@ -125,7 +127,7 @@ export function StudentProfile() {
       <div className="max-w-5xl mx-auto space-y-5">
         {/* skeleton header */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-pulse">
-          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-green-200 to-emerald-200" />
+          <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
           <div className="p-6 space-y-5">
             <div className="h-4 w-16 bg-gray-100 rounded-md" />
             <div className="flex items-start gap-5">
@@ -170,7 +172,7 @@ export function StudentProfile() {
           <p className="text-gray-400 text-sm mt-1">The student record may have been removed or the link is invalid.</p>
           <button
             onClick={() => navigate(-1)}
-            className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition"
+            className={`mt-6 inline-flex items-center gap-1.5 text-sm font-semibold ${accent.text} hover:opacity-80 transition`}
           >
             <ArrowLeft size={14} /> Go back
           </button>
@@ -185,7 +187,7 @@ export function StudentProfile() {
 
       {/* ────────── HERO CARD ────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
         <div className="p-5 sm:p-7">
           <button
             onClick={() => navigate(-1)}
@@ -197,7 +199,7 @@ export function StudentProfile() {
           <div className="flex flex-col sm:flex-row items-start gap-5 sm:gap-7">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-emerald-500 via-green-500 to-emerald-600 shadow-lg shadow-emerald-200/50 flex items-center justify-center">
+              <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center`}>
                 <span className="text-white text-2xl sm:text-3xl font-black tracking-tight">
                   {getInitials(student.name)}
                 </span>
@@ -247,15 +249,15 @@ export function StudentProfile() {
 
               {/* Badge row */}
               <div className="flex flex-wrap gap-2 mt-4">
-                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-200/50 shadow-xs">
+                <span className={`inline-flex items-center gap-1.5 ${accent.chip} text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border shadow-xs`}>
                   <GraduationCap size={12} /> Grade {student.grade_level}
                 </span>
                 {student.enrollment && (
-                  <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-blue-200/50 shadow-xs">
+                  <span className={`inline-flex items-center gap-1.5 ${accent.chip} text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border shadow-xs`}>
                     <BookOpen size={12} /> {student.enrollment.section_name}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-purple-200/50 capitalize shadow-xs">
+                <span className={`inline-flex items-center gap-1.5 ${accent.chip} text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border capitalize shadow-xs`}>
                   <User size={12} /> {student.sex}
                 </span>
               </div>
@@ -267,19 +269,22 @@ export function StudentProfile() {
       {/* ────────── QUICK STATS ROW ────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { icon: GraduationCap, label: "Grade Level", value: `Grade ${student.grade_level}`, color: "emerald" },
-          { icon: BookOpen, label: "Current Section", value: student.enrollment?.section_name || "—", color: "blue" },
-          { icon: Calendar, label: "Enrolled Date", value: formatDate(student.enrollment?.enrollment_date), color: "amber" },
-          { icon: Activity, label: "Status", value: statusBadge?.label || student.status, color: student.status === "enrolled" ? "green" : student.status === "pending" ? "amber" : "gray" },
+          { icon: GraduationCap, label: "Grade Level", value: `Grade ${student.grade_level}` },
+          { icon: BookOpen, label: "Current Section", value: student.enrollment?.section_name || "—" },
+          { icon: Calendar, label: "Enrolled Date", value: formatDate(student.enrollment?.enrollment_date) },
+          { icon: Activity, label: "Status", value: statusBadge?.label || student.status },
         ].map((stat, i) => {
-          const colorMap: Record<string, string> = {
-            emerald: "from-emerald-50 to-green-50 border-emerald-200/50 text-emerald-700",
-            blue: "from-blue-50 to-indigo-50 border-blue-200/50 text-blue-700",
-            amber: "from-amber-50 to-yellow-50 border-amber-200/50 text-amber-700",
-            green: "from-emerald-50 to-green-50 border-emerald-200/50 text-emerald-700",
-            gray: "from-gray-50 to-gray-50 border-gray-200/50 text-gray-600",
-          };
-          const badgeColor = student.status === "dropped" ? "from-red-50 to-red-50 border-red-200/50 text-red-600" : colorMap[stat.color] || colorMap.gray;
+          const statusTint =
+            student.status === "enrolled"
+              ? "from-emerald-50 to-green-50 border-emerald-200/50 text-emerald-700"
+              : student.status === "pending"
+              ? "from-amber-50 to-yellow-50 border-amber-200/50 text-amber-700"
+              : student.status === "dropped"
+              ? "from-red-50 to-red-50 border-red-200/50 text-red-600"
+              : "from-gray-50 to-gray-50 border-gray-200/50 text-gray-600";
+          const badgeColor = i === 3
+            ? statusTint
+            : `${accent.soft} to-white border-gray-100/60 text-gray-800`;
           return (
             <div
               key={i}
@@ -309,21 +314,21 @@ export function StudentProfile() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative flex items-center gap-2 px-4 py-4 text-sm font-medium whitespace-nowrap transition-all duration-200 ${
                     active
-                      ? "text-emerald-700"
+                      ? accent.text
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {/* background */}
                   <span
                     className={`absolute inset-0 transition-all duration-200 ${
-                      active ? "bg-emerald-50/60" : "hover:bg-gray-50/60"
+                      active ? accent.soft : "hover:bg-gray-50/60"
                     }`}
                   />
                   {/* active bottom bar */}
                   {active && (
-                    <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-gradient-to-r from-emerald-500 to-green-400 rounded-full" />
+                    <span className={`absolute bottom-0 left-2 right-2 h-0.5 bg-gradient-to-r ${accent.gradient} rounded-full`} />
                   )}
-                  <Icon size={15} className={`relative ${active ? "text-emerald-500" : "text-gray-400"}`} />
+                  <Icon size={15} className={`relative ${active ? accent.text : "text-gray-400"}`} />
                   <span className="relative">{tab.label}</span>
                 </button>
               );
@@ -340,8 +345,8 @@ export function StudentProfile() {
               {/* Basic Information */}
               <div className="bg-gradient-to-br from-gray-50/80 to-white border border-gray-100 rounded-xl overflow-hidden transition-shadow duration-200 hover:shadow-sm">
                 <div className="flex items-center gap-2.5 px-5 pt-5 pb-3 border-b border-gray-100">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-xs">
-                    <User size={14} className="text-emerald-700" />
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center shadow-xs`}>
+                    <User size={14} />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-gray-800">Basic Information</h4>
@@ -361,8 +366,8 @@ export function StudentProfile() {
               {/* Contact Details */}
               <div className="bg-gradient-to-br from-gray-50/80 to-white border border-gray-100 rounded-xl overflow-hidden transition-shadow duration-200 hover:shadow-sm">
                 <div className="flex items-center gap-2.5 px-5 pt-5 pb-3 border-b border-gray-100">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shadow-xs">
-                    <Phone size={14} className="text-blue-700" />
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center shadow-xs`}>
+                    <Phone size={14} />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-gray-800">Contact Details</h4>
@@ -383,22 +388,22 @@ export function StudentProfile() {
           {activeTab === "enrollment" && (
             <div>
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center">
-                  <BookOpen size={14} className="text-emerald-700" />
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center`}>
+                  <BookOpen size={14} />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-800">Enrollment Records</h4>
                   <p className="text-[10px] text-gray-400 font-medium">Historical enrollment across school years</p>
                 </div>
-                <span className="ml-auto bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-emerald-100 shadow-xs">
+                <span className={`ml-auto ${accent.chip} text-[11px] font-semibold px-2.5 py-1 rounded-full border shadow-xs`}>
                   {enrollments.length} record{enrollments.length !== 1 ? "s" : ""}
                 </span>
               </div>
 
               {enrollments.length === 0 ? (
                 <div className="text-center py-16 bg-gray-50/50 rounded-xl border border-gray-100">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-                    <BookOpen size={32} className="text-emerald-300" />
+                  <div className={`w-16 h-16 rounded-2xl ${accent.soft} flex items-center justify-center mx-auto mb-4`}>
+                    <BookOpen size={32} className={`${accent.text} opacity-50`} />
                   </div>
                   <p className="text-gray-500 text-sm font-semibold">No enrollment records found</p>
                   <p className="text-gray-400 text-xs mt-1 max-w-xs mx-auto leading-relaxed">
@@ -425,7 +430,7 @@ export function StudentProfile() {
                             key={e.id}
                             className={`transition-all duration-150 ${
                               idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
-                            } hover:bg-emerald-50/40 hover:shadow-xs`}
+                            } hover:bg-gray-50 hover:shadow-xs`}
                           >
                             <td className="px-5 py-4 font-semibold text-gray-800 text-sm">{e.sy_label}</td>
                             <td className="px-5 py-4 text-gray-600 text-sm">Grade {e.section_grade_level ?? e.grade_level}</td>
@@ -454,22 +459,22 @@ export function StudentProfile() {
           {activeTab === "grades" && (
             <div>
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center">
-                  <BarChart2 size={14} className="text-amber-700" />
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center`}>
+                  <BarChart2 size={14} />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-800">Grade History</h4>
                   <p className="text-[10px] text-gray-400 font-medium">Academic performance records per subject</p>
                 </div>
-                <span className="ml-auto bg-amber-50 text-amber-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-amber-100 shadow-xs">
+                <span className={`ml-auto ${accent.chip} text-[11px] font-semibold px-2.5 py-1 rounded-full border shadow-xs`}>
                   {gradeHistory.length} school {gradeHistory.length !== 1 ? "years" : "year"}
                 </span>
               </div>
 
               {gradeHistory.length === 0 ? (
                 <div className="text-center py-16 bg-gradient-to-b from-gray-50/80 to-white rounded-xl border border-gray-100">
-                  <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4 shadow-sm">
-                    <BarChart2 size={32} className="text-amber-400" />
+                  <div className={`w-16 h-16 rounded-2xl ${accent.soft} flex items-center justify-center mx-auto mb-4 shadow-sm`}>
+                    <BarChart2 size={32} className={`${accent.text} opacity-50`} />
                   </div>
                   <p className="text-gray-500 text-sm font-semibold mb-1">No Grade Records Yet</p>
                   <p className="text-gray-400 text-xs max-w-sm mx-auto leading-relaxed">
@@ -484,9 +489,9 @@ export function StudentProfile() {
                     return (
                       <div key={sy.school_year_id} className="rounded-xl border border-gray-100 overflow-hidden">
                         {/* School year header */}
-                        <div className="flex flex-wrap items-center gap-3 px-5 py-4 bg-gradient-to-r from-amber-50/80 to-yellow-50/40 border-b border-gray-100">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center flex-shrink-0">
-                            <Calendar size={16} className="text-amber-700" />
+                        <div className={`flex flex-wrap items-center gap-3 px-5 py-4 ${accent.soft} border-b border-gray-100`}>
+                          <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center flex-shrink-0`}>
+                            <Calendar size={16} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-gray-900 text-sm">SY {sy.sy_label}</p>
@@ -528,7 +533,7 @@ export function StudentProfile() {
                                 {sy.subjects.map(sub => {
                                   const desc = getDescriptor(sub.final_average);
                                   return (
-                                    <tr key={`${sy.school_year_id}-${sub.subject_id}`} className="transition-colors hover:bg-amber-50/30">
+                                    <tr key={`${sy.school_year_id}-${sub.subject_id}`} className="transition-colors hover:bg-gray-50">
                                       <td className="px-4 py-3 font-semibold text-gray-800 text-sm whitespace-nowrap">{sub.subject_name}</td>
                                       {[sub.q1, sub.q2, sub.q3, sub.q4].map((q, qi) => (
                                         <td key={qi} className="px-4 py-3 text-gray-600 text-sm text-center">{q ?? "—"}</td>
@@ -556,8 +561,8 @@ export function StudentProfile() {
           {activeTab === "files" && (
             <div>
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                  <FileSpreadsheet size={14} className="text-blue-700" />
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center`}>
+                  <FileSpreadsheet size={14} />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-800">Uploaded Documents & Files</h4>
@@ -582,22 +587,22 @@ export function StudentProfile() {
           {activeTab === "sections" && (
             <div>
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                  <Layers size={14} className="text-purple-700" />
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center`}>
+                  <Layers size={14} />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-800">Section Assignment History</h4>
                   <p className="text-[10px] text-gray-400 font-medium">All sections the student has been assigned to</p>
                 </div>
-                <span className="ml-auto bg-purple-50 text-purple-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-purple-100 shadow-xs">
+                <span className={`ml-auto ${accent.chip} text-[11px] font-semibold px-2.5 py-1 rounded-full border shadow-xs`}>
                   {enrollments.length} record{enrollments.length !== 1 ? "s" : ""}
                 </span>
               </div>
 
               {enrollments.length === 0 ? (
                 <div className="text-center py-16 bg-gray-50/50 rounded-xl border border-gray-100">
-                  <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-4">
-                    <Layers size={32} className="text-purple-300" />
+                  <div className={`w-16 h-16 rounded-2xl ${accent.soft} flex items-center justify-center mx-auto mb-4`}>
+                    <Layers size={32} className={`${accent.text} opacity-50`} />
                   </div>
                   <p className="text-gray-500 text-sm font-semibold">No section assignment records found</p>
                   <p className="text-gray-400 text-xs mt-1 max-w-xs mx-auto leading-relaxed">
@@ -607,29 +612,25 @@ export function StudentProfile() {
               ) : (
                 <div className="relative">
                   {/* Timeline line */}
-                  <div className="absolute left-6 top-3 bottom-3 w-0.5 bg-gradient-to-b from-emerald-200 via-blue-200 to-purple-200 rounded-full hidden sm:block" />
+                  <div className={`absolute left-6 top-3 bottom-3 w-0.5 bg-gradient-to-b ${accent.soft} to-white rounded-full hidden sm:block`} />
 
                   <div className="space-y-4">
                     {enrollments.map((e, idx) => {
                       const badge = STATUS_BADGE[e.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", ring: "", label: e.status };
                       const isEven = idx % 2 === 0;
-                      const accentColor = isEven ? "emerald" : "blue";
-                      const accentBg = isEven ? "bg-emerald-500" : "bg-blue-500";
-                      const lightBg = isEven ? "bg-emerald-50/60" : "bg-blue-50/60";
-                      const borderColor = isEven ? "border-emerald-200/60" : "border-blue-200/60";
 
                       return (
                         <div
                           key={e.id}
-                          className={`relative flex gap-4 sm:gap-6 p-5 rounded-xl border ${borderColor} ${lightBg} transition-all duration-200 hover:shadow-md hover:-translate-y-0.5`}
+                          className={`relative flex gap-4 sm:gap-6 p-5 rounded-xl border ${accent.soft} border-gray-100 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5`}
                         >
                           {/* Timeline dot (desktop) */}
-                          <div className={`hidden sm:flex w-12 h-12 rounded-xl ${accentBg} shadow-lg shadow-${accentColor}-500/20 items-center justify-center flex-shrink-0 mt-0.5 text-white text-lg`}>
+                          <div className={`hidden sm:flex w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} items-center justify-center flex-shrink-0 mt-0.5 text-white text-lg`}>
                             {isEven ? "🏫" : "📚"}
                           </div>
 
                           {/* Mobile icon */}
-                          <div className={`sm:hidden w-10 h-10 rounded-xl ${isEven ? "bg-emerald-100" : "bg-blue-100"} flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm`}>
+                          <div className={`sm:hidden w-10 h-10 rounded-xl ${accent.softTile} flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm`}>
                             <span className="text-base">{isEven ? "🏫" : "📚"}</span>
                           </div>
 

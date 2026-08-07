@@ -18,6 +18,7 @@ import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { useApp } from '../../context/AppContext';
+import { useRoleAccent } from '../../utils/roleTheme';
 import { SF1Register } from './sf1-register';
 import { SF5Report } from './sf5-report';
 import { SF9Report } from './sf9-report';
@@ -95,6 +96,7 @@ type ActiveForm = 'SF1' | 'SF5' | 'SF9' | 'SF10' | null;
 
 export function SchoolForms() {
   const { showToast, role } = useApp();
+  const accent = useRoleAccent();
   const { formCode } = useParams<{ formCode?: string }>();
   const userLabel = role === 'teacher' ? 'Class Adviser' : role === 'admin' ? 'Admin' : 'Registrar';
   const initialForm = formCode?.toUpperCase() as ActiveForm;
@@ -198,10 +200,10 @@ export function SchoolForms() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
         <div className="p-5 sm:p-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
               <FileSpreadsheet size={22} className="text-white" />
             </div>
             <div>
@@ -319,7 +321,7 @@ export function SchoolForms() {
             {/* Header */}
             <div className="px-6 py-5 bg-white border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center">
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center`}>
                   {currentForm.icon}
                 </div>
                 <div>
@@ -351,7 +353,7 @@ export function SchoolForms() {
                       setSelectedGrade(e.target.value);
                       setGenerated(false);
                     }}
-                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                     {[7, 8, 9, 10, 11, 12].map(g => (
                       <option key={g} value={g}>
                         Grade {g}
@@ -370,7 +372,7 @@ export function SchoolForms() {
                         setSelectedSection(e.target.value);
                         setGenerated(false);
                       }}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                       {['Star', 'Gold', 'Silver', 'Regular'].map(s => (
                         <option key={s}>{s}</option>
                       ))}
@@ -388,7 +390,7 @@ export function SchoolForms() {
                         setSelectedStudentId(parseInt(e.target.value));
                         setGenerated(false);
                       }}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                       {students
                         .filter(s => s.status === 'enrolled')
                         .map(s => (
@@ -404,7 +406,7 @@ export function SchoolForms() {
                   <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
                     School Year
                   </label>
-                  <select className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                  <select className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                     <option>2025–2026</option>
                     <option>2024–2025</option>
                   </select>
@@ -413,7 +415,7 @@ export function SchoolForms() {
                   <button
                     onClick={handleGenerate}
                     disabled={generating}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 shadow-sm">
+                    className={`w-full ${accent.button} disabled:opacity-60 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 shadow-sm`}>
                     {generating ? (
                       <>
                         <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -431,8 +433,8 @@ export function SchoolForms() {
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50/80">
               {!generated && !generating && (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="w-16 h-16 bg-indigo-50 border-2 border-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FileText size={28} className="text-indigo-300" />
+                  <div className={`w-16 h-16 ${accent.soft} border-2 ${accent.spinnerTrack} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+                    <FileText size={28} className={accent.text} />
                   </div>
                   <p className="font-semibold text-gray-500">
                     Configure options and click Generate
@@ -445,8 +447,8 @@ export function SchoolForms() {
               {generating && (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <div className="relative w-14 h-14 mb-4">
-                    <div className="absolute inset-0 rounded-full border-4 border-indigo-100" />
-                    <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 animate-spin" />
+                    <div className={`absolute inset-0 rounded-full border-4 ${accent.spinnerTrack}`} />
+                    <div className={`absolute inset-0 rounded-full border-4 ${accent.spinnerArc} animate-spin`} />
                   </div>
                   <p className="font-semibold text-gray-600">
                     Generating {currentForm.code}...
@@ -1195,7 +1197,7 @@ export function SchoolForms() {
                   Close
                 </button>
                 <button
-                  className="flex items-center gap-2 flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0"
+                  className={`flex items-center gap-2 flex-1 ${accent.button} text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0`}
                   onClick={() => window.print()}>
                   <Printer size={14} /> Print Form
                 </button>

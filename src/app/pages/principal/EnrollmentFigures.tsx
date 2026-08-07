@@ -64,10 +64,10 @@ export function EnrollmentFigures() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-violet-600 to-violet-400" />
+        <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
         <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
               <TrendingUp size={22} className="text-white" />
             </div>
             <div>
@@ -75,7 +75,7 @@ export function EnrollmentFigures() {
               <p className="text-gray-500 text-sm">Per-grade and per-program enrollment breakdown</p>
             </div>
           </div>
-          <span className="bg-violet-100 text-violet-700 text-sm font-bold px-4 py-2 rounded-xl">{total} Total Enrolled</span>
+          <span className="bg-purple-100 text-purple-700 text-sm font-bold px-4 py-2 rounded-xl">{total} Total Enrolled</span>
         </div>
       </div>
 
@@ -84,10 +84,10 @@ export function EnrollmentFigures() {
         <School size={13} className="text-gray-400" />
         <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em] mr-1">Program:</span>
         <button onClick={() => setActiveProgram("all")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === "all" ? "bg-violet-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>All</button>
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === "all" ? "bg-purple-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>All</button>
         {PROGRAMS.map(p => (
           <button key={p.key} onClick={() => setActiveProgram(p.key)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === p.key ? "bg-violet-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{p.label}</button>
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === p.key ? "bg-purple-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{p.label}</button>
         ))}
       </div>
 
@@ -100,7 +100,7 @@ export function EnrollmentFigures() {
             <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
-            <Bar dataKey="count" fill="#6366f1" radius={[6, 6, 0, 0]} name="Students" />
+            <Bar dataKey="count" fill="#9333ea" radius={[6, 6, 0, 0]} name="Students" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -123,13 +123,13 @@ export function EnrollmentFigures() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {byProgram.map((p, idx) => (
-                <tr key={p.name} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-violet-50/50 transition-colors`}>
+                <tr key={p.name} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
                   <td className="px-5 py-3.5 font-medium text-gray-800">{p.name}</td>
                   <td className="px-5 py-3.5 font-semibold text-gray-900">{p.count}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       <div className="w-full max-w-[200px] bg-gray-100 rounded-full h-2">
-                        <div className="bg-violet-500 h-2 rounded-full" style={{ width: `${total > 0 ? (p.count / total) * 100 : 0}%` }} />
+                        <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${total > 0 ? (p.count / total) * 100 : 0}%` }} />
                       </div>
                       <span className="text-xs text-gray-500">{total > 0 ? Math.round((p.count / total) * 100) : 0}%</span>
                     </div>

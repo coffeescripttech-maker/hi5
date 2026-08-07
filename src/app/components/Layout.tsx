@@ -2,318 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router';
 import { useApp } from '../context/AppContext';
 import {
-  LayoutDashboard,
-  Users,
-  BookOpen,
-  FileText,
-  BarChart2,
-  Upload,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  ChevronRight,
-  GraduationCap,
-  UserCheck,
-  Bell,
   Shield,
-  Calendar,
-  Database,
-  Layers,
-  BookMarked,
-  FileSpreadsheet,
-  Search,
-  Activity,
+  GraduationCap,
+  FileText,
   User,
+  Bell,
+  Menu,
+  ChevronRight,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  AlertTriangle,
   Moon,
   Sun,
-  Camera,
-  UsersRound,
-  TrendingUp,
-  PieChart,
-  ClipboardList,
-  MessageSquare
+  Lock
 } from 'lucide-react';
 import logoImage from '../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png';
-
-type NavItem = { label: string; icon: React.ElementType; path: string };
-type NavGroup = { group: string; items: NavItem[] };
-
-const adminNav: NavGroup[] = [
-  {
-    group: 'Overview',
-    items: [{ label: 'Dashboard', icon: LayoutDashboard, path: '/admin' }]
-  },
-  {
-    group: 'Management',
-    items: [
-      { label: 'User Management', icon: Users, path: '/admin/users' },
-      { label: 'Subject Management', icon: BookOpen, path: '/admin/subjects' },
-      { label: 'Section Creation', icon: Layers, path: '/admin/sections' },
-      {
-        label: 'Academic Year Mgmt.',
-        icon: Calendar,
-        path: '/admin/academic-year'
-      }
-    ]
-  },
-  {
-    group: 'School Forms',
-    items: [
-      {
-        label: 'SF1 — School Register',
-        icon: FileSpreadsheet,
-        path: '/admin/forms/sf1'
-      },
-      {
-        label: 'SF5 — Promotion Report',
-        icon: BarChart2,
-        path: '/admin/forms/sf5'
-      },
-      { label: 'SF9 — Report Card', icon: FileText, path: '/admin/forms/sf9' },
-      {
-        label: 'SF10 — Permanent Record',
-        icon: BookOpen,
-        path: '/admin/forms/sf10'
-      }
-    ]
-  },
-  {
-    group: 'System',
-    items: [
-      { label: 'School Settings', icon: Settings, path: '/admin/settings' },
-      { label: 'Database Backup', icon: Database, path: '/admin/backup' },
-      { label: 'LIS Export', icon: Upload, path: '/admin/lis-export' },
-      { label: 'Activity Logs', icon: Activity, path: '/admin/logs' },
-      { label: 'My Profile', icon: User, path: '/admin/profile' },
-      { label: 'System Guide', icon: BookOpen, path: '/admin/guide' }
-    ]
-  }
-];
-
-const teacherNav: NavGroup[] = [
-  {
-    group: 'Overview',
-    items: [{ label: 'Dashboard', icon: LayoutDashboard, path: '/teacher' }]
-  },
-  {
-    group: 'Student Management',
-    items: [
-      { label: 'Enrollment', icon: UserCheck, path: '/teacher/enroll' },
-      { label: 'My Students', icon: UsersRound, path: '/teacher/my-students' },
-      // { label: "Auto Sectioning", icon: Layers, path: "/teacher/sectioning" },
-      {
-        label: 'Section Management',
-        icon: BookMarked,
-        path: '/teacher/sections'
-      },
-      { label: 'Bulk Promotion', icon: GraduationCap, path: '/teacher/promote' }
-    ]
-  },
-  {
-    group: 'Schedule',
-    items: [
-      {
-        label: 'My Schedule',
-        icon: Calendar,
-        path: '/teacher/schedule'
-      }
-    ]
-  },
-  {
-    group: 'School Forms',
-    items: [
-      {
-        label: 'SF1 — School Register',
-        icon: FileSpreadsheet,
-        path: '/teacher/forms/sf1'
-      },
-      {
-        label: 'SF5 — Promotion Report',
-        icon: BarChart2,
-        path: '/teacher/forms/sf5'
-      },
-      {
-        label: 'SF9 — Report Card',
-        icon: FileText,
-        path: '/teacher/forms/sf9'
-      },
-      {
-        label: 'SF10 — Permanent Record',
-        icon: BookOpen,
-        path: '/teacher/forms/sf10'
-      }
-    ]
-  },
-  {
-    group: 'Academic',
-    items: [
-      { label: 'Grade Management', icon: BookOpen, path: '/teacher/grades' },
-      { label: 'Upload Grades', icon: Upload, path: '/teacher/upload' },
-      {
-        label: 'Document Management',
-        icon: FileText,
-        path: '/teacher/documents'
-      },
-      {
-        label: 'At-Risk Detection',
-        icon: AlertTriangle,
-        path: '/teacher/atrisk'
-      }
-    ]
-  },
-  {
-    group: 'Account',
-    items: [
-      { label: 'My Profile', icon: User, path: '/teacher/profile' },
-      { label: 'System Guide', icon: BookOpen, path: '/teacher/guide' }
-    ]
-  }
-];
-
-const registrarNav: NavGroup[] = [
-  {
-    group: 'Overview',
-    items: [{ label: 'Dashboard', icon: LayoutDashboard, path: '/registrar' }]
-  },
-  {
-    group: 'Records',
-    items: [
-      { label: 'Student Search', icon: Search, path: '/registrar/students' },
-      {
-        label: 'Section Assignment',
-        icon: Layers,
-        path: '/registrar/section-assignment'
-      },
-
-      {
-        label: 'Promotion Records',
-        icon: GraduationCap,
-        path: '/registrar/promotions'
-      },
-      {
-        label: 'Subject Directory',
-        icon: BookOpen,
-        path: '/registrar/subjects'
-      }
-    ]
-  },
-  {
-    group: 'School Forms',
-    items: [
-      {
-        label: 'SF1 — School Register',
-        icon: FileSpreadsheet,
-        path: '/registrar/forms/sf1'
-      },
-      {
-        label: 'SF5 — Promotion Report',
-        icon: BarChart2,
-        path: '/registrar/forms/sf5'
-      },
-      {
-        label: 'SF9 — Report Card',
-        icon: FileText,
-        path: '/registrar/forms/sf9'
-      },
-      {
-        label: 'SF10 — Permanent Record',
-        icon: BookOpen,
-        path: '/registrar/forms/sf10'
-      }
-    ]
-  },
-  {
-    group: 'Reports & Monitoring',
-    items: [
-      {
-        label: 'Enrollment Report',
-        icon: BarChart2,
-        path: '/registrar/reports'
-      },
-      {
-        label: 'Section Management',
-        icon: Layers,
-        path: '/registrar/sections'
-      },
-      {
-        label: 'Grade Distribution',
-        icon: BarChart2,
-        path: '/registrar/grade-distribution'
-      },
-      {
-        label: 'Grade Corrections',
-        icon: MessageSquare,
-        path: '/registrar/grade-corrections'
-      },
-      {
-        label: 'Document Completion',
-        icon: ClipboardList,
-        path: '/registrar/document-completion'
-      },
-      {
-        label: 'At-Risk Students',
-        icon: AlertTriangle,
-        path: '/registrar/atrisk'
-      }
-    ]
-  },
-  {
-    group: 'Certificates',
-    items: [
-      {
-        label: 'Certificate of Enrollment',
-        icon: FileText,
-        path: '/registrar/certificates/enrollment'
-      },
-      {
-        label: 'Good Moral Certificate',
-        icon: UserCheck,
-        path: '/registrar/certificates/good-moral'
-      }
-    ]
-  },
-  {
-    group: 'Account',
-    items: [
-      { label: 'My Profile', icon: User, path: '/registrar/profile' },
-      { label: 'System Guide', icon: BookOpen, path: '/registrar/guide' }
-    ]
-  }
-];
-
-const principalNav: NavGroup[] = [
-  {
-    group: 'Overview',
-    items: [{ label: 'Dashboard', icon: LayoutDashboard, path: '/principal' }]
-  },
-  {
-    group: 'Enrollment',
-    items: [
-      { label: 'Enrollment Figures', icon: TrendingUp, path: '/principal/enrollment' },
-      { label: 'Enrollment Trend', icon: BarChart2, path: '/principal/enrollment-trend' },
-      { label: 'Section Population', icon: PieChart, path: '/principal/sections' }
-    ]
-  },
-  {
-    group: 'Academic',
-    items: [
-      { label: 'Grade Progress', icon: ClipboardList, path: '/principal/grades' },
-      { label: 'Promotion Stats', icon: GraduationCap, path: '/principal/promotions' },
-      { label: 'At-Risk Students', icon: AlertTriangle, path: '/principal/atrisk' }
-    ]
-  },
-  {
-    group: 'Account',
-    items: [
-      { label: 'My Profile', icon: User, path: '/principal/profile' },
-      { label: 'System Guide', icon: BookOpen, path: '/principal/guide' }
-    ]
-  }
-];
+import { NAV_BY_ROLE, type Role } from '../navigation';
+import { rbacApi } from '../services/rbac';
 
 const roleColors: Record<string, string> = {
   admin: 'from-[#0d1b3e] to-[#1a3a8f]',
@@ -521,6 +226,7 @@ export function Layout() {
   const [desktopSidebar, setDesktopSidebar] = useState<SidebarState>('full');
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const [allowedKeys, setAllowedKeys] = useState<Set<string> | null>(null);
 
   const cycleDesktopSidebar = () => {
     setDesktopSidebar(prev =>
@@ -547,6 +253,30 @@ export function Layout() {
     if (!role) navigate('/login', { replace: true });
   }, [role, navigate]);
 
+  // Load this role's enabled menu keys to filter the sidebar and guard
+  // direct-URL access to disabled modules. Admin always has full access.
+  useEffect(() => {
+    if (!role) return;
+    if (role === 'admin') {
+      setAllowedKeys(null); // admin always has full access
+      return;
+    }
+    let cancelled = false;
+    rbacApi
+      .myAccess()
+      .then(res => {
+        if (!cancelled) setAllowedKeys(new Set(res.menu_keys));
+      })
+      .catch(err => {
+        // Fail open — a down API must never lock a user out of the app.
+        console.warn('Failed to load access permissions:', err);
+        if (!cancelled) setAllowedKeys(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node))
@@ -558,15 +288,14 @@ export function Layout() {
 
   if (!role) return null;
 
-  const navGroups =
-    role === 'admin'
-      ? adminNav
-      : role === 'teacher'
-        ? teacherNav
-        : role === 'principal'
-          ? principalNav
-          : registrarNav;
-  const allNavItems = navGroups.flatMap(g => g.items);
+  const roleKey = role as Role;
+  const fullNavGroups = NAV_BY_ROLE[roleKey];
+  const fullNavItems = fullNavGroups.flatMap(g => g.items);
+  const canAccess = (key: string) =>
+    role === 'admin' || (allowedKeys ? allowedKeys.has(key) : true);
+  const navGroups = fullNavGroups
+    .map(g => ({ ...g, items: g.items.filter(item => canAccess(item.key)) }))
+    .filter(g => g.items.length > 0);
   const gradientClass = roleColors[role];
   const badgeColor = roleBadgeColors[role];
   const handleLogout = () => {
@@ -574,8 +303,12 @@ export function Layout() {
     navigate('/login');
   };
   const isActive = (path: string) => location.pathname === path;
-  const currentLabel =
-    allNavItems.find(n => isActive(n.path))?.label || 'Dashboard';
+  const currentNavItem = fullNavItems.find(n => isActive(n.path));
+  const accessDenied =
+    role !== 'admin' &&
+    !!currentNavItem &&
+    !(allowedKeys ? allowedKeys.has(currentNavItem.key) : true);
+  const currentLabel = currentNavItem?.label || 'Dashboard';
   const isIcons = desktopSidebar === 'icons';
   const isHidden = desktopSidebar === 'hidden';
 
@@ -1031,7 +764,32 @@ export function Layout() {
         {/* Page content */}
         <main
           className={`flex-1 overflow-y-auto p-4 md:p-6 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-          <Outlet />
+          {accessDenied ? (
+            <div className="min-h-[60vh] flex items-center justify-center">
+              <div className="text-center max-w-md px-4">
+                <div
+                  className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center ${
+                    darkMode ? 'bg-gray-800' : 'bg-red-50'
+                  }`}>
+                  <Lock size={28} className="text-red-500" />
+                </div>
+                <h2 className="mt-4 text-lg font-bold text-gray-800 dark:text-white">
+                  Access Restricted
+                </h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  You do not have permission to view this module. Please contact
+                  your ICT Coordinator if you believe this is a mistake.
+                </p>
+                <button
+                  onClick={() => navigate(`/${roleKey}`)}
+                  className="mt-5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors">
+                  Go to Dashboard
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

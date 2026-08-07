@@ -5,8 +5,8 @@ import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { useApp } from "../../context/AppContext";
 
 const STATUS_STYLE: Record<string, string> = {
-  validated: "bg-green-100 text-green-700 border-green-200",
-  imported: "bg-blue-100 text-blue-700 border-blue-200",
+  validated: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  imported: "bg-emerald-100 text-emerald-700 border-emerald-200",
   pending: "bg-amber-100 text-amber-700 border-amber-200",
   failed: "bg-red-100 text-red-700 border-red-200",
 };
@@ -27,8 +27,8 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 // Card accent colors per status (used when the card is active)
 const STATUS_CARD: Record<string, { chip: string; ring: string; text: string }> = {
-  validated: { chip: "border-green-200 bg-green-50", ring: "ring-2 ring-green-400", text: "text-green-700" },
-  imported: { chip: "border-blue-200 bg-blue-50", ring: "ring-2 ring-blue-400", text: "text-blue-700" },
+  validated: { chip: "border-emerald-200 bg-emerald-50", ring: "ring-2 ring-emerald-400", text: "text-emerald-700" },
+  imported: { chip: "border-emerald-200 bg-emerald-50", ring: "ring-2 ring-emerald-400", text: "text-emerald-700" },
   pending: { chip: "border-amber-200 bg-amber-50", ring: "ring-2 ring-amber-400", text: "text-amber-700" },
   failed: { chip: "border-red-200 bg-red-50", ring: "ring-2 ring-red-400", text: "text-red-700" },
 };
@@ -37,7 +37,7 @@ function fileTypeBadge(ext: string): { label: string; cls: string; icon: React.R
   const t = ext.toLowerCase();
   if (t === "xlsx" || t === "xls") return { label: t.toUpperCase(), cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: <FileSpreadsheet size={11} /> };
   if (t === "pdf") return { label: "PDF", cls: "bg-red-50 text-red-600 border-red-200", icon: <FileText size={11} /> };
-  if (t === "docx") return { label: "DOCX", cls: "bg-blue-50 text-blue-700 border-blue-200", icon: <FileText size={11} /> };
+  if (t === "docx") return { label: "DOCX", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: <FileText size={11} /> };
   return { label: t.toUpperCase(), cls: "bg-gray-50 text-gray-600 border-gray-200", icon: <FileText size={11} /> };
 }
 
@@ -264,8 +264,8 @@ export function DocumentManagement() {
         )}
         <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
           <p className="text-xs text-gray-400">
-            <strong className="text-green-600">Validated</strong> — file uploaded and format validated. &nbsp;
-            <strong className="text-blue-600">Imported</strong> — grades have been processed. &nbsp;
+            <strong className="text-emerald-600">Validated</strong> — file uploaded and format validated. &nbsp;
+            <strong className="text-emerald-600">Imported</strong> — grades have been processed. &nbsp;
             <strong className="text-amber-600">Pending</strong> — awaiting processing. &nbsp;
             <strong className="text-red-600">Failed</strong> — validation or import error.
           </p>

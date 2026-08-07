@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login, getMe, updateMe, logout, forgotPassword, resetPassword } from "../controllers/auth.controller";
+import { login, getMe, updateMe, logout, forgotPassword, resetPassword, changePassword } from "../controllers/auth.controller";
 import { authenticate } from "../middleware/auth";
 
 const router = Router();
@@ -18,6 +18,9 @@ router.get("/me", authenticate, getMe);
 
 // PUT /api/auth/me — Update own profile (requires auth)
 router.put("/me", authenticate, updateMe);
+
+// PUT /api/auth/change-password — Change own password (requires auth)
+router.put("/change-password", authenticate, changePassword);
 
 // POST /api/auth/logout — Logout
 router.post("/logout", authenticate, logout);

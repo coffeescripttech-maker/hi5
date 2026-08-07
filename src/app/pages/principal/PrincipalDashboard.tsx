@@ -6,7 +6,7 @@ import { sectionsApi, SectionRow } from "../../services/sections";
 import { useApp } from "../../context/AppContext";
 import { StudentRiskOverview } from "../../components/StudentRiskOverview";
 
-const COLORS = ["#6366f1", "#8b5cf6", "#06b6d4", "#f59e0b", "#ef4444", "#9ca3af"];
+const COLORS = ["#9333ea", "#a855f7", "#c084fc", "#e9d5ff", "#7c3aed", "#d8b4fe"];
 
 export function PrincipalDashboard() {
   const { showToast } = useApp();
@@ -44,11 +44,11 @@ export function PrincipalDashboard() {
     .map(s => ({ name: `${s.name} (G${s.grade_level})`, value: s.current_count }));
 
   const programData = [
-    { name: "Regular", value: enrollments.filter(e => e.status === "enrolled" && e.program === "regular").length, color: "#6366f1" },
-    { name: "STE", value: enrollments.filter(e => e.status === "enrolled" && e.program === "ste").length, color: "#8b5cf6" },
-    { name: "SPFL", value: enrollments.filter(e => e.status === "enrolled" && e.program === "spfl").length, color: "#06b6d4" },
-    { name: "Open High", value: enrollments.filter(e => e.status === "enrolled" && e.program === "open_high").length, color: "#f59e0b" },
-    { name: "ALS-SHS", value: enrollments.filter(e => e.status === "enrolled" && e.program === "als_shs").length, color: "#10b981" },
+    { name: "Regular", value: enrollments.filter(e => e.status === "enrolled" && e.program === "regular").length, color: "#9333ea" },
+    { name: "STE", value: enrollments.filter(e => e.status === "enrolled" && e.program === "ste").length, color: "#a855f7" },
+    { name: "SPFL", value: enrollments.filter(e => e.status === "enrolled" && e.program === "spfl").length, color: "#c084fc" },
+    { name: "Open High", value: enrollments.filter(e => e.status === "enrolled" && e.program === "open_high").length, color: "#e9d5ff" },
+    { name: "ALS-SHS", value: enrollments.filter(e => e.status === "enrolled" && e.program === "als_shs").length, color: "#7c3aed" },
   ].filter(p => p.value > 0);
 
   if (loading) {
@@ -71,9 +71,9 @@ export function PrincipalDashboard() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-violet-600 to-violet-400" />
+        <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
         <div className="p-5 sm:p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
             <Activity size={22} className="text-white" />
           </div>
           <div>
@@ -88,7 +88,7 @@ export function PrincipalDashboard() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Students</span>
-            <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center"><Users size={14} className="text-violet-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Users size={14} className="text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalEnrolled}</p>
           <p className="text-xs text-gray-400 mt-1">{overallPercent}% capacity</p>
@@ -96,7 +96,7 @@ export function PrincipalDashboard() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Sections</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center"><Layers size={14} className="text-blue-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Layers size={14} className="text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalSections}</p>
           <p className="text-xs text-gray-400 mt-1">Across {gradeLevels.length} grade levels</p>
@@ -104,7 +104,7 @@ export function PrincipalDashboard() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Teachers</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center"><GraduationCap size={14} className="text-emerald-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><GraduationCap size={14} className="text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{sections.filter(s => s.adviser_id).length}</p>
           <p className="text-xs text-gray-400 mt-1">Advisers assigned</p>
@@ -112,7 +112,7 @@ export function PrincipalDashboard() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Programs</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center"><BookOpen size={14} className="text-amber-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><BookOpen size={14} className="text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{programData.length}</p>
           <p className="text-xs text-gray-400 mt-1">{programData.map(p => p.name).join(", ")}</p>
@@ -129,8 +129,8 @@ export function PrincipalDashboard() {
               <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Bar dataKey="enrolled" fill="#6366f1" radius={[4, 4, 0, 0]} name="Enrolled" />
-              <Bar dataKey="capacity" fill="#e0e7ff" radius={[4, 4, 0, 0]} name="Capacity" />
+              <Bar dataKey="enrolled" fill="#9333ea" radius={[4, 4, 0, 0]} name="Enrolled" />
+              <Bar dataKey="capacity" fill="#f3e8ff" radius={[4, 4, 0, 0]} name="Capacity" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -171,7 +171,7 @@ export function PrincipalDashboard() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {sectionPopData.map((s, idx) => (
-                <tr key={s.name} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-violet-50/50 transition-colors`}>
+                <tr key={s.name} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
                   <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
                   <td className="px-5 py-3.5">
                     <span className="font-semibold text-gray-900">{s.value}</span>
@@ -179,7 +179,7 @@ export function PrincipalDashboard() {
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="w-full max-w-[200px] bg-gray-100 rounded-full h-2">
-                      <div className="bg-violet-500 h-2 rounded-full" style={{ width: `${Math.min(100, (s.value / 50) * 100)}%` }} />
+                      <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${Math.min(100, (s.value / 50) * 100)}%` }} />
                     </div>
                   </td>
                 </tr>

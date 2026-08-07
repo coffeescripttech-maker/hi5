@@ -143,9 +143,9 @@ const PROGRAM_BADGES: Record<
   string,
   { bg: string; text: string; label: string }
 > = {
-  regular: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Mainstream' },
-  ste: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'STE' },
-  spfl: { bg: 'bg-teal-100', text: 'text-teal-700', label: 'SPFL' },
+  regular: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Mainstream' },
+  ste: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'STE' },
+  spfl: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'SPFL' },
   open_high: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Open High' },
   als_shs: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'ALS SHS' }
 };
@@ -793,8 +793,8 @@ export function EnrollmentModule() {
         label: 'Enrolled Today',
         value: todayCount,
         icon: Clock,
-        iconWrap: 'bg-blue-50 ring-blue-100/70',
-        iconCls: 'text-blue-600',
+        iconWrap: 'bg-emerald-50 ring-emerald-100/70',
+        iconCls: 'text-emerald-600',
         hint: todayStr
       },
       {
@@ -835,14 +835,14 @@ export function EnrollmentModule() {
         subtitle: 'Re-enrollment · Grades 7–12',
         desc: 'Search by LRN or Student ID to auto-populate existing records, then promote the student to their new grade level.',
         icon: RefreshCw,
-        iconCls: 'text-blue-600',
-        bandBg: 'bg-blue-50',
-        cardBorder: 'border-blue-200',
-        badge: 'bg-blue-100 text-blue-700',
-        accent: 'text-blue-600',
+        iconCls: 'text-emerald-600',
+        bandBg: 'bg-emerald-50',
+        cardBorder: 'border-emerald-200',
+        badge: 'bg-emerald-100 text-emerald-700',
+        accent: 'text-emerald-600',
         statusOpen: '✓ Open',
         statusClosed: 'Closed',
-        statusCls: 'bg-blue-50 text-blue-700 border-blue-200',
+        statusCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
         action: 'Search Student',
         disabled: !enrollmentOpen
       },
@@ -871,9 +871,9 @@ export function EnrollmentModule() {
       <div className="space-y-6 max-w-8xl mx-auto">
         {/* Header hero */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-blue-500" />
+          <div className="h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500" />
           <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200/60">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200/60">
               <UserCheck size={22} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
@@ -1068,7 +1068,7 @@ export function EnrollmentModule() {
                       className="hover:bg-emerald-50/40 transition-colors duration-150">
                       <td className="px-6 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0">
                             {e.student_name.charAt(0)}
                           </div>
                           <div className="min-w-0">
@@ -1089,7 +1089,7 @@ export function EnrollmentModule() {
                       </td>
                       <td className="px-6 py-3.5">
                         {e.section_name ? (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200/50">
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/50">
                             {e.section_name}
                           </span>
                         ) : (
@@ -1101,7 +1101,7 @@ export function EnrollmentModule() {
                       <td className="px-6 py-3.5">
                         {PROGRAM_BADGES[e.program] ? (
                           <span
-                            className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${PROGRAM_BADGES[e.program]?.bg || 'bg-blue-50'} ${PROGRAM_BADGES[e.program]?.text || 'text-blue-700'}`}>
+                            className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${PROGRAM_BADGES[e.program]?.bg || 'bg-emerald-50'} ${PROGRAM_BADGES[e.program]?.text || 'text-emerald-700'}`}>
                             {PROGRAM_BADGES[e.program]?.label || e.program}
                           </span>
                         ) : (
@@ -1110,7 +1110,7 @@ export function EnrollmentModule() {
                       </td>
                       <td className="px-6 py-3.5">
                         {e.status === 'enrolled' ? (
-                          <span className="bg-green-50 text-green-700 border border-green-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
                             Enrolled
                           </span>
                         ) : e.status === 'dropped' ? (
@@ -1151,7 +1151,7 @@ export function EnrollmentModule() {
       return (
         <div className="max-w-lg mx-auto text-center py-12 sm:py-16">
           {/* Animated checkmark */}
-          <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-green-100 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-200/50 animate-[pulse_2s_ease-in-out_infinite]">
+          <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-200/50 animate-[pulse_2s_ease-in-out_infinite]">
             <CheckCircle size={44} className="text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">
@@ -1162,7 +1162,7 @@ export function EnrollmentModule() {
           </p>
           <div className="bg-white/80 backdrop-blur-sm border border-emerald-100 shadow-xl shadow-emerald-100/30 rounded-2xl p-6 mb-6 text-left space-y-3">
             <div className="flex items-center gap-3 pb-3 border-b border-emerald-100/60">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-md flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex items-center justify-center flex-shrink-0">
                 <UserCheck size={18} className="text-white" />
               </div>
               <div>
@@ -1202,7 +1202,7 @@ export function EnrollmentModule() {
                 </p>
                 <p>
                   <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${PROGRAM_BADGES[program]?.bg || 'bg-blue-100'} ${PROGRAM_BADGES[program]?.text || 'text-blue-700'}`}>
+                    className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${PROGRAM_BADGES[program]?.bg || 'bg-emerald-100'} ${PROGRAM_BADGES[program]?.text || 'text-emerald-700'}`}>
                     {PROGRAM_BADGES[program]?.label || 'Regular'}
                   </span>
                 </p>
@@ -1211,7 +1211,7 @@ export function EnrollmentModule() {
           </div>
           <button
             onClick={resetAll}
-            className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-300">
+            className="bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-300">
             Enroll Another Student
           </button>
         </div>
@@ -1227,7 +1227,7 @@ export function EnrollmentModule() {
             <ArrowLeft size={16} />
           </button>
           <div className="flex items-center gap-4 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-md flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex items-center justify-center flex-shrink-0">
               <UserPlus size={20} className="text-white" />
             </div>
             <div>
@@ -1250,7 +1250,7 @@ export function EnrollmentModule() {
               className="absolute top-5 left-0 right-0 h-1 z-0 rounded-full overflow-hidden"
               style={{ left: '8%', right: '8%' }}>
               <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all duration-500 rounded-full"
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-500 transition-all duration-500 rounded-full"
                 style={{
                   width: `${((newStep - 1) / (steps.length - 1)) * 100}%`
                 }}
@@ -1295,7 +1295,7 @@ export function EnrollmentModule() {
           {newStep === 1 && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <User size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -1499,7 +1499,7 @@ export function EnrollmentModule() {
           {newStep === 2 && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <BookOpen size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -1637,7 +1637,7 @@ export function EnrollmentModule() {
           {newStep === 3 && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <FileText size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -1704,7 +1704,7 @@ export function EnrollmentModule() {
           {newStep === 4 && (
             <div className="space-y-5 text-center">
               <div className="flex items-center gap-3 justify-center">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <FileText size={18} className="text-emerald-700" />
                 </div>
                 <div className="text-left">
@@ -1716,7 +1716,7 @@ export function EnrollmentModule() {
                   </p>
                 </div>
               </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-2xl p-8 shadow-inner">
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-50 border-2 border-emerald-200 rounded-2xl p-8 shadow-inner">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-semibold mb-4">
                   <Check size={12} /> Generated Successfully
                 </div>
@@ -1757,7 +1757,7 @@ export function EnrollmentModule() {
           {newStep === 5 && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <CheckCircle size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -1817,7 +1817,7 @@ export function EnrollmentModule() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Program:</span>
                     <span
-                      className={`font-medium ${PROGRAM_BADGES[program]?.text || 'text-blue-700'}`}>
+                      className={`font-medium ${PROGRAM_BADGES[program]?.text || 'text-emerald-700'}`}>
                       {PROGRAM_BADGES[program]?.label || 'Regular'}
                     </span>
                   </div>
@@ -1884,14 +1884,14 @@ export function EnrollmentModule() {
             <button
               onClick={handleNewNext}
               disabled={newStep === 2 && !newGrade}
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               {newStep === 4 ? 'Continue to Preview' : 'Next Step'}{' '}
               <ChevronRight size={15} />
             </button>
           ) : (
             <button
               onClick={handleConfirmNewEnrollment}
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 flex items-center justify-center gap-2">
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 flex items-center justify-center gap-2">
               <CheckCircle size={16} /> Confirm Enrollment
             </button>
           )}
@@ -1905,7 +1905,7 @@ export function EnrollmentModule() {
     if (enrolledRet && foundStudent) {
       return (
         <div className="max-w-lg mx-auto text-center py-12 sm:py-16">
-          <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-green-100 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-200/50 animate-[pulse_2s_ease-in-out_infinite]">
+          <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-200/50 animate-[pulse_2s_ease-in-out_infinite]">
             <CheckCircle size={44} className="text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">
@@ -1916,7 +1916,7 @@ export function EnrollmentModule() {
           </p>
           <div className="bg-white/80 backdrop-blur-sm border border-emerald-100 shadow-xl shadow-emerald-100/30 rounded-2xl p-6 mb-6 text-left space-y-3">
             <div className="flex items-center gap-3 pb-3 border-b border-emerald-100/60">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-md flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex items-center justify-center flex-shrink-0">
                 <RefreshCw size={18} className="text-white" />
               </div>
               <div>
@@ -1960,7 +1960,7 @@ export function EnrollmentModule() {
                 </p>
                 <p>
                   <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${PROGRAM_BADGES[program]?.bg || 'bg-blue-100'} ${PROGRAM_BADGES[program]?.text || 'text-blue-700'}`}>
+                    className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${PROGRAM_BADGES[program]?.bg || 'bg-emerald-100'} ${PROGRAM_BADGES[program]?.text || 'text-emerald-700'}`}>
                     {PROGRAM_BADGES[program]?.label || 'Regular'}
                   </span>
                 </p>
@@ -1969,7 +1969,7 @@ export function EnrollmentModule() {
           </div>
           <button
             onClick={resetAll}
-            className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-300">
+            className="bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-300">
             Enroll Another Student
           </button>
         </div>
@@ -1985,7 +1985,7 @@ export function EnrollmentModule() {
             <ArrowLeft size={16} />
           </button>
           <div className="flex items-center gap-4 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex items-center justify-center flex-shrink-0">
               <RefreshCw size={20} className="text-white" />
             </div>
             <div>
@@ -2010,7 +2010,7 @@ export function EnrollmentModule() {
               className="absolute top-5 left-0 right-0 h-1 z-0 rounded-full overflow-hidden"
               style={{ left: '8%', right: '8%' }}>
               <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all duration-500 rounded-full"
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-500 transition-all duration-500 rounded-full"
                 style={{ width: `${((retStep - 1) / 3) * 100}%` }}
               />
             </div>
@@ -2057,7 +2057,7 @@ export function EnrollmentModule() {
           {retStep === 1 && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <Search size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -2110,7 +2110,7 @@ export function EnrollmentModule() {
                             setShowSuggestions(false);
                             setRetStep(2);
                           }}>
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0 shadow-sm">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0 shadow-sm">
                             {s.name.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -2142,7 +2142,7 @@ export function EnrollmentModule() {
                     setShowSuggestions(false);
                     handleSearch();
                   }}
-                  className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200">
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200">
                   Search
                 </button>
               </div>
@@ -2180,7 +2180,7 @@ export function EnrollmentModule() {
           {retStep === 2 && foundStudent && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <CheckCircle size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -2214,8 +2214,8 @@ export function EnrollmentModule() {
                     </div>
                   ))}
                 </div>
-                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 space-y-3">
-                  <p className="text-[11px] font-bold text-blue-700 uppercase tracking-[0.06em] flex items-center gap-2">
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-5 space-y-3">
+                  <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-[0.06em] flex items-center gap-2">
                     <FileText size={13} /> Previous Academic Record
                   </p>
                   {[
@@ -2225,7 +2225,7 @@ export function EnrollmentModule() {
                   ].map(([k, v]) => (
                     <div
                       key={k}
-                      className="flex justify-between text-sm border-b border-blue-100/50 pb-2 last:border-0 last:pb-0">
+                      className="flex justify-between text-sm border-b border-emerald-100/50 pb-2 last:border-0 last:pb-0">
                       <span className="text-gray-500">{k}:</span>
                       <span className="font-medium text-gray-800">{v}</span>
                     </div>
@@ -2263,7 +2263,7 @@ export function EnrollmentModule() {
           {retStep === 3 && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <BookOpen size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -2285,7 +2285,7 @@ export function EnrollmentModule() {
                     className={`mb-3 rounded-xl border px-4 py-3 ${
                       completedGrade12
                         ? 'bg-amber-50/60 border-amber-200/60 text-amber-800'
-                        : 'bg-blue-50/50 border-blue-100 text-blue-800'
+                        : 'bg-emerald-50/50 border-emerald-100 text-emerald-800'
                     }`}>
                     <p className="font-semibold flex items-center gap-1.5">
                       <AlertCircle size={14} className="flex-shrink-0" />
@@ -2361,7 +2361,7 @@ export function EnrollmentModule() {
                                   <Check size={10} strokeWidth={3} /> Next level
                                 </span>
                               ) : isSameGrade ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wide">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wide">
                                   <RefreshCw size={10} /> Repeating
                                 </span>
                               ) : null}
@@ -2473,7 +2473,7 @@ export function EnrollmentModule() {
           {retStep === 4 && foundStudent && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <CheckCircle size={18} className="text-emerald-700" />
                 </div>
                 <div>
@@ -2526,13 +2526,13 @@ export function EnrollmentModule() {
                 retStep === 3 &&
                 (retGrade == null || !allowedRetGrades.includes(retGrade))
               }
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               Next Step <ChevronRight size={15} />
             </button>
           ) : (
             <button
               onClick={handleConfirmReturning}
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 flex items-center justify-center gap-2">
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 flex items-center justify-center gap-2">
               <CheckCircle size={16} /> Confirm Re-Enrollment
             </button>
           )}
@@ -2824,7 +2824,7 @@ export function EnrollmentModule() {
           {dropStep === 2 && dropFound && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                   <CheckCircle size={18} className="text-emerald-700" />
                 </div>
                 <div>

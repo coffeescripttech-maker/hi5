@@ -86,10 +86,10 @@ export function LisExport() {
     <div className="space-y-5 max-w-5xl mx-auto">
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
         <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
               <Upload size={22} className="text-white" />
             </div>
             <div>
@@ -110,7 +110,7 @@ export function LisExport() {
             <select
               value={selectedSY || ""}
               onChange={e => setSelectedSY(e.target.value ? parseInt(e.target.value) : undefined)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
             >
               {schoolYears.map(sy => (
                 <option key={sy.id} value={sy.id}>
@@ -124,7 +124,7 @@ export function LisExport() {
             <select
               value={selectedGrade}
               onChange={e => setSelectedGrade(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
             >
               <option value="">All Grades</option>
               {[7, 8, 9, 10, 11, 12].map(g => (
@@ -145,8 +145,8 @@ export function LisExport() {
               className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all"
             >
               <div className="p-5">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center mb-4">
-                  <card.icon size={18} className="text-indigo-700" />
+                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
+                  <card.icon size={18} className="text-blue-700" />
                 </div>
                 <h3 className="font-bold text-gray-900 text-sm mb-1">{card.title}</h3>
                 <p className="text-gray-500 text-xs leading-relaxed mb-4">{card.desc}</p>
@@ -157,7 +157,7 @@ export function LisExport() {
                 <button
                   onClick={() => handleDownload(card)}
                   disabled={isDownloading}
-                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all"
                 >
                   {isDownloading ? (
                     <Loader2 size={15} className="animate-spin" />
@@ -173,11 +173,11 @@ export function LisExport() {
       </div>
 
       {/* ── Info Banner ── */}
-      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 flex items-start gap-3">
-        <Info size={18} className="text-indigo-500 flex-shrink-0 mt-0.5" />
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-start gap-3">
+        <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-semibold text-indigo-800 mb-1">DepEd LIS Submission</p>
-          <p className="text-xs text-indigo-600 leading-relaxed">
+          <p className="text-sm font-semibold text-blue-800 mb-1">DepEd LIS Submission</p>
+          <p className="text-xs text-blue-600 leading-relaxed">
             Download these CSV files and upload them to the{" "}
             <strong>DepEd Learner Information System (LIS)</strong> portal at{" "}
             <a

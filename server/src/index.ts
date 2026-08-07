@@ -28,6 +28,7 @@ import certificatesRoutes from "./routes/certificates.routes";
 import strandTracksRoutes from "./routes/strandTracks.routes";
 import schedulesRoutes from "./routes/schedules.routes";
 import lisRoutes from "./routes/lis.routes";
+import rbacRoutes from "./routes/rbac.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { startUserStatusCron } from "./cron/userStatusCron";
 import { startBackupCron } from "./cron/backupCron";
@@ -90,6 +91,7 @@ app.use("/api/certificates", certificatesRoutes);
 app.use("/api/strand-tracks", strandTracksRoutes);
 app.use("/api/schedules", schedulesRoutes);
 app.use("/api/lis", lisRoutes);
+app.use("/api/rbac", rbacRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

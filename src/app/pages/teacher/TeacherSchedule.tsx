@@ -62,8 +62,8 @@ export function TeacherSchedule() {
       {/* Header */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-            <Calendar size={20} className="text-indigo-700" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <Calendar size={20} className="text-emerald-700" />
           </div>
           <div>
             <h2 className="font-bold text-gray-800">My Teaching Schedule</h2>
@@ -116,18 +116,18 @@ export function TeacherSchedule() {
                       return (
                         <td key={di} className="border-r border-b border-gray-200 px-2 py-1 align-top relative min-h-[48px]">
                           {slot && isStart && (
-                            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2.5 space-y-1.5 shadow-sm">
-                              <p className="font-semibold text-indigo-800 text-xs leading-tight">{slot.subject_name}</p>
-                              <div className="flex items-center gap-1.5 text-[11px] text-indigo-600">
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                              <p className="font-semibold text-emerald-800 text-xs leading-tight">{slot.subject_name}</p>
+                              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600">
                                 <Users size={11} />
                                 <span>{slot.section_name}</span>
                               </div>
-                              <div className="flex items-center gap-1.5 text-[11px] text-indigo-600">
+                              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600">
                                 <Clock size={11} />
                                 <span>{formatTime(slot.start_time)} – {formatTime(slot.end_time)}</span>
                               </div>
                               {slot.room && (
-                                <div className="flex items-center gap-1.5 text-[11px] text-indigo-600">
+                                <div className="flex items-center gap-1.5 text-[11px] text-emerald-600">
                                   <MapPin size={11} />
                                   <span>{slot.room}</span>
                                 </div>

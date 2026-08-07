@@ -54,9 +54,9 @@ export function PromotionStats() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-violet-600 to-violet-400" />
+        <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
         <div className="p-5 sm:p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
             <GraduationCap size={22} className="text-white" />
           </div>
           <div>
@@ -71,25 +71,25 @@ export function PromotionStats() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Promoted</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center"><TrendingUp size={14} className="text-emerald-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><TrendingUp size={14} className="text-purple-600" /></div>
           </div>
-          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{totalPromoted}</p>
+          <p className="text-2xl font-bold text-purple-600 tracking-[-0.02em]">{totalPromoted}</p>
           <p className="text-xs text-gray-400 mt-1">students promoted</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Retention Rate</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center"><RefreshCw size={14} className="text-amber-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><RefreshCw size={14} className="text-purple-600" /></div>
           </div>
-          <p className="text-2xl font-bold text-amber-600 tracking-[-0.02em]">{retentionRate}%</p>
+          <p className="text-2xl font-bold text-purple-600 tracking-[-0.02em]">{retentionRate}%</p>
           <p className="text-xs text-gray-400 mt-1">retained students</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Enrolled</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center"><Users size={14} className="text-blue-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Users size={14} className="text-purple-600" /></div>
           </div>
-          <p className="text-2xl font-bold text-blue-600 tracking-[-0.02em]">{totalEnrolled}</p>
+          <p className="text-2xl font-bold text-purple-600 tracking-[-0.02em]">{totalEnrolled}</p>
           <p className="text-xs text-gray-400 mt-1">currently enrolled</p>
         </div>
       </div>
@@ -103,7 +103,7 @@ export function PromotionStats() {
             <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
-            <Bar dataKey="promoted" fill="#6366f1" radius={[6, 6, 0, 0]} name="Promoted" />
+            <Bar dataKey="promoted" fill="#9333ea" radius={[6, 6, 0, 0]} name="Promoted" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -128,7 +128,7 @@ export function PromotionStats() {
               {promotions.length === 0 ? (
                 <tr><td colSpan={5} className="px-5 py-14 text-center text-gray-400 text-sm">No promotion records found.</td></tr>
               ) : promotions.map((p, idx) => (
-                <tr key={p.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-violet-50/50 transition-colors`}>
+                <tr key={p.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
                   <td className="px-5 py-3.5 text-sm text-gray-600">{p.sy_label}</td>
                   <td className="px-5 py-3.5 text-sm text-gray-800 font-medium">Grade {p.from_grade_level}</td>
                   <td className="px-5 py-3.5 text-sm text-gray-800 font-medium">Grade {p.to_grade_level}</td>

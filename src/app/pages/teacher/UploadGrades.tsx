@@ -234,8 +234,8 @@ export function UploadGrades() {
       {/* Header + selectors */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
-            <FileUp size={20} className="text-green-700" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+            <FileUp size={20} className="text-emerald-700" />
           </div>
           <div>
             <h2 className="font-bold text-gray-800">Upload Past Grades</h2>
@@ -247,12 +247,12 @@ export function UploadGrades() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div>
             <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">
-              <GraduationCap size={13} className="text-green-600" /> Section
+              <GraduationCap size={13} className="text-emerald-600" /> Section
             </label>
             <select
               value={selectedSectionId}
               onChange={e => setSelectedSectionId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">Select section…</option>
               {sections.map(s => (
@@ -262,12 +262,12 @@ export function UploadGrades() {
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">
-              <BookOpen size={13} className="text-green-600" /> Subject
+              <BookOpen size={13} className="text-emerald-600" /> Subject
             </label>
             <select
               value={selectedSubjectId}
               onChange={e => setSelectedSubjectId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">Select subject…</option>
               {sectionSubjects.map(s => (
@@ -277,12 +277,12 @@ export function UploadGrades() {
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">
-              <CalendarDays size={13} className="text-green-600" /> School Year
+              <CalendarDays size={13} className="text-emerald-600" /> School Year
             </label>
             <select
               value={selectedYearId}
               onChange={e => setSelectedYearId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">Select school year…</option>
               {years.map(y => (
@@ -294,12 +294,12 @@ export function UploadGrades() {
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">
-              <ClipboardList size={13} className="text-green-600" /> Quarter
+              <ClipboardList size={13} className="text-emerald-600" /> Quarter
             </label>
             <select
               value={quarter}
               onChange={e => setQuarter(Number(e.target.value))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               {[1, 2, 3, 4].map(q => (
                 <option key={q} value={q}>Quarter {q}</option>
@@ -313,7 +313,7 @@ export function UploadGrades() {
             onClick={handleDownloadTemplate}
             disabled={!hasSelection}
             title={!hasSelection ? "Select section, subject, and school year first" : undefined}
-            className="flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-lg text-sm font-medium transition shadow-sm"
+            className="flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-lg text-sm font-medium transition shadow-sm"
           >
             <Download size={16} />
             Download Excel Template
@@ -336,20 +336,20 @@ export function UploadGrades() {
                 <div className="flex items-center gap-2 flex-1 last:flex-none">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
                     complete
-                      ? "bg-green-600 text-white"
+                      ? "bg-emerald-600 text-white"
                       : active
-                        ? "bg-green-100 text-green-700 ring-2 ring-green-400"
+                        ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-400"
                         : "bg-gray-100 text-gray-500"
                   }`}>
                     {complete ? <CheckCircle size={16} /> : i + 1}
                   </div>
                   <div className="hidden md:block leading-tight">
-                    <p className={`text-xs font-semibold ${active ? "text-green-700" : "text-gray-700"}`}>{step.label}</p>
+                    <p className={`text-xs font-semibold ${active ? "text-emerald-700" : "text-gray-700"}`}>{step.label}</p>
                     <p className="text-[10px] text-gray-400">{step.sub}</p>
                   </div>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={`h-0.5 flex-1 mx-2 mb-5 md:mb-0 ${complete ? "bg-green-500" : "bg-gray-200"}`} />
+                  <div className={`h-0.5 flex-1 mx-2 mb-5 md:mb-0 ${complete ? "bg-emerald-500" : "bg-gray-200"}`} />
                 )}
               </React.Fragment>
             );
@@ -364,7 +364,7 @@ export function UploadGrades() {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={`bg-white rounded-xl border-2 border-dashed p-10 text-center transition-all cursor-pointer ${
-            dragActive ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-green-400 hover:bg-green-50/40"
+            dragActive ? "border-emerald-500 bg-emerald-50" : "border-gray-300 hover:border-emerald-400 hover:bg-emerald-50/40"
           }`}
           onClick={() => fileInputRef.current?.click()}
         >
@@ -375,14 +375,14 @@ export function UploadGrades() {
             onChange={handleFileSelect}
             className="hidden"
           />
-          <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-colors ${dragActive ? "bg-green-600" : "bg-green-100"}`}>
-            <Upload size={28} className={dragActive ? "text-white" : "text-green-600"} />
+          <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-colors ${dragActive ? "bg-emerald-600" : "bg-emerald-100"}`}>
+            <Upload size={28} className={dragActive ? "text-white" : "text-emerald-600"} />
           </div>
           <p className="font-semibold text-gray-600 mb-1">
             {dragActive ? "Drop the file here" : "Drag & drop your Excel file"}
           </p>
           <p className="text-gray-400 text-sm mb-4">or click to browse · .xlsx, .xls formats</p>
-          <span className="bg-green-700 hover:bg-green-800 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2">
+          <span className="bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2">
             <Upload size={16} />
             Choose File
           </span>
@@ -393,11 +393,11 @@ export function UploadGrades() {
       {/* Uploading */}
       {stage === "uploading" && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-          <FileSpreadsheet size={32} className="text-green-600 mx-auto mb-3" />
+          <FileSpreadsheet size={32} className="text-emerald-600 mx-auto mb-3" />
           <p className="font-semibold text-gray-700 mb-1">Processing: {fileName}</p>
           <p className="text-gray-400 text-sm mb-4">Validating data format and checking for errors...</p>
           <div className="w-full bg-gray-100 rounded-full h-2 max-w-sm mx-auto">
-            <div className="bg-green-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            <div className="bg-emerald-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-xs text-gray-400 mt-2">{progress}%</p>
         </div>
@@ -486,7 +486,7 @@ export function UploadGrades() {
                   value={previewSearch}
                   onChange={e => setPreviewSearch(e.target.value)}
                   placeholder="Search by LRN or name…"
-                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -563,7 +563,7 @@ export function UploadGrades() {
               <X size={14} /> Cancel
             </button>
             <button onClick={handleImport} disabled={validRows.length === 0}
-              className="flex-1 flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 disabled:bg-gray-300 disabled:text-gray-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition shadow-sm">
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-gray-300 disabled:text-gray-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition shadow-sm">
               <Upload size={14} />
               Confirm Import ({validRows.length} valid records)
             </button>
@@ -574,11 +574,11 @@ export function UploadGrades() {
       {/* Importing */}
       {stage === "importing" && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-          <div className="w-14 h-14 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-14 h-14 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="font-semibold text-gray-700 mb-1">Importing grades…</p>
           <p className="text-gray-400 text-sm mb-4">Writing validated grades and skipping locked entries</p>
           <div className="w-full bg-gray-100 rounded-full h-2 max-w-sm mx-auto">
-            <div className="bg-green-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            <div className="bg-emerald-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-xs text-gray-400 mt-2">{progress}%</p>
         </div>
@@ -587,9 +587,9 @@ export function UploadGrades() {
       {/* Done */}
       {stage === "done" && (
         <div className="space-y-5">
-          <div className="bg-white rounded-xl border border-green-300 shadow-sm p-8 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <PartyPopper size={30} className="text-green-600" />
+          <div className="bg-white rounded-xl border border-emerald-300 shadow-sm p-8 text-center">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <PartyPopper size={30} className="text-emerald-600" />
             </div>
             <h3 className="font-bold text-gray-800 text-lg mb-1">Import Successful!</h3>
             <p className="text-gray-500 text-sm mb-4">
@@ -609,8 +609,8 @@ export function UploadGrades() {
                 <p className="text-2xl font-black text-gray-700">{importResult.skipped}</p>
                 <p className="text-xs text-gray-500 mt-0.5">Blank / Skipped</p>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-                <p className="text-2xl font-black text-blue-600">{importResult.locked}</p>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                <p className="text-2xl font-black text-emerald-600">{importResult.locked}</p>
                 <p className="text-xs text-gray-500 mt-0.5">Locked</p>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
@@ -625,7 +625,7 @@ export function UploadGrades() {
           )}
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <button onClick={reset} className="flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white px-6 py-2.5 rounded-lg font-medium transition text-sm shadow-sm">
+            <button onClick={reset} className="flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-2.5 rounded-lg font-medium transition text-sm shadow-sm">
               <RefreshCw size={14} /> Upload Another File
             </button>
             <a href="/teacher/documents" className="flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-6 py-2.5 rounded-lg font-medium transition hover:bg-gray-50 text-sm">

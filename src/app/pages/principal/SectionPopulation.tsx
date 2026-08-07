@@ -53,10 +53,10 @@ export function SectionPopulation() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-violet-600 to-violet-400" />
+        <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
         <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
               <PieChart size={22} className="text-white" />
             </div>
             <div>
@@ -72,30 +72,30 @@ export function SectionPopulation() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Sections</span>
-            <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center"><Layers size={14} className="text-violet-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Layers size={14} className="text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{sections.length}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Capacity</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center"><School size={14} className="text-blue-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><School size={14} className="text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalCapacity}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Enrolled</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center"><Users size={14} className="text-emerald-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Users size={14} className="text-purple-600" /></div>
           </div>
-          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{totalEnrolled}</p>
+          <p className="text-2xl font-bold text-purple-600 tracking-[-0.02em]">{totalEnrolled}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Utilization</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center"><PieChart size={14} className="text-amber-600" /></div>
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><PieChart size={14} className="text-purple-600" /></div>
           </div>
-          <p className="text-2xl font-bold text-amber-600 tracking-[-0.02em]">{overallUtilization}%</p>
+          <p className="text-2xl font-bold text-purple-600 tracking-[-0.02em]">{overallUtilization}%</p>
         </div>
       </div>
 
@@ -108,8 +108,8 @@ export function SectionPopulation() {
             <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
-            <Bar dataKey="capacity" fill="#e0e7ff" radius={[4, 4, 0, 0]} name="Capacity" />
-            <Bar dataKey="enrolled" fill="#6366f1" radius={[4, 4, 0, 0]} name="Enrolled" />
+            <Bar dataKey="capacity" fill="#f3e8ff" radius={[4, 4, 0, 0]} name="Capacity" />
+            <Bar dataKey="enrolled" fill="#9333ea" radius={[4, 4, 0, 0]} name="Enrolled" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -136,7 +136,7 @@ export function SectionPopulation() {
               ) : sections.map((s, idx) => {
                 const pct = s.capacity > 0 ? Math.round((s.current_count / s.capacity) * 100) : 0;
                 return (
-                  <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-violet-50/50 transition-colors`}>
+                  <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
                     <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
                     <td className="px-5 py-3.5 text-sm text-gray-600">{s.grade_level}</td>
                     <td className="px-5 py-3.5 text-sm text-gray-600">{s.adviser_name || "—"}</td>

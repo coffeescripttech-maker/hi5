@@ -1,4 +1,5 @@
 import { Printer } from "lucide-react"
+import { useRoleAccent } from "../../utils/roleTheme"
 
 /* ---------------------------------------------------------------- */
 /* DepEd School Form 9 (SF9) — Learner's Progress Report Card        */
@@ -78,6 +79,7 @@ function FillLine({ label, className = "" }: { label: string; className?: string
 }
 
 export function SF9Card() {
+  const accent = useRoleAccent();
   return (
     <div className="min-h-screen bg-muted/40 py-6">
       {/* Toolbar */}
@@ -88,7 +90,7 @@ export function SF9Card() {
           </h1>
           <p className="text-sm text-muted-foreground">Fillable report card. Use Print for the official layout.</p>
         </div>
-        <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700">
+        <button onClick={() => window.print()} className={`inline-flex items-center gap-1.5 rounded-md ${accent.button} px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors`}>
           <Printer className="size-4" /> Print
         </button>
       </div>

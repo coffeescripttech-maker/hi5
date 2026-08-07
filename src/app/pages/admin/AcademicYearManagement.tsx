@@ -176,10 +176,10 @@ export function AcademicYearManagement() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
         <div className="p-5 sm:p-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
               <Calendar size={22} className="text-white" />
             </div>
             <div>
@@ -194,7 +194,7 @@ export function AcademicYearManagement() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Calendar size={18} className="text-indigo-600" />
+            <Calendar size={18} className="text-blue-600" />
             <div>
               <h3 className="font-semibold text-gray-800">School Years</h3>
               <p className="text-gray-400 text-xs">Manage school years — create new ones, set current, adjust enrollment</p>
@@ -206,7 +206,7 @@ export function AcademicYearManagement() {
               value={newSYLabel}
               onChange={e => setNewSYLabel(e.target.value)}
               placeholder="e.g. 2031-2032"
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-28"
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
               onKeyDown={async e => {
                 if (e.key === "Enter" && newSYLabel.trim()) {
                   setCreating(true);
@@ -241,7 +241,7 @@ export function AcademicYearManagement() {
                 }
               }}
               disabled={creating || !newSYLabel.trim()}
-              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
             >
               <Plus size={13} /> {creating ? "..." : "Create"}
             </button>
@@ -252,7 +252,7 @@ export function AcademicYearManagement() {
             <p className="text-gray-400 text-sm text-center py-4">No school years yet. Create one above.</p>
           ) : (
             <div className="relative">
-              <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-gradient-to-b from-indigo-300 via-indigo-200 to-indigo-100 rounded-full" />
+              <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-gradient-to-b from-blue-300 via-blue-200 to-blue-100 rounded-full" />
               <div className="space-y-3">
                 {schoolYears.map((sy, idx) => {
                   const isCurrent = sy.is_current === 1;
@@ -261,32 +261,32 @@ export function AcademicYearManagement() {
                     <div key={sy.id} className="group relative pl-10">
                       <div className={`absolute left-0 top-5 w-[23px] h-[23px] rounded-full border-2 flex items-center justify-center text-[10px] font-bold z-10 transition ${
                         isCurrent
-                          ? "border-indigo-500 bg-indigo-500 text-white shadow-md shadow-indigo-200"
-                          : "border-gray-300 bg-white text-gray-400 group-hover:border-indigo-300 group-hover:text-indigo-500"
+                          ? "border-blue-500 bg-blue-500 text-white shadow-md shadow-blue-200"
+                          : "border-gray-300 bg-white text-gray-400 group-hover:border-blue-300 group-hover:text-blue-500"
                       }`}>
                         {isCurrent ? <Star size={12} /> : <span>{idx + 1}</span>}
                       </div>
                       <div className={`rounded-xl border p-4 transition ${
                         isCurrent
-                          ? "border-indigo-300 bg-indigo-50 shadow-sm ring-1 ring-indigo-200"
-                          : "border-gray-200 bg-white hover:border-indigo-200 hover:shadow-sm"
+                          ? "border-blue-300 bg-blue-50 shadow-sm ring-1 ring-blue-200"
+                          : "border-gray-200 bg-white hover:border-blue-200 hover:shadow-sm"
                       }`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 ${
                               isCurrent
-                                ? "bg-indigo-600 text-white shadow-sm"
-                                : "bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600"
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600"
                             }`}>
                               {yearNum}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <p className={`font-bold text-sm ${isCurrent ? "text-indigo-800" : "text-gray-700"}`}>
+                                <p className={`font-bold text-sm ${isCurrent ? "text-blue-800" : "text-gray-700"}`}>
                                   {sy.sy_label}
                                 </p>
                                 {isCurrent && (
-                                  <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                                     <Star size={9} /> Current
                                   </span>
                                 )}
@@ -346,7 +346,7 @@ export function AcademicYearManagement() {
                                     showToast("error", err.detail?.error || err.message || "Failed to set current.");
                                   }
                                 }}
-                                className="text-[11px] font-medium text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 hover:border-indigo-300 transition"
+                                className="text-[11px] font-medium text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 hover:border-blue-300 transition"
                               >
                                 Set as Current
                               </button>
@@ -377,9 +377,9 @@ export function AcademicYearManagement() {
       </div>
 
       {/* ── INFO BANNER ── */}
-      <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex gap-3">
-        <Info size={17} className="text-indigo-600 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-indigo-800 leading-relaxed">
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
+        <Info size={17} className="text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="text-xs text-blue-800 leading-relaxed">
           <p className="font-semibold mb-1">End-of-Year Process Order</p>
           <p><span className="font-semibold">Step 1 — Bulk Promotion:</span> Advances all students with a general average of 75 and above to the next grade level. Students below 75 are automatically marked as retained.</p>
           <p className="mt-1"><span className="font-semibold">Step 2 — Archive School Year:</span> Locks all records for {currentSY}, moves them to the historical archive, and initializes {nextSY} as the new active school year. This action is irreversible.</p>
@@ -393,7 +393,7 @@ export function AcademicYearManagement() {
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold ${
               step === "promoted" || step === "archived"
                 ? "bg-emerald-600 text-white"
-                : "bg-indigo-100 text-indigo-700"
+                : "bg-blue-100 text-blue-700"
             }`}>
               {step === "promoted" || step === "archived" ? <CheckCircle size={16} /> : "1"}
             </div>
@@ -422,7 +422,7 @@ export function AcademicYearManagement() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {promotionSummary.map((r, idx) => (
-                  <tr key={r.label} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                  <tr key={r.label} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
                     <td className="px-5 py-3 font-medium text-gray-800 text-sm">{r.label}</td>
                     <td className="px-4 py-3 text-center text-sm text-gray-600">{r.total}</td>
                     <td className="px-4 py-3 text-center text-sm font-bold text-emerald-600">{r.promoted}</td>
@@ -437,12 +437,12 @@ export function AcademicYearManagement() {
                     </td>
                   </tr>
                 ))}
-                <tr className="bg-indigo-50/80 font-bold">
-                  <td className="px-5 py-3 text-indigo-800 text-sm">TOTAL</td>
-                  <td className="px-4 py-3 text-center text-indigo-700 text-sm">{totalStudents}</td>
+                <tr className="bg-blue-50/80 font-bold">
+                  <td className="px-5 py-3 text-blue-800 text-sm">TOTAL</td>
+                  <td className="px-4 py-3 text-center text-blue-700 text-sm">{totalStudents}</td>
                   <td className="px-4 py-3 text-center text-emerald-700 text-sm">{totalPromoted}</td>
                   <td className="px-4 py-3 text-center text-red-600 text-sm">{totalRetained}</td>
-                  <td className="px-4 py-3 text-center text-indigo-700 text-sm">{totalStudents > 0 ? Math.round((totalPromoted / totalStudents) * 100) : 0}%</td>
+                  <td className="px-4 py-3 text-center text-blue-700 text-sm">{totalStudents > 0 ? Math.round((totalPromoted / totalStudents) * 100) : 0}%</td>
                 </tr>
               </tbody>
             </table>
@@ -450,13 +450,13 @@ export function AcademicYearManagement() {
 
           {step === "idle" && (
             <button onClick={() => setStep("confirm-promote")}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
               <ArrowUpCircle size={16} /> Execute Bulk Promotion
             </button>
           )}
           {step === "promoting" && (
-            <div className="flex items-center gap-3 text-indigo-700 text-sm font-medium">
-              <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-700 rounded-full animate-spin" />
+            <div className="flex items-center gap-3 text-blue-700 text-sm font-medium">
+              <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-700 rounded-full animate-spin" />
               Processing promotion for {totalStudents} students across all grade levels...
             </div>
           )}
@@ -533,9 +533,9 @@ export function AcademicYearManagement() {
                   <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-[0.06em] mb-1">Active School Year</p>
                   <p className="text-lg font-bold text-emerald-700">{nextSY}</p>
                 </div>
-                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center">
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
                   <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-[0.06em] mb-1">Enrollment Status</p>
-                  <p className="text-lg font-bold text-indigo-700">Open for {nextSY}</p>
+                  <p className="text-lg font-bold text-blue-700">Open for {nextSY}</p>
                 </div>
               </div>
             </div>
@@ -566,7 +566,7 @@ export function AcademicYearManagement() {
               <button onClick={() => setStep("idle")}
                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
               <button onClick={handlePromote}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">Confirm Promotion</button>
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">Confirm Promotion</button>
             </div>
           </div>
         </div>

@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import {
   Users, Plus, Edit2, Trash2, X, Search, Shield,
   GraduationCap, FileText, CheckCircle, AlertTriangle, AlertCircle,
-  Key, Mail, User, Lock, Eye, EyeOff, Filter, Clock, Info
+  Key, Mail, User, Lock, Eye, EyeOff, Filter, Clock, Info,
+  BadgeCheck, Briefcase, Calendar
 } from "lucide-react";
 import { z } from "zod";
 import { usersApi, UserRow, CreateUserPayload, UpdateUserPayload } from "../../services/users";
@@ -71,8 +72,8 @@ const roleIcons: Record<string, any> = {
 const roleBadge: Record<string, string> = {
   admin: "bg-blue-100 text-blue-800 border-blue-200",
   teacher: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  registrar: "bg-purple-100 text-purple-700 border-purple-200",
-  principal: "bg-violet-100 text-violet-800 border-violet-200",
+  registrar: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  principal: "bg-purple-100 text-purple-800 border-purple-200",
 };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -143,7 +144,10 @@ export function UserManagement() {
 
   const openCreate = () => {
     setEditUser(null);
-    setNewUser({ name: "", username: "", email: "", role: "teacher", password: "" });
+    setNewUser({
+      name: "", username: "", email: "", role: "teacher", password: "",
+      employee_id: "", designation: "", date_hired: "",
+    });
     setPassword("");
     setShowModal(true);
   };
@@ -163,6 +167,9 @@ export function UserManagement() {
           email: editUser.email,
           role: editUser.role,
           status: editUser.status,
+          employee_id: editUser.employee_id || undefined,
+          designation: editUser.designation || undefined,
+          date_hired: editUser.date_hired || undefined,
         };
         await usersApi.update(editUser.id, payload);
         showToast("success", `User "${editUser.name}" updated successfully.`);
@@ -206,15 +213,23 @@ export function UserManagement() {
     return (newUser as any)[field] ?? "";
   };
 
+  /** Convert a DB date/ISO value to the YYYY-MM-DD that <input type="date"> expects */
+  const toDateInput = (value: string): string => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value.slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  };
+
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
                 <Users size={22} className="text-white" />
               </div>
               <div>
@@ -223,7 +238,7 @@ export function UserManagement() {
               </div>
             </div>
             <button onClick={openCreate}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
               <Plus size={15} /> Add New User
             </button>
           </div>
@@ -236,8 +251,8 @@ export function UserManagement() {
                 <button key={r} onClick={() => setShowPermissions(showPermissions === r ? null : r)}
                   className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-all ${
                     showPermissions === r
-                      ? "border-indigo-300 bg-indigo-50 text-indigo-700 shadow-sm"
-                      : "border-gray-100 bg-gray-50 text-gray-600 hover:border-indigo-200 hover:bg-indigo-50/50"
+                      ? "border-blue-300 bg-blue-50 text-blue-700 shadow-sm"
+                      : "border-gray-100 bg-gray-50 text-gray-600 hover:border-blue-200 hover:bg-blue-50/50"
                   }`}>
                   <RoleIcon size={15} />
                   <span className="font-semibold">{ROLE_LABEL[r] || r}</span>
@@ -251,12 +266,12 @@ export function UserManagement() {
 
           {/* Permissions expand */}
           {showPermissions && (
-            <div className="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
-              <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-[0.06em] mb-2.5">{ROLE_LABEL[showPermissions] || showPermissions} Role Permissions</p>
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+              <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.06em] mb-2.5">{ROLE_LABEL[showPermissions] || showPermissions} Role Permissions</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
                 {PERMISSIONS[showPermissions]?.map(perm => (
-                  <div key={perm} className="flex items-start gap-2 text-xs text-indigo-800">
-                    <CheckCircle size={12} className="text-indigo-500 mt-0.5 flex-shrink-0" />{perm}
+                  <div key={perm} className="flex items-start gap-2 text-xs text-blue-800">
+                    <CheckCircle size={12} className="text-blue-500 mt-0.5 flex-shrink-0" />{perm}
                   </div>
                 ))}
               </div>
@@ -271,19 +286,19 @@ export function UserManagement() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="Search by name, username, or email..."
             value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white" />
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white" />
         </div>
         <div className="flex items-center gap-2">
           <Filter size={13} className="text-gray-400" />
           <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em] mr-1">Role:</span>
           <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white">
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
             <option value="all">All Roles</option>
             {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
           </select>
           <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em] mr-1 ml-1">Status:</span>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white">
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="idle">Idle</option>
@@ -324,11 +339,11 @@ export function UserManagement() {
                   ) : filteredUsers.map((user, idx) => {
                     const RoleIcon = roleIcons[user.role] || User;
                     return (
-                      <tr key={user.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                      <tr key={user.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                              <span className="text-indigo-700 font-bold text-sm">{user.name.charAt(0)}</span>
+                            <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                              <span className="text-blue-700 font-bold text-sm">{user.name.charAt(0)}</span>
                             </div>
                             <div>
                               <p className="font-semibold text-gray-800 text-sm">{user.name}</p>
@@ -365,7 +380,7 @@ export function UserManagement() {
                         <td className="px-4 py-4">
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => openEdit(user)}
-                              className="p-1.5 rounded-lg text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                              className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition">
                               <Edit2 size={14} />
                             </button>
                             <button onClick={() => setShowDeleteConfirm(user.id)}
@@ -420,14 +435,14 @@ export function UserManagement() {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400 flex items-center justify-between">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Users size={18} className="text-white" />
                 </div>
                 <div>
                   <h3 className="font-bold text-white">{editUser ? "Edit User Account" : "Create New User"}</h3>
-                  <p className="text-indigo-200 text-xs">{editUser ? "Update user info and role assignment" : "Set up a new system user"}</p>
+                  <p className="text-blue-200 text-xs">{editUser ? "Update user info and role assignment" : "Set up a new system user"}</p>
                 </div>
               </div>
               <button onClick={() => { setShowModal(false); setEditUser(null); }} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
@@ -444,7 +459,7 @@ export function UserManagement() {
                     onChange={e => handleChange("name", e.target.value)}
                     onBlur={e => validateField("name", e.target.value)}
                     className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
-                      fieldErrors.name ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                      fieldErrors.name ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-blue-100 focus:border-blue-400"
                     }`}
                     placeholder="e.g. Juan dela Cruz" />
                 </div>
@@ -464,7 +479,7 @@ export function UserManagement() {
                       onChange={e => handleChange("username", e.target.value)}
                       onBlur={e => validateField("username", e.target.value)}
                       className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white font-mono ${
-                        fieldErrors.username ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                        fieldErrors.username ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-blue-100 focus:border-blue-400"
                       }`}
                       placeholder="e.g. teacher05" />
                   </div>
@@ -482,7 +497,7 @@ export function UserManagement() {
                       onChange={e => handleChange("email", e.target.value)}
                       onBlur={e => validateField("email", e.target.value)}
                       className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
-                        fieldErrors.email ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                        fieldErrors.email ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-blue-100 focus:border-blue-400"
                       }`}
                       placeholder="user@school.edu.ph" />
                   </div>
@@ -503,7 +518,7 @@ export function UserManagement() {
                       onChange={e => { setPassword(e.target.value); if (fieldErrors.password) setFieldErrors(p => ({ ...p, password: "" })); }}
                       onBlur={e => validateField("password", e.target.value)}
                       className={`w-full pl-9 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
-                        fieldErrors.password ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                        fieldErrors.password ? "border border-red-300 focus:ring-red-100 focus:border-red-400" : "border border-gray-200 focus:ring-blue-100 focus:border-blue-400"
                       }`}
                       placeholder="Minimum 8 characters" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
@@ -529,8 +544,8 @@ export function UserManagement() {
                       <button key={r} type="button" onClick={() => handleChange("role", r)}
                         className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition text-xs font-semibold ${
                           isSelected
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : "border-gray-200 bg-white text-gray-500 hover:border-indigo-200 hover:bg-indigo-50/50"
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:bg-blue-50/50"
                         }`}>
                         <RoleIcon size={18} />{ROLE_LABEL[r]}
                       </button>
@@ -539,12 +554,50 @@ export function UserManagement() {
                 </div>
               </div>
 
-              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-[0.04em] mb-2">{ROLE_LABEL[currentRole]} Permissions Preview</p>
+              <div className="border border-gray-200 rounded-xl p-4">
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-3">
+                  Employment Information{" "}
+                  <span className="text-[10px] text-gray-400 font-normal normal-case">(optional — shows on the user's profile)</span>
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Employee ID</label>
+                    <div className="relative">
+                      <BadgeCheck size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="text" value={formValue("employee_id")}
+                        onChange={e => handleChange("employee_id", e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
+                        placeholder="e.g. TCH-001" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Designation</label>
+                    <div className="relative">
+                      <Briefcase size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="text" value={formValue("designation")}
+                        onChange={e => handleChange("designation", e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
+                        placeholder="e.g. Mathematics Teacher" />
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Date Hired</label>
+                    <div className="relative">
+                      <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="date" value={toDateInput(formValue("date_hired"))}
+                        onChange={e => handleChange("date_hired", e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.04em] mb-2">{ROLE_LABEL[currentRole]} Permissions Preview</p>
                 <ul className="space-y-1">
                   {PERMISSIONS[currentRole]?.map(p => (
-                    <li key={p} className="flex items-start gap-2 text-xs text-indigo-700">
-                      <CheckCircle size={11} className="text-indigo-500 mt-0.5 flex-shrink-0" />{p}
+                    <li key={p} className="flex items-start gap-2 text-xs text-blue-700">
+                      <CheckCircle size={11} className="text-blue-500 mt-0.5 flex-shrink-0" />{p}
                     </li>
                   ))}
                 </ul>
@@ -555,7 +608,7 @@ export function UserManagement() {
               <button onClick={() => { setShowModal(false); setEditUser(null); }}
                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
               <button onClick={handleSave}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
                 {editUser ? "Save Changes" : "Create User Account"}
               </button>
             </div>

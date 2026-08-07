@@ -78,7 +78,7 @@ function TeacherSearch({
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           placeholder={placeholder || "Search teacher by name or ID..."}
-          className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 transition-all bg-white"
+          className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 transition-all bg-white"
         />
         {query && (
           <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
@@ -95,9 +95,9 @@ function TeacherSearch({
               key={t.id}
               type="button"
               onClick={() => handleSelect(t)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition text-left border-b border-gray-50 last:border-0"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition text-left border-b border-gray-50 last:border-0"
             >
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm ${conflictName ? 'bg-red-100 text-red-600' : 'bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700'}`}>
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm ${conflictName ? 'bg-red-100 text-red-600' : 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700'}`}>
                 {(t.name || "?").charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
@@ -295,10 +295,10 @@ export function SectionCreation() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
         <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
               <Layers size={22} className="text-white" />
             </div>
             <div>
@@ -317,7 +317,7 @@ export function SectionCreation() {
               <Palette size={15} /> Manage Types
             </button>
             <button onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
               <Plus size={15} /> Create Section
             </button>
           </div>
@@ -329,8 +329,8 @@ export function SectionCreation() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Sections</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <Layers size={14} className="text-indigo-600" />
+            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Layers size={14} className="text-blue-600" />
             </div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{sections.length}</p>
@@ -339,8 +339,8 @@ export function SectionCreation() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Capacity</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <Users size={14} className="text-indigo-600" />
+            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Users size={14} className="text-blue-600" />
             </div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalCapacity}</p>
@@ -349,8 +349,8 @@ export function SectionCreation() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Enrolled</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <GraduationCap size={14} className="text-emerald-600" />
+            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+              <GraduationCap size={14} className="text-blue-600" />
             </div>
           </div>
           <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{totalEnrolled}</p>
@@ -376,7 +376,7 @@ export function SectionCreation() {
           <div key={grade} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/80">
               <div className="flex items-center gap-3">
-                <span className="bg-indigo-50 text-indigo-700 text-[11px] font-bold px-3 py-1 rounded-full border border-indigo-100">Grade {grade}</span>
+                <span className="bg-blue-50 text-blue-700 text-[11px] font-bold px-3 py-1 rounded-full border border-blue-100">Grade {grade}</span>
                 <span className="text-xs text-gray-500 font-medium">{gradeSections.length} section{gradeSections.length !== 1 && "s"}</span>
               </div>
             </div>
@@ -406,7 +406,7 @@ export function SectionCreation() {
                     {gradeSections.map((sec, idx) => {
                       const pct = Math.round((sec.current_count / sec.capacity) * 100);
                       return (
-                        <tr key={sec.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                        <tr key={sec.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
                           <td className="px-4 py-3.5">
                             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
                               {sec.name}
@@ -415,7 +415,7 @@ export function SectionCreation() {
                           <td className="px-4 py-3.5">
                             {sec.adviser_name ? (
                               <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0 shadow-sm">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0 shadow-sm">
                                   {sec.adviser_name.charAt(0)}
                                 </div>
                                 <span className="text-sm text-gray-700 font-medium">{sec.adviser_name}</span>
@@ -425,7 +425,7 @@ export function SectionCreation() {
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-center font-medium text-gray-700">{sec.capacity}</td>
-                          <td className="px-4 py-3.5 text-center font-bold text-indigo-700">{sec.current_count}</td>
+                          <td className="px-4 py-3.5 text-center font-bold text-blue-700">{sec.current_count}</td>
                           <td className="px-4 py-3.5 text-center text-xs text-gray-500 font-medium">{sec.min_average}+</td>
                           <td className="px-4 py-3.5">
                             <div className="flex items-center justify-center gap-2">
@@ -441,7 +441,7 @@ export function SectionCreation() {
                           <td className="px-4 py-3.5 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <button onClick={() => openEdit(sec)}
-                                className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
+                                className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
                                 <Edit2 size={14} />
                               </button>
                               <button onClick={() => setDeleteId(sec.id)}
@@ -464,21 +464,27 @@ export function SectionCreation() {
       {/* ── Create Section Modal ── */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="font-bold text-gray-900">Create New Section</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Set up a new class section with its curriculum track and adviser</p>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Layers size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">Create New Section</h3>
+                  <p className="text-blue-200 text-xs">Set up a new class section with its curriculum track and adviser</p>
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition">
+              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
                 <X size={18} />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Grade Level</label>
                 <select value={form.gradeLevel} onChange={e => setForm(p => ({ ...p, gradeLevel: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white">
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
                   {[7,8,9,10,11,12].map(g => <option key={g} value={g}>Grade {g}</option>)}
                 </select>
               </div>
@@ -486,24 +492,24 @@ export function SectionCreation() {
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Section Name</label>
                 <input type="text" value={form.sectionName} onChange={e => setForm(p => ({ ...p, sectionName: e.target.value }))}
                   placeholder="e.g. Mabini, Sampaguita"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Curriculum Track</label>
                 <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white">
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
                   {sectionTypes.filter(t => t.is_active).map(t => <option key={t.name} value={t.name}>{t.label || t.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Capacity</label>
                 <input type="number" value={form.capacity} onChange={e => setForm(p => ({ ...p, capacity: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Min. Average</label>
                 <input type="number" value={form.minAvg} onChange={e => setForm(p => ({ ...p, minAvg: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
               </div>
               <div className="col-span-2">
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Adviser (optional)</label>
@@ -518,15 +524,16 @@ export function SectionCreation() {
                   }}
                 />
               </div>
+              </div>
+              <div className="bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700">
+                Section: <strong>{form.gradeLevel}-{form.sectionName || "?"}</strong> · Track: <strong>{sectionTypes.find(t => t.name === form.type)?.label || form.type}</strong> · Capacity: <strong>{form.capacity}</strong> · Min. Avg: <strong>{form.minAvg}+</strong>
+              </div>
             </div>
-            <div className="mt-4 bg-indigo-50/60 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-              Section: <strong>{form.gradeLevel}-{form.sectionName || "?"}</strong> · Track: <strong>{sectionTypes.find(t => t.name === form.type)?.label || form.type}</strong> · Capacity: <strong>{form.capacity}</strong> · Min. Avg: <strong>{form.minAvg}+</strong>
-            </div>
-            <div className="flex gap-3 mt-5">
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
               <button onClick={() => setShowForm(false)}
                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
               <button onClick={handleAdd}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
                 Create Section
               </button>
             </div>
@@ -537,17 +544,22 @@ export function SectionCreation() {
       {/* ── Edit Section Modal ── */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="font-bold text-gray-900">Edit Section</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Editing: <span className="font-semibold text-indigo-700">{editTarget.name}</span> · Grade {editTarget.grade_level} · {sectionTypes.find(t => t.name === editTarget.section_type)?.label || editTarget.section_type}</p>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Edit2 size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">Edit Section</h3>
+                  <p className="text-blue-200 text-xs">Editing: <span className="font-semibold text-blue-100">{editTarget.name}</span> · Grade {editTarget.grade_level} · {sectionTypes.find(t => t.name === editTarget.section_type)?.label || editTarget.section_type}</p>
+                </div>
               </div>
-              <button onClick={() => setEditTarget(null)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition">
+              <button onClick={() => setEditTarget(null)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
                 <X size={18} />
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Adviser</label>
                 <TeacherSearch
@@ -566,20 +578,20 @@ export function SectionCreation() {
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Capacity</label>
                   <input type="number" value={editForm.capacity} onChange={e => setEditForm(p => ({ ...p, capacity: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Min. Average</label>
                   <input type="number" value={editForm.minAvg} onChange={e => setEditForm(p => ({ ...p, minAvg: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 mt-5">
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
               <button onClick={() => setEditTarget(null)}
                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
               <button onClick={handleEditSave}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
                 Save Changes
               </button>
             </div>
@@ -614,26 +626,26 @@ export function SectionCreation() {
       {/* ── Manage Types Modal ── */}
       {showManageTypes && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-200 flex items-center justify-center">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Palette size={18} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">Manage Section Types</h3>
-                  <p className="text-xs text-gray-400">Add, edit, or remove section type definitions</p>
+                  <h3 className="font-bold text-white">Manage Section Types</h3>
+                  <p className="text-blue-200 text-xs">Add, edit, or remove section type definitions</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { setTypeFormMode("add"); setTypeForm({ name: "", label: "", color_code: "", icon: "", sort_order: String(sectionTypes.length + 1) }); }}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-semibold transition">
+                  className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white px-3 py-2 rounded-xl text-xs font-semibold transition">
                   <Plus size={13} /> Add Type
                 </button>
                 <button onClick={() => { setShowManageTypes(false); setTypeFormMode(null); setEditingType(null); setDeleteTypeId(null); }}
-                  className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition">
+                  className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
                   <X size={18} />
                 </button>
               </div>
@@ -696,7 +708,7 @@ export function SectionCreation() {
                                 setTypeFormMode("edit");
                                 setTypeForm({ name: t.name, label: t.label, color_code: t.color_code || "", icon: t.icon || "", sort_order: String(t.sort_order) });
                               }}
-                                className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
+                                className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
                                 <Edit2 size={13} />
                               </button>
                               {!t.is_locked && (
@@ -728,25 +740,30 @@ export function SectionCreation() {
       {/* ── Add/Edit Section Type Form Modal ── */}
       {typeFormMode && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="font-bold text-gray-900">{typeFormMode === "add" ? "Add Section Type" : "Edit Section Type"}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{typeFormMode === "add" ? "Create a new section type definition" : `Editing: ${editingType?.name}`}</p>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Palette size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">{typeFormMode === "add" ? "Add Section Type" : "Edit Section Type"}</h3>
+                  <p className="text-blue-200 text-xs">{typeFormMode === "add" ? "Create a new section type definition" : `Editing: ${editingType?.name}`}</p>
+                </div>
               </div>
               <button onClick={() => { setTypeFormMode(null); setEditingType(null); }}
-                className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition">
+                className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
                 <X size={18} />
               </button>
             </div>
-              <div className="space-y-4">
+            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
                 {typeFormMode === "add" && (
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Internal Name</label>
                     <input type="text" value={typeForm.name}
                       onChange={e => setTypeForm(p => ({ ...p, name: e.target.value.replace(/[^a-z0-9_]/g, "") }))}
                       placeholder="e.g. ste, spfl, honors"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
                     <p className="text-xs text-gray-400 mt-1 lowercase tracking-wide">Used internally — only lowercase letters, numbers, underscores</p>
                   </div>
                 )}
@@ -755,7 +772,7 @@ export function SectionCreation() {
                   <input type="text" value={typeForm.label}
                     onChange={e => setTypeForm(p => ({ ...p, label: e.target.value }))}
                     placeholder="e.g. STE (Science & Technology)"
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Color Theme</label>
@@ -774,7 +791,7 @@ export function SectionCreation() {
                       { value: "bg-cyan-100 text-cyan-700 border-cyan-200", swatch: "bg-cyan-400", label: "Cyan" },
                       { value: "bg-emerald-100 text-emerald-700 border-emerald-200", swatch: "bg-emerald-400", label: "Emerald" },
                       { value: "bg-violet-100 text-violet-700 border-violet-200", swatch: "bg-violet-400", label: "Violet" },
-                      { value: "bg-indigo-100 text-indigo-700 border-indigo-200", swatch: "bg-indigo-400", label: "Indigo" },
+                      { value: "bg-blue-100 text-blue-700 border-blue-200", swatch: "bg-blue-400", label: "Indigo" },
                     ].map(c => (
                       <button
                         key={c.value}
@@ -814,7 +831,7 @@ export function SectionCreation() {
                         onClick={() => setTypeForm(p => ({ ...p, icon }))}
                         className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all border-2 ${
                           typeForm.icon === icon
-                            ? "border-indigo-500 bg-indigo-50 scale-110 shadow-sm"
+                            ? "border-blue-500 bg-blue-50 scale-110 shadow-sm"
                             : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"
                         }`}
                       >
@@ -834,10 +851,10 @@ export function SectionCreation() {
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Sort Order</label>
                   <input type="number" value={typeForm.sort_order}
                     onChange={e => setTypeForm(p => ({ ...p, sort_order: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400" />
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
                 </div>
               </div>
-            <div className="flex gap-3 mt-6">
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
               <button onClick={() => { setTypeFormMode(null); setEditingType(null); }}
                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
               <button onClick={async () => {
@@ -868,7 +885,7 @@ export function SectionCreation() {
                   showToast("error", err.detail?.error || err.message || "Failed to save section type");
                 }
               }}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all"
                 disabled={typeFormMode === "add" && (!typeForm.name || !typeForm.label)}>
                 {typeFormMode === "add" ? "Create Type" : "Save Changes"}
               </button>

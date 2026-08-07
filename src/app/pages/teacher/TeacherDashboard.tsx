@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Layers, Users, TrendingUp, UserPlus, BookOpen, Upload } from "lucide-react";
+import { Layers, Users, TrendingUp, UserPlus, BookOpen, Upload, LayoutDashboard } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { studentsApi, StudentRow } from "../../services/students";
 import { authApi } from "../../services/api";
 import { useApp } from "../../context/AppContext";
 
-const COLORS = ["#2563eb", "#db2777"];
+const COLORS = ["#10b981", "#6ee7b7"];
 
 export function TeacherDashboard() {
   const navigate = useNavigate();
@@ -41,8 +41,8 @@ export function TeacherDashboard() {
   const maleCount = myStudents.filter(s => s.sex === "male").length;
   const femaleCount = myStudents.filter(s => s.sex === "female").length;
   const genderData = [
-    { name: "Male", value: maleCount || 1, color: "#2563eb" },
-    { name: "Female", value: femaleCount || 1, color: "#db2777" },
+    { name: "Male", value: maleCount || 1, color: "#10b981" },
+    { name: "Female", value: femaleCount || 1, color: "#6ee7b7" },
   ];
 
   // Grade distribution from students (by grade_level as proxy)
@@ -56,85 +56,112 @@ export function TeacherDashboard() {
     .map(([range, count]) => ({ range, count, label: `Grade ${range}` }));
 
   if (loading) return (
-    <div className="space-y-5 animate-pulse">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[...Array(3)].map((_, i) => <div key={i} className="h-24 bg-gray-200 rounded-xl" />)}
+    <div className="space-y-5 max-w-6xl mx-auto">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
+        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+          <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        </div>
+        <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 h-64 bg-gray-200 rounded-xl" />
-        <div className="h-64 bg-gray-200 rounded-xl" />
-      </div>
-      <div className="h-32 bg-gray-200 rounded-xl" />
-      <div className="h-48 bg-gray-200 rounded-xl" />
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-green-200 p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-gray-500 text-xs mb-1">My Sections</p>
-              <p className="text-2xl font-bold text-green-700">{adviserSections.length}</p>
-              <p className="text-gray-400 text-xs mt-1">
-                {adviserSections.map(s => `Grade ${s.grade_level}`).join(", ") || "—"}
-              </p>
+    <div className="space-y-5 max-w-6xl mx-auto">
+      {/* HEADER */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400" />
+        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center flex-shrink-0">
+              <LayoutDashboard size={22} className="text-white" />
             </div>
-            <div className="bg-green-100 w-11 h-11 rounded-xl flex items-center justify-center">
-              <Layers size={20} className="text-green-700" />
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Teacher Dashboard</h2>
+              <p className="text-gray-500 text-sm">Your sections, students, and class overview at a glance</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white rounded-xl border border-emerald-200 p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-gray-500 text-xs mb-1">Total Enrolled Students</p>
-              <p className="text-2xl font-bold text-emerald-700">{totalMyStudents}</p>
-              <p className="text-gray-400 text-xs mt-1">Across all my sections</p>
-            </div>
-            <div className="bg-emerald-100 w-11 h-11 rounded-xl flex items-center justify-center">
-              <Users size={20} className="text-emerald-700" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-teal-200 p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-gray-500 text-xs mb-1">Section Capacity</p>
-              <p className="text-2xl font-bold text-teal-700">{totalMyCapacity}</p>
-              <p className="text-gray-400 text-xs mt-1">Total slots available</p>
-            </div>
-            <div className="bg-teal-100 w-11 h-11 rounded-xl flex items-center justify-center">
-              <TrendingUp size={20} className="text-teal-700" />
-            </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/teacher/enroll")}
+              className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              <UserPlus size={15} /> Enroll Student
+            </button>
+            <button
+              onClick={() => navigate("/teacher/grades")}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              <BookOpen size={15} /> Encode Grades
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">My Sections</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <Layers size={14} className="text-emerald-600" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{adviserSections.length}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {adviserSections.map(s => `Grade ${s.grade_level}`).join(", ") || "No sections yet"}
+          </p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Enrolled Students</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <Users size={14} className="text-emerald-600" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{totalMyStudents}</p>
+          <p className="text-xs text-gray-400 mt-1">Across all my sections</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Section Capacity</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <TrendingUp size={14} className="text-emerald-600" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{totalMyCapacity}</p>
+          <p className="text-xs text-gray-400 mt-1">Total slots available</p>
+        </div>
+      </div>
+
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h3 className="font-semibold text-gray-800 mb-4">Students by Grade Level</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-gray-800">Students by Grade Level</h3>
+              <p className="text-gray-400 text-xs mt-0.5">Distribution across my sections</p>
+            </div>
+          </div>
           {gradeDistribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={gradeDistribution} barSize={36}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="range" tick={{ fontSize: 11, fill: "#6b7280" }} />
-                <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} />
+                <XAxis dataKey="range" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }} />
-                <Bar dataKey="count" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">No student data available</div>
+            <div className="h-[240px] flex items-center justify-center text-gray-400 text-sm">No student data available</div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h3 className="font-semibold text-gray-800 mb-2">Gender Distribution</h3>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={genderData} cx="50%" cy="45%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
                 {genderData.map((entry, index) => (
@@ -157,13 +184,18 @@ export function TeacherDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 className="font-semibold text-gray-800 mb-4">Quick Actions</h3>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-gray-800">Quick Actions</h3>
+            <p className="text-gray-400 text-xs mt-0.5">Common tasks you perform often</p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button onClick={() => navigate("/teacher/enroll")}
-            className="flex items-center gap-3 p-4 rounded-xl border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition group">
-            <div className="w-11 h-11 bg-green-100 group-hover:bg-green-200 rounded-xl flex items-center justify-center transition">
-              <UserPlus size={20} className="text-green-700" />
+            className="flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
+            <div className="w-11 h-11 bg-emerald-100 group-hover:bg-emerald-200 rounded-xl flex items-center justify-center transition">
+              <UserPlus size={20} className="text-emerald-700" />
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-800 text-sm">Enroll Student</p>
@@ -171,7 +203,7 @@ export function TeacherDashboard() {
             </div>
           </button>
           <button onClick={() => navigate("/teacher/grades")}
-            className="flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 transition group">
+            className="flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
             <div className="w-11 h-11 bg-emerald-100 group-hover:bg-emerald-200 rounded-xl flex items-center justify-center transition">
               <BookOpen size={20} className="text-emerald-700" />
             </div>
@@ -181,9 +213,9 @@ export function TeacherDashboard() {
             </div>
           </button>
           <button onClick={() => navigate("/teacher/upload")}
-            className="flex items-center gap-3 p-4 rounded-xl border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50 transition group">
-            <div className="w-11 h-11 bg-teal-100 group-hover:bg-teal-200 rounded-xl flex items-center justify-center transition">
-              <Upload size={20} className="text-teal-700" />
+            className="flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
+            <div className="w-11 h-11 bg-emerald-100 group-hover:bg-emerald-200 rounded-xl flex items-center justify-center transition">
+              <Upload size={20} className="text-emerald-700" />
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-800 text-sm">Upload Past Grades</p>
@@ -194,29 +226,29 @@ export function TeacherDashboard() {
       </div>
 
       {/* My Sections Summary */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-800">My Sections Overview</h3>
         </div>
         {adviserSections.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">No sections assigned to you yet.</div>
+          <div className="p-12 text-center text-gray-400 text-sm">No sections assigned to you yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-6 py-3 text-gray-500 text-xs font-medium uppercase tracking-wider">Section</th>
-                  <th className="text-left px-6 py-3 text-gray-500 text-xs font-medium uppercase tracking-wider">Grade</th>
-                  <th className="text-left px-6 py-3 text-gray-500 text-xs font-medium uppercase tracking-wider">Students</th>
-                  <th className="text-left px-6 py-3 text-gray-500 text-xs font-medium uppercase tracking-wider">Capacity</th>
-                  <th className="text-left px-6 py-3 text-gray-500 text-xs font-medium uppercase tracking-wider">Occupancy</th>
+              <thead className="bg-gray-50/80">
+                <tr>
+                  {["Section", "Grade", "Students", "Capacity", "Occupancy"].map(h => (
+                    <th key={h} className="text-left px-6 py-3.5">
+                      <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {adviserSections.map(s => {
+                {adviserSections.map((s, idx) => {
                   const pct = s.capacity > 0 ? Math.round((s.current_count / s.capacity) * 100) : 0;
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50 transition">
+                    <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/50 transition-colors`}>
                       <td className="px-6 py-3.5 font-semibold text-gray-800">{s.name}</td>
                       <td className="px-6 py-3.5 text-gray-600">Grade {s.grade_level}</td>
                       <td className="px-6 py-3.5 text-gray-700 font-medium">{s.current_count}</td>
@@ -224,7 +256,7 @@ export function TeacherDashboard() {
                       <td className="px-6 py-3.5">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-gray-100 rounded-full h-1.5 max-w-[80px]">
-                            <div className={`h-1.5 rounded-full ${pct >= 90 ? "bg-orange-500" : "bg-green-500"}`}
+                            <div className={`h-1.5 rounded-full ${pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"}`}
                               style={{ width: `${pct}%` }} />
                           </div>
                           <span className="text-xs text-gray-500">{pct}%</span>

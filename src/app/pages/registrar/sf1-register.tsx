@@ -10,6 +10,7 @@ import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { settingsApi } from '../../services/settings';
 import { useApp } from '../../context/AppContext';
+import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 
 /* ---------------------------------------------------------------- */
@@ -130,6 +131,7 @@ function formatDateInput(value: string | null | undefined): string {
 
 export function SF1Register() {
   const { schoolName, schoolYearLabel } = useApp();
+  const accent = useRoleAccent();
 
   // ── API data ──
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -352,11 +354,11 @@ export function SF1Register() {
     <div className="space-y-5 pb-10">
       {/* ── Header Card ── */}
       <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
         <div className="p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
                 <FileSpreadsheet size={22} className="text-white" />
               </div>
               <div>
@@ -369,7 +371,7 @@ export function SF1Register() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleExportPdf} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+              <Button size="sm" onClick={handleExportPdf} className={`${accent.button} text-white shadow-sm`}>
                 <Download className="size-4" /> PDF
               </Button>
               <Button size="sm" onClick={() => window.print()} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
@@ -387,7 +389,7 @@ export function SF1Register() {
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">School Year</label>
               <select value={syId} onChange={e => setSyId(parseInt(e.target.value))}
-                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                 {schoolYears.length === 0 && <option value="">Loading years...</option>}
                 {schoolYears.map(y => <option key={y.id} value={y.id}>{y.sy_label}{y.is_current === 1 ? ' (Current)' : ''}</option>)}
               </select>
@@ -395,20 +397,20 @@ export function SF1Register() {
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Grade Level</label>
               <select value={selectedGrade} onChange={e => setSelectedGrade(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                 {[7, 8, 9, 10, 11, 12].map(g => <option key={g} value={g}>Grade {g}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Section</label>
               <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition">
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                 {gradeSections.length === 0 && <option value="">No sections</option>}
                 {gradeSections.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400 pb-1">
-              <FileText size={14} className="text-indigo-400" />
+              <FileText size={14} className={accent.text} />
               <span>{filledCount} student{filledCount !== 1 ? 's' : ''} loaded &middot; {rows.length} total rows</span>
             </div>
           </div>

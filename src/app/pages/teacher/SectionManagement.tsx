@@ -15,17 +15,17 @@ import { useApp } from "../../context/AppContext";
 const GRADE_LEVELS = [7, 8, 9, 10, 11, 12];
 
 const GRADE_COLORS: Record<number, string> = {
-  7: "bg-green-100 text-green-700 border-green-200/50",
+  7: "bg-emerald-100 text-emerald-700 border-emerald-200/50",
   8: "bg-emerald-100 text-emerald-700 border-emerald-200/50",
-  9: "bg-teal-100 text-teal-700 border-teal-200/50",
-  10: "bg-cyan-100 text-cyan-700 border-cyan-200/50",
-  11: "bg-blue-100 text-blue-700 border-blue-200/50",
-  12: "bg-indigo-100 text-indigo-700 border-indigo-200/50",
+  9: "bg-emerald-100 text-emerald-700 border-emerald-200/50",
+  10: "bg-emerald-100 text-emerald-700 border-emerald-200/50",
+  11: "bg-emerald-100 text-emerald-700 border-emerald-200/50",
+  12: "bg-emerald-100 text-emerald-700 border-emerald-200/50",
 };
 
 const SECTION_TYPE_STYLES: Record<string, { icon: string; bg: string; label: string }> = {
   ste: { icon: "🔬", bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "STE" },
-  regular: { icon: "📚", bg: "bg-blue-50 text-blue-700 border-blue-200/50", label: "Regular" },
+  regular: { icon: "📚", bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Regular" },
   spfl: { icon: "🌐", bg: "bg-yellow-50 text-yellow-700 border-yellow-200/50", label: "SPFL" },
   spj: { icon: "📰", bg: "bg-slate-50 text-slate-600 border-slate-200/50", label: "SPJ" },
   non_reader: { icon: "📖", bg: "bg-red-50 text-red-600 border-red-200/50", label: "Non-Reader" },
@@ -151,7 +151,7 @@ export function SectionManagement() {
     return (
       <div className="max-w-6xl mx-auto space-y-5 animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-green-200 to-emerald-200" />
+          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
             <div className="h-5 w-48 bg-gray-100 rounded-lg" />
             <div className="h-4 w-72 bg-gray-50 rounded-md" />
@@ -174,11 +174,11 @@ export function SectionManagement() {
 
       {/* ── Header Card ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                 <Layers size={22} className="text-emerald-700" />
               </div>
               <div>
@@ -223,8 +223,8 @@ export function SectionManagement() {
             ].map((stat, i) => {
               const colorMap: Record<string, string> = {
                 emerald: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
-                blue: "bg-blue-50 text-blue-700 border-blue-200/50",
-                purple: "bg-purple-50 text-purple-700 border-purple-200/50",
+                blue: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
+                purple: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
                 red: "bg-red-50 text-red-600 border-red-200/50",
                 amber: "bg-amber-50 text-amber-700 border-amber-200/50",
               };
@@ -372,12 +372,12 @@ export function SectionManagement() {
       {/* ── Selected Section Students ── */}
       {selectedSection && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-200">
-          <div className="h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400" />
+          <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
           <div className="px-5 sm:px-6 py-4 border-b border-gray-100">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shadow-xs">
-                  <Users size={16} className="text-blue-700" />
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
+                  <Users size={16} className="text-emerald-700" />
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900 text-sm">{selectedSection.name}</h3>
@@ -423,10 +423,10 @@ export function SectionManagement() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {paginatedStudents.map((s, idx) => (
-                      <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/40 transition-colors duration-150`}>
+                      <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-emerald-700 text-xs font-bold shadow-xs">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shadow-xs">
                               {s.name.charAt(0)}
                             </div>
                             <span className="font-semibold text-gray-800">{s.name}</span>
@@ -435,14 +435,14 @@ export function SectionManagement() {
                         <td className="px-5 py-3.5 text-gray-500 font-mono text-xs">{s.lrn}</td>
                         <td className="px-5 py-3.5">
                           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                            s.sex === "male" ? "bg-blue-50 text-blue-700" : "bg-pink-50 text-pink-700"
+                            s.sex === "male" ? "bg-emerald-50 text-emerald-700" : "bg-pink-50 text-pink-700"
                           }`}>
                             {s.sex.charAt(0).toUpperCase() + s.sex.slice(1)}
                           </span>
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                            s.status === "enrolled" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
+                            s.status === "enrolled" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                           }`}>
                             {s.status}
                           </span>
@@ -450,7 +450,7 @@ export function SectionManagement() {
                         <td className="px-5 py-3.5 text-right">
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/student/${s.id}`); }}
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition shadow-xs"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition shadow-xs"
                           >
                             <Eye size={12} /> View
                           </button>

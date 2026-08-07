@@ -9,6 +9,7 @@ import React, {
 import { getToken, clearToken, authApi } from '../services/api';
 import { settingsApi } from '../services/settings';
 import { schoolYearsApi } from '../services/schoolYears';
+import { isValidPhotoUrl } from '../utils/photo';
 
 type Role = 'admin' | 'teacher' | 'registrar' | 'principal' | null;
 
@@ -128,6 +129,12 @@ const _init = (() => {
   }
 })();
 
+// Whether a session already existed when this SPA loaded. If so, the
+// mount effect below hydrates the profile photo from me(); the
+// login-triggered photo effect then skips to avoid a duplicate fetch.
+// It flips to false after logout so a fresh login still hydrates the photo.
+const HAD_SESSION_AT_LOAD = Boolean(loadSession()?.role && getToken());
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<Role>(_init.role);
   const [username, setUsername] = useState(_init.username);
@@ -141,6 +148,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [schoolName, setSchoolName] = useState('');
   const [schoolYearLabel, setSchoolYearLabel] = useState('');
   const [enrollmentOpen, setEnrollmentOpen] = useState(true);
+  const [skipPhotoHydration, setSkipPhotoHydration] = useState(HAD_SESSION_AT_LOAD);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load school info from API so sidebar/header reflect saved values ──
@@ -180,6 +188,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setRole(me.role);
           setUsername(displayName + ' – ' + me.username);
           saveSession(me.role, displayName + ' – ' + me.username);
+          // Restore persisted profile photo so the avatar survives reloads.
+          // Guarded: a truncated/corrupt value (old VARCHAR(255) saves) would
+          // otherwise render as a broken image.
+          if (me.profile_photo_url && isValidPhotoUrl(me.profile_photo_url)) setProfilePhoto(me.profile_photo_url);
           // Load school info so sidebar displays correct school name & SY
           refreshSchoolInfo();
         })
@@ -192,6 +204,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
     }
   }, []);
+
+  // ── Hydrate profile photo after a fresh login ──
+  // The mount effect covers reloads (when a session existed at load); this
+  // covers the login path in the same SPA session, skipping when the mount
+  // effect already handled it.
+  useEffect(() => {
+    if (role && getToken() && !skipPhotoHydration) {
+      authApi
+        .me()
+        .then(me => {
+          if (me.profile_photo_url && isValidPhotoUrl(me.profile_photo_url)) setProfilePhoto(me.profile_photo_url);
+        })
+        .catch(() => {});
+    }
+  }, [role, skipPhotoHydration]);
 
   // ── Set session (role + username) ──
   const setSession = useCallback((newRole: Role, newUsername: string) => {
@@ -246,6 +273,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRole(null);
     setUsername('');
     setReadNotifs([]);
+    setSkipPhotoHydration(false);
   };
   const recordFailedAttempt = useCallback((until?: number) => {
     setLoginAttempts(prev => {

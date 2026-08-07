@@ -14,7 +14,14 @@ interface UserRow extends RowDataPacket {
   email: string;
   role: "admin" | "teacher" | "registrar" | "principal";
   status: string;
+  phone: string | null;
+  address: string | null;
+  profile_photo_url: string | null;
+  employee_id: string | null;
+  designation: string | null;
+  date_hired: Date | null;
   last_login: Date | null;
+  created_at: Date | null;
 }
 
 /**
@@ -141,7 +148,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   try {
     const users = await query<UserRow[]>(
       `SELECT id, username, name, email, role, status, phone, address, profile_photo_url,
-              employee_id, designation, date_hired, last_login
+              employee_id, designation, date_hired, last_login, created_at
        FROM users WHERE id = ?`,
       [req.user!.userId]
     );
@@ -175,6 +182,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
       designation: u.designation,
       date_hired: u.date_hired,
       last_login: u.last_login,
+      created_at: u.created_at,
     });
   } catch (error) {
     console.error("Get me error:", error);
@@ -184,13 +192,13 @@ export async function getMe(req: Request, res: Response): Promise<void> {
 
 /**
  * PUT /api/auth/me — Update current user's own profile
- * Allows a user to update their name, email, phone, and address.
+ * Allows a user to update their name, email, phone, address, and profile photo.
  * Does NOT allow changing role, status, employee_id, etc.
  */
 export async function updateMe(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const { name, email, phone, address } = req.body;
+    const { name, email, phone, address, profile_photo_url } = req.body;
 
     const fields: string[] = [];
     const params: any[] = [];
@@ -199,6 +207,7 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
     if (email !== undefined) { fields.push("email = ?"); params.push(email); }
     if (phone !== undefined) { fields.push("phone = ?"); params.push(phone); }
     if (address !== undefined) { fields.push("address = ?"); params.push(address); }
+    if (profile_photo_url !== undefined) { fields.push("profile_photo_url = ?"); params.push(profile_photo_url); }
 
     if (fields.length === 0) {
       res.status(400).json({ error: "No fields to update." });
@@ -213,7 +222,7 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
 
     const updated = await query<UserRow[]>(
       `SELECT id, username, name, email, role, status, phone, address, profile_photo_url,
-              employee_id, designation, date_hired, last_login
+              employee_id, designation, date_hired, last_login, created_at
        FROM users WHERE id = ?`,
       [userId]
     );
@@ -238,10 +247,59 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
       designation: u.designation,
       date_hired: u.date_hired,
       last_login: u.last_login,
+      created_at: u.created_at,
     });
   } catch (error) {
     console.error("Update me error:", error);
     res.status(500).json({ error: "Failed to update profile." });
+  }
+}
+
+/**
+ * PUT /api/auth/change-password — Change the current user's own password
+ * Body: { current_password, new_password }
+ * Verifies the current password against the stored hash before updating.
+ */
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      res.status(400).json({ error: "Current and new password are required." });
+      return;
+    }
+    if (new_password.length < 8) {
+      res.status(400).json({ error: "New password must be at least 8 characters." });
+      return;
+    }
+
+    const users = await query<UserRow[]>(
+      "SELECT id, password_hash FROM users WHERE id = ?",
+      [userId]
+    );
+    if (users.length === 0) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    const valid = await bcrypt.compare(current_password, users[0].password_hash);
+    if (!valid) {
+      res.status(400).json({ error: "Current password is incorrect." });
+      return;
+    }
+
+    const password_hash = await bcrypt.hash(new_password, 10);
+    await query<ResultSetHeader>(
+      "UPDATE users SET password_hash = ? WHERE id = ?",
+      [password_hash, userId]
+    );
+
+    logActivity(userId, "Changed account password", "Security");
+    res.json({ message: "Password updated successfully." });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ error: "Failed to change password." });
   }
 }
 

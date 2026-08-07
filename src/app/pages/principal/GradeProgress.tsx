@@ -8,7 +8,7 @@ function sectionStatus(s: SectionGradeSubmission): { label: string; badge: strin
     return { label: "Submitted", badge: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" };
   }
   if (s.graded_students > 0) {
-    return { label: "In Progress", badge: "bg-violet-50 text-violet-700 border-violet-200", dot: "bg-violet-500" };
+    return { label: "In Progress", badge: "bg-purple-50 text-purple-700 border-purple-200", dot: "bg-purple-500" };
   }
   return { label: "Pending", badge: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" };
 }
@@ -50,9 +50,9 @@ export function GradeProgress() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-violet-600 to-violet-400" />
+        <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
         <div className="p-5 sm:p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
             <ClipboardList size={22} className="text-white" />
           </div>
           <div>
@@ -67,7 +67,7 @@ export function GradeProgress() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Submitted</span>
-            <CheckCircle size={14} className="text-emerald-500" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center"><CheckCircle size={14} className="text-emerald-600" /></div>
           </div>
           <p className="text-2xl font-bold text-emerald-600 tracking-[-0.02em]">{submittedSections}</p>
           <p className="text-xs text-gray-400 mt-1">of {totalSections} sections</p>
@@ -75,15 +75,15 @@ export function GradeProgress() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Progress</span>
-            <Clock size={14} className="text-violet-500" />
+            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center"><Clock size={14} className="text-purple-600" /></div>
           </div>
-          <p className="text-2xl font-bold text-violet-600 tracking-[-0.02em]">{overallPct}%</p>
+          <p className="text-2xl font-bold text-purple-600 tracking-[-0.02em]">{overallPct}%</p>
           <p className="text-xs text-gray-400 mt-1">overall completion</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Pending</span>
-            <AlertCircle size={14} className="text-amber-500" />
+            <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center"><AlertCircle size={14} className="text-amber-600" /></div>
           </div>
           <p className="text-2xl font-bold text-amber-600 tracking-[-0.02em]">{totalSections - submittedSections}</p>
           <p className="text-xs text-gray-400 mt-1">sections not yet submitted</p>
@@ -100,10 +100,10 @@ export function GradeProgress() {
         <div key={g.grade_level} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="bg-violet-50 text-violet-700 text-[11px] font-bold px-3 py-1 rounded-full border border-violet-100">Grade {g.grade_level}</span>
+              <span className="bg-purple-50 text-purple-700 text-[11px] font-bold px-3 py-1 rounded-full border border-purple-100">Grade {g.grade_level}</span>
               <span className="text-xs text-gray-500">{g.sections.length} section{g.sections.length !== 1 && "s"}</span>
             </div>
-            <span className="text-xs font-semibold text-violet-600">{g.pct}% complete</span>
+            <span className="text-xs font-semibold text-purple-600">{g.pct}% complete</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -121,7 +121,7 @@ export function GradeProgress() {
                   const st = sectionStatus(s);
                   const isLocked = s.grade_rows > 0 && s.locked_rows === s.grade_rows;
                   return (
-                    <tr key={s.section_id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-violet-50/50 transition-colors`}>
+                    <tr key={s.section_id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
                       <td className="px-5 py-3.5 font-medium text-gray-800">{s.section_name}</td>
                       <td className="px-5 py-3.5 text-sm text-gray-600">{s.adviser_name || "—"}</td>
                       <td className="px-5 py-3.5">

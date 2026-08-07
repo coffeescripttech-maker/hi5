@@ -31,6 +31,7 @@ export interface CreateUserPayload {
   address?: string;
   employee_id?: string;
   designation?: string;
+  date_hired?: string;
 }
 
 export interface UpdateUserPayload {
@@ -42,6 +43,7 @@ export interface UpdateUserPayload {
   address?: string;
   employee_id?: string;
   designation?: string;
+  date_hired?: string;
 }
 
 export const usersApi = {

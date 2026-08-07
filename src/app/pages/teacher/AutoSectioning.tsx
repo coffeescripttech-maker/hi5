@@ -18,7 +18,7 @@ const THRESHOLD_RANGES = [
 
 const SECTION_TYPE_COLORS: Record<string, { color: string; bg: string; border: string; dot: string }> = {
   ste: { color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-300", dot: "bg-amber-400" },
-  regular: { color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-300", dot: "bg-blue-400" },
+  regular: { color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-300", dot: "bg-emerald-400" },
   spfl: { color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-300", dot: "bg-yellow-400" },
   spj: { color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-300", dot: "bg-slate-400" },
   non_reader: { color: "text-red-600", bg: "bg-red-50", border: "border-red-300", dot: "bg-red-400" },
@@ -198,7 +198,7 @@ export function AutoSectioning() {
     return (
       <div className="max-w-6xl mx-auto space-y-5 pb-10 animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-green-200 to-emerald-200" />
+          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
             <div className="h-5 w-64 bg-gray-100 rounded-lg" />
             <div className="h-4 w-96 bg-gray-50 rounded-md" />
@@ -245,11 +245,11 @@ export function AutoSectioning() {
 
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
         <div className="p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
                 <Zap size={22} className="text-emerald-700" />
               </div>
               <div>
@@ -287,7 +287,7 @@ export function AutoSectioning() {
               ) : done ? (
                 <button
                   onClick={saveAssignments} disabled={saving}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm"
                 >
                   {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   {saving ? "Saving..." : "Save Assignments"}
@@ -295,7 +295,7 @@ export function AutoSectioning() {
               ) : (
                 <button
                   onClick={runSectioning} disabled={running}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm"
                 >
                   {running ? (
                     <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Processing...</>
@@ -309,7 +309,7 @@ export function AutoSectioning() {
 
           {/* Logic panel */}
           {showLogic && (
-            <div className="mt-5 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200/60 rounded-xl p-4 sm:p-5 space-y-3">
+            <div className="mt-5 bg-gradient-to-br from-emerald-50 to-emerald-50 border border-emerald-200/60 rounded-xl p-4 sm:p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-md bg-emerald-200/50 flex items-center justify-center">
                   <Target size={13} className="text-emerald-700" />
@@ -366,10 +366,10 @@ export function AutoSectioning() {
 
       {/* ── Student Assignment Table ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-        <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
         <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
               <Users size={16} className="text-emerald-700" />
             </div>
             <div>
@@ -427,7 +427,7 @@ export function AutoSectioning() {
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2.5">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shadow-xs flex-shrink-0 ${
-                            isAssigned ? "bg-gradient-to-br from-emerald-100 to-green-100 text-emerald-700" : "bg-gray-100 text-gray-400"
+                            isAssigned ? "bg-gradient-to-br from-emerald-100 to-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"
                           }`}>
                             {s.name.charAt(0)}
                           </div>
@@ -443,7 +443,7 @@ export function AutoSectioning() {
 
                       {/* Grade */}
                       <td className="px-4 py-3.5">
-                        <span className="text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-200/50">
+                        <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/50">
                           Gr. {s.grade_level}
                         </span>
                       </td>
@@ -465,7 +465,7 @@ export function AutoSectioning() {
                       {/* Sex */}
                       <td className="px-4 py-3.5">
                         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                          s.sex === "male" ? "bg-blue-50 text-blue-700" : "bg-pink-50 text-pink-700"
+                          s.sex === "male" ? "bg-emerald-50 text-emerald-700" : "bg-pink-50 text-pink-700"
                         }`}>
                           {s.sex === "male" ? "Male" : "Female"}
                         </span>
@@ -476,7 +476,7 @@ export function AutoSectioning() {
                         {s.classifications.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {s.classifications.map(c => (
-                              <span key={c} className="text-[11px] font-semibold bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200/50 capitalize">
+                              <span key={c} className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/50 capitalize">
                                 {c === "4ps" ? "4Ps" : c === "pwd" ? "PWD" : c === "non_reader" ? "Non-Reader" : c}
                               </span>
                             ))}
@@ -530,11 +530,11 @@ export function AutoSectioning() {
       {/* ── Gender Distribution Summary ── */}
       {done && assignmentsList.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-          <div className="h-0.5 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-400" />
+          <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-pink-500 to-emerald-400" />
           <div className="px-5 sm:px-6 py-4 border-b border-gray-100">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center shadow-xs">
-                <Users size={16} className="text-purple-700" />
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-pink-100 flex items-center justify-center shadow-xs">
+                <Users size={16} className="text-emerald-700" />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-sm">Gender Distribution Summary</h3>
@@ -561,11 +561,11 @@ export function AutoSectioning() {
                     <div className="space-y-2.5">
                       <div>
                         <div className="flex justify-between text-xs mb-1">
-                          <span className="text-blue-600 font-medium">♂ Male</span>
+                          <span className="text-emerald-600 font-medium">♂ Male</span>
                           <span className="font-bold">{male}</span>
                         </div>
                         <div className="w-full bg-white/70 rounded-full h-1.5 overflow-hidden">
-                          <div className="bg-blue-400 h-full rounded-full transition-all" style={{ width: `${mPct}%` }} />
+                          <div className="bg-emerald-400 h-full rounded-full transition-all" style={{ width: `${mPct}%` }} />
                         </div>
                       </div>
                       <div>
@@ -593,11 +593,11 @@ export function AutoSectioning() {
       {/* ── Section capacity summary (post-save) ── */}
       {saved && assignmentsList.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-          <div className="h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400" />
+          <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
           <div className="px-5 sm:px-6 py-4 border-b border-gray-100">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shadow-xs">
-                <BookOpen size={16} className="text-blue-700" />
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
+                <BookOpen size={16} className="text-emerald-700" />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-sm">Section Capacity Status</h3>

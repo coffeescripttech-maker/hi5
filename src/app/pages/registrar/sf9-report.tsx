@@ -7,6 +7,7 @@ import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { formsApi, SF9Row } from '../../services/forms';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
+import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import './sf1.css';
 /* ── Constants (DepEd SF9 layout) ── */
@@ -220,6 +221,7 @@ function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
 /* ── Component ── */
 export function SF9Report() {
   const { showToast } = useApp();
+  const accent = useRoleAccent();
   const [searchParams] = useSearchParams();
   const preselectedStudentId = searchParams.get('student_id');
   const preselectedSyId = searchParams.get('school_year_id');
@@ -501,7 +503,7 @@ export function SF9Report() {
     return (
       <div className="max-w-5xl mx-auto space-y-5 animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-violet-200 via-purple-200 to-violet-200" />
+          <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
           <div className="p-6 space-y-4">
             <div className="h-5 w-64 bg-gray-100 rounded-lg" />
             <div className="h-4 w-96 bg-gray-50 rounded-md" />
@@ -527,11 +529,11 @@ export function SF9Report() {
       {/* ── Filter Bar ── */}
       <div className="no-print">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-violet-400" />
+          <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
           <div className="p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
                   <BookOpen size={22} className="text-white" />
                 </div>
                 <div>
@@ -548,7 +550,7 @@ export function SF9Report() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleExportPdf}
-                  className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm">
+                  className={`inline-flex items-center gap-1.5 ${accent.button} text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm`}>
                   <Download size={14} /> PDF
                 </button>
                 <button
@@ -585,7 +587,7 @@ export function SF9Report() {
                       }
                     }
                   }}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 bg-white transition">
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                   {schoolYears.length === 0 && (
                     <option value="">Loading years...</option>
                   )}
@@ -604,7 +606,7 @@ export function SF9Report() {
                 <select
                   value={selectedGrade}
                   onChange={e => setSelectedGrade(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 bg-white transition">
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                   {[7, 8, 9, 10, 11, 12].map(g => (
                     <option key={g} value={g}>
                       Grade {g}
@@ -619,7 +621,7 @@ export function SF9Report() {
                 <select
                   value={selectedSectionId ?? ''}
                   onChange={e => setSelectedSectionId(parseInt(e.target.value))}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 bg-white transition">
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                   {gradeSections.length === 0 && (
                     <option value="">No sections</option>
                   )}
@@ -640,7 +642,7 @@ export function SF9Report() {
                     setSelectedStudentId(parseInt(e.target.value));
                     setSf9Data(null);
                   }}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 bg-white transition">
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                   {enrolledStudents.length === 0 && (
                     <option value="">No students enrolled</option>
                   )}
@@ -674,7 +676,7 @@ export function SF9Report() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
             <Loader2
               size={28}
-              className="animate-spin text-violet-500 mx-auto mb-3"
+              className={`animate-spin ${accent.text} mx-auto mb-3`}
             />
             <p className="text-gray-500 font-semibold">
               Generating SF9 Report Card...
@@ -698,8 +700,8 @@ export function SF9Report() {
       {!loadingReport && !error && !sf9Data && selectedStudentId && (
         <div className="no-print max-w-5xl mx-auto">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-4">
-              <BookOpen size={28} className="text-violet-300" />
+            <div className={`w-14 h-14 rounded-2xl ${accent.soft} flex items-center justify-center mx-auto mb-4`}>
+              <BookOpen size={28} className={accent.text} />
             </div>
             <p className="text-gray-500 text-sm font-semibold">
               No report card data

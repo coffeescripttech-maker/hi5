@@ -3,9 +3,11 @@ import { Search, FileText, User, Download, School } from "lucide-react";
 import { certificatesApi, CertificateResponse } from "../../services/certificates";
 import { exportToPdf } from "../../services/pdfExport";
 import { useApp } from "../../context/AppContext";
+import { useRoleAccent } from "../../utils/roleTheme";
 
 export function GoodMoralCertificate() {
   const { showToast } = useApp();
+  const accent = useRoleAccent();
   const [lrn, setLrn] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<CertificateResponse | null>(null);
@@ -48,10 +50,10 @@ export function GoodMoralCertificate() {
     <div className="space-y-5 max-w-4xl mx-auto">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-violet-600 to-violet-400" />
+        <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
         <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
               <FileText size={22} className="text-white" />
             </div>
             <div>
@@ -70,11 +72,11 @@ export function GoodMoralCertificate() {
             <input
               type="text" placeholder="Enter student LRN..."
               value={lrn} onChange={e => setLrn(e.target.value)} onKeyDown={handleKeyDown}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-violet-400"
+              className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 ${accent.ring}`}
             />
           </div>
           <button onClick={handleSearch} disabled={loading}
-            className="bg-violet-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-700 transition disabled:opacity-50 flex items-center gap-2">
+            className={`${accent.button} text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 flex items-center gap-2`}>
             {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={14} />}
             {loading ? "Searching..." : "Search"}
           </button>
@@ -86,7 +88,7 @@ export function GoodMoralCertificate() {
         <>
           <div className="flex justify-end">
             <button onClick={handleExport}
-              className="bg-violet-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-700 transition flex items-center gap-2 shadow-lg shadow-violet-200">
+              className={`${accent.button} text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2 shadow-lg ${accent.tileShadow}`}>
               <Download size={14} /> Download PDF
             </button>
           </div>

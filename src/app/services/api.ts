@@ -227,13 +227,16 @@ export interface UserProfile {
   designation: string | null;
   date_hired: string | null;
   last_login: string | null;
+  created_at: string | null;
 }
 
 export const authApi = {
   login: (data: LoginPayload) => api.post<LoginResponse>("/auth/login", data),
   me: () => api.get<UserProfile>("/auth/me"),
-  updateMe: (data: { name?: string; email?: string; phone?: string; address?: string }) =>
+  updateMe: (data: { name?: string; email?: string; phone?: string; address?: string; profile_photo_url?: string }) =>
     api.put<UserProfile>("/auth/me", data),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    api.put<{ message: string }>("/auth/change-password", data),
   logout: () => api.post<{ message: string }>("/auth/logout"),
   forgotPassword: (data: { email: string }) =>
     api.post<{ message: string; reset_code?: string; reset_expires?: string }>("/auth/forgot-password", data),

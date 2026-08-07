@@ -1,4 +1,3 @@
-import React from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
@@ -11,6 +10,7 @@ import { SubjectManagement } from "./pages/admin/SubjectManagement";
 import { DocumentManagement } from "./pages/teacher/DocumentManagement";
 import { DatabaseBackup } from "./pages/admin/DatabaseBackup";
 import { SectionCreation } from "./pages/admin/SectionCreation";
+import { RoleAccessControl } from "./pages/admin/RoleAccessControl";
 import { LisExport } from "./pages/admin/LisExport";
 import { TeacherDashboard } from "./pages/teacher/TeacherDashboard";
 import { EnrollmentModule } from "./pages/teacher/EnrollmentModule";
@@ -49,65 +49,7 @@ import { PrincipalProfile } from "./pages/principal/PrincipalProfile";
 import { StudentProfile } from "./pages/StudentProfile";
 import { SystemGuide } from "./pages/SystemGuide";
 import { NotFound } from "./pages/NotFound";
-import { logsApi, ActivityLogRow } from "./services/logs";
-
-function ActivityLogs() {
-  const [logs, setLogs] = React.useState<ActivityLogRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    logsApi.list({ limit: 100 })
-      .then(setLogs)
-      .catch(err => setError(err.detail?.error || err.message || "Failed to load logs"))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    <div className="space-y-5">
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h2 className="font-bold text-gray-800">System Activity Logs</h2>
-        <p className="text-gray-500 text-sm mt-0.5">Full audit trail of all user actions in the system</p>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-gray-400 text-sm">Loading logs...</div>
-        ) : error ? (
-          <div className="p-8 text-center text-red-500 text-sm">{error}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-blue-50 border-b border-blue-100">
-                  <th className="text-left px-5 py-3.5 text-blue-700 font-semibold text-xs uppercase tracking-wider">Timestamp</th>
-                  <th className="text-left px-4 py-3.5 text-blue-700 font-semibold text-xs uppercase tracking-wider">User</th>
-                  <th className="text-left px-4 py-3.5 text-blue-700 font-semibold text-xs uppercase tracking-wider">Role</th>
-                  <th className="text-left px-4 py-3.5 text-blue-700 font-semibold text-xs uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {logs.length === 0 ? (
-                  <tr><td colSpan={4} className="px-5 py-12 text-center text-gray-400 text-sm">No logs found.</td></tr>
-                ) : logs.map((log: any) => (
-                  <tr key={log.id} className="hover:bg-blue-50/20 transition">
-                    <td className="px-5 py-3.5 text-gray-400 text-xs font-mono whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString("en-PH")}
-                    </td>
-                    <td className="px-4 py-3.5 text-gray-700 font-medium text-xs">{log.user_name || "System"}</td>
-                    <td className="px-4 py-3.5">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">—</span>
-                    </td>
-                    <td className="px-4 py-3.5 text-gray-600 text-xs">{log.action}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { ActivityLogs } from "./pages/admin/ActivityLogs";
 
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
@@ -122,6 +64,7 @@ export const router = createBrowserRouter([
       { path: "academic-year", Component: AcademicYearManagement },
       { path: "profile", Component: AdminProfile },
       { path: "backup", Component: DatabaseBackup },
+      { path: "access-control", Component: RoleAccessControl },
       { path: "lis-export", Component: LisExport },
       { path: "subjects", Component: SubjectManagement },
       { path: "sections", Component: SectionCreation },
@@ -174,11 +117,15 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: PrincipalDashboard },
       { path: "enrollment-figures", Component: EnrollmentFigures },
+      { path: "enrollment", Component: EnrollmentFigures },
       { path: "grade-progress", Component: GradeProgress },
+      { path: "grades", Component: GradeProgress },
       { path: "at-risk", Component: AtRiskView },
       { path: "enrollment-trend", Component: EnrollmentTrend },
       { path: "promotion-stats", Component: PromotionStats },
+      { path: "promotions", Component: PromotionStats },
       { path: "section-population", Component: SectionPopulation },
+      { path: "sections", Component: SectionPopulation },
       { path: "profile", Component: PrincipalProfile },
       { path: "guide", Component: SystemGuide },
     ],

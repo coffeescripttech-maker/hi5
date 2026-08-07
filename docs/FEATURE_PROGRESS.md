@@ -1,6 +1,6 @@
 # HI5 Portal — Feature Progress Checklist
 
-> **Last Updated:** 2026-08-06
+> **Last Updated:** 2026-08-07
 > **Legend:** ✅ Done | ⚠️ Partial | ❌ Missing
 
 ---
@@ -28,6 +28,7 @@
 | 1.17 | View activity logs | ✅ Done | `/admin/logs` route |
 | 1.18 | Monitor login activity (Idle 30d / Inactive 60d) | ✅ Done | `userStatusCron.ts` auto-flags idle/inactive/active |
 | 1.19 | Dynamic section type management (CRUD via UI) | ✅ Done | `section_types` table + Manage Types modal in SectionCreation |
+| 1.20 | Role-Based Access Control (RA 10173) — admin checklist to toggle module access per role, reflected in each role's sidebar | ✅ Done | [RoleAccessControl.tsx](../src/app/pages/admin/RoleAccessControl.tsx) — `role_permissions` table (deny-list) + `GET/PUT /api/rbac/*` |
 
 ---
 
@@ -125,6 +126,7 @@
 | 5.10 | Android app (real-time sync) | ❌ Missing | — |
 | 5.11 | LIS Officer submission integration | ✅ Done | 3 CSV endpoints (learner profile, grades, enrolled list) + `/admin/lis-export` UI |
 | 5.12 | Pluggable AI provider (built-in Node regression ↔ Python FastAPI/scikit-learn service) | ✅ Done | [ai-service/README.md](../ai-service/README.md) — `AI_PROVIDER=node|python` in `server/.env`, auto-fallbacks to the local regression if Python is down |
+| 5.13 | RBAC framework — dynamic sidebar + navigation guard per role (deny-list permission matrix, admin = full access) | ✅ Done | `role_permissions` migration + [permissions.ts](../server/src/services/permissions.ts) + [Layout.tsx](../src/app/components/Layout.tsx) dynamic sidebar & Access Restricted guard |
 
 ---
 
@@ -132,9 +134,9 @@
 
 | Role | Total | ✅ Done | ⚠️ Partial | ❌ Missing |
 |------|-------|---------|------------|-----------|
-| **Admin (ICT)** | 19 | 19 | 0 | 0 |
+| **Admin (ICT)** | 20 | 20 | 0 | 0 |
 | **Registrar** | 21 | 21 | 0 | 0 |
 | **Teacher** | 27 | 27 | 0 | 0 |
 | **Principal** | 9 | 9 | 0 | 0 |
-| **Cross-cutting** | 12 | 11 | 0 | 1 |
-| **Overall** | **88** | **87** | **0** | **1** |
+| **Cross-cutting** | 13 | 12 | 0 | 1 |
+| **Overall** | **90** | **89** | **0** | **1** |

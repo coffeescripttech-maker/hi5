@@ -109,7 +109,7 @@ export function BulkPromotion() {
     return (
       <div className="max-w-5xl mx-auto space-y-5 animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-green-200 to-emerald-200" />
+          <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
             <div className="h-5 w-56 bg-gray-100 rounded-lg" />
             <div className="h-4 w-80 bg-gray-50 rounded-md" />
@@ -137,10 +137,10 @@ export function BulkPromotion() {
 
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
         <div className="p-5 sm:p-6">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
               <ArrowUpCircle size={22} className="text-emerald-700" />
             </div>
             <div>
@@ -154,26 +154,26 @@ export function BulkPromotion() {
       {/* ── Info Banner ── */}
       <div className={`rounded-xl p-4 sm:p-5 flex gap-3 transition-shadow duration-200 hover:shadow-sm ${
         isCompleters
-          ? "bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200/60"
-          : "bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60"
+          ? "bg-gradient-to-br from-emerald-50 to-emerald-50 border border-emerald-200/60"
+          : "bg-gradient-to-br from-emerald-50 to-emerald-50 border border-emerald-200/60"
       }`}>
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 shadow-xs ${
-          isCompleters ? "bg-indigo-100" : "bg-blue-100"
+          isCompleters ? "bg-emerald-100" : "bg-emerald-100"
         }`}>
-          <Info size={16} className={isCompleters ? "text-indigo-700" : "text-blue-700"} />
+          <Info size={16} className={isCompleters ? "text-emerald-700" : "text-emerald-700"} />
         </div>
-        <div className={`text-sm ${isCompleters ? "text-indigo-800" : "text-blue-800"}`}>
+        <div className={`text-sm ${isCompleters ? "text-emerald-800" : "text-emerald-800"}`}>
           <p className="font-bold mb-1">
             {isCompleters ? "How Grade 12 Completion Works" : "How Bulk Promotion Works"}
           </p>
           {isCompleters ? (
-            <p className={`text-xs leading-relaxed ${isCompleters ? "text-indigo-700" : "text-blue-700"}`}>
+            <p className={`text-xs leading-relaxed ${isCompleters ? "text-emerald-700" : "text-emerald-700"}`}>
               Marking a Grade 12 section as <strong>Completed</strong> will graduate all enrolled students.
               Their enrollment status will be updated to <strong>Completed</strong> and student records will reflect <strong>Graduated</strong> status.
               This action is recorded and visible in the Registrar's Promotion Records.
             </p>
           ) : (
-            <p className={`text-xs leading-relaxed ${isCompleters ? "text-indigo-700" : "text-blue-700"}`}>
+            <p className={`text-xs leading-relaxed ${isCompleters ? "text-emerald-700" : "text-emerald-700"}`}>
               Selecting a section and confirming will mark all enrolled students in that section as <strong>Promoted</strong> to the next grade level.
               Students with a general average below 75 will be flagged as <strong>Retained</strong> and excluded from promotion automatically.
               Promoted students are auto-assigned to appropriate sections in the next grade based on their average.
@@ -187,7 +187,7 @@ export function BulkPromotion() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
         <div className="px-5 sm:px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
               <Target size={15} className="text-emerald-700" />
             </div>
             <div>
@@ -217,7 +217,7 @@ export function BulkPromotion() {
               <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.05em]">Promotes To</label>
               <div className="w-full border border-gray-200 bg-gray-50/60 rounded-xl px-3.5 py-2.5 text-sm text-gray-500">
                 {selectedSection && isCompleters ? (
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-indigo-700">
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
                     <GraduationCap size={14} /> Completers
                   </span>
                 ) : toGrade ? (
@@ -235,21 +235,21 @@ export function BulkPromotion() {
           {selectedSection && (
             <div className={`mt-5 border rounded-xl p-5 ${
               isCompleters
-                ? "border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50"
-                : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50"
+                ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-50"
+                : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-50"
             }`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                    isCompleters ? "bg-indigo-100" : "bg-emerald-100"
+                    isCompleters ? "bg-emerald-100" : "bg-emerald-100"
                   }`}>
                     {isCompleters
-                      ? <GraduationCap size={13} className="text-indigo-700" />
+                      ? <GraduationCap size={13} className="text-emerald-700" />
                       : <BookOpen size={13} className="text-emerald-700" />
                     }
                   </div>
                   <p className={`font-bold text-sm ${
-                    isCompleters ? "text-indigo-800" : "text-emerald-800"
+                    isCompleters ? "text-emerald-800" : "text-emerald-800"
                   }`}>{selectedSection.name} — {isCompleters ? "Completion Preview" : "Promotion Preview"}</p>
                 </div>
                 <span className="inline-flex items-center gap-1 bg-white text-gray-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-gray-200/50 shadow-xs">
@@ -259,8 +259,8 @@ export function BulkPromotion() {
 
               {isCompleters ? (
                 <div className="grid grid-cols-1 gap-3 text-center text-xs mb-4">
-                  <div className="bg-white rounded-xl p-3 border border-indigo-100 shadow-xs">
-                    <p className="text-indigo-700 font-bold text-xl">{selectedSection.current_count}</p>
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs">
+                    <p className="text-emerald-700 font-bold text-xl">{selectedSection.current_count}</p>
                     <p className="text-gray-500 font-medium mt-0.5">Total Graduating</p>
                   </div>
                 </div>
@@ -270,8 +270,8 @@ export function BulkPromotion() {
                     <p className="text-emerald-700 font-bold text-xl">{preview ? preview.total : selectedSection.current_count}</p>
                     <p className="text-gray-500 font-medium mt-0.5">Total Enrolled</p>
                   </div>
-                  <div className="bg-white rounded-xl p-3 border border-green-100 shadow-xs">
-                    <p className="text-green-600 font-bold text-xl">{previewLoading ? "…" : (preview?.promoted ?? 0)}</p>
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs">
+                    <p className="text-emerald-600 font-bold text-xl">{previewLoading ? "…" : (preview?.promoted ?? 0)}</p>
                     <p className="text-gray-500 font-medium mt-0.5">For Promotion</p>
                   </div>
                   <div className="bg-white rounded-xl p-3 border border-red-100 shadow-xs">
@@ -286,7 +286,7 @@ export function BulkPromotion() {
               )}
 
               {isCompleters ? (
-                <div className="flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200/60 rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200/60 rounded-lg px-3 py-2.5">
                   <GraduationCap size={13} className="flex-shrink-0" />
                   All students in this section will be marked as completers/graduates. This cannot be undone easily.
                 </div>
@@ -306,7 +306,7 @@ export function BulkPromotion() {
               <button
                 disabled={!selectedSectionId}
                 onClick={() => setShowConfirm(true)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
               >
                 <GraduationCap size={16} />
                 Mark as Completers
@@ -315,7 +315,7 @@ export function BulkPromotion() {
               <button
                 disabled={!selectedSectionId}
                 onClick={() => setShowConfirm(true)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
               >
                 <ArrowUpCircle size={16} />
                 Promote Section
@@ -327,11 +327,11 @@ export function BulkPromotion() {
 
       {/* ── Promotion History ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
-        <div className="h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400" />
+        <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
         <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shadow-xs">
-              <ListOrdered size={16} className="text-blue-700" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
+              <ListOrdered size={16} className="text-emerald-700" />
             </div>
             <div>
               <h3 className="font-bold text-gray-900 text-sm">Promotion History</h3>
@@ -339,7 +339,7 @@ export function BulkPromotion() {
             </div>
           </div>
           {promotions.length > 0 && (
-            <span className="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-blue-200/50">
+            <span className="bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-emerald-200/50">
               {promotions.length} record{promotions.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -367,7 +367,7 @@ export function BulkPromotion() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {promotions.map((r, idx) => (
-                  <tr key={r.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/40 transition-colors duration-150`}>
+                  <tr key={r.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
                     <td className="px-5 py-3.5">
                       <span className="text-xs font-mono text-gray-400 font-semibold">#{r.id}</span>
                     </td>
@@ -398,10 +398,10 @@ export function BulkPromotion() {
                     <td className="px-5 py-3.5">
                       <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
                         r.status === "completed"
-                          ? "bg-green-50 text-green-700 border-green-200/50"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200/50"
                           : "bg-amber-50 text-amber-700 border-amber-200/50"
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${r.status === "completed" ? "bg-green-500" : "bg-amber-400"}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${r.status === "completed" ? "bg-emerald-500" : "bg-amber-400"}`} />
                         {r.status === "completed" ? "Completed" : "Pending Review"}
                       </span>
                     </td>
@@ -418,9 +418,9 @@ export function BulkPromotion() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
             <div className="flex items-center gap-3 mb-5">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${isCompleters ? "bg-indigo-100" : "bg-amber-100"}`}>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${isCompleters ? "bg-emerald-100" : "bg-amber-100"}`}>
                 {isCompleters
-                  ? <GraduationCap size={22} className="text-indigo-600" />
+                  ? <GraduationCap size={22} className="text-emerald-600" />
                   : <AlertTriangle size={22} className="text-amber-600" />
                 }
               </div>
@@ -430,7 +430,7 @@ export function BulkPromotion() {
               </div>
             </div>
 
-            <div className={`bg-gradient-to-br from-gray-50 to-white border rounded-xl p-4 text-sm space-y-3 mb-5 ${isCompleters ? "border-indigo-100" : "border-gray-100"}`}>
+            <div className={`bg-gradient-to-br from-gray-50 to-white border rounded-xl p-4 text-sm space-y-3 mb-5 ${isCompleters ? "border-emerald-100" : "border-gray-100"}`}>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Section:</span>
                 <span className="font-bold text-gray-800">{selectedSection.name}</span>
@@ -442,7 +442,7 @@ export function BulkPromotion() {
               {isCompleters ? (
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Status:</span>
-                  <span className="font-bold text-indigo-700 inline-flex items-center gap-1">
+                  <span className="font-bold text-emerald-700 inline-flex items-center gap-1">
                     <GraduationCap size={13} /> Completers
                   </span>
                 </div>
@@ -496,7 +496,7 @@ export function BulkPromotion() {
                 <button
                   onClick={handlePromote}
                   disabled={promoting}
-                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
                 >
                   {promoting ? <Loader2 size={14} className="animate-spin" /> : <GraduationCap size={14} />}
                   {promoting ? "Processing..." : "Yes, Mark as Completed"}
@@ -505,7 +505,7 @@ export function BulkPromotion() {
                 <button
                   onClick={handlePromote}
                   disabled={promoting}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
                 >
                   {promoting ? <Loader2 size={14} className="animate-spin" /> : <ArrowUpCircle size={14} />}
                   {promoting ? "Promoting..." : "Yes, Promote"}
@@ -522,13 +522,13 @@ export function BulkPromotion() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center animate-in zoom-in-95">
             <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center mx-auto mb-4 shadow-sm ${
               isCompleters
-                ? "from-indigo-100 to-purple-100"
+                ? "from-emerald-100 to-emerald-100"
                 : successOutcome.promoted > 0
-                  ? "from-green-100 to-emerald-100"
+                  ? "from-emerald-100 to-emerald-100"
                   : "from-amber-100 to-yellow-100"
             }`}>
               {isCompleters || successOutcome.promoted > 0 ? (
-                <CheckCircle size={32} className={isCompleters ? "text-indigo-600" : "text-green-600"} />
+                <CheckCircle size={32} className={isCompleters ? "text-emerald-600" : "text-emerald-600"} />
               ) : (
                 <AlertTriangle size={32} className="text-amber-600" />
               )}
@@ -545,7 +545,7 @@ export function BulkPromotion() {
             {isCompleters ? (
               <p className="text-gray-500 text-sm mb-5">
                 <strong className="text-gray-800">{successData.student_count} students</strong> from <strong>{successData.section_name}</strong>
-                {" "}have been marked as <strong className="text-indigo-700">Completed / Graduated</strong>.
+                {" "}have been marked as <strong className="text-emerald-700">Completed / Graduated</strong>.
               </p>
             ) : (
               <>
@@ -585,14 +585,14 @@ export function BulkPromotion() {
 
             <div className={`rounded-xl p-4 text-xs text-left mb-5 ${
               isCompleters
-                ? "bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200/60 text-indigo-700"
-                : "bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60 text-blue-700"
+                ? "bg-gradient-to-br from-emerald-50 to-emerald-50 border border-emerald-200/60 text-emerald-700"
+                : "bg-gradient-to-br from-emerald-50 to-emerald-50 border border-emerald-200/60 text-emerald-700"
             }`}>
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle size={14} className={isCompleters ? "text-indigo-600" : "text-blue-600"} />
+                <CheckCircle size={14} className={isCompleters ? "text-emerald-600" : "text-emerald-600"} />
                 <p className="font-bold">Registrar has been notified</p>
               </div>
-              <p className={isCompleters ? "text-indigo-600/80" : "text-blue-600/80"}>
+              <p className={isCompleters ? "text-emerald-600/80" : "text-emerald-600/80"}>
                 {isCompleters
                   ? "This completion is now visible in the Registrar's Promotion Records."
                   : "This promotion is now visible in the Registrar's Promotion Records."
@@ -604,8 +604,8 @@ export function BulkPromotion() {
               onClick={() => setShowSuccess(false)}
               className={`w-full bg-gradient-to-r text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm ${
                 isCompleters
-                  ? "from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                  : "from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
+                  ? "from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700"
+                  : "from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700"
               }`}
             >
               Done

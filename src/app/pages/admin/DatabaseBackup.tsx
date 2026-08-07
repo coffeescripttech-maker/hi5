@@ -153,9 +153,9 @@ export function DatabaseBackup() {
           <p className="text-sm font-bold text-blue-700">{totalSize}</p>
           <p className="text-xs text-gray-400 mt-0.5">{lastBackup?.record_count?.toLocaleString() || "—"} records</p>
         </div>
-        <div className="bg-white rounded-xl border border-indigo-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Total Backups</p><Archive size={13} className="text-indigo-500" /></div>
-          <p className="text-sm font-bold text-indigo-700">{backups.length}</p>
+        <div className="bg-white rounded-xl border border-blue-100 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Total Backups</p><Archive size={13} className="text-blue-500" /></div>
+          <p className="text-sm font-bold text-blue-700">{backups.length}</p>
           <p className="text-xs text-gray-400 mt-0.5">{successCount} successful</p>
         </div>
         <div className="bg-white rounded-xl border border-amber-100 p-4 shadow-sm">

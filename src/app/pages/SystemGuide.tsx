@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { BookOpen, Download, Printer, ZoomIn, ZoomOut } from "lucide-react";
+import { BookOpen, Download, Printer, ZoomIn, ZoomOut, Workflow, Repeat } from "lucide-react";
 
 const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
 
@@ -290,22 +290,21 @@ export function SystemGuide() {
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-700 to-indigo-900 rounded-2xl p-5 text-white shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-            <BookOpen size={20} className="text-white" />
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="p-5 sm:p-6 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+            <BookOpen size={22} className="text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-lg">System Guide — Student Lifecycle</h2>
-            <p className="text-indigo-200 text-sm">
-              Complete workflow from Grade 7 enrollment to Grade 12 graduation
-            </p>
+            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">System Guide — Student Lifecycle</h2>
+            <p className="text-gray-500 text-sm">Complete workflow from Grade 7 enrollment to Grade 12 graduation</p>
           </div>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-3">
+      <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3">
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#e0e7ff] border border-indigo-400 inline-block" /> Admin</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#d1fae5] border border-emerald-400 inline-block" /> Teacher</span>
@@ -340,16 +339,21 @@ export function SystemGuide() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
           {error}
         </div>
       )}
 
       {/* Full Lifecycle */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">Full Lifecycle: Grade 7 → Graduation</h3>
-          <p className="text-gray-400 text-xs">All 6 phases across Admin, Teacher, Registrar, and Principal roles</p>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <Workflow size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Full Lifecycle: Grade 7 → Graduation</h3>
+            <p className="text-xs text-gray-400">All 6 phases across Admin, Teacher, Registrar, and Principal roles</p>
+          </div>
         </div>
         <div className="p-5 overflow-x-auto" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}>
           <div className="min-w-[800px]" ref={lifecycleRef}>
@@ -366,10 +370,15 @@ export function SystemGuide() {
       </div>
 
       {/* Simplified Yearly Cycle */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">Simplified Yearly Cycle</h3>
-          <p className="text-gray-400 text-xs">Role-by-role view of the annual loop</p>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <Repeat size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Simplified Yearly Cycle</h3>
+            <p className="text-xs text-gray-400">Role-by-role view of the annual loop</p>
+          </div>
         </div>
         <div className="p-5 overflow-x-auto">
           {yearlySvg ? (
@@ -405,7 +414,7 @@ export function SystemGuide() {
             steps: ["Assign Sections from Pending Queue", "Monitor Enrollment", "Generate Certificates", "Run Reports", "Track At-Risk Students"],
           },
         ].map(card => (
-          <div key={card.role} className={`${card.color} border rounded-xl p-4`}>
+          <div key={card.role} className={`${card.color} rounded-2xl p-4 shadow-sm`}>
             <p className={`font-bold text-sm ${card.textColor} mb-2`}>{card.role}</p>
             <ol className="space-y-1.5">
               {card.steps.map((step, i) => (

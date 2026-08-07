@@ -12,6 +12,7 @@ import { sectionsApi, SectionRow } from '../../services/sections';
 import { settingsApi, SchoolSettingsRow } from '../../services/settings';
 import { formsApi, SF10Row } from '../../services/forms';
 import { useApp } from '../../context/AppContext';
+import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { SchoolFormTitleBlock } from '../../components/school-form-title';
 import {
@@ -294,6 +295,7 @@ function checkboxInput(props: {
 /* ── Component ── */
 export function SF10Report() {
   const { showToast } = useApp();
+  const accent = useRoleAccent();
   const [header, setHeader] = useSchoolHeader();
 
   /* ── Student picker ── */
@@ -544,7 +546,7 @@ export function SF10Report() {
     return (
       <div className="max-w-5xl mx-auto space-y-5 animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-indigo-200 via-sky-200 to-indigo-200" />
+          <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
           <div className="p-6 space-y-4">
             <div className="h-5 w-72 bg-gray-100 rounded-lg" />
             <div className="h-4 w-96 bg-gray-50 rounded-md" />
@@ -577,11 +579,11 @@ export function SF10Report() {
       {/* ── Filter Bar ── */}
       <div className="no-print">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-indigo-400" />
+          <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
           <div className="p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
                   <FileText size={22} className="text-white" />
                 </div>
                 <div>
@@ -598,7 +600,7 @@ export function SF10Report() {
                 <button
                   onClick={handleExportPdf}
                   disabled={!sf10Data || exporting}
-                  className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm">
+                  className={`inline-flex items-center gap-1.5 ${accent.button} disabled:opacity-40 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm`}>
                   {exporting ? (
                     <Loader2 size={14} className="animate-spin" />
                   ) : (
@@ -637,7 +639,7 @@ export function SF10Report() {
                     setSearchQuery(e.target.value);
                     setShowSuggestions(true);
                   }}
-                  className="w-full border border-gray-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white transition"
+                  className={`w-full border border-gray-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition`}
                 />
               </div>
               {showSuggestions && (
@@ -657,7 +659,7 @@ export function SF10Report() {
                         setShowSuggestions(false);
                         setSf10Data(null);
                       }}
-                      className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-50 transition text-sm flex items-center justify-between gap-2">
+                      className={`w-full text-left px-3.5 py-2.5 hover:bg-gray-50 transition text-sm flex items-center justify-between gap-2`}>
                       <span className="font-medium text-gray-800 truncate">
                         {s.name}
                       </span>
@@ -688,7 +690,7 @@ export function SF10Report() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
             <Loader2
               size={28}
-              className="animate-spin text-indigo-500 mx-auto mb-3"
+              className={`animate-spin ${accent.text} mx-auto mb-3`}
             />
             <p className="text-gray-500 font-semibold">
               Loading Permanent Academic Record…
@@ -712,8 +714,8 @@ export function SF10Report() {
       {!loadingReport && !error && !sf10Data && selectedStudentId && (
         <div className="no-print max-w-5xl mx-auto">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-4">
-              <Users size={28} className="text-indigo-300" />
+            <div className={`w-14 h-14 rounded-2xl ${accent.soft} flex items-center justify-center mx-auto mb-4`}>
+              <Users size={28} className={accent.text} />
             </div>
             <p className="text-gray-500 text-sm font-semibold">
               No permanent record found

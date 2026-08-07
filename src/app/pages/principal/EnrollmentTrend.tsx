@@ -26,7 +26,7 @@ export function EnrollmentTrend() {
   }));
 
   const statusCounts = [
-    { name: "Enrolled", count: enrollments.filter(e => e.status === "enrolled").length, color: "#6366f1" },
+    { name: "Enrolled", count: enrollments.filter(e => e.status === "enrolled").length, color: "#9333ea" },
     { name: "Dropped", count: enrollments.filter(e => e.status === "dropped").length, color: "#ef4444" },
     { name: "Transferred", count: enrollments.filter(e => e.status === "transferred").length, color: "#f59e0b" },
   ];
@@ -51,10 +51,10 @@ export function EnrollmentTrend() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-violet-600 to-violet-400" />
+        <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
         <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-200 flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
               <BarChart2 size={22} className="text-white" />
             </div>
             <div>
@@ -62,7 +62,7 @@ export function EnrollmentTrend() {
               <p className="text-gray-500 text-sm">Real-time enrollment figures by grade level</p>
             </div>
           </div>
-          <span className="bg-violet-100 text-violet-700 text-sm font-bold px-4 py-2 rounded-xl">{total} Active</span>
+          <span className="bg-purple-100 text-purple-700 text-sm font-bold px-4 py-2 rounded-xl">{total} Active</span>
         </div>
       </div>
 
@@ -72,8 +72,8 @@ export function EnrollmentTrend() {
           <div key={sc.name} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">{sc.name}</span>
-              <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center">
-                <Users size={14} className="text-violet-600" />
+              <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center">
+                <Users size={14} className="text-purple-600" />
               </div>
             </div>
             <p className="text-2xl font-bold text-gray-900 tracking-[-0.02em]">{sc.count}</p>
@@ -90,7 +90,7 @@ export function EnrollmentTrend() {
             <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
-            <Line type="monotone" dataKey="students" stroke="#6366f1" strokeWidth={3} dot={{ fill: "#6366f1", r: 5 }} name="Students" />
+            <Line type="monotone" dataKey="students" stroke="#9333ea" strokeWidth={3} dot={{ fill: "#9333ea", r: 5 }} name="Students" />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -113,7 +113,7 @@ export function EnrollmentTrend() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {[7, 8, 9, 10, 11, 12].map((g, idx) => (
-                <tr key={g} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-violet-50/50 transition-colors`}>
+                <tr key={g} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
                   <td className="px-5 py-3.5 font-medium text-gray-800">Grade {g}</td>
                   <td className="px-5 py-3.5 font-semibold text-emerald-600">{enrolled.filter(e => e.grade_level === g).length}</td>
                   <td className="px-5 py-3.5 text-red-600">{enrollments.filter(e => e.grade_level === g && e.status === "dropped").length}</td>

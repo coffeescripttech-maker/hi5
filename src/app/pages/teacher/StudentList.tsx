@@ -170,9 +170,9 @@ export function StudentList() {
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400" />
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
         <div className="p-5 sm:p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-lg shadow-emerald-200 flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center flex-shrink-0">
             <Users size={22} className="text-white" />
           </div>
           <div className="flex-1">
@@ -245,7 +245,7 @@ export function StudentList() {
                   <button key={s.id} type="button"
                     onClick={() => { setSearch(s.name); setShowSuggestions(false); }}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 transition text-left border-b border-gray-50 last:border-0">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0 shadow-sm">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0 shadow-sm">
                       {s.name.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -387,8 +387,8 @@ export function StudentList() {
                         enrolled: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Enrolled" },
                         pending: { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Pending" },
                         dropped: { bg: "bg-red-50 text-red-600 border-red-200/50", label: "Dropped" },
-                        transferred: { bg: "bg-blue-50 text-blue-700 border-blue-200/50", label: "Transferred" },
-                        graduated: { bg: "bg-purple-50 text-purple-700 border-purple-200/50", label: "Graduated" },
+                        transferred: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Transferred" },
+                        graduated: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Graduated" },
                       };
                       const hasSection = s.section_id != null;
                       // Show "Awaiting Section" instead of "Enrolled" when student has no section yet
@@ -403,7 +403,7 @@ export function StudentList() {
                         <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/50 transition-colors duration-150`}>
                           <td className="px-6 py-3.5">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0 shadow-sm">
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0 shadow-sm">
                                 {s.name.charAt(0)}
                               </div>
                               <div>
