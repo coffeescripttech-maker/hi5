@@ -33,7 +33,8 @@ import {
   TrendingUp,
   PieChart,
   ClipboardList,
-  MessageSquare
+  MessageSquare,
+  Award
 } from 'lucide-react';
 
 export type Role = 'admin' | 'teacher' | 'registrar' | 'principal';
@@ -154,6 +155,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'registrar_students', label: 'Student Search', icon: Search, path: '/registrar/students' },
         { key: 'registrar_section_assignment', label: 'Section Assignment', icon: Layers, path: '/registrar/section-assignment' },
         { key: 'registrar_promotions', label: 'Promotion Records', icon: GraduationCap, path: '/registrar/promotions' },
+        { key: 'registrar_graduates', label: 'Alumni / Graduates', icon: Award, path: '/registrar/graduates' },
         { key: 'registrar_subjects', label: 'Subject Directory', icon: BookOpen, path: '/registrar/subjects' }
       ]
     },
@@ -210,6 +212,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { key: 'principal_grades', label: 'Grade Progress', icon: ClipboardList, path: '/principal/grade-progress' },
         { key: 'principal_promotions', label: 'Promotion Stats', icon: GraduationCap, path: '/principal/promotion-stats' },
+        { key: 'principal_graduates', label: 'Alumni / Graduates', icon: Award, path: '/principal/graduates' },
         { key: 'principal_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/principal/at-risk' }
       ]
     },

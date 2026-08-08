@@ -144,6 +144,42 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
 }
 
 /**
+ * GET /api/students/graduates — Alumni list
+ * Students marked as graduates with their graduation school year (derived from
+ * the latest enrollment with status 'completed'). Read-only for registrar/principal.
+ * LEFT JOINs keep graduates without a completed enrollment visible (graduation_sy null).
+ */
+export async function listGraduates(req: Request, res: Response): Promise<void> {
+  try {
+    const graduates = await query<RowDataPacket[]>(
+      `SELECT s.id, s.student_id, s.lrn, s.name, s.sex, s.grade_level, s.status,
+              sy.id AS graduation_sy_id, sy.sy_label AS graduation_sy,
+              sec.name AS section_name
+       FROM students s
+       LEFT JOIN (
+         SELECT e1.student_id, e1.school_year_id, e1.section_id
+         FROM enrollments e1
+         JOIN (
+           SELECT student_id, MAX(school_year_id) AS max_sy
+           FROM enrollments
+           WHERE status = 'completed'
+           GROUP BY student_id
+         ) m ON e1.student_id = m.student_id AND e1.school_year_id = m.max_sy
+         WHERE e1.status = 'completed'
+       ) ce ON ce.student_id = s.id
+       LEFT JOIN school_years sy ON sy.id = ce.school_year_id
+       LEFT JOIN sections sec ON ce.section_id = sec.id
+       WHERE s.status = 'graduated'
+       ORDER BY sy.id DESC, s.name ASC`
+    );
+    res.json(graduates);
+  } catch (error) {
+    console.error("List graduates error:", error);
+    res.status(500).json({ error: "Failed to fetch graduates." });
+  }
+}
+
+/**
  * GET /api/students/:id — Get student by ID with enrollment info
  */
 export async function getStudentById(req: Request, res: Response): Promise<void> {

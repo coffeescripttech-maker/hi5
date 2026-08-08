@@ -23,6 +23,20 @@ export interface StudentRow {
   program?: string;
 }
 
+/** Graduate/alumni row (from GET /api/students/graduates) */
+export interface GraduateRow {
+  id: number;
+  student_id: string;
+  lrn: string;
+  name: string;
+  sex: "male" | "female";
+  grade_level: number;
+  status: string;
+  graduation_sy_id: number | null;
+  graduation_sy: string | null;
+  section_name: string | null;
+}
+
 /** Student with enrollment and section info (from GET /api/students/:id) */
 export interface StudentDetail extends StudentRow {
   enrollment?: {
@@ -76,6 +90,8 @@ export const studentsApi = {
   /** Get students scoped to the logged-in teacher (their section assignments) */
   listMyStudents: (params?: { status?: string }) =>
     api.get<StudentRow[]>("/students/my-students", params),
+  /** Alumni list — students marked as graduated with their graduation school year */
+  graduates: () => api.get<GraduateRow[]>("/students/graduates"),
   get: (id: number) => api.get<StudentDetail>(`/students/${id}`),
   create: (data: CreateStudentPayload) =>
     api.post<StudentRow>("/students", data),

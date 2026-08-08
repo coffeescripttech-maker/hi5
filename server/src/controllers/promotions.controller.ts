@@ -562,9 +562,16 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
 
 /**
  * GET /api/promotions — List promotions
+ * Role-scoped: a teacher only sees the promotions they submitted; admins,
+ * registrars, and principals see all promotions across the school.
  */
-export async function listPromotions(_req: Request, res: Response): Promise<void> {
+export async function listPromotions(req: Request, res: Response): Promise<void> {
   try {
+    const isTeacher = req.user?.role === "teacher";
+    const params: any[] = [];
+    const where = isTeacher ? "WHERE p.promoted_by = ?" : "";
+    if (isTeacher) params.push(req.user!.userId);
+
     const promotions = await query<RowDataPacket[]>(
       `SELECT p.*, sec.name AS section_name, sec.grade_level AS from_grade_level,
               u.name AS promoted_by_name, sy.sy_label,
@@ -575,7 +582,9 @@ export async function listPromotions(_req: Request, res: Response): Promise<void
        JOIN sections sec ON p.section_id = sec.id
        JOIN users u ON p.promoted_by = u.id
        JOIN school_years sy ON p.school_year_id = sy.id
-       ORDER BY p.created_at DESC`
+       ${where}
+       ORDER BY p.created_at DESC`,
+      params
     );
     res.json(promotions);
   } catch (error) {

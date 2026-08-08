@@ -4,6 +4,7 @@ import { authorize } from "../middleware/roleGuard";
 import {
   listStudents,
   getTeacherStudents,
+  listGraduates,
   getStudentById,
   createStudent,
   updateStudent,
@@ -18,6 +19,8 @@ router.use(authenticate);
 
 router.get("/", listStudents);
 router.get("/my-students", authorize("teacher"), getTeacherStudents);
+// Specific routes must be registered before "/:id" so "graduates" is not parsed as an id.
+router.get("/graduates", authorize("registrar", "principal"), listGraduates);
 router.get("/:id", getStudentById);
 router.post("/", authorize("admin", "teacher", "registrar"), createStudent);
 router.put("/:id", authorize("admin", "teacher", "registrar"), updateStudent);

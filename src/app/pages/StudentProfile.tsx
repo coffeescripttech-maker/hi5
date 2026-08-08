@@ -27,6 +27,7 @@ const STATUS_BADGE: Record<string, { bg: string; ring: string; label: string }> 
   dropped: { bg: "bg-red-50 text-red-600 border-red-200/50", ring: "ring-red-500/20", label: "Dropped" },
   transferred: { bg: "bg-blue-50 text-blue-700 border-blue-200/50", ring: "ring-blue-500/20", label: "Transferred" },
   graduated: { bg: "bg-purple-50 text-purple-700 border-purple-200/50", ring: "ring-purple-500/20", label: "Graduated" },
+  completed: { bg: "bg-purple-50 text-purple-700 border-purple-200/50", ring: "ring-purple-500/20", label: "Completed" },
 };
 
 interface DetailRowProps {
@@ -282,30 +283,23 @@ export function StudentProfile() {
 
       {/* ────────── GRADUATION BANNER ────────── */}
       {graduation && (
-        <div className="bg-gradient-to-r from-purple-700 via-fuchsia-700 to-purple-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg overflow-hidden relative">
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: "radial-gradient(circle at 20% 50%, white 1.5px, transparent 1.5px)",
-              backgroundSize: "22px 22px",
-            }}
-          />
-          <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-inner flex-shrink-0">
-              <GraduationCap size={24} />
+        <div className="bg-purple-50/60 border-2 border-purple-200 rounded-2xl p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center flex-shrink-0">
+              <GraduationCap size={24} className="text-purple-700" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/80">Graduate</p>
-              <p className="text-lg font-bold leading-tight">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-purple-500">Graduate</p>
+              <p className="text-lg font-bold text-purple-900 leading-tight">
                 {graduation.classYear ? `Class of ${graduation.classYear}` : "Graduated"}{" "}
                 <span aria-hidden>🎓</span>
               </p>
-              <p className="text-xs text-white/75 mt-0.5 leading-relaxed">
+              <p className="text-xs text-purple-700/80 mt-0.5 leading-relaxed">
                 {student.name} completed Grade 12{graduation.syLabel ? ` in SY ${graduation.syLabel}` : ""} and
                 has been marked as a graduate in the system.
               </p>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur text-[11px] font-bold shadow-sm flex-shrink-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-purple-200 text-purple-700 text-[11px] font-bold shadow-xs flex-shrink-0">
               <CheckCircle size={12} /> Graduated
             </span>
           </div>

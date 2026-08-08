@@ -29,6 +29,7 @@ import { SchoolForms } from "./pages/registrar/SchoolForms";
 import { Reports } from "./pages/registrar/Reports";
 import { EnrollmentReport } from "./pages/registrar/EnrollmentReport";
 import { PromotionRecords } from "./pages/registrar/PromotionRecords";
+import { Graduates } from "./pages/registrar/Graduates";
 import { RegistrarAtRisk } from "./pages/registrar/RegistrarAtRisk";
 import { GradeDistribution } from "./pages/registrar/GradeDistribution";
 import { GradeCorrections } from "./pages/registrar/GradeCorrections";
@@ -95,6 +96,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: RegistrarDashboard },
       { path: "students", Component: StudentSearch },
+      { path: "graduates", Component: Graduates },
       { path: "forms/:formCode?", Component: SchoolForms },
       { path: "reports", Component: Reports },
       { path: "enrollment-report", Component: EnrollmentReport },
@@ -122,6 +124,7 @@ export const router = createBrowserRouter([
       { path: "grades", Component: GradeProgress },
       { path: "at-risk", Component: AtRiskView },
       { path: "enrollment-trend", Component: EnrollmentTrend },
+      { path: "graduates", Component: Graduates },
       { path: "promotion-stats", Component: PromotionStats },
       { path: "promotions", Component: PromotionStats },
       { path: "section-population", Component: SectionPopulation },

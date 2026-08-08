@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   ArrowUpCircle, CheckCircle, Users, AlertTriangle, Info,
-  BookOpen, Loader2, Target, ListOrdered, GraduationCap, Undo2,
+  BookOpen, Loader2, Target, ListOrdered, GraduationCap, Undo2, User,
 } from "lucide-react";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { promotionsApi, PromotionRow, PromotionPreview } from "../../services/promotions";
@@ -432,7 +432,7 @@ export function BulkPromotion() {
             </div>
             <div>
               <h3 className="font-bold text-gray-900 text-sm">Promotion History</h3>
-              <p className="text-xs text-gray-400">All bulk promotions — visible to the Registrar</p>
+              <p className="text-xs text-gray-400">Your submitted promotions — the Registrar sees all</p>
             </div>
           </div>
           {promotions.length > 0 && (
@@ -457,7 +457,7 @@ export function BulkPromotion() {
             <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-gray-50/80">
                 <tr>
-                  {["ID", "Section", "From", "Promoted To", "Students", "Retained", "Date", "Status", "Actions"].map(h => (
+                  {["ID", "Section", "By", "From", "Promoted To", "Students", "Retained", "Date", "Status", "Actions"].map(h => (
                     <th key={h} className="text-left px-5 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">{h}</th>
                   ))}
                 </tr>
@@ -469,6 +469,12 @@ export function BulkPromotion() {
                       <span className="text-xs font-mono text-gray-400 font-semibold">#{r.id}</span>
                     </td>
                     <td className="px-5 py-3.5 font-semibold text-gray-800">{r.section_name}</td>
+                    <td className="px-5 py-3.5 text-gray-500 text-xs">
+                      <span className="inline-flex items-center gap-1.5">
+                        <User size={12} className="text-gray-400" />
+                        {r.promoted_by_name}
+                      </span>
+                    </td>
                     <td className="px-5 py-3.5 text-gray-500 text-xs">
                       <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-medium">Grade {r.from_grade_level}</span>
                     </td>
