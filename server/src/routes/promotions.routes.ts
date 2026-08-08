@@ -8,6 +8,7 @@ import {
   completeSection,
   bulkPromote,
   previewSection,
+  rollbackCompletion,
 } from "../controllers/promotions.controller";
 
 const router = Router();
@@ -19,6 +20,7 @@ router.get("/preview", authorize("admin", "teacher", "registrar"), previewSectio
 router.get("/:id", getPromotionById);
 router.post("/", authorize("admin", "teacher", "registrar"), promoteSection);
 router.post("/complete", authorize("admin", "teacher", "registrar"), completeSection);
+router.post("/:id/rollback", authorize("admin", "teacher", "registrar"), rollbackCompletion);
 router.post("/bulk-promote", authorize("admin"), bulkPromote);
 
 export default router;

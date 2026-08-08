@@ -23,6 +23,7 @@ export function StudentList() {
   const navigate = useNavigate();
   const { showToast } = useApp();
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [graduatedStudents, setGraduatedStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -51,6 +52,18 @@ export function StudentList() {
       .catch(err => showToast("error", "Failed to load students: " + (err.detail?.error || err.message)))
       .finally(() => setLoading(false));
   }, []);
+
+  // Graduated students are NOT in the default roster (the backend returns only
+  // 'enrolled' enrollments). When the "Graduated" filter is active, fetch the
+  // current school year's graduates separately so the filter shows real data.
+  useEffect(() => {
+    if (filterStatus !== "graduated") return;
+    let cancelled = false;
+    studentsApi.listMyStudents({ status: "graduated" })
+      .then(res => { if (!cancelled) setGraduatedStudents(res); })
+      .catch(() => { /* graduates are optional — empty table is acceptable */ });
+    return () => { cancelled = true; };
+  }, [filterStatus]);
 
   // Load the linear-regression risk classification for the current school year.
   useEffect(() => {
@@ -91,7 +104,7 @@ export function StudentList() {
 
   // ── Filter, search, sort ──────────────────────────────────
   const processed = useMemo(() => {
-    let data = [...students];
+    let data = filterStatus === "graduated" ? [...graduatedStudents] : [...students];
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -123,7 +136,7 @@ export function StudentList() {
     });
 
     return data;
-  }, [students, search, filterGrade, filterStatus, filterSex, sort]);
+  }, [students, graduatedStudents, search, filterGrade, filterStatus, filterSex, sort]);
 
   const suggestions = search.trim().length >= 1
     ? students.filter(s =>

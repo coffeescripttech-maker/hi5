@@ -4,6 +4,70 @@ import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
+ * Compute canonical General Averages for a set of students.
+ *
+ * Uses the same methodology as the report card / SF forms: per-subject average
+ * first (MAPEH components grouped into one subject), then the average of those
+ * subject averages. Prefers the CURRENT school year; if a student has no grades
+ * this year yet (e.g. freshly re-enrolled for the new year), falls back to their
+ * most recent PRIOR school year with grades — i.e. the GA from the grade level
+ * they are leaving, which is what section placement for the new year is based on.
+ */
+async function fetchGeneralAverageMap(studentIds: number[], schoolYearId: number): Promise<Map<number, number>> {
+  const map = new Map<number, number>();
+  if (studentIds.length === 0) return map;
+
+  const avgQuery = (ids: number[], sy: number) => {
+    const placeholders = ids.map(() => "?").join(",");
+    return query<RowDataPacket[]>(
+      `SELECT t.student_id, ROUND(AVG(t.subject_avg), 2) AS general_average
+       FROM (
+         SELECT g.student_id,
+                CASE WHEN s.name IN ('Music','Arts','Physical Education','Health')
+                     THEN 'MAPEH' ELSE s.name END AS subject_key,
+                ROUND(AVG(g.grade), 2) AS subject_avg
+         FROM grades g
+         JOIN subjects s ON g.subject_id = s.id
+         WHERE g.student_id IN (${placeholders}) AND g.school_year_id = ?
+         GROUP BY g.student_id, subject_key
+       ) t
+       GROUP BY t.student_id`,
+      [...ids, sy]
+    );
+  };
+
+  // 1) Current school year GA (student is partway through the year).
+  const currentRows = await avgQuery(studentIds, schoolYearId);
+  currentRows.forEach((r: any) => map.set(r.student_id, parseFloat(r.general_average)));
+
+  // 2) Fallback for students without current-year grades: their most recent
+  //    prior SY with grades (their last completed grade level's GA).
+  const missing = studentIds.filter(id => !map.has(id));
+  if (missing.length > 0) {
+    const placeholders = missing.map(() => "?").join(",");
+    const lastSyRows = await query<RowDataPacket[]>(
+      `SELECT student_id, MAX(school_year_id) AS last_sy
+       FROM grades
+       WHERE student_id IN (${placeholders}) AND school_year_id < ?
+       GROUP BY student_id`,
+      [...missing, schoolYearId]
+    );
+    const bySy = new Map<number, number[]>();
+    lastSyRows.forEach((r: any) => {
+      const ids = bySy.get(r.last_sy) || [];
+      ids.push(r.student_id);
+      bySy.set(r.last_sy, ids);
+    });
+    for (const [sy, ids] of bySy) {
+      const rows = await avgQuery(ids, sy);
+      rows.forEach((r: any) => map.set(r.student_id, parseFloat(r.general_average)));
+    }
+  }
+
+  return map;
+}
+
+/**
  * GET /api/sectioning/pending — Get pending students with GA, classifications, and available sections
  * (Students with status = 'pending' who have never been enrolled)
  */
@@ -35,16 +99,8 @@ export async function getPendingStudents(req: Request, res: Response): Promise<v
     const studentIds = students.map((s: any) => s.id);
     const placeholders = studentIds.map(() => "?").join(",");
 
-    // Bulk-fetch averages per student (across all subjects)
-    const averages = await query<RowDataPacket[]>(
-      `SELECT g.student_id,
-              ROUND(AVG(g.grade), 2) AS general_average
-       FROM grades g
-       WHERE g.student_id IN (${placeholders}) AND g.school_year_id = ?
-       GROUP BY g.student_id`,
-      [...studentIds, schoolYearId]
-    );
-    const avgMap = new Map(averages.map((a: any) => [a.student_id, parseFloat(a.general_average)]));
+    // Bulk-fetch averages (canonical GA; falls back to the last prior SY with grades)
+    const avgMap = await fetchGeneralAverageMap(studentIds, schoolYearId);
 
     // Bulk-fetch classifications
     const classifications = await query<RowDataPacket[]>(
@@ -141,16 +197,8 @@ export async function getPendingQueue(req: Request, res: Response): Promise<void
       const studentIds = queue.map((r: any) => r.student_id);
       const placeholders = studentIds.map(() => "?").join(",");
 
-      // Bulk-fetch averages
-      const averages = await query<RowDataPacket[]>(
-        `SELECT g.student_id,
-                ROUND(AVG(g.grade), 2) AS general_average
-         FROM grades g
-         WHERE g.student_id IN (${placeholders}) AND g.school_year_id = ?
-         GROUP BY g.student_id`,
-        [...studentIds, schoolYearId]
-      );
-      const avgMap = new Map(averages.map((a: any) => [a.student_id, parseFloat(a.general_average)]));
+      // Bulk-fetch averages (canonical GA; falls back to the last prior SY with grades)
+      const avgMap = await fetchGeneralAverageMap(studentIds, schoolYearId);
 
       // Bulk-fetch classifications
       const classifications = await query<RowDataPacket[]>(

@@ -163,6 +163,30 @@ const REQUIREMENTS_LIST = [
   { key: 'lrn_verification', label: 'LRN Verification Slip' }
 ];
 
+// Requirements that MUST be submitted per student classification. Keys must
+// reference REQUIREMENTS_LIST keys. Classifications without an entry
+// (e.g. Non-Reader, Regular) only need the base list above.
+const CATEGORY_REQUIREMENTS: Record<string, string[]> = {
+  Transferee: ['previous_grade_card', 'good_moral', 'transcript', 'lrn_verification'],
+  PWD: ['psa_birth_cert', 'medical_clearance'],
+  '4Ps Beneficiary': ['psa_birth_cert', 'parent_consent', 'lrn_verification'],
+  'Balik-aral': ['previous_grade_card', 'good_moral', 'lrn_verification']
+};
+
+// Set of requirement keys required by the selected classifications
+function requiredReqKeysFor(classifications: string[]): Set<string> {
+  const keys = new Set<string>();
+  for (const c of classifications) {
+    (CATEGORY_REQUIREMENTS[c] || []).forEach(k => keys.add(k));
+  }
+  return keys;
+}
+
+// Which selected classifications require a given requirement key
+function categoriesRequiring(key: string, classifications: string[]): string[] {
+  return classifications.filter(c => (CATEGORY_REQUIREMENTS[c] || []).includes(key));
+}
+
 // ── Landing-card illustrations (flat vector) ────────────────────────────
 // Hand-drawn inline SVGs so the landing cards stay self-contained — no image
 // assets, no external requests. Each shares a soft blob backdrop in its
@@ -890,6 +914,18 @@ export function EnrollmentModule() {
 
   const handleConfirmNewEnrollment = async () => {
     if (!newGrade) return;
+    // Per-category validation: documents required for the student's
+    // classifications must be checked off before the student can be enrolled.
+    const categoryRequiredKeys = requiredReqKeysFor(newData.classifications);
+    const missing = [...categoryRequiredKeys].filter(k => !requirements[k]);
+    if (missing.length > 0) {
+      const labels = missing.map(k => REQUIREMENTS_LIST.find(r => r.key === k)?.label || k);
+      showToast(
+        'error',
+        `Missing required documents for ${newData.classifications.join(', ')}: ${labels.join('; ')}`
+      );
+      return;
+    }
     try {
       const fullName = [newData.firstName, newData.middleName, newData.lastName]
         .filter(Boolean)
@@ -925,7 +961,8 @@ export function EnrollmentModule() {
           '4Ps Beneficiary': '4ps',
           PWD: 'pwd',
           Transferee: 'transferee',
-          'Non-Reader': 'non_reader'
+          'Non-Reader': 'non_reader',
+          'Balik-aral': 'balik_aral'
         };
         try {
           await studentsApi.addClassification(created.id, {
@@ -1773,7 +1810,7 @@ export function EnrollmentModule() {
                   Classification (check all that apply)
                 </label>
                 <div className="flex flex-wrap gap-3">
-                  {['4Ps Beneficiary', 'PWD', 'Transferee', 'Non-Reader'].map(
+                  {['4Ps Beneficiary', 'PWD', 'Transferee', 'Non-Reader', 'Balik-aral'].map(
                     cls => (
                       <label
                         key={cls}
@@ -1982,6 +2019,11 @@ export function EnrollmentModule() {
                         className={`text-sm block ${requirements[r.key] ? 'text-emerald-800 font-medium' : 'text-gray-600'}`}>
                         {r.label}
                       </span>
+                      {categoriesRequiring(r.key, newData.classifications).length > 0 && (
+                        <span className="inline-block mt-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                          Required: {categoriesRequiring(r.key, newData.classifications).join(', ')}
+                        </span>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -2133,18 +2175,26 @@ export function EnrollmentModule() {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {REQUIREMENTS_LIST.map(r => (
-                    <span
-                      key={r.key}
-                      className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${
-                        requirements[r.key]
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-gray-100 text-gray-400'
-                      }`}>
-                      {requirements[r.key] ? '✓' : '○'}{' '}
-                      {r.label.replace(/\(.*\)/, '').trim()}
-                    </span>
-                  ))}
+                  {REQUIREMENTS_LIST.map(r => {
+                    const reqCats = categoriesRequiring(r.key, newData.classifications);
+                    return (
+                      <span
+                        key={r.key}
+                        className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${
+                          requirements[r.key]
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}>
+                        {requirements[r.key] ? '✓' : '○'}{' '}
+                        {r.label.replace(/\(.*\)/, '').trim()}
+                        {reqCats.length > 0 && (
+                          <span className="ml-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded-md">
+                            req · {reqCats.join(', ')}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -97,6 +97,19 @@ export function StudentProfile() {
       }
     : null;
 
+  // Graduation details for graduated students — the class year comes from the
+  // SY they completed (e.g. "2030-2031" → Class of 2031).
+  const graduation = student && student.status === "graduated"
+    ? (() => {
+        const completed = [...enrollments]
+          .sort((a, b) => b.school_year_id - a.school_year_id)
+          .find(e => e.status === "completed");
+        const parts = String(completed?.sy_label || "").split(/[-–]/);
+        const classYear = parts.length === 2 ? parts[1].trim() : "";
+        return { syLabel: completed?.sy_label || "", classYear };
+      })()
+    : null;
+
   const DetailRow = ({ icon: Icon, label, value, highlight, copyable }: DetailRowProps) => (
     <div className="group flex items-start gap-3 py-3 border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50/40 px-3 -mx-3 rounded-lg">
       <div className="w-8 h-8 rounded-lg bg-gray-100/70 group-hover:bg-white flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors">
@@ -207,7 +220,8 @@ export function StudentProfile() {
               {/* status dot */}
               <span
                 className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white shadow-sm
-                  ${student.status === "enrolled" || student.status === "graduated" ? "bg-emerald-500" : ""}
+                  ${student.status === "enrolled" ? "bg-emerald-500" : ""}
+                  ${student.status === "graduated" ? "bg-purple-500" : ""}
                   ${student.status === "pending" ? "bg-amber-400" : ""}
                   ${student.status === "dropped" ? "bg-red-500" : ""}
                   ${student.status === "transferred" ? "bg-blue-500" : ""}
@@ -266,6 +280,38 @@ export function StudentProfile() {
         </div>
       </div>
 
+      {/* ────────── GRADUATION BANNER ────────── */}
+      {graduation && (
+        <div className="bg-gradient-to-r from-purple-700 via-fuchsia-700 to-purple-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg overflow-hidden relative">
+          <div
+            className="absolute inset-0 opacity-10"
+            style={{
+              backgroundImage: "radial-gradient(circle at 20% 50%, white 1.5px, transparent 1.5px)",
+              backgroundSize: "22px 22px",
+            }}
+          />
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-inner flex-shrink-0">
+              <GraduationCap size={24} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/80">Graduate</p>
+              <p className="text-lg font-bold leading-tight">
+                {graduation.classYear ? `Class of ${graduation.classYear}` : "Graduated"}{" "}
+                <span aria-hidden>🎓</span>
+              </p>
+              <p className="text-xs text-white/75 mt-0.5 leading-relaxed">
+                {student.name} completed Grade 12{graduation.syLabel ? ` in SY ${graduation.syLabel}` : ""} and
+                has been marked as a graduate in the system.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur text-[11px] font-bold shadow-sm flex-shrink-0">
+              <CheckCircle size={12} /> Graduated
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ────────── QUICK STATS ROW ────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -277,6 +323,8 @@ export function StudentProfile() {
           const statusTint =
             student.status === "enrolled"
               ? "from-emerald-50 to-green-50 border-emerald-200/50 text-emerald-700"
+              : student.status === "graduated"
+              ? "from-purple-50 to-purple-50 border-purple-200/50 text-purple-700"
               : student.status === "pending"
               ? "from-amber-50 to-yellow-50 border-amber-200/50 text-amber-700"
               : student.status === "dropped"

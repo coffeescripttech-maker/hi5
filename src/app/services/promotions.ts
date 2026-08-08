@@ -16,6 +16,8 @@ export interface PromotionRow {
   status: "completed" | "pending_review";
   student_count: number;
   created_at: string;
+  /** 1/0 — true for Grade 12 completion records ("Mark as Completers") */
+  is_completers?: boolean;
 }
 
 export interface PromotionStudentRow {
@@ -100,6 +102,10 @@ export const promotionsApi = {
   completeSection: (data: CompleteSectionPayload) =>
     api.post<{ message: string; promotion_id: number; section_name: string; student_count: number; students: any[] }>(
       "/promotions/complete", data
+    ),
+  rollback: (id: number) =>
+    api.post<{ message: string; section_id: number; section_name: string; student_count: number }>(
+      `/promotions/${id}/rollback`
     ),
   bulkPromote: () =>
     api.post<BulkPromoteResponse>("/promotions/bulk-promote"),

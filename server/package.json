@@ -10,7 +10,9 @@
     "migrate": "tsx src/config/migrate.ts",
     "seed": "tsx src/config/seed.ts",
     "db:setup": "npm run migrate && npm run seed",
-    "db:reset": "tsx src/config/reset.ts"
+    "db:reset": "tsx src/config/reset.ts",
+    "test": "tsx --test src/utils/linearRegression.test.ts",
+    "test:e2e": "node e2e-sf-forms.cjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

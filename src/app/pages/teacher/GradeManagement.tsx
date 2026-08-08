@@ -7,6 +7,7 @@ import {
 import { studentsApi, StudentRow } from "../../services/students";
 import { gradesApi } from "../../services/grades";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
+import { atRiskApi, StudentRiskTrend } from "../../services/atRisk";
 import { useApp } from "../../context/AppContext";
 
 type GradeEntry = {
@@ -128,6 +129,7 @@ export function GradeManagement() {
   const [correctionSubmitted, setCorrectionSubmitted] = useState(false);
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
   const [schoolYearId, setSchoolYearId] = useState(1);
+  const [riskMap, setRiskMap] = useState<Map<number, StudentRiskTrend>>(new Map());
 
   // Fetch teacher-scoped students + subjects + SY
   useEffect(() => {
@@ -161,6 +163,31 @@ export function GradeManagement() {
       setLoading(false);
     });
   }, []);
+
+  // Optional: load the linear-regression risk classification for suggestion
+  // chips. Never fatal — if it fails, students just show no chip.
+  useEffect(() => {
+    let cancelled = false;
+    atRiskApi.trends({ school_year_id: schoolYearId })
+      .then(res => {
+        if (cancelled) return;
+        const map = new Map<number, StudentRiskTrend>();
+        res.students.forEach(t => map.set(t.student_id, t));
+        setRiskMap(map);
+      })
+      .catch(() => { /* risk indicators are optional — ignore failures */ });
+    return () => { cancelled = true; };
+  }, [schoolYearId]);
+
+  const riskInfo = (studentId: number): { dot: string; label: string } => {
+    const t = riskMap.get(studentId);
+    if (!t || t.risk_level === null) return { dot: "bg-gray-400", label: "No data" };
+    return t.risk_level === "at_risk"
+      ? { dot: "bg-red-500", label: "At-Risk" }
+      : t.risk_level === "needs_monitoring"
+        ? { dot: "bg-amber-500", label: "Needs Monitoring" }
+        : { dot: "bg-emerald-500", label: "On Track" };
+  };
 
   // ── Autosearch: filter suggestions as user types ──
   const searchRef = useRef<HTMLDivElement>(null);
@@ -448,7 +475,13 @@ export function GradeManagement() {
                         <UserCheck size={14} className="text-emerald-700" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{s.name}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate flex items-center gap-1.5">
+                          <span
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${riskInfo(s.id).dot}`}
+                            title={`Risk: ${riskInfo(s.id).label}`}
+                          />
+                          <span className="truncate">{s.name}</span>
+                        </p>
                         <p className="text-xs text-gray-400">
                           {s.lrn} · Grade {s.grade_level} · {s.sex === "male" ? "Male" : "Female"}
                         </p>

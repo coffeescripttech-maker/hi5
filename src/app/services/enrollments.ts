@@ -23,7 +23,7 @@ export interface EnrollmentRow {
   enrollment_date: string;
   enrolled_by: number;
   enrolled_by_name: string;
-  status: 'enrolled' | 'dropped' | 'transferred';
+  status: 'enrolled' | 'dropped' | 'transferred' | 'completed';
   remarks: string | null;
   assigned_at: string | null;
   assigned_by: number | null;

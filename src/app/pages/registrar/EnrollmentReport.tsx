@@ -14,7 +14,7 @@ import { useApp } from "../../context/AppContext";
 import { exportToPdf } from "../../services/pdfExport";
 
 const SECTIONS = ["All Sections", "Star", "Gold", "Silver", "Regular", "Pending"];
-const CLASSIFICATIONS = ["All Classifications", "4Ps", "PWD", "Transferee", "Non-Reader", "Regular"];
+const CLASSIFICATIONS = ["All Classifications", "4Ps", "PWD", "Transferee", "Non-Reader", "Balik-aral", "Regular"];
 const GRADES = ["All Grades", "7", "8", "9", "10", "11", "12"];
 
 const CLASSIF_COLORS: Record<string, string> = {
@@ -22,6 +22,7 @@ const CLASSIF_COLORS: Record<string, string> = {
   "pwd": "#8b5cf6",
   "transferee": "#06b6d4",
   "non_reader": "#ef4444",
+  "balik_aral": "#f59e0b",
   "regular": "#9ca3af",
 };
 
@@ -30,6 +31,7 @@ const CLASSIF_LABELS: Record<string, string> = {
   "pwd": "PWD",
   "transferee": "Transferee",
   "non_reader": "Non-Reader",
+  "balik_aral": "Balik-aral",
   "regular": "Regular",
 };
 
@@ -124,7 +126,7 @@ export function EnrollmentReport() {
       list = list.filter(s => s.section_name === filterSection);
     }
     if (filterClassif !== "All Classifications") {
-      const cf = filterClassif.toLowerCase().replace(" ", "_");
+      const cf = filterClassif.toLowerCase().replace(/[\s-]/g, "_");
       list = list.filter(s => s.classifications?.toLowerCase().includes(cf));
     }
 

@@ -45,6 +45,9 @@ const GRADE_LABELS: Record<number, string> = {
 const PROGRAM_LABELS: Record<string, string> = {
   regular: "Regular", ste: "STE", spfl: "SPFL", open_high: "Open HS", als_shs: "ALS-SHS",
 };
+const CLASSIF_LABELS: Record<string, string> = {
+  "4ps": "4Ps", pwd: "PWD", transferee: "Transferee", non_reader: "Non-Reader", balik_aral: "Balik-aral",
+};
 const SECTION_TYPE_BADGES: Record<string, string> = {
   star: "bg-amber-100 text-amber-800",
   gold: "bg-yellow-100 text-yellow-800",
@@ -74,6 +77,7 @@ export function SectionAssignment() {
   const [carryOverProposals, setCarryOverProposals] = useState<CarryOverProposal[]>([]);
   const [carryOverSections, setCarryOverSections] = useState<SectioningSection[]>([]);
   const [carryOverGrade, setCarryOverGrade] = useState(12);
+  const [carryOverTouched, setCarryOverTouched] = useState(false);
 
   // ── UI state ──
   const [activeTab, setActiveTab] = useState<WorkflowTab>("random");
@@ -437,6 +441,29 @@ export function SectionAssignment() {
     }
   }, [activeTab, loadCarryOverPreview]);
 
+  /* ── Default the carry-over target grade to the grade most common in the
+     pending queue (only until the user picks one manually). Otherwise the
+     dropdown stays on "G11 → G12" and returns empty proposals when the school
+     only has lower-grade students queued (e.g. a G11 student needs the
+     "G10 → G11" option, whose target grade is 11). ── */
+  useEffect(() => {
+    if (carryOverTouched || queue.length === 0) return;
+    const counts = new Map<number, number>();
+    for (const q of queue) {
+      counts.set(q.grade_level, (counts.get(q.grade_level) ?? 0) + 1);
+    }
+    let best = 12;
+    let bestCount = 0;
+    for (const [g, c] of counts) {
+      // Carry-over only applies to target grades 8–12 (incoming G7 are new enrollees)
+      if (g >= 8 && c > bestCount) {
+        best = g;
+        bestCount = c;
+      }
+    }
+    setCarryOverGrade(best);
+  }, [queue, carryOverTouched]);
+
   /* ── Section picker for a student row (Manual tab) ── */
   const SectionPicker = ({
     student,
@@ -644,7 +671,7 @@ export function SectionAssignment() {
                         {s.classifications.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {s.classifications.map((c, ci) => (
-                              <span key={ci} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600 border border-purple-100">{c}</span>
+                              <span key={ci} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600 border border-purple-100">{CLASSIF_LABELS[c] || c}</span>
                             ))}
                           </div>
                         )}
@@ -713,17 +740,23 @@ export function SectionAssignment() {
             </div>
             <div className="flex items-center gap-2">
               {activeTab === "carryover" && (
-                <select
-                  className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  value={carryOverGrade}
-                  onChange={e => setCarryOverGrade(parseInt(e.target.value))}
-                >
-                  <option value={12}>G11 → G12</option>
-                  <option value={11}>G10 → G11</option>
-                  <option value={10}>G9 → G10</option>
-                  <option value={9}>G8 → G9</option>
-                  <option value={8}>G7 → G8</option>
-                </select>
+                <>
+                  <span className="text-xs text-gray-500 whitespace-nowrap">Carry-over target:</span>
+                  <select
+                    className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    value={carryOverGrade}
+                    onChange={e => {
+                      setCarryOverTouched(true);
+                      setCarryOverGrade(parseInt(e.target.value));
+                    }}
+                  >
+                    <option value={12}>G11 → G12</option>
+                    <option value={11}>G10 → G11</option>
+                    <option value={10}>G9 → G10</option>
+                    <option value={9}>G8 → G9</option>
+                    <option value={8}>G7 → G8</option>
+                  </select>
+                </>
               )}
               <button
                 onClick={handleGenerate}

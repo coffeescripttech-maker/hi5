@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { query } from "../config/database";
+import { getConnection, query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -50,12 +50,32 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Find next school year for new enrollments
+    // Find the next school year to enroll promoted students into. Promotion must
+    // target the NEXT school year — never the same one. Falling back to the same
+    // school year would move students into a higher-grade section within the year
+    // they were supposed to complete, which corrupts their academic record (the
+    // enrollment form then shows the wrong "Previous Grade"). So the next school
+    // year must already exist; otherwise tell the user what to do first.
     const nextSY = await query<RowDataPacket[]>(
-      "SELECT id FROM school_years WHERE is_current = 1 AND id != ? ORDER BY id ASC LIMIT 1",
+      "SELECT id FROM school_years WHERE id > ? ORDER BY id ASC LIMIT 1",
       [school_year_id]
     );
-    const nextSchoolYearId = nextSY.length > 0 ? nextSY[0].id : school_year_id;
+    if (nextSY.length === 0) {
+      const parts = String(sy[0].sy_label || "").split(/[-–]/);
+      const nextLabel =
+        parts.length === 2 &&
+        !Number.isNaN(parseInt(parts[0])) &&
+        !Number.isNaN(parseInt(parts[1]))
+          ? `${parseInt(parts[0]) + 1}-${parseInt(parts[1]) + 1}`
+          : null;
+      res.status(400).json({
+        error: `Cannot promote yet — no next school year exists${
+          nextLabel ? ` (e.g. ${nextLabel})` : ""
+        }. Create and activate the next school year in School Year management first, then promote again.`,
+      });
+      return;
+    }
+    const nextSchoolYearId = nextSY[0].id;
 
     const { promotionId, results, toGrade: processedGrade } = await promoteSectionCore(
       req.user!.userId,
@@ -192,6 +212,16 @@ async function promoteSectionCore(
 ): Promise<{ promotionId: number; toGrade: number; results: any[] }> {
   const toGrade = section.grade_level + 1;
 
+  // Safety guard: promoted students are enrolled into the NEXT school year. If the
+  // caller ever passes the same school year (e.g. the next year does not exist), refuse —
+  // otherwise students would be moved into a higher-grade section within the year they
+  // were supposed to complete, corrupting their academic record.
+  if (nextSchoolYearId === schoolYearId) {
+    throw new Error(
+      "Cannot promote into the same school year. Create the next school year first before promoting."
+    );
+  }
+
   // Get enrolled students with their averages + grade completeness.
   // grade_complete = every subject has all 4 quarters of grades entered.
   const students = await query<RowDataPacket[]>(
@@ -295,15 +325,15 @@ async function promoteSectionCore(
         [toGrade, s.student_id]
       );
 
-      // Update section counts
-      await query<ResultSetHeader>(
-        "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
-        [targetSectionId]
-      );
-
-      // Check if already enrolled in next SY
+      // Check if already enrolled in the target school year. In the normal
+      // year-end flow this is a fresh (next) school year with no enrollment,
+      // so a new one is created. When promotion runs against a school year the
+      // student is already enrolled in (e.g. no next SY exists yet), the
+      // existing enrollment must be MOVED into the promoted section — otherwise
+      // grade_level and the enrollment's section fall out of sync (student
+      // shows as Grade 11 while still listed under a Grade 10 section).
       const existingEnroll = await query<RowDataPacket[]>(
-        "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
+        "SELECT id, section_id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
         [s.student_id, nextSchoolYearId]
       );
 
@@ -313,7 +343,31 @@ async function promoteSectionCore(
            VALUES (?, ?, ?, CURDATE(), ?, 'enrolled')`,
           [s.student_id, targetSectionId, nextSchoolYearId, userId]
         );
+        // Update section counts
+        await query<ResultSetHeader>(
+          "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
+          [targetSectionId]
+        );
+      } else if (existingEnroll[0].section_id !== targetSectionId) {
+        // Move the existing enrollment into the promoted section and rebalance
+        // both sections' stored counts (the target was not counted yet).
+        await query<ResultSetHeader>(
+          "UPDATE enrollments SET section_id = ?, status = 'enrolled' WHERE id = ?",
+          [targetSectionId, existingEnroll[0].id]
+        );
+        if (existingEnroll[0].section_id != null) {
+          await query<ResultSetHeader>(
+            "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
+            [existingEnroll[0].section_id]
+          );
+        }
+        await query<ResultSetHeader>(
+          "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
+          [targetSectionId]
+        );
       }
+      // else: already enrolled in the target section — section and counts are
+      // already correct, so nothing further to do.
     } else if (opts.enrollRetained && (isRetained || isIncomplete)) {
       // Retained or incomplete students stay in the SAME section for the next school year
       const existingEnroll = await query<RowDataPacket[]>(
@@ -512,7 +566,9 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
 export async function listPromotions(_req: Request, res: Response): Promise<void> {
   try {
     const promotions = await query<RowDataPacket[]>(
-      `SELECT p.*, sec.name AS section_name, sec.grade_level, u.name AS promoted_by_name, sy.sy_label,
+      `SELECT p.*, sec.name AS section_name, sec.grade_level AS from_grade_level,
+              u.name AS promoted_by_name, sy.sy_label,
+              (sec.grade_level = 12 AND p.to_grade_level = 12) AS is_completers,
               (SELECT COUNT(*) FROM promotion_students WHERE promotion_id = p.id) AS student_count,
               (SELECT COUNT(*) FROM promotion_students WHERE promotion_id = p.id AND is_retained = 1) AS retained_count
        FROM promotions p
@@ -646,7 +702,24 @@ async function completeSectionCore(
   );
 
   if (students.length === 0) {
-    throw new Error(`No enrolled students found in section "${section.name}".`);
+    // Distinguish "already graduated" from "no students yet" so the user
+    // knows which action to take next instead of getting a dead-end error.
+    const completed = await query<RowDataPacket[]>(
+      `SELECT e.id
+       FROM enrollments e
+       WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'completed'`,
+      [section.id, schoolYearId]
+    );
+
+    if (completed.length > 0) {
+      throw new Error(
+        `Section "${section.name}" has already been marked as completers (${completed.length} student${completed.length === 1 ? "" : "s"}). This is a completed record and cannot be marked again.`
+      );
+    }
+
+    throw new Error(
+      `No enrolled students found in section "${section.name}". Enroll students in this section first, then mark them as completers.`
+    );
   }
 
   // Create a promotion-like record for audit trail
@@ -692,4 +765,122 @@ async function completeSectionCore(
   );
 
   return { promotionId, results };
+}
+
+/**
+ * POST /api/promotions/:id/rollback — Undo a Grade 12 completion
+ *
+ * Reverses what completeSection did, so a section can be completed again:
+ * 1. Students return to 'enrolled' (their student status AND their enrollment
+ *    in the completed section/school year are restored).
+ * 2. The section's current-school-year count is recomputed from real data.
+ * 3. The completion promotion + its promotion_students + its audit log are
+ *    removed, so the section reappears in the promote dropdown.
+ * Only completion records (Grade 12 section, status 'completed') can be
+ * rolled back — regular promotions are permanent.
+ */
+export async function rollbackCompletion(req: Request, res: Response): Promise<void> {
+  try {
+    const id = parseInt(String(req.params.id));
+    if (!id || Number.isNaN(id)) {
+      res.status(400).json({ error: "Invalid promotion id." });
+      return;
+    }
+
+    const promo = await query<RowDataPacket[]>(
+      `SELECT p.*, sec.name AS section_name, sec.grade_level
+       FROM promotions p JOIN sections sec ON p.section_id = sec.id
+       WHERE p.id = ?`,
+      [id]
+    );
+    if (promo.length === 0) {
+      res.status(404).json({ error: "Promotion not found." });
+      return;
+    }
+    const promotion = promo[0];
+
+    if (
+      promotion.status !== "completed" ||
+      promotion.to_grade_level !== 12 ||
+      promotion.grade_level !== 12
+    ) {
+      res.status(400).json({ error: "Only Grade 12 completion records can be rolled back." });
+      return;
+    }
+
+    const students = await query<RowDataPacket[]>(
+      "SELECT student_id FROM promotion_students WHERE promotion_id = ?",
+      [id]
+    );
+    if (students.length === 0) {
+      res.status(400).json({ error: "This completion record has no students and cannot be rolled back." });
+      return;
+    }
+
+    const studentIds = students.map((s: any) => s.student_id);
+    const placeholders = studentIds.map(() => "?").join(",");
+
+    const connection = await getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Revert each student's enrollment in the completed section/school year
+      // back to 'enrolled' (only touches enrollments this completion changed).
+      await connection.query(
+        `UPDATE enrollments SET status = 'enrolled', remarks = NULL
+         WHERE student_id IN (${placeholders}) AND section_id = ? AND school_year_id = ? AND status = 'completed'`,
+        [...studentIds, promotion.section_id, promotion.school_year_id]
+      );
+
+      // Revert student status — only students this completion graduated.
+      await connection.query(
+        `UPDATE students SET status = 'enrolled'
+         WHERE status = 'graduated' AND id IN (${placeholders})`,
+        studentIds
+      );
+
+      // Recompute the section's count from the current school year's real enrollments.
+      await connection.query(
+        `UPDATE sections SET current_count =
+           (SELECT COUNT(*) FROM enrollments e JOIN school_years sy ON sy.id = e.school_year_id
+            WHERE e.section_id = ? AND sy.is_current = 1)
+         WHERE id = ?`,
+        [promotion.section_id, promotion.section_id]
+      );
+
+      // Remove the completion record + its students + its audit log so the
+      // section can be completed again from a clean state.
+      await connection.query("DELETE FROM promotion_students WHERE promotion_id = ?", [id]);
+      await connection.query(
+        "DELETE FROM activity_logs WHERE entity_type = 'promotions' AND entity_id = ?",
+        [String(id)]
+      );
+      await connection.query("DELETE FROM promotions WHERE id = ?", [id]);
+
+      await connection.commit();
+
+      // Audit the rollback itself (logActivity never throws).
+      await logActivity(
+        req.user!.userId,
+        `Rolled back completion of section "${promotion.section_name}" (Grade 12): ${students.length} student${students.length === 1 ? "" : "s"} returned to enrolled`,
+        "promotions",
+        null
+      );
+
+      res.status(200).json({
+        message: `Rolled back completion of "${promotion.section_name}". ${students.length} student${students.length === 1 ? "" : "s"} returned to enrolled.`,
+        section_id: promotion.section_id,
+        section_name: promotion.section_name,
+        student_count: students.length,
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Rollback completion error:", error);
+    res.status(500).json({ error: (error as Error).message || "Failed to roll back completion." });
+  }
 }

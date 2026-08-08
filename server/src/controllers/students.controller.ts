@@ -96,6 +96,16 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
       [userId]
     );
 
+    // Graduated students keep an enrollment row in the current school year but with
+    // status 'completed'. By default we only return the live roster ('enrolled');
+    // when the UI asks for the graduated filter we also include those so the
+    // "Graduated" filter shows graduates instead of an always-empty table.
+    const statusParam = req.query.status as string | undefined;
+    const includeGraduated = statusParam === "graduated";
+    const enrollmentStatusFilter = includeGraduated
+      ? "AND e.status IN ('enrolled', 'completed')"
+      : "AND e.status = 'enrolled'";
+
     // Build query: students in teacher's sections OR students they enrolled (pending queue)
     let sql = `
       SELECT s.*, e.section_id, sec.name AS section_name, e.status AS enrollment_status,
@@ -104,7 +114,7 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
       JOIN enrollments e ON e.student_id = s.id
       LEFT JOIN sections sec ON e.section_id = sec.id
       WHERE e.school_year_id = ?
-        AND e.status = 'enrolled'
+        ${enrollmentStatusFilter}
         AND (
     `;
     const params: any[] = [schoolYearId];
@@ -297,7 +307,7 @@ export async function updateClassifications(req: Request, res: Response): Promis
       return;
     }
 
-    const validClassifications = ["4ps", "pwd", "transferee", "non_reader", "regular"];
+    const validClassifications = ["4ps", "pwd", "transferee", "non_reader", "balik_aral", "regular"];
     for (const c of classifications) {
       if (!validClassifications.includes(c)) {
         res.status(400).json({ error: `Invalid classification: "${c}". Must be one of: ${validClassifications.join(", ")}` });

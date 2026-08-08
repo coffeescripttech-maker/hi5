@@ -477,7 +477,7 @@ export function AutoSectioning() {
                           <div className="flex flex-wrap gap-1">
                             {s.classifications.map(c => (
                               <span key={c} className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/50 capitalize">
-                                {c === "4ps" ? "4Ps" : c === "pwd" ? "PWD" : c === "non_reader" ? "Non-Reader" : c}
+                                {c === "4ps" ? "4Ps" : c === "pwd" ? "PWD" : c === "non_reader" ? "Non-Reader" : c === "balik_aral" ? "Balik-aral" : c}
                               </span>
                             ))}
                           </div>

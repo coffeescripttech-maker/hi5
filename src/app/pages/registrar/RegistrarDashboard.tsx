@@ -15,6 +15,7 @@ const CLASSIF_COLORS: Record<string, string> = {
   "pwd": "#8b5cf6",
   "transferee": "#06b6d4",
   "non_reader": "#ef4444",
+  "balik_aral": "#f59e0b",
   "regular": "#9ca3af",
 };
 
@@ -23,6 +24,7 @@ const CLASSIF_LABELS: Record<string, string> = {
   "pwd": "PWD",
   "transferee": "Transferee",
   "non_reader": "Non-Reader",
+  "balik_aral": "Balik-aral",
   "regular": "Regular",
 };
 

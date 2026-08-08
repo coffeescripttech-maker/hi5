@@ -74,7 +74,8 @@ export const studentsApi = {
     return api.get<StudentRow[]>(`/students${query}`);
   },
   /** Get students scoped to the logged-in teacher (their section assignments) */
-  listMyStudents: () => api.get<StudentRow[]>("/students/my-students"),
+  listMyStudents: (params?: { status?: string }) =>
+    api.get<StudentRow[]>("/students/my-students", params),
   get: (id: number) => api.get<StudentDetail>(`/students/${id}`),
   create: (data: CreateStudentPayload) =>
     api.post<StudentRow>("/students", data),
