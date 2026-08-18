@@ -1,5 +1,6 @@
 import { Printer } from "lucide-react"
 import { useRoleAccent } from "../../utils/roleTheme"
+import { DocumentViewer } from "../../components/DocumentViewer"
 
 /* ---------------------------------------------------------------- */
 /* DepEd School Form 9 (SF9) — Learner's Progress Report Card        */
@@ -95,6 +96,7 @@ export function SF9Card() {
         </button>
       </div>
 
+      <DocumentViewer>
       <div className="sf1-sheet mx-auto w-fit max-w-full space-y-8 overflow-x-auto bg-white p-6 text-black shadow-sm">
         {/* ============================================================ */}
         {/* PAGE 1 — Cover spread: attendance + learner info/letter      */}
@@ -416,7 +418,8 @@ export function SF9Card() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </DocumentViewer>
     </div>
   )
 }

@@ -15,6 +15,7 @@ import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
+import { DocumentViewer } from '../../components/DocumentViewer';
 
 /* ---------------------------------------------------------------- */
 /* DepEd School Form 5 (SF5)                                        */
@@ -632,7 +633,8 @@ export function SF5Report() {
       </div>
 
       {/* Sheet */}
-      <div id="sf5-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
+      <DocumentViewer>
+        <div id="sf5-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
         <div className="sf1-page" style={{ minWidth: '1200px' }}>
           {/* ---------- Title block ---------- */}
           <div className="mb-4 flex items-center justify-between gap-6">
@@ -818,6 +820,7 @@ export function SF5Report() {
           </div>
         </div>
       </div>
+      </DocumentViewer>
     </div>
   );
 }

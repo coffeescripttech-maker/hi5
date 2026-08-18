@@ -197,7 +197,7 @@ export function SchoolForms() {
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
@@ -1154,7 +1154,7 @@ export function SchoolForms() {
                       I certify that the information contained herein is true
                       and correct based on official school records.
                     </p>
-                    <div className="grid grid-cols-3 gap-6 text-center text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center text-xs">
                       {[
                         { title: 'Class Adviser', name: '—' },
                         { title: 'School Principal', name: 'Dr. Maria Santos' },

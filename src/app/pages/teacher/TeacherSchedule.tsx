@@ -81,8 +81,8 @@ export function TeacherSchedule() {
           <p className="text-gray-400 text-sm mt-1">Ask the Registrar to set up your class schedule.</p>
         </div>
       ) : (
-        /* Weekly timetable grid */
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Weekly timetable grid — desktop/tablet only */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -155,20 +155,30 @@ export function TeacherSchedule() {
             {schedules
               .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
               .map(s => (
-                <div key={s.id} className="flex items-center gap-4 py-3">
-                  <div className="w-14 text-center">
-                    <p className="text-xs font-bold text-gray-700">{DAY_SHORT[s.day_of_week - 1]}</p>
-                    <p className="text-[11px] text-gray-400 font-mono">{s.start_time.slice(0, 5)}</p>
+                <div key={s.id} className="flex items-start gap-3 py-3">
+                  <div className="w-12 flex-shrink-0 text-center">
+                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold">
+                      {DAY_SHORT[s.day_of_week - 1]}
+                    </span>
+                    <p className="text-[11px] text-gray-400 font-mono mt-1">{s.start_time.slice(0, 5)}</p>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800">{s.subject_name}</p>
-                    <p className="text-xs text-gray-500">{s.section_name}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <Users size={11} /> {s.section_name}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} />
+                        {formatTime(s.start_time)} – {formatTime(s.end_time)}
+                      </span>
+                      {s.room && (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={11} /> {s.room}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {s.room && (
-                    <span className="text-xs text-gray-400 flex items-center gap-1">
-                      <MapPin size={11} /> {s.room}
-                    </span>
-                  )}
                 </div>
               ))}
           </div>

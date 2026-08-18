@@ -135,7 +135,7 @@ export function SchoolSettings() {
 
   if (loading) {
     return (
-      <div className="space-y-5 max-w-4xl mx-auto">
+      <div className="space-y-5 max-w-4xl mx-auto px-3 sm:px-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
           <div className="p-5 sm:p-6">
@@ -165,7 +165,7 @@ export function SchoolSettings() {
   );
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
+    <div className="space-y-5 max-w-4xl mx-auto px-3 sm:px-0">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />

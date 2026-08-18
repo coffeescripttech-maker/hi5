@@ -250,7 +250,7 @@ export function RoleAccessControl() {
         </div>
 
         {/* RA10173 banner */}
-        <div className="mt-5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex gap-3">
+        <div className="mt-5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start gap-3">
           <span className="text-blue-700 shrink-0 mt-0.5">
             <ShieldCheck size={18} />
           </span>
@@ -267,7 +267,7 @@ export function RoleAccessControl() {
         </div>
 
         {/* Admin locked note */}
-        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-start sm:items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white shrink-0">
             <Lock size={15} />
           </div>
@@ -321,7 +321,7 @@ export function RoleAccessControl() {
                     style={{ width: `${total ? (enabled / total) * 100 : 0}%` }}
                   />
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleSetAll(role, true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium transition-colors border border-emerald-200">

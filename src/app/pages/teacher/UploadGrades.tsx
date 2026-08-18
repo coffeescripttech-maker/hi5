@@ -9,6 +9,7 @@ import { sectionsApi, SectionRow } from "../../services/sections";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { schoolYearsApi, SchoolYearRow } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
+import { HybridTable } from "../../components/HybridTable";
 
 type Stage = "idle" | "uploading" | "preview" | "importing" | "done";
 
@@ -366,7 +367,7 @@ export function UploadGrades() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`bg-white rounded-2xl border-2 border-dashed p-10 text-center transition-all cursor-pointer ${
+          className={`bg-white rounded-2xl border-2 border-dashed p-6 sm:p-10 text-center transition-all cursor-pointer ${
             dragActive ? "border-emerald-500 bg-emerald-50" : "border-gray-300 hover:border-emerald-400 hover:bg-emerald-50/40"
           }`}
           onClick={() => fileInputRef.current?.click()}
@@ -515,40 +516,69 @@ export function UploadGrades() {
               </div>
             </div>
 
-            <div className="overflow-x-auto max-h-80 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase sticky top-0">
-                  <tr>
-                    <th className="px-5 py-2.5 font-semibold">#</th>
-                    <th className="px-5 py-2.5 font-semibold">LRN</th>
-                    <th className="px-5 py-2.5 font-semibold">Student Name</th>
-                    <th className="px-5 py-2.5 font-semibold">Grade</th>
-                    <th className="px-5 py-2.5 font-semibold">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {visibleRows.map(r => (
-                    <tr key={r.row} className={r.status === "invalid" ? "bg-red-50/60" : r.status === "skipped" ? "bg-yellow-50/40" : "hover:bg-gray-50/60"}>
-                      <td className="px-5 py-2 text-gray-400">{r.row}</td>
-                      <td className="px-5 py-2 text-gray-600">{r.lrn}</td>
-                      <td className="px-5 py-2 text-gray-800">{r.name || "—"}</td>
-                      <td className="px-5 py-2 text-gray-800 font-medium">{r.grade ?? "—"}</td>
-                      <td className="px-5 py-2">
-                        {r.status === "valid" && <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-semibold"><CheckCircle size={13} /> Ready</span>}
-                        {r.status === "skipped" && <span className="inline-flex items-center gap-1 text-yellow-600 text-xs font-semibold"><SkipForward size={13} /> Blank grade</span>}
-                        {r.status === "invalid" && <span className="text-red-500 text-xs font-semibold" title={r.error}>{r.error || "Invalid"}</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {visibleRows.length === 0 && (
+            {visibleRows.length === 0 ? (
               <div className="p-8 text-center text-gray-400 text-sm">
                 <Search size={24} className="mx-auto mb-2 opacity-40" />
                 No rows match your search or filter.
               </div>
+            ) : (
+              <HybridTable
+                desktop={
+                  <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase sticky top-0">
+                        <tr>
+                          <th className="px-5 py-2.5 font-semibold">#</th>
+                          <th className="px-5 py-2.5 font-semibold">LRN</th>
+                          <th className="px-5 py-2.5 font-semibold">Student Name</th>
+                          <th className="px-5 py-2.5 font-semibold">Grade</th>
+                          <th className="px-5 py-2.5 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {visibleRows.map(r => (
+                          <tr key={r.row} className={r.status === "invalid" ? "bg-red-50/60" : r.status === "skipped" ? "bg-yellow-50/40" : "hover:bg-gray-50/60"}>
+                            <td className="px-5 py-2 text-gray-400">{r.row}</td>
+                            <td className="px-5 py-2 text-gray-600">{r.lrn}</td>
+                            <td className="px-5 py-2 text-gray-800">{r.name || "—"}</td>
+                            <td className="px-5 py-2 text-gray-800 font-medium">{r.grade ?? "—"}</td>
+                            <td className="px-5 py-2">
+                              {r.status === "valid" && <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-semibold"><CheckCircle size={13} /> Ready</span>}
+                              {r.status === "skipped" && <span className="inline-flex items-center gap-1 text-yellow-600 text-xs font-semibold"><SkipForward size={13} /> Blank grade</span>}
+                              {r.status === "invalid" && <span className="text-red-500 text-xs font-semibold" title={r.error}>{r.error || "Invalid"}</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                }
+                mobile={
+                  <ul className="divide-y divide-gray-100">
+                    {visibleRows.map(r => (
+                      <li key={r.row} className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800">{r.name || "—"}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              <span className="font-mono">{r.lrn}</span> · Row {r.row}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-1">Grade: <span className="font-semibold">{r.grade ?? "—"}</span></p>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {r.status === "valid" && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-semibold border border-emerald-200"><CheckCircle size={11} /> Ready</span>}
+                            {r.status === "skipped" && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-[11px] font-semibold border border-yellow-200"><SkipForward size={11} /> Blank</span>}
+                            {r.status === "invalid" && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-[11px] font-semibold border border-red-200" title={r.error}>Invalid</span>}
+                          </div>
+                        </div>
+                        {r.status === "invalid" && r.error && (
+                          <p className="mt-2 text-xs text-red-600">{r.error}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                }
+              />
             )}
 
             <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">

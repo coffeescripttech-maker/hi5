@@ -5,6 +5,8 @@ import { studentsApi, StudentRow } from "../../services/students";
 import { atRiskApi, StudentRiskTrend } from "../../services/atRisk";
 import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
+import { PageContainer } from "../../components/PageContainer";
+import { HybridTable } from "../../components/HybridTable";
 
 const GRADE_LEVELS = [7, 8, 9, 10, 11, 12];
 
@@ -180,7 +182,7 @@ export function StudentList() {
   );
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <PageContainer>
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
@@ -188,9 +190,9 @@ export function StudentList() {
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center flex-shrink-0">
             <Users size={22} className="text-white" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-900">My Students</h2>
-            <p className="text-gray-500 text-sm">Students you enrolled or those in your assigned sections</p>
+            <p className="text-gray-500 text-sm truncate">Students you enrolled or those in your assigned sections</p>
           </div>
           <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100">
             <GraduationCap size={14} className="text-emerald-500" />
@@ -333,14 +335,14 @@ export function StudentList() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-100 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-gray-900">Student Records</h3>
               <span className="bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-emerald-100">
                 {processed.length} student{processed.length !== 1 ? "s" : ""}
               </span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {search && <span className="text-xs text-gray-400">{processed.length} of {students.length} found</span>}
               <div className="flex items-center gap-1.5 text-xs text-gray-400">
                 <span>Show</span>
@@ -364,8 +366,10 @@ export function StudentList() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px]">
+              <HybridTable
+                desktop={
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
                   <thead className="bg-gray-50/80">
                     <tr>
                       {[
@@ -465,16 +469,73 @@ export function StudentList() {
                     })}
                   </tbody>
                 </table>
-              </div>
+                  </div>
+                }
+                mobile={
+                  <ul className="divide-y divide-gray-50">
+                    {paginated.map(s => {
+                      const studentId = s.student_id || `STU-${String(s.id).padStart(3, "0")}`;
+                      const statusBadge: Record<string, { bg: string; label: string }> = {
+                        enrolled: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Enrolled" },
+                        pending: { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Pending" },
+                        dropped: { bg: "bg-red-50 text-red-600 border-red-200/50", label: "Dropped" },
+                        transferred: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Transferred" },
+                        graduated: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Graduated" },
+                      };
+                      const hasSection = s.section_id != null;
+                      const isEnrolledPending = s.status === "enrolled" && !hasSection;
+                      const badgeInfo = isEnrolledPending
+                        ? { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Awaiting Section" }
+                        : statusBadge[s.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", label: s.status };
+                      const riskTrend = riskMap.get(s.id);
+                      const riskKey = riskTrend?.risk_level ?? "no_data";
+                      const riskInfo = RISK_BADGE[riskKey];
+                      return (
+                        <li key={s.id}>
+                          <button
+                            onClick={() => navigate(`/student/${s.id}`)}
+                            className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-emerald-50/40 active:bg-emerald-50/70"
+                          >
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-sm font-bold flex-shrink-0 shadow-sm">
+                              {s.name.charAt(0)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-gray-900 truncate">{s.name}</p>
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border flex-shrink-0 ${badgeInfo.bg}`}>{badgeInfo.label}</span>
+                              </div>
+                              <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">{studentId} · LRN {s.lrn}</p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">Grade {s.grade_level}</span>
+                                <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md capitalize">{s.sex}</span>
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${riskInfo.cls}`}>{riskInfo.label}</span>
+                                {hasSection ? (
+                                  <span className="text-[11px] font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md truncate">{s.section_name}</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                    Pending Section
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-gray-300 flex-shrink-0 mt-1" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                }
+              />
 
               {/* Pagination */}
-              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <p className="text-xs text-gray-400">
                   Showing <span className="font-medium text-gray-600">{(safePage - 1) * pageSize + 1}</span>–
                   <span className="font-medium text-gray-600">{Math.min(safePage * pageSize, processed.length)}</span> of{' '}
                   <span className="font-medium text-gray-600">{processed.length}</span>
                 </p>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   <button onClick={() => setPage(1)} disabled={safePage === 1}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                     <ChevronFirst size={14} />
@@ -512,6 +573,6 @@ export function StudentList() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

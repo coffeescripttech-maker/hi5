@@ -9,6 +9,8 @@ import { gradesApi } from "../../services/grades";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { atRiskApi, StudentRiskTrend } from "../../services/atRisk";
 import { useApp } from "../../context/AppContext";
+import { PageContainer } from "../../components/PageContainer";
+import { HybridTable } from "../../components/HybridTable";
 
 type GradeEntry = {
   subject: string;
@@ -368,7 +370,7 @@ export function GradeManagement() {
   // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-5 animate-pulse">
+      <div className="max-w-6xl mx-auto space-y-5 animate-pulse px-3 sm:px-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
@@ -391,7 +393,7 @@ export function GradeManagement() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5 pb-10">
+    <PageContainer className="pb-10">
 
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
@@ -401,9 +403,9 @@ export function GradeManagement() {
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-sm">
               <BookOpen size={22} className="text-emerald-700" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 tracking-tight">Grade Management</h2>
-              <p className="text-sm text-gray-400">Encode and manage student grades per subject and quarter</p>
+              <p className="text-sm text-gray-400 truncate">Encode and manage student grades per subject and quarter</p>
             </div>
           </div>
         </div>
@@ -568,8 +570,10 @@ export function GradeManagement() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[700px]">
+              <HybridTable
+                desktop={
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[700px]">
                   <thead>
                     <tr className="bg-gradient-to-r from-emerald-50/80 via-emerald-50/80 to-emerald-50/50 border-b border-emerald-100">
                       {["Subject", "Q1", "Q2", "Q3", "Q4", "Final", "Remarks"].map(h => (
@@ -630,7 +634,62 @@ export function GradeManagement() {
                     })}
                   </tbody>
                 </table>
-              </div>
+                  </div>
+                }
+                mobile={
+                  <ul className="divide-y divide-gray-50">
+                    {displayRows.map(item => {
+                      if (item.kind === "header") {
+                        const desc = getDescriptor(item.final);
+                        return (
+                          <li key="mapeh-header" className="bg-emerald-50/70 border-y border-emerald-100 px-4 py-2.5 flex items-center justify-between gap-2">
+                            <span className="font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">{item.label}</span>
+                            <span className="flex items-center gap-2">
+                              <span className="font-bold text-gray-800 text-sm">{item.final}</span>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${descBadge(desc.label)}`}>{desc.label}</span>
+                            </span>
+                          </li>
+                        );
+                      }
+                      const { row, idx } = item;
+                      const finalGrade = avg(row);
+                      const desc = getDescriptor(finalGrade);
+                      const isMapeh = MAPEH_ORDER.includes(row.subject);
+                      return (
+                        <li key={row.subject} className="px-4 py-3.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-sm ${isMapeh ? "pl-3 font-medium text-gray-600" : "font-semibold text-gray-700"}`}>{row.subject}</p>
+                            <span className="text-xs font-extrabold text-gray-800 flex-shrink-0">Final: {finalGrade}</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                            {(["q1", "q2", "q3", "q4"] as const).map((q, qi) => (
+                              <div key={q}>
+                                <label className="block text-center text-[10px] font-semibold text-gray-400 uppercase mb-1">Q{qi + 1}</label>
+                                <input
+                                  type="number" min="0" max="100" step="0.01"
+                                  value={row[q]}
+                                  onChange={e => updateGrade(idx, q, e.target.value)}
+                                  disabled={locked}
+                                  inputMode="decimal"
+                                  className={`w-full text-center border rounded-lg px-1 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
+                                    locked ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "border-gray-200 bg-white"
+                                  }`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${descBadge(desc.label)}`}>{desc.label}</span>
+                            {locked && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 font-medium"><Lock size={10} /> Locked</span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                }
+              />
 
               {grades.length === 0 && (
                 <div className="p-12 text-center">
@@ -832,6 +891,6 @@ export function GradeManagement() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

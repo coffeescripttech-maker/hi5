@@ -288,7 +288,7 @@ export function SystemGuide() {
   const handlePrint = () => window.print();
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
@@ -304,18 +304,18 @@ export function SystemGuide() {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3">
-        <div className="flex items-center gap-3 text-sm text-gray-600">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-4 sm:px-5 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-gray-600">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#e0e7ff] border border-indigo-400 inline-block" /> Admin</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#d1fae5] border border-emerald-400 inline-block" /> Teacher</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#fef3c7] border border-amber-400 inline-block" /> Registrar</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#f3e8ff] border border-purple-400 inline-block" /> System</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#fff7ed] border border-orange-400 inline-block" /> Decision</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setZoom(z => Math.max(50, z - 10))}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 touch-target"
             title="Zoom out"
           >
             <ZoomOut size={16} />
@@ -323,16 +323,16 @@ export function SystemGuide() {
           <span className="text-xs font-medium text-gray-500 w-10 text-center">{zoom}%</span>
           <button
             onClick={() => setZoom(z => Math.min(200, z + 10))}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 touch-target"
             title="Zoom in"
           >
             <ZoomIn size={16} />
           </button>
           <div className="w-px h-5 bg-gray-200 mx-1" />
-          <button onClick={handleDownloadSVG} className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 transition">
+          <button onClick={handleDownloadSVG} className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200 transition">
             <Download size={13} /> SVG
           </button>
-          <button onClick={handlePrint} className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 transition">
+          <button onClick={handlePrint} className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 transition">
             <Printer size={13} /> Print
           </button>
         </div>

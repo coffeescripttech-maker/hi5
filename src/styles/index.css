@@ -62,3 +62,90 @@
 .dark .text-gray-400 { color: #64748b !important; }
 .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
 .dark .rounded-xl { }
+
+/* ══════════ Mobile foundation (Capacitor/Cordova WebView) ══════════ */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+/* Mobile safe-area helpers — usable as pt-safe / pb-safe / px-safe classes.
+   On desktop these resolve to 0, so they are harmless there. */
+@utility pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+@utility px-safe { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+
+/* Comfortable minimum touch target for icon-only / small buttons on phones. */
+@utility touch-target { min-height: 44px; min-width: 44px; }
+
+/* Content area uses the dynamic viewport so the URL-bar / keyboard
+   collapse never leaves an empty band at the bottom on mobile browsers. */
+.min-h-dvh-safe {
+  min-height: 100dvh;
+}
+
+/* ══════════ Document viewer — official paper-form previews (SF1/SF5/SF9/SF10) ══════════ */
+/* DepEd forms keep their real paper dimensions at every breakpoint. On phones
+   (< md) the paper renders inside a pan/zoom viewport (DocumentViewer.tsx):
+   the `zoom` property scales the paper so scroll extents stay correct, and the
+   viewport (not the sheet) is what scrolls. On md+ and in print the viewer is
+   a transparent pass-through and the paper renders naturally. Because the zoom
+   only lives in this screen-scoped block, printing and pdfRender's clone of the
+   #*-print-area subtree are completely unaffected. */
+.doc-viewer-scale {
+  zoom: var(--doc-zoom, 0.6);
+}
+
+@media (max-width: 767px) {
+  /* The scale wrapper becomes the natural-width paper; the viewport pans. */
+  .doc-viewer-scale {
+    width: max-content;
+  }
+  /* Let the official sheet be its natural width inside the panning viewport —
+     no nested scrollbar, no max-width squeezing. */
+  .doc-viewer-scale [id$="-print-area"],
+  .doc-viewer-scale .sf1-sheet {
+    width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+/* md+ (desktop): the viewer is invisible; the paper renders at natural size. */
+@media (min-width: 768px) {
+  .doc-viewer-surface {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+  .doc-viewer-scale {
+    zoom: 1 !important;
+  }
+}
+
+/* Print: never zoom, never clip, never scale — exact paper size, margins,
+   orientation, borders and layout are preserved. */
+@media print {
+  .doc-viewer-surface {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    touch-action: auto !important;
+  }
+  .doc-viewer-scale {
+    zoom: 1 !important;
+  }
+  .doc-viewer-toolbar {
+    display: none !important;
+  }
+}

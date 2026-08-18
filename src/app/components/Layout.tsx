@@ -15,6 +15,7 @@ import { NAV_BY_ROLE, type Role } from '../navigation';
 import { rbacApi } from '../services/rbac';
 import { Sidebar, type SidebarState } from './layout/Sidebar';
 import { TopBar } from './layout/TopBar';
+import { BottomNav } from './layout/BottomNav';
 
 export function Layout() {
   const { role, darkMode } = useApp();
@@ -75,6 +76,7 @@ export function Layout() {
   const navGroups = fullNavGroups
     .map(g => ({ ...g, items: g.items.filter(item => canAccess(item.key)) }))
     .filter(g => g.items.length > 0);
+  const bottomNavItems = navGroups.flatMap(g => g.items);
 
   const isActive = (path: string) => location.pathname === path;
   const currentNavItem = fullNavItems.find(n => isActive(n.path));
@@ -90,7 +92,7 @@ export function Layout() {
 
   return (
     <div
-      className={`flex h-screen overflow-hidden ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      className={`flex h-dvh overflow-hidden ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       {mobileSidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden"
@@ -117,7 +119,7 @@ export function Layout() {
         />
 
         <main
-          className={`app-scroll flex-1 overflow-y-auto p-4 md:p-6 ${
+          className={`app-scroll flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6 ${
             darkMode ? 'bg-gray-900' : 'bg-gray-50'
           }`}>
           {accessDenied ? (
@@ -148,6 +150,8 @@ export function Layout() {
           )}
         </main>
       </div>
+
+      <BottomNav items={bottomNavItems} />
     </div>
   );
 }

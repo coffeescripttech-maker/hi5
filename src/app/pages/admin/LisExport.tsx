@@ -83,7 +83,7 @@ export function LisExport() {
   }
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto">
+    <div className="space-y-5 max-w-5xl mx-auto px-3 sm:px-0">
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />

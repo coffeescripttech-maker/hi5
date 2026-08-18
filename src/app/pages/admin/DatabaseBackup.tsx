@@ -3,6 +3,7 @@ import { Database, Download, CheckCircle, Clock, AlertTriangle, RefreshCw, Shiel
 import { backupsApi, BackupRow } from "../../services/backups";
 import { settingsApi, BackupSettings } from "../../services/settings";
 import { useApp } from "../../context/AppContext";
+import { HybridTable } from "../../components/HybridTable";
 
 export function DatabaseBackup() {
   const { showToast } = useApp();
@@ -127,7 +128,7 @@ export function DatabaseBackup() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 px-3 sm:px-0">
       {/* Header */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
@@ -145,7 +146,7 @@ export function DatabaseBackup() {
       </div>
 
       {/* Status cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl border border-green-100 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Last Backup</p><CheckCircle size={13} className="text-green-500" /></div>
           <p className="text-sm font-bold text-green-700">{lastBackupDate}</p>
@@ -214,12 +215,12 @@ export function DatabaseBackup() {
 
       {/* Backup Schedule Settings */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h3 className="font-semibold text-gray-800">Automatic Backup Schedule</h3>
           {!schedLoading && (
             <button
               onClick={() => setEnabled(e => !e)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+              className={`flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium transition self-start ${
                 enabled ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
               }`}
             >
@@ -228,7 +229,7 @@ export function DatabaseBackup() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Backup Frequency</label>
             <select value={frequency} onChange={e => setFrequency(e.target.value)}
@@ -279,7 +280,7 @@ export function DatabaseBackup() {
 
       {/* Backup History */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold text-gray-800">Backup History</h3>
           <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">{backups.length} records</span>
         </div>
@@ -290,60 +291,109 @@ export function DatabaseBackup() {
             <p className="text-xs mt-1">Run a manual backup to create the first record.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  {["Backup ID", "Date", "Type", "Size", "Records", "Status", "Action"].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
+          <HybridTable
+            desktop={
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      {["Backup ID", "Date", "Type", "Size", "Records", "Status", "Action"].map(h => (
+                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {backups.map(b => (
+                      <tr key={b.id} className="hover:bg-gray-50/60">
+                        <td className="px-5 py-3 font-mono text-xs text-gray-500">#{b.id}</td>
+                        <td className="px-5 py-3 text-gray-700 text-sm">
+                          {new Date(b.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.backup_type === "manual" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                            {b.backup_type === "manual" ? "Manual" : "Automatic"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 text-xs">
+                          {b.file_size
+                            ? b.file_size >= 1024 * 1024
+                              ? (b.file_size / (1024 * 1024)).toFixed(1) + " MB"
+                              : (b.file_size / 1024).toFixed(1) + " KB"
+                            : "—"}
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 text-xs">{b.record_count?.toLocaleString() || "—"}</td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${b.status === "success" ? "bg-green-100 text-green-700" : b.status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                            {b.status === "success" ? "Success" : b.status === "failed" ? "Failed" : "In Progress"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            {b.status === "success" && (
+                              <>
+                                <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                  <Download size={11} /> Download
+                                </button>
+                                <button onClick={() => setConfirmRestore(b.id)}
+                                  className="flex items-center gap-1 text-xs text-amber-600 hover:underline">
+                                  <RotateCcw size={11} /> Restore
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+            mobile={
+              <ul className="divide-y divide-gray-50">
                 {backups.map(b => (
-                  <tr key={b.id} className="hover:bg-gray-50/60">
-                    <td className="px-5 py-3 font-mono text-xs text-gray-500">#{b.id}</td>
-                    <td className="px-5 py-3 text-gray-700 text-sm">
-                      {new Date(b.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.backup_type === "manual" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
-                        {b.backup_type === "manual" ? "Manual" : "Automatic"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 text-xs">
-                      {b.file_size
-                        ? b.file_size >= 1024 * 1024
-                          ? (b.file_size / (1024 * 1024)).toFixed(1) + " MB"
-                          : (b.file_size / 1024).toFixed(1) + " KB"
-                        : "—"}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 text-xs">{b.record_count?.toLocaleString() || "—"}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${b.status === "success" ? "bg-green-100 text-green-700" : b.status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
-                        {b.status === "success" ? "Success" : b.status === "failed" ? "Failed" : "In Progress"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        {b.status === "success" && (
-                          <>
-                            <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                              <Download size={11} /> Download
-                            </button>
-                            <button onClick={() => setConfirmRestore(b.id)}
-                              className="flex items-center gap-1 text-xs text-amber-600 hover:underline">
-                              <RotateCcw size={11} /> Restore
-                            </button>
-                          </>
-                        )}
+                  <li key={b.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-gray-500">#{b.id}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.backup_type === "manual" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                            {b.backup_type === "manual" ? "Manual" : "Automatic"}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${b.status === "success" ? "bg-green-100 text-green-700" : b.status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                            {b.status === "success" ? "Success" : b.status === "failed" ? "Failed" : "In Progress"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 mt-1.5">
+                          {new Date(b.created_at).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-500">
+                          <span>Size: <strong className="text-gray-700">
+                            {b.file_size
+                              ? b.file_size >= 1024 * 1024
+                                ? (b.file_size / (1024 * 1024)).toFixed(1) + " MB"
+                                : (b.file_size / 1024).toFixed(1) + " KB"
+                              : "—"}
+                          </strong></span>
+                          <span>Records: <strong className="text-gray-700">{b.record_count?.toLocaleString() || "—"}</strong></span>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
+                      {b.status === "success" && (
+                        <div className="flex flex-col gap-1 flex-shrink-0">
+                          <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1">
+                            <Download size={11} /> Download
+                          </button>
+                          <button onClick={() => setConfirmRestore(b.id)}
+                            className="flex items-center gap-1 text-xs text-amber-600 hover:underline p-1">
+                            <RotateCcw size={11} /> Restore
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            }
+          />
         )}
       </div>
 

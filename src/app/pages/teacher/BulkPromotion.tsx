@@ -8,6 +8,8 @@ import { promotionsApi, PromotionRow, PromotionPreview } from "../../services/pr
 import { schoolYearsApi, SchoolYearRow } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
 import { Confetti } from "../../components/Confetti";
+import { PageContainer } from "../../components/PageContainer";
+import { HybridTable } from "../../components/HybridTable";
 
 export function BulkPromotion() {
   const { showToast } = useApp();
@@ -166,7 +168,7 @@ export function BulkPromotion() {
   // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto space-y-5 animate-pulse">
+      <div className="max-w-5xl mx-auto space-y-5 px-3 sm:px-0 animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
@@ -192,7 +194,7 @@ export function BulkPromotion() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 pb-10">
+    <div className="max-w-5xl mx-auto space-y-5 px-3 sm:px-0 pb-10">
 
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
@@ -453,78 +455,140 @@ export function BulkPromotion() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead className="bg-gray-50/80">
-                <tr>
-                  {["ID", "Section", "By", "From", "Promoted To", "Students", "Retained", "Date", "Status", "Actions"].map(h => (
-                    <th key={h} className="text-left px-5 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {promotions.map((r, idx) => (
-                  <tr key={r.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs font-mono text-gray-400 font-semibold">#{r.id}</span>
-                    </td>
-                    <td className="px-5 py-3.5 font-semibold text-gray-800">{r.section_name}</td>
-                    <td className="px-5 py-3.5 text-gray-500 text-xs">
-                      <span className="inline-flex items-center gap-1.5">
-                        <User size={12} className="text-gray-400" />
-                        {r.promoted_by_name}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-500 text-xs">
-                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-medium">Grade {r.from_grade_level}</span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-xs">
-                        <ArrowUpCircle size={11} /> Grade {r.to_grade_level}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1.5 text-gray-600 font-medium text-xs">
-                        <Users size={12} className="text-gray-400" /> {r.student_count}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        (r as any).retained_count > 0
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-gray-50 text-gray-400"
-                      }`}>
-                        {(r as any).retained_count || 0}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-400 text-xs">{r.created_at?.split("T")[0] || "—"}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+          <HybridTable
+            desktop={
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[600px]">
+                  <thead className="bg-gray-50/80">
+                    <tr>
+                      {["ID", "Section", "By", "From", "Promoted To", "Students", "Retained", "Date", "Status", "Actions"].map(h => (
+                        <th key={h} className="text-left px-5 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {promotions.map((r, idx) => (
+                      <tr key={r.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
+                        <td className="px-5 py-3.5">
+                          <span className="text-xs font-mono text-gray-400 font-semibold">#{r.id}</span>
+                        </td>
+                        <td className="px-5 py-3.5 font-semibold text-gray-800">{r.section_name}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-xs">
+                          <span className="inline-flex items-center gap-1.5">
+                            <User size={12} className="text-gray-400" />
+                            {r.promoted_by_name}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-gray-500 text-xs">
+                          <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-medium">Grade {r.from_grade_level}</span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-xs">
+                            <ArrowUpCircle size={11} /> Grade {r.to_grade_level}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="inline-flex items-center gap-1.5 text-gray-600 font-medium text-xs">
+                            <Users size={12} className="text-gray-400" /> {r.student_count}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            (r as any).retained_count > 0
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-gray-50 text-gray-400"
+                          }`}>
+                            {(r as any).retained_count || 0}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-gray-400 text-xs">{r.created_at?.split("T")[0] || "—"}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+                            r.status === "completed"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200/50"
+                              : "bg-amber-50 text-amber-700 border-amber-200/50"
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${r.status === "completed" ? "bg-emerald-500" : "bg-amber-400"}`} />
+                            {r.status === "completed" ? "Completed" : "Pending Review"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {r.is_completers && r.school_year_id === syId ? (
+                            <button
+                              onClick={() => setRollbackTarget(r)}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 rounded-full transition-colors"
+                            >
+                              <Undo2 size={11} /> Rollback
+                            </button>
+                          ) : (
+                            <span className="text-gray-200">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+            mobile={
+              <ul className="divide-y divide-gray-50">
+                {promotions.map(r => (
+                  <li key={r.id} className="px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center flex-shrink-0">
+                          <ArrowUpCircle size={15} className="text-emerald-700" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{r.section_name}</p>
+                          <p className="text-[11px] text-gray-400 font-mono mt-0.5">#{r.id} · {r.created_at?.split("T")[0] || "—"}</p>
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${
                         r.status === "completed"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200/50"
                           : "bg-amber-50 text-amber-700 border-amber-200/50"
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${r.status === "completed" ? "bg-emerald-500" : "bg-amber-400"}`} />
-                        {r.status === "completed" ? "Completed" : "Pending Review"}
+                        {r.status === "completed" ? "Completed" : "Pending"}
                       </span>
-                    </td>
-                    <td className="px-5 py-3.5">
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-medium">Grade {r.from_grade_level}</span>
+                      <span className="text-emerald-600"><ArrowUpCircle size={12} /></span>
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+                        <ArrowUpCircle size={11} /> Grade {r.to_grade_level}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-gray-500">
+                        <Users size={11} className="text-gray-400" /> {r.student_count} students
+                      </span>
+                      {(r as any).retained_count > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                          {(r as any).retained_count} retained
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-500 min-w-0">
+                        <User size={11} className="text-gray-400 flex-shrink-0" />
+                        <span className="truncate">{r.promoted_by_name}</span>
+                      </span>
                       {r.is_completers && r.school_year_id === syId ? (
                         <button
                           onClick={() => setRollbackTarget(r)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 rounded-full transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200/60 px-2.5 py-1 rounded-full transition-colors"
                         >
                           <Undo2 size={11} /> Rollback
                         </button>
                       ) : (
-                        <span className="text-gray-200">—</span>
+                        <span className="text-xs text-gray-300">—</span>
                       )}
-                    </td>
-                  </tr>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            }
+          />
         )}
       </div>
 

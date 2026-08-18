@@ -6,6 +6,8 @@ import { sectionsApi, SectionRow } from "../../services/sections";
 import { studentsApi, StudentRow } from "../../services/students";
 import { authApi } from "../../services/api";
 import { useApp } from "../../context/AppContext";
+import { PageContainer } from "../../components/PageContainer";
+import { HybridTable } from "../../components/HybridTable";
 
 const COLORS = ["#10b981", "#6ee7b7"];
 
@@ -56,7 +58,7 @@ export function TeacherDashboard() {
     .map(([range, count]) => ({ range, count, label: `Grade ${range}` }));
 
   if (loading) return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <PageContainer>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
         <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
           <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -66,33 +68,33 @@ export function TeacherDashboard() {
         </div>
         <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
       </div>
-    </div>
+    </PageContainer>
   );
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <PageContainer>
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400" />
-        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center flex-shrink-0">
               <LayoutDashboard size={22} className="text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Teacher Dashboard</h2>
-              <p className="text-gray-500 text-sm">Your sections, students, and class overview at a glance</p>
+              <p className="text-gray-500 text-sm truncate">Your sections, students, and class overview at a glance</p>
             </div>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => navigate("/teacher/enroll")}
-              className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2 touch-target">
               <UserPlus size={15} /> Enroll Student
             </button>
             <button
               onClick={() => navigate("/teacher/grades")}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2 touch-target">
               <BookOpen size={15} /> Encode Grades
             </button>
           </div>
@@ -100,7 +102,7 @@ export function TeacherDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 lg:gap-4">
         <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400" />
           <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
@@ -253,43 +255,74 @@ export function TeacherDashboard() {
         {adviserSections.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-sm">No sections assigned to you yet.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50/80">
-                <tr>
-                  {["Section", "Grade", "Students", "Capacity", "Occupancy"].map(h => (
-                    <th key={h} className="text-left px-6 py-3.5">
-                      <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {adviserSections.map((s, idx) => {
-                  const pct = s.capacity > 0 ? Math.round((s.current_count / s.capacity) * 100) : 0;
-                  return (
-                    <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/50 transition-colors`}>
-                      <td className="px-6 py-3.5 font-semibold text-gray-800">{s.name}</td>
-                      <td className="px-6 py-3.5 text-gray-600">Grade {s.grade_level}</td>
-                      <td className="px-6 py-3.5 text-gray-700 font-medium">{s.current_count}</td>
-                      <td className="px-6 py-3.5 text-gray-500">{s.capacity}</td>
-                      <td className="px-6 py-3.5">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-100 rounded-full h-1.5 max-w-[80px]">
-                            <div className={`h-1.5 rounded-full ${pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"}`}
-                              style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="text-xs text-gray-500">{pct}%</span>
-                        </div>
-                      </td>
+          <HybridTable
+            desktop={
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50/80">
+                    <tr>
+                      {["Section", "Grade", "Students", "Capacity", "Occupancy"].map(h => (
+                        <th key={h} className="text-left px-6 py-3.5">
+                          <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
+                        </th>
+                      ))}
                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {adviserSections.map((s, idx) => {
+                      const pct = s.capacity > 0 ? Math.round((s.current_count / s.capacity) * 100) : 0;
+                      return (
+                        <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/50 transition-colors`}>
+                          <td className="px-6 py-3.5 font-semibold text-gray-800">{s.name}</td>
+                          <td className="px-6 py-3.5 text-gray-600">Grade {s.grade_level}</td>
+                          <td className="px-6 py-3.5 text-gray-700 font-medium">{s.current_count}</td>
+                          <td className="px-6 py-3.5 text-gray-500">{s.capacity}</td>
+                          <td className="px-6 py-3.5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-gray-100 rounded-full h-1.5 max-w-[80px]">
+                                <div className={`h-1.5 rounded-full ${pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"}`}
+                                  style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-xs text-gray-500">{pct}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            }
+            mobile={
+              <ul className="divide-y divide-gray-50">
+                {adviserSections.map(s => {
+                  const pct = s.capacity > 0 ? Math.round((s.current_count / s.capacity) * 100) : 0;
+                  const barCls = pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500";
+                  return (
+                    <li key={s.id} className="px-4 py-3.5 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center flex-shrink-0">
+                        <Layers size={16} className="text-emerald-700" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{s.name}</p>
+                          <span className="text-xs font-bold text-gray-700 flex-shrink-0">{pct}%</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Grade {s.grade_level} · {s.current_count}/{s.capacity} students
+                        </p>
+                        <div className="mt-1.5 bg-gray-100 rounded-full h-1.5">
+                          <div className={`h-1.5 rounded-full ${barCls}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            }
+          />
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

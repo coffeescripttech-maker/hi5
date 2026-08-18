@@ -5,6 +5,8 @@ import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { useApp } from "../../context/AppContext";
 import { StudentRiskOverview } from "../../components/StudentRiskOverview";
+import { PageContainer } from "../../components/PageContainer";
+import { HybridTable } from "../../components/HybridTable";
 
 const COLORS = ["#9333ea", "#a855f7", "#c084fc", "#e9d5ff", "#7c3aed", "#d8b4fe"];
 
@@ -53,7 +55,7 @@ export function PrincipalDashboard() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <PageContainer>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
             <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -63,12 +65,12 @@ export function PrincipalDashboard() {
           </div>
           <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <PageContainer>
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
@@ -84,7 +86,7 @@ export function PrincipalDashboard() {
       </div>
 
       {/* STAT CARDS */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400" />
           <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
@@ -128,7 +130,7 @@ export function PrincipalDashboard() {
       </div>
 
       {/* CHARTS */}
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-2.5 mb-4">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
@@ -181,36 +183,55 @@ export function PrincipalDashboard() {
           </div>
           <span className="text-xs text-gray-400">{sectionPopData.length} sections</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50/80">
-              <tr>
-                {["Section", "Students", "Progress"].map(h => (
-                  <th key={h} className="text-left px-5 py-3.5">
-                    <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {sectionPopData.map((s, idx) => (
-                <tr key={s.name} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
-                  <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
-                  <td className="px-5 py-3.5">
-                    <span className="font-semibold text-gray-900">{s.value}</span>
-                    <span className="text-xs text-gray-400 ml-1">students</span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="w-full max-w-[200px] bg-gray-100 rounded-full h-2">
-                      <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${Math.min(100, (s.value / 50) * 100)}%` }} />
-                    </div>
-                  </td>
-                </tr>
+        <HybridTable
+          desktop={
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50/80">
+                  <tr>
+                    {["Section", "Students", "Progress"].map(h => (
+                      <th key={h} className="text-left px-5 py-3.5">
+                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {sectionPopData.map((s, idx) => (
+                    <tr key={s.name} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
+                      <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
+                      <td className="px-5 py-3.5">
+                        <span className="font-semibold text-gray-900">{s.value}</span>
+                        <span className="text-xs text-gray-400 ml-1">students</span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="w-full max-w-[200px] bg-gray-100 rounded-full h-2">
+                          <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${Math.min(100, (s.value / 50) * 100)}%` }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+          mobile={
+            <ul className="divide-y divide-gray-50">
+              {sectionPopData.map(s => (
+                <li key={s.name} className="px-4 py-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{s.name}</p>
+                    <span className="text-xs font-bold text-gray-700 flex-shrink-0">{s.value} students</span>
+                  </div>
+                  <div className="mt-1.5 bg-gray-100 rounded-full h-1.5">
+                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, (s.value / 50) * 100)}%` }} />
+                  </div>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+          }
+        />
       </div>
-    </div>
+    </PageContainer>
   );
 }

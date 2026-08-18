@@ -81,7 +81,7 @@ export function CertificateOfEnrollment() {
   const signatory = pickSignatory(school, "registrar");
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5 px-3 sm:px-0">
       {/* ── Header ── */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />

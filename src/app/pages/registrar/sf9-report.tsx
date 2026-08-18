@@ -11,6 +11,7 @@ import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
 import './sf1.css';
+import { DocumentViewer } from '../../components/DocumentViewer';
 /* ── Constants (DepEd SF9 layout) ── */
 const CORE_VALUES: { value: string; statements: string[] }[] = [
   {
@@ -756,6 +757,7 @@ export function SF9Report() {
       {!loadingReport && sf9Data && selectedStudent && (
         <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
           {/* ── Print Area ── */}
+          <DocumentViewer>
           <div
             id="sf9-print-area"
             className="p-4 sm:p-6 text-[10px] leading-tight text-black">
@@ -1403,6 +1405,7 @@ export function SF9Report() {
             </div>
           </div>
           {/* /sf9-print-area */}
+          </DocumentViewer>
         </div>
       )}
     </div>

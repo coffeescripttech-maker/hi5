@@ -3,6 +3,7 @@ import { FileSpreadsheet, CheckCircle, Clock, Download, Search, FileText, Filter
 import { documentsApi, DocumentRow } from "../../services/documents";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { useApp } from "../../context/AppContext";
+import { HybridTable } from "../../components/HybridTable";
 
 const STATUS_STYLE: Record<string, string> = {
   validated: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -90,7 +91,7 @@ export function DocumentManagement() {
     return (
       <div className="space-y-5 animate-pulse">
         <div className="h-16 bg-gray-200 rounded-2xl" />
-        <div className="grid grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-200 rounded-2xl" />)}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-200 rounded-2xl" />)}</div>
         <div className="h-12 bg-gray-200 rounded-2xl" />
         <div className="h-64 bg-gray-200 rounded-2xl" />
       </div>
@@ -98,7 +99,7 @@ export function DocumentManagement() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 px-3 sm:px-0">
       {/* Header */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400" />
@@ -185,7 +186,7 @@ export function DocumentManagement() {
 
       {/* Documents table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold text-gray-800 text-sm">Grade Submission Records</h3>
           <span className="text-xs text-gray-400">
             {filtered.length} of {documents.length} file(s)
@@ -209,61 +210,105 @@ export function DocumentManagement() {
               className="text-emerald-600 hover:underline text-xs mt-2">Clear all filters</button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  {["File Name", "Section", "Subject", "Quarter", "Records", "Uploaded By", "Date", "Status", "Action"].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
+          <HybridTable
+            desktop={
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      {["File Name", "Section", "Subject", "Quarter", "Records", "Uploaded By", "Date", "Status", "Action"].map(h => (
+                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filtered.map(doc => {
+                      const badge = fileTypeBadge(doc.file_type);
+                      return (
+                        <tr key={doc.id} className="hover:bg-gray-50/60">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold ${badge.cls}`}>{badge.icon}{badge.label}</span>
+                              <span className="text-xs font-mono text-gray-700 truncate max-w-[160px]" title={doc.file_name}>{doc.file_name}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-gray-600 text-xs">{doc.section_name || "—"}</td>
+                          <td className="px-5 py-3">
+                            <span className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded font-medium">
+                              {doc.subject_name || "—"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded font-medium">
+                              {doc.quarter ? `Q${doc.quarter}` : "—"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-gray-600 text-xs">{doc.record_count ?? "—"}</td>
+                          <td className="px-5 py-3 text-gray-500 text-xs">{doc.uploaded_by_name}</td>
+                          <td className="px-5 py-3 text-gray-400 text-xs whitespace-nowrap">
+                            {new Date(doc.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLE[doc.status] || STATUS_STYLE.pending}`}>
+                              {STATUS_ICON[doc.status]}{STATUS_LABEL[doc.status] || doc.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {doc.status !== "pending" && doc.status !== "failed" && (
+                              <button onClick={() => documentsApi.download(doc.id)}
+                                className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline">
+                                <Download size={11} /> Download
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            }
+            mobile={
+              <ul className="divide-y divide-gray-50">
                 {filtered.map(doc => {
                   const badge = fileTypeBadge(doc.file_type);
                   return (
-                    <tr key={doc.id} className="hover:bg-gray-50/60">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold ${badge.cls}`}>{badge.icon}{badge.label}</span>
-                          <span className="text-xs font-mono text-gray-700 truncate max-w-[160px]" title={doc.file_name}>{doc.file_name}</span>
+                    <li key={doc.id} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold flex-shrink-0 ${badge.cls}`}>{badge.icon}{badge.label}</span>
+                            <span className="text-xs font-mono text-gray-700 break-all">{doc.file_name}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            <span className="bg-emerald-50 text-emerald-700 text-[11px] px-2 py-0.5 rounded font-medium">{doc.subject_name || "—"}</span>
+                            <span className="bg-gray-100 text-gray-600 text-[11px] px-2 py-0.5 rounded font-medium">{doc.quarter ? `Q${doc.quarter}` : "—"}</span>
+                            <span className="text-xs text-gray-500">{doc.section_name || "No section"}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-400">
+                            <span>{doc.record_count ?? "—"} records</span>
+                            <span>by {doc.uploaded_by_name || "—"}</span>
+                            <span>{new Date(doc.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</span>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 text-xs">{doc.section_name || "—"}</td>
-                      <td className="px-5 py-3">
-                        <span className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded font-medium">
-                          {doc.subject_name || "—"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded font-medium">
-                          {doc.quarter ? `Q${doc.quarter}` : "—"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 text-xs">{doc.record_count ?? "—"}</td>
-                      <td className="px-5 py-3 text-gray-500 text-xs">{doc.uploaded_by_name}</td>
-                      <td className="px-5 py-3 text-gray-400 text-xs whitespace-nowrap">
-                        {new Date(doc.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLE[doc.status] || STATUS_STYLE.pending}`}>
-                          {STATUS_ICON[doc.status]}{STATUS_LABEL[doc.status] || doc.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        {doc.status !== "pending" && doc.status !== "failed" && (
-                          <button onClick={() => documentsApi.download(doc.id)}
-                            className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline">
-                            <Download size={11} /> Download
-                          </button>
-                        )}
-                      </td>
-                    </tr>
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLE[doc.status] || STATUS_STYLE.pending}`}>
+                            {STATUS_ICON[doc.status]}{STATUS_LABEL[doc.status] || doc.status}
+                          </span>
+                          {doc.status !== "pending" && doc.status !== "failed" && (
+                            <button onClick={() => documentsApi.download(doc.id)}
+                              className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline touch-target">
+                              <Download size={11} /> Download
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            }
+          />
         )}
         <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
           <p className="text-xs text-gray-400">

@@ -27,6 +27,8 @@ import { studentsApi } from '../../services/students';
 import { logsApi, ActivityLogRow } from '../../services/logs';
 import { sectionsApi } from '../../services/sections';
 import { usersApi } from '../../services/users';
+import { PageContainer } from '../../components/PageContainer';
+import { HybridTable } from '../../components/HybridTable';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -101,7 +103,7 @@ export function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-5 animate-pulse">
+      <PageContainer className="animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
             <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -111,7 +113,7 @@ export function AdminDashboard() {
           </div>
           <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -163,29 +165,29 @@ export function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <PageContainer>
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
-        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
               <BarChart2 size={22} className="text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Admin Analytics Dashboard</h2>
-              <p className="text-gray-500 text-sm">Hi5 Portal · live data from the database</p>
+              <p className="text-gray-500 text-sm truncate">Hi5 Portal · live data from the database</p>
             </div>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => navigate('/admin/settings')}
-              className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2 touch-target">
               <School size={15} /> School Settings
             </button>
             <button
               onClick={() => navigate('/admin/users')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2">
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2 touch-target">
               <Users size={15} /> Manage Users
             </button>
           </div>
@@ -358,46 +360,70 @@ export function AdminDashboard() {
             </div>
           </div>
           {enrollmentByGender.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-blue-50/60 border-b border-blue-100">
-                    <th className="text-left px-6 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
-                      Grade
-                    </th>
-                    <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
-                      Male
-                    </th>
-                    <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
-                      Female
-                    </th>
-                    <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {enrollmentByGender.map((stat: any, idx: number) => (
-                    <tr
-                      key={stat.grade}
-                      className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors`}>
-                      <td className="px-6 py-3.5 font-medium text-gray-800">
-                        {stat.grade}
-                      </td>
-                      <td className="px-4 py-3.5 text-center text-gray-600">
-                        {stat.Male}
-                      </td>
-                      <td className="px-4 py-3.5 text-center text-gray-600">
-                        {stat.Female}
-                      </td>
-                      <td className="px-4 py-3.5 text-center font-bold text-blue-600">
-                        {stat.Total}
-                      </td>
-                    </tr>
+            <HybridTable
+              desktop={
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-blue-50/60 border-b border-blue-100">
+                        <th className="text-left px-6 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
+                          Grade
+                        </th>
+                        <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
+                          Male
+                        </th>
+                        <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
+                          Female
+                        </th>
+                        <th className="text-center px-4 py-3.5 text-blue-700 font-semibold text-[11px] uppercase tracking-[0.06em]">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {enrollmentByGender.map((stat: any, idx: number) => (
+                        <tr
+                          key={stat.grade}
+                          className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors`}>
+                          <td className="px-6 py-3.5 font-medium text-gray-800">
+                            {stat.grade}
+                          </td>
+                          <td className="px-4 py-3.5 text-center text-gray-600">
+                            {stat.Male}
+                          </td>
+                          <td className="px-4 py-3.5 text-center text-gray-600">
+                            {stat.Female}
+                          </td>
+                          <td className="px-4 py-3.5 text-center font-bold text-blue-600">
+                            {stat.Total}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              }
+              mobile={
+                <ul className="divide-y divide-gray-50">
+                  {enrollmentByGender.map((stat: any) => (
+                    <li key={stat.grade} className="px-4 py-3.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-800">{stat.grade}</p>
+                        <span className="text-sm font-bold text-blue-600 flex-shrink-0">{stat.Total}</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-4">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" /> Male: {stat.Male}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-300 inline-block" /> Female: {stat.Female}
+                        </span>
+                      </div>
+                    </li>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </ul>
+              }
+            />
           ) : (
             <div className="p-12 text-center text-gray-400 text-sm">
               No data available
@@ -463,6 +489,6 @@ export function AdminDashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

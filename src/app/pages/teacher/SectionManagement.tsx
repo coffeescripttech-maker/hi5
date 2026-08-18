@@ -149,13 +149,13 @@ export function SectionManagement() {
   // ── Loading Skeleton ──
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-5 animate-pulse">
+      <div className="max-w-6xl mx-auto space-y-5 animate-pulse px-3 sm:px-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
             <div className="h-5 w-48 bg-gray-100 rounded-lg" />
             <div className="h-4 w-72 bg-gray-50 rounded-md" />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
               {[1, 2, 3].map(i => <div key={i} className="h-20 bg-gray-50 rounded-xl" />)}
             </div>
           </div>
@@ -170,7 +170,7 @@ export function SectionManagement() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5 pb-10">
+    <div className="max-w-6xl mx-auto space-y-5 pb-10 px-3 sm:px-0">
 
       {/* ── Header Card ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">

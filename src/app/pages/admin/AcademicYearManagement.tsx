@@ -173,7 +173,7 @@ export function AcademicYearManagement() {
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
@@ -192,7 +192,7 @@ export function AcademicYearManagement() {
 
       {/* ── SCHOOL YEARS LIST ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-gray-100 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <Calendar size={18} className="text-blue-600" />
             <div>
@@ -201,12 +201,12 @@ export function AcademicYearManagement() {
             </div>
           </div>
           {/* Create new SY form */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full lg:w-auto">
             <input
               value={newSYLabel}
               onChange={e => setNewSYLabel(e.target.value)}
               placeholder="e.g. 2031-2032"
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0 lg:w-28"
               onKeyDown={async e => {
                 if (e.key === "Enter" && newSYLabel.trim()) {
                   setCreating(true);
@@ -241,7 +241,7 @@ export function AcademicYearManagement() {
                 }
               }}
               disabled={creating || !newSYLabel.trim()}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-xs font-medium transition flex-shrink-0"
             >
               <Plus size={13} /> {creating ? "..." : "Create"}
             </button>
@@ -271,7 +271,7 @@ export function AcademicYearManagement() {
                           ? "border-blue-300 bg-blue-50 shadow-sm ring-1 ring-blue-200"
                           : "border-gray-200 bg-white hover:border-blue-200 hover:shadow-sm"
                       }`}>
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 ${
                               isCurrent
@@ -280,8 +280,8 @@ export function AcademicYearManagement() {
                             }`}>
                               {yearNum}
                             </div>
-                            <div>
-                              <div className="flex items-center gap-2">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <p className={`font-bold text-sm ${isCurrent ? "text-blue-800" : "text-gray-700"}`}>
                                   {sy.sy_label}
                                 </p>
@@ -291,7 +291,7 @@ export function AcademicYearManagement() {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-3 mt-1">
+                              <div className="flex flex-wrap items-center gap-3 mt-1">
                                 <div className="flex items-center gap-1.5">
                                   <span className={`inline-block w-2 h-2 rounded-full ${sy.enrollment_open === 1 ? "bg-emerald-500" : "bg-red-400"}`} />
                                   <span className="text-[11px] text-gray-500">{sy.enrollment_open === 1 ? "Enrollment Open" : "Closed"}</span>
@@ -304,7 +304,7 @@ export function AcademicYearManagement() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end sm:justify-end">
                             <button
                               onClick={() =>
                                 toggleEnrollment(
@@ -524,7 +524,7 @@ export function AcademicYearManagement() {
               <div className="flex items-center gap-2 text-emerald-700 text-sm font-semibold bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
                 <CheckCircle size={16} /> School Year {currentSY} has been archived. {nextSY} is now the active school year.
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
                   <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-[0.06em] mb-1">Records Archived</p>
                   <p className="text-2xl font-bold text-gray-700">{totalStudents}</p>

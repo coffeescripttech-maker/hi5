@@ -328,7 +328,7 @@ export function EnrollmentReport() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto px-3 sm:px-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
             <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -343,7 +343,7 @@ export function EnrollmentReport() {
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto pb-10">
+    <div className="space-y-5 max-w-6xl mx-auto pb-10 px-3 sm:px-0">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />

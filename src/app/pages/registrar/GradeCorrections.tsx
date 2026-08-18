@@ -101,7 +101,7 @@ export function GradeCorrections() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
+    <div className="max-w-6xl mx-auto space-y-5 px-3 sm:px-0">
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />

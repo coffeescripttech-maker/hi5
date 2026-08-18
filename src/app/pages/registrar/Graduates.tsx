@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { studentsApi, GraduateRow } from "../../services/students";
 import { useApp } from "../../context/AppContext";
+import { HybridTable } from "../../components/HybridTable";
+import { PageContainer } from "../../components/PageContainer";
 
 /** "2030-2031" → "2031" (Class of 2031). Handles "-" and en-dash "–". */
 function classYearOf(sy: string | null | undefined): string | null {
@@ -68,7 +70,7 @@ export function Graduates() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <PageContainer>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
             <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -78,12 +80,12 @@ export function Graduates() {
           </div>
           <p className="text-gray-400 text-sm font-medium">Loading alumni records...</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <PageContainer>
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-purple-400" />
@@ -105,7 +107,7 @@ export function Graduates() {
       </div>
 
       {/* ── STAT CARDS ── */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Alumni</span>
@@ -200,73 +202,113 @@ export function Graduates() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
-              <thead className="bg-gray-50/80">
-                <tr>
-                  {["Student", "LRN", "Sex", "Section", "School Year", "Class"].map(col => (
-                    <th key={col} className="px-6 py-3.5 text-left">
-                      <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                        {col}
-                      </span>
-                    </th>
-                  ))}
-                  <th className="px-6 py-3.5 text-right">
-                    <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">View</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((g, idx) => {
+          <HybridTable
+            desktop={
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px]">
+                  <thead className="bg-gray-50/80">
+                    <tr>
+                      {["Student", "LRN", "Sex", "Section", "School Year", "Class"].map(col => (
+                        <th key={col} className="px-6 py-3.5 text-left">
+                          <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                            {col}
+                          </span>
+                        </th>
+                      ))}
+                      <th className="px-6 py-3.5 text-right">
+                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">View</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filtered.map((g, idx) => {
+                      const cy = classYearOf(g.graduation_sy);
+                      return (
+                        <tr
+                          key={g.id}
+                          onClick={() => navigate(`/student/${g.id}`)}
+                          className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/40 cursor-pointer transition-colors`}
+                        >
+                          <td className="px-6 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-100 to-fuchsia-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                <UserRound size={15} className="text-purple-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 tracking-[-0.01em] truncate">{g.name}</p>
+                                <p className="text-xs text-gray-400">{g.student_id}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3.5 text-gray-500 text-sm font-mono">{g.lrn}</td>
+                          <td className="px-6 py-3.5">
+                            <span className={`text-[11px] font-medium capitalize px-2 py-0.5 rounded-md ${g.sex === "female" ? "bg-pink-50 text-pink-600" : "bg-sky-50 text-sky-600"}`}>
+                              {g.sex}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3.5 text-gray-600 text-sm">{g.section_name || "—"}</td>
+                          <td className="px-6 py-3.5 text-gray-500 text-sm">{g.graduation_sy || "—"}</td>
+                          <td className="px-6 py-3.5">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-[11px] font-semibold border border-purple-100">
+                              <GraduationCap size={11} /> {cy ? `Class of ${cy}` : "—"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3.5 text-right">
+                            <button
+                              onClick={e => { e.stopPropagation(); navigate(`/student/${g.id}`); }}
+                              className="inline-flex items-center gap-1 text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition-all font-medium"
+                              title={`View ${g.name}'s profile`}
+                            >
+                              <FileText size={12} /> Profile
+                              <ArrowRight size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            }
+            mobile={
+              <ul className="md:hidden divide-y divide-gray-50">
+                {filtered.map(g => {
                   const cy = classYearOf(g.graduation_sy);
                   return (
-                    <tr
-                      key={g.id}
-                      onClick={() => navigate(`/student/${g.id}`)}
-                      className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/40 cursor-pointer transition-colors`}
-                    >
-                      <td className="px-6 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-100 to-fuchsia-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-                            <UserRound size={15} className="text-purple-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 tracking-[-0.01em] truncate">{g.name}</p>
-                            <p className="text-xs text-gray-400">{g.student_id}</p>
-                          </div>
+                    <li key={g.id}>
+                      <button
+                        onClick={() => navigate(`/student/${g.id}`)}
+                        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-purple-50/40 active:bg-purple-50/70"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-fuchsia-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <UserRound size={16} className="text-purple-600" />
                         </div>
-                      </td>
-                      <td className="px-6 py-3.5 text-gray-500 text-sm font-mono">{g.lrn}</td>
-                      <td className="px-6 py-3.5">
-                        <span className={`text-[11px] font-medium capitalize px-2 py-0.5 rounded-md ${g.sex === "female" ? "bg-pink-50 text-pink-600" : "bg-sky-50 text-sky-600"}`}>
-                          {g.sex}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-gray-600 text-sm">{g.section_name || "—"}</td>
-                      <td className="px-6 py-3.5 text-gray-500 text-sm">{g.graduation_sy || "—"}</td>
-                      <td className="px-6 py-3.5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-[11px] font-semibold border border-purple-100">
-                          <GraduationCap size={11} /> {cy ? `Class of ${cy}` : "—"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-right">
-                        <button
-                          onClick={e => { e.stopPropagation(); navigate(`/student/${g.id}`); }}
-                          className="inline-flex items-center gap-1 text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition-all font-medium"
-                          title={`View ${g.name}'s profile`}
-                        >
-                          <FileText size={12} /> Profile
-                          <ArrowRight size={12} />
-                        </button>
-                      </td>
-                    </tr>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{g.name}</p>
+                            <span className={`text-[10px] font-medium capitalize px-2 py-0.5 rounded-md flex-shrink-0 ${g.sex === "female" ? "bg-pink-50 text-pink-600" : "bg-sky-50 text-sky-600"}`}>
+                              {g.sex}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-1">
+                            <span className="text-xs text-gray-400 font-mono truncate">
+                              {g.section_name ? `${g.section_name} · ` : ""}LRN {g.lrn}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[10px] font-semibold border border-purple-100 flex-shrink-0">
+                              <GraduationCap size={10} /> {cy ? `Class of ${cy}` : "—"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5">{g.graduation_sy || "No batch year"}</p>
+                        </div>
+                      </button>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            }
+          />
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

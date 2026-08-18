@@ -13,6 +13,7 @@ import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
+import { DocumentViewer } from '../../components/DocumentViewer';
 
 /* ---------------------------------------------------------------- */
 /* Column definitions matching DepEd School Form 1 (SF1)            */
@@ -434,7 +435,8 @@ export function SF1Register() {
       </div>
 
       {/* Sheet */}
-      <div id="sf1-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
+      <DocumentViewer>
+        <div id="sf1-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
         <div className="sf1-page" style={{ minWidth: '1340px' }}>
           {/* ---------- Title block ---------- */}
           <SchoolFormTitleBlock
@@ -580,7 +582,8 @@ export function SF1Register() {
             setSignatureDates={setSignatureDates}
           />
         </div>
-      </div>
+        </div>
+      </DocumentViewer>
     </div>
   );
 }

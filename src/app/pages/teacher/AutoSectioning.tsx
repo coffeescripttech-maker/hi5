@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { sectioningApi, SectioningStudent, SectioningSection, SectioningData } from "../../services/sectioning";
+import { HybridTable } from "../../components/HybridTable";
 
 // ── Section threshold config (used as fallback when sections lack min_average) ──
 const THRESHOLD_RANGES = [
@@ -196,7 +197,7 @@ export function AutoSectioning() {
   // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-5 pb-10 animate-pulse">
+      <div className="max-w-6xl mx-auto space-y-5 pb-10 animate-pulse px-3 sm:px-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-emerald-200 to-emerald-200" />
           <div className="p-6 space-y-5">
@@ -204,7 +205,7 @@ export function AutoSectioning() {
             <div className="h-4 w-96 bg-gray-50 rounded-md" />
           </div>
         </div>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-28 bg-white rounded-xl border border-gray-100" />)}
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -222,7 +223,7 @@ export function AutoSectioning() {
   // ── Error state ──
   if (error) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto px-3 sm:px-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
             <AlertCircle size={32} className="text-red-300" />
@@ -241,7 +242,7 @@ export function AutoSectioning() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5 pb-10">
+    <div className="max-w-6xl mx-auto space-y-5 pb-10 px-3 sm:px-0">
 
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
@@ -405,6 +406,8 @@ export function AutoSectioning() {
             </p>
           </div>
         ) : (
+          <HybridTable
+            desktop={
           <div className="overflow-x-auto">
             <table className="w-full min-w-[750px]">
               <thead className="bg-gray-50/80">
@@ -524,6 +527,82 @@ export function AutoSectioning() {
               </tbody>
             </table>
           </div>
+            }
+            mobile={
+              <ul className="divide-y divide-gray-50">
+                {students.map(s => {
+                  const assignment = results[s.id];
+                  const isAssigned = assigned[s.id];
+                  return (
+                    <li key={s.id} className={`p-4 transition-all duration-500 ${isAssigned ? "bg-white" : running ? "bg-gray-50/50 opacity-60" : "bg-white"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shadow-xs flex-shrink-0 ${
+                            isAssigned ? "bg-gradient-to-br from-emerald-100 to-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"
+                          }`}>
+                            {s.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 truncate">{s.name}</p>
+                            <p className="text-[11px] text-gray-400 font-mono truncate">{s.student_id} · LRN {s.lrn}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/50">
+                            Gr. {s.grade_level}
+                          </span>
+                          <span className={`inline-flex items-center gap-1 text-sm font-bold ${
+                            s.general_average !== null ? (s.general_average >= 75 ? "text-emerald-600" : "text-red-500") : "text-gray-300 italic text-xs"
+                          }`}>
+                            {s.general_average !== null ? `GA: ${s.general_average}` : "GA: N/A"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                          s.sex === "male" ? "bg-emerald-50 text-emerald-700" : "bg-pink-50 text-pink-700"
+                        }`}>
+                          {s.sex === "male" ? "Male" : "Female"}
+                        </span>
+                        {s.classifications.length > 0 ? (
+                          s.classifications.map(c => (
+                            <span key={c} className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/50 capitalize">
+                              {c === "4ps" ? "4Ps" : c === "pwd" ? "PWD" : c === "non_reader" ? "Non-Reader" : c === "balik_aral" ? "Balik-aral" : c}
+                            </span>
+                          ))
+                        ) : null}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        {isAssigned && assignment ? (
+                          (() => {
+                            const style = SECTION_TYPE_COLORS[assignment.sectionType] || SECTION_TYPE_COLORS.regular;
+                            return (
+                              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold shadow-xs ${style.bg} ${style.border} ${style.color}`}>
+                                {assignment.icon} {assignment.sectionName}
+                              </div>
+                            );
+                          })()
+                        ) : running ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-3.5 h-3.5 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+                            <span className="text-xs text-gray-400">Processing...</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-300 italic">Awaiting run</span>
+                        )}
+                        {isAssigned && assignment && (
+                          <span className="text-xs text-gray-500 flex items-center gap-1">
+                            <Shield size={10} className="text-gray-400" />
+                            {assignment.reason}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            }
+          />
         )}
       </div>
 

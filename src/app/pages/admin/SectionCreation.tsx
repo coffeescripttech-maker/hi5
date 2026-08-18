@@ -3,6 +3,7 @@ import { Layers, Plus, CheckCircle, Trash2, Edit2, X, AlertTriangle, Users, Sear
 import { sectionsApi, SectionRow, CreateSectionPayload, UpdateSectionPayload, TeacherBrief } from "../../services/sections";
 import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
 import { useApp } from "../../context/AppContext";
+import { HybridTable } from "../../components/HybridTable";
 
 const FALLBACK_COLORS = "bg-gray-100 text-gray-700 border-gray-200";
 
@@ -292,32 +293,32 @@ export function SectionCreation() {
   const totalEnrolled = sections.reduce((a, s) => a + s.current_count, 0);
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
-        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="p-5 sm:p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
               <Layers size={22} className="text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Section Creation & Management</h2>
               <p className="text-gray-500 text-sm">Create, configure, and manage class sections per grade level</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             {saved && (
               <span className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
                 <CheckCircle size={14} /> Saved.
               </span>
             )}
             <button onClick={() => { setShowManageTypes(true); setTypesLoading(true); sectionTypesApi.list().then(types => { setSectionTypes(types); setTypesLoading(false); }).catch(() => setTypesLoading(false)); }}
-              className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center justify-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-1 sm:flex-none">
               <Palette size={15} /> Manage Types
             </button>
             <button onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-1 sm:flex-none">
               <Plus size={15} /> Create Section
             </button>
           </div>
@@ -325,7 +326,7 @@ export function SectionCreation() {
       </div>
 
       {/* ── STAT CARDS ── */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Sections</span>
@@ -383,79 +384,139 @@ export function SectionCreation() {
             {gradeSections.length === 0 ? (
               <p className="text-xs text-gray-400 px-6 py-5">No sections created for Grade {grade} yet.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px]">
-                  <thead className="bg-gray-50/80">
-                    <tr>
-                      {[
-                        { label: "Section", key: "section" },
-                        { label: "Adviser", key: "adviser" },
-                        { label: "Capacity", key: "capacity" },
-                        { label: "Enrolled", key: "enrolled" },
-                        { label: "Min. Avg", key: "minAvg" },
-                        { label: "Occupancy", key: "occupancy" },
-                        { label: "Actions", key: "actions" },
-                      ].map(col => (
-                        <th key={col.key} className={`px-4 py-3.5 text-${col.key === "capacity" || col.key === "enrolled" || col.key === "minAvg" || col.key === "occupancy" ? "center" : "left"}`}>
-                          <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{col.label}</span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {gradeSections.map((sec, idx) => {
+              <HybridTable
+                desktop={
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                      <thead className="bg-gray-50/80">
+                        <tr>
+                          {[
+                            { label: "Section", key: "section" },
+                            { label: "Adviser", key: "adviser" },
+                            { label: "Capacity", key: "capacity" },
+                            { label: "Enrolled", key: "enrolled" },
+                            { label: "Min. Avg", key: "minAvg" },
+                            { label: "Occupancy", key: "occupancy" },
+                            { label: "Actions", key: "actions" },
+                          ].map(col => (
+                            <th key={col.key} className={`px-4 py-3.5 text-${col.key === "capacity" || col.key === "enrolled" || col.key === "minAvg" || col.key === "occupancy" ? "center" : "left"}`}>
+                              <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{col.label}</span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {gradeSections.map((sec, idx) => {
+                          const pct = Math.round((sec.current_count / sec.capacity) * 100);
+                          return (
+                            <tr key={sec.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
+                              <td className="px-4 py-3.5">
+                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
+                                  {sec.name}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                {sec.adviser_name ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0 shadow-sm">
+                                      {sec.adviser_name.charAt(0)}
+                                    </div>
+                                    <span className="text-sm text-gray-700 font-medium">{sec.adviser_name}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-400">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3.5 text-center font-medium text-gray-700">{sec.capacity}</td>
+                              <td className="px-4 py-3.5 text-center font-bold text-blue-700">{sec.current_count}</td>
+                              <td className="px-4 py-3.5 text-center text-xs text-gray-500 font-medium">{sec.min_average}+</td>
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                                    <div
+                                      className={`h-1.5 rounded-full transition-all ${pct >= 95 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500"}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs text-gray-500 font-medium">{pct}%</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3.5 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={() => openEdit(sec)}
+                                    className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => setDeleteId(sec.id)}
+                                    className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                }
+                mobile={
+                  <ul className="divide-y divide-gray-50">
+                    {gradeSections.map(sec => {
                       const pct = Math.round((sec.current_count / sec.capacity) * 100);
                       return (
-                        <tr key={sec.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
-                          <td className="px-4 py-3.5">
-                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
-                              {sec.name}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5">
-                            {sec.adviser_name ? (
+                        <li key={sec.id} className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0 shadow-sm">
-                                  {sec.adviser_name.charAt(0)}
+                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
+                                  {sec.name}
+                                </span>
+                                <span className="text-xs text-gray-400 font-medium">{sec.min_average}+ min avg</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2">
+                                {sec.adviser_name ? (
+                                  <>
+                                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0">
+                                      {sec.adviser_name.charAt(0)}
+                                    </div>
+                                    <span className="text-sm text-gray-700 font-medium truncate">Adviser: {sec.adviser_name}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-sm text-gray-400">No adviser assigned</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                                <span>Capacity <strong className="text-gray-700">{sec.capacity}</strong></span>
+                                <span>Enrolled <strong className="text-blue-700">{sec.current_count}</strong></span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2">
+                                <div className="w-24 bg-gray-100 rounded-full h-1.5">
+                                  <div
+                                    className={`h-1.5 rounded-full transition-all ${pct >= 95 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500"}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
                                 </div>
-                                <span className="text-sm text-gray-700 font-medium">{sec.adviser_name}</span>
+                                <span className="text-xs text-gray-500 font-medium">{pct}% occupancy</span>
                               </div>
-                            ) : (
-                              <span className="text-sm text-gray-400">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3.5 text-center font-medium text-gray-700">{sec.capacity}</td>
-                          <td className="px-4 py-3.5 text-center font-bold text-blue-700">{sec.current_count}</td>
-                          <td className="px-4 py-3.5 text-center text-xs text-gray-500 font-medium">{sec.min_average}+</td>
-                          <td className="px-4 py-3.5">
-                            <div className="flex items-center justify-center gap-2">
-                              <div className="w-16 bg-gray-100 rounded-full h-1.5">
-                                <div
-                                  className={`h-1.5 rounded-full transition-all ${pct >= 95 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500"}`}
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-gray-500 font-medium">{pct}%</span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3.5 text-center">
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <button onClick={() => openEdit(sec)}
-                                className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
-                                <Edit2 size={14} />
+                                className="text-blue-400 hover:text-blue-600 transition p-2 rounded-lg hover:bg-blue-50 touch-target">
+                                <Edit2 size={15} />
                               </button>
                               <button onClick={() => setDeleteId(sec.id)}
-                                className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
-                                <Trash2 size={14} />
+                                className="text-red-400 hover:text-red-600 transition p-2 rounded-lg hover:bg-red-50 touch-target">
+                                <Trash2 size={15} />
                               </button>
                             </div>
-                          </td>
-                        </tr>
+                          </div>
+                        </li>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+                  </ul>
+                }
+              />
             )}
           </div>
         ))
@@ -480,7 +541,7 @@ export function SectionCreation() {
               </button>
             </div>
             <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Grade Level</label>
                 <select value={form.gradeLevel} onChange={e => setForm(p => ({ ...p, gradeLevel: e.target.value }))}
@@ -511,7 +572,7 @@ export function SectionCreation() {
                 <input type="number" value={form.minAvg} onChange={e => setForm(p => ({ ...p, minAvg: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Adviser (optional)</label>
                 <TeacherSearch
                   value={form.adviser_id}
@@ -574,7 +635,7 @@ export function SectionCreation() {
                   }}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Capacity</label>
                   <input type="number" value={editForm.capacity} onChange={e => setEditForm(p => ({ ...p, capacity: e.target.value }))}
@@ -666,31 +727,100 @@ export function SectionCreation() {
               ) : sectionTypes.length === 0 ? (
                 <div className="py-10 text-center text-gray-400 text-sm">No section types defined yet.</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[500px]">
-                    <thead>
-                      <tr className="border-b border-gray-100">
-                        <th className="px-3 py-3 text-left"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Name</span></th>
-                        <th className="px-3 py-3 text-left"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Label</span></th>
-                        <th className="px-3 py-3 text-center"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Order</span></th>
-                        <th className="px-3 py-3 text-center"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Active</span></th>
-                        <th className="px-3 py-3 text-right"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Actions</span></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
+                <HybridTable
+                  desktop={
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[500px]">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="px-3 py-3 text-left"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Name</span></th>
+                            <th className="px-3 py-3 text-left"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Label</span></th>
+                            <th className="px-3 py-3 text-center"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Order</span></th>
+                            <th className="px-3 py-3 text-center"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Active</span></th>
+                            <th className="px-3 py-3 text-right"><span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]">Actions</span></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {sectionTypes.map(t => (
+                            <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-3 py-3.5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${t.color_code || 'bg-gray-100 text-gray-600'}`}>
+                                    {t.icon && t.icon.length <= 2 ? t.icon : t.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-3.5 text-sm text-gray-600">{t.label}</td>
+                              <td className="px-3 py-3.5 text-center text-sm text-gray-500">{t.sort_order}</td>
+                              <td className="px-3 py-3.5 text-center">
+                                {t.is_locked ? (
+                                  <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                    <Lock size={10} /> Fixed
+                                  </span>
+                                ) : (
+                                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${t.is_active ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-gray-400 bg-gray-50 border-gray-200'}`}>
+                                    {t.is_active ? 'Active' : 'Inactive'}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3.5 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button onClick={() => {
+                                    setEditingType(t);
+                                    setTypeFormMode("edit");
+                                    setTypeForm({ name: t.name, label: t.label, color_code: t.color_code || "", icon: t.icon || "", sort_order: String(t.sort_order) });
+                                  }}
+                                    className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
+                                    <Edit2 size={13} />
+                                  </button>
+                                  {!t.is_locked && (
+                                    <button onClick={() => setDeleteTypeId(t)}
+                                      className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  mobile={
+                    <ul className="divide-y divide-gray-50">
                       {sectionTypes.map(t => (
-                        <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-3 py-3.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${t.color_code || 'bg-gray-100 text-gray-600'}`}>
+                        <li key={t.id} className="py-3.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${t.color_code || 'bg-gray-100 text-gray-600'}`}>
                                 {t.icon && t.icon.length <= 2 ? t.icon : t.name.charAt(0).toUpperCase()}
                               </div>
-                              <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{t.name}</p>
+                                <p className="text-xs text-gray-500 truncate">{t.label}</p>
+                              </div>
                             </div>
-                          </td>
-                          <td className="px-3 py-3.5 text-sm text-gray-600">{t.label}</td>
-                          <td className="px-3 py-3.5 text-center text-sm text-gray-500">{t.sort_order}</td>
-                          <td className="px-3 py-3.5 text-center">
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button onClick={() => {
+                                setEditingType(t);
+                                setTypeFormMode("edit");
+                                setTypeForm({ name: t.name, label: t.label, color_code: t.color_code || "", icon: t.icon || "", sort_order: String(t.sort_order) });
+                              }}
+                                className="text-blue-400 hover:text-blue-600 transition p-2 rounded-lg hover:bg-blue-50 touch-target">
+                                <Edit2 size={14} />
+                              </button>
+                              {!t.is_locked && (
+                                <button onClick={() => setDeleteTypeId(t)}
+                                  className="text-red-400 hover:text-red-600 transition p-2 rounded-lg hover:bg-red-50 touch-target">
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2 pl-1">
+                            <span className="text-xs text-gray-400">Order: <strong className="text-gray-600">{t.sort_order}</strong></span>
                             {t.is_locked ? (
                               <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                 <Lock size={10} /> Fixed
@@ -700,30 +830,12 @@ export function SectionCreation() {
                                 {t.is_active ? 'Active' : 'Inactive'}
                               </span>
                             )}
-                          </td>
-                          <td className="px-3 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => {
-                                setEditingType(t);
-                                setTypeFormMode("edit");
-                                setTypeForm({ name: t.name, label: t.label, color_code: t.color_code || "", icon: t.icon || "", sort_order: String(t.sort_order) });
-                              }}
-                                className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
-                                <Edit2 size={13} />
-                              </button>
-                              {!t.is_locked && (
-                                <button onClick={() => setDeleteTypeId(t)}
-                                  className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
-                                  <Trash2 size={13} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                          </div>
+                        </li>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </ul>
+                  }
+                />
               )}
             </div>
 

@@ -331,7 +331,7 @@ export function Login() {
     return (
       <>
         <style>{ANIM_STYLE}</style>
-        <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
+        <div className="min-h-dvh flex flex-col lg:flex-row overflow-hidden">
           <LeftPanel />
           <MobileBanner />
           <div className="flex-1 flex flex-col items-center bg-gray-50 px-6 py-5 lg:py-10 overflow-y-auto">

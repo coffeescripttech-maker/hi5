@@ -98,7 +98,7 @@ export function PrincipalProfile() {
   ];
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto">
+    <div className="space-y-5 max-w-3xl mx-auto px-3 sm:px-0">
       <ProfileHeader
         tone="purple"
         name={form.name}

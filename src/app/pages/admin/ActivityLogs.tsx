@@ -1,6 +1,7 @@
 import React from "react";
 import { Activity, Clock, SearchX } from "lucide-react";
 import { logsApi, ActivityLogRow } from "../../services/logs";
+import { HybridTable } from "../../components/HybridTable";
 
 /** Map backend entity_type → readable label + badge styling. */
 const CATEGORY_META: Record<string, { label: string; badge: string }> = {
@@ -46,7 +47,7 @@ export function ActivityLogs() {
   }, []);
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
@@ -85,52 +86,89 @@ export function ActivityLogs() {
               </p>
               <span className="text-xs text-gray-500">Total: <strong>{logs.length}</strong></span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50/80">
-                  <tr>
-                    {["Timestamp", "User", "Category", "Action"].map(h => (
-                      <th key={h} className="px-5 py-3.5 text-left">
-                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {logs.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-5 py-14 text-center text-gray-400 text-sm">
-                        <SearchX size={22} className="mx-auto mb-2 text-gray-300" />
-                        No logs found.
-                      </td>
-                    </tr>
-                  ) : logs.map((log, idx) => {
-                    const cat = categoryMeta(log.entity_type);
-                    return (
-                      <tr key={log.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
-                        <td className="px-5 py-4 text-gray-400 text-xs font-mono whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleString("en-PH")}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                              <span className="text-blue-600 font-bold text-xs">{(log.user_name || "S").charAt(0).toUpperCase()}</span>
-                            </div>
-                            <span className="text-gray-700 font-medium text-xs">{log.user_name || "System"}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border ${cat.badge}`}>
-                            {cat.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-gray-600 text-xs">{log.action}</td>
+            <HybridTable
+              desktop={
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50/80">
+                      <tr>
+                        {["Timestamp", "User", "Category", "Action"].map(h => (
+                          <th key={h} className="px-5 py-3.5 text-left">
+                            <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
+                          </th>
+                        ))}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {logs.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-5 py-14 text-center text-gray-400 text-sm">
+                            <SearchX size={22} className="mx-auto mb-2 text-gray-300" />
+                            No logs found.
+                          </td>
+                        </tr>
+                      ) : logs.map((log, idx) => {
+                        const cat = categoryMeta(log.entity_type);
+                        return (
+                          <tr key={log.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
+                            <td className="px-5 py-4 text-gray-400 text-xs font-mono whitespace-nowrap">
+                              {new Date(log.created_at).toLocaleString("en-PH")}
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-blue-600 font-bold text-xs">{(log.user_name || "S").charAt(0).toUpperCase()}</span>
+                                </div>
+                                <span className="text-gray-700 font-medium text-xs">{log.user_name || "System"}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border ${cat.badge}`}>
+                                {cat.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-gray-600 text-xs">{log.action}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              }
+              mobile={
+                logs.length === 0 ? (
+                  <div className="px-5 py-14 text-center text-gray-400 text-sm">
+                    <SearchX size={22} className="mx-auto mb-2 text-gray-300" />
+                    No logs found.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-50">
+                    {logs.map(log => {
+                      const cat = categoryMeta(log.entity_type);
+                      return (
+                        <li key={log.id} className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                <span className="text-blue-600 font-bold text-xs">{(log.user_name || "S").charAt(0).toUpperCase()}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-gray-700 font-medium text-xs truncate">{log.user_name || "System"}</p>
+                                <p className="text-gray-400 text-[11px] font-mono">{new Date(log.created_at).toLocaleString("en-PH")}</p>
+                              </div>
+                            </div>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border flex-shrink-0 ${cat.badge}`}>
+                              {cat.label}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 text-xs mt-2 leading-relaxed">{log.action}</p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
+              }
+            />
           </>
         )}
       </div>

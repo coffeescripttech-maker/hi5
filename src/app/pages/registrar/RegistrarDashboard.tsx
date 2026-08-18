@@ -9,6 +9,7 @@ import { enrollmentsApi, EnrollmentRow, DashboardStats } from "../../services/en
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { useApp } from "../../context/AppContext";
 import { StudentRiskOverview } from "../../components/StudentRiskOverview";
+import { PageContainer } from "../../components/PageContainer";
 
 const CLASSIF_COLORS: Record<string, string> = {
   "4ps": "#6366f1",
@@ -90,7 +91,7 @@ export function RegistrarDashboard() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <PageContainer>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
             <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -100,12 +101,12 @@ export function RegistrarDashboard() {
           </div>
           <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <PageContainer>
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
@@ -113,9 +114,9 @@ export function RegistrarDashboard() {
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
             <Activity size={22} className="text-white" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Registrar Dashboard</h2>
-            <p className="text-gray-500 text-sm">Overview of enrollment, sections, and school form generation</p>
+            <p className="text-gray-500 text-sm truncate">Overview of enrollment, sections, and school form generation</p>
           </div>
           <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100">
             <School size={14} className="text-indigo-500" />
@@ -336,6 +337,6 @@ export function RegistrarDashboard() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </PageContainer>
   );
 }

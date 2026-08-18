@@ -3,6 +3,7 @@ import { BookOpen, Plus, Trash2, CheckCircle, X, AlertTriangle, Edit2, Filter, C
 import type { LucideIcon } from "lucide-react";
 import { subjectsApi, SubjectRow, CreateSubjectPayload, UpdateSubjectPayload, BulkSubjectItem } from "../../services/subjects";
 import { useApp } from "../../context/AppContext";
+import { HybridTable } from "../../components/HybridTable";
 
 const TYPE_COLORS: Record<string, string> = {
   core: "bg-blue-100 text-blue-700 border-blue-200",
@@ -244,32 +245,32 @@ export function SubjectManagement() {
   const totalHours = filtered.reduce((a, s) => a + s.hours_per_week, 0);
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
-        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="p-5 sm:p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
               <BookOpen size={22} className="text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Subject Management</h2>
               <p className="text-gray-500 text-sm">Configure subjects per grade level for automatic assignment to enrolled students</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             {saved && (
               <span className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
                 <CheckCircle size={14} /> Saved.
               </span>
             )}
             <button onClick={openPopulate}
-              className="flex items-center gap-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center justify-center gap-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-1 sm:flex-none">
               <Sparkles size={15} /> Populate Subjects
             </button>
             <button onClick={() => { setEditSubject(null); setForm(emptyForm); setShowForm(true); }}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-1 sm:flex-none">
               <Plus size={15} /> Add Subject
             </button>
           </div>
@@ -277,7 +278,7 @@ export function SubjectManagement() {
       </div>
 
       {/* ── STAT CARDS ── */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Subjects</span>
@@ -352,51 +353,86 @@ export function SubjectManagement() {
                     <Clock size={12} /> {gradeSubs.reduce((a, s) => a + s.hours_per_week, 0)} hrs/week
                   </span>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[500px]">
-                    <thead className="bg-gray-50/80">
-                      <tr>
-                        {[
-                          { label: "Subject Name", key: "name" },
-                          { label: "Type", key: "type" },
-                          { label: "Hrs/Week", key: "hours" },
-                          { label: "Actions", key: "actions" },
-                        ].map(col => (
-                          <th key={col.key} className={`px-5 py-3.5 text-${col.key === "hours" || col.key === "actions" ? "center" : "left"}`}>
-                            <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{col.label}</span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {gradeSubs.map((s, idx) => (
-                        <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
-                          <td className="px-5 py-3.5">
-                            <span className="text-sm font-medium text-gray-800">{s.name}</span>
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${TYPE_COLORS[s.subject_type]}`}>
-                              {TYPE_LABEL[s.subject_type]}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3.5 text-center text-sm text-gray-600">{s.hours_per_week}</td>
-                          <td className="px-5 py-3.5 text-center">
-                            <div className="flex items-center justify-center gap-1">
+                <HybridTable
+                  desktop={
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[500px]">
+                        <thead className="bg-gray-50/80">
+                          <tr>
+                            {[
+                              { label: "Subject Name", key: "name" },
+                              { label: "Type", key: "type" },
+                              { label: "Hrs/Week", key: "hours" },
+                              { label: "Actions", key: "actions" },
+                            ].map(col => (
+                              <th key={col.key} className={`px-5 py-3.5 text-${col.key === "hours" || col.key === "actions" ? "center" : "left"}`}>
+                                <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{col.label}</span>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {gradeSubs.map((s, idx) => (
+                            <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors duration-150`}>
+                              <td className="px-5 py-3.5">
+                                <span className="text-sm font-medium text-gray-800">{s.name}</span>
+                              </td>
+                              <td className="px-5 py-3.5">
+                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${TYPE_COLORS[s.subject_type]}`}>
+                                  {TYPE_LABEL[s.subject_type]}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3.5 text-center text-sm text-gray-600">{s.hours_per_week}</td>
+                              <td className="px-5 py-3.5 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={() => openEdit(s)}
+                                    className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => setDeleteId(s.id)}
+                                    className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  mobile={
+                    <ul className="divide-y divide-gray-50">
+                      {gradeSubs.map(s => (
+                        <li key={s.id} className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
+                              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${TYPE_COLORS[s.subject_type]}`}>
+                                  {TYPE_LABEL[s.subject_type]}
+                                </span>
+                                <span className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Clock size={11} /> {s.hours_per_week} hrs/week
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <button onClick={() => openEdit(s)}
-                                className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
-                                <Edit2 size={14} />
+                                className="text-blue-400 hover:text-blue-600 transition p-2 rounded-lg hover:bg-blue-50 touch-target">
+                                <Edit2 size={15} />
                               </button>
                               <button onClick={() => setDeleteId(s.id)}
-                                className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
-                                <Trash2 size={14} />
+                                className="text-red-400 hover:text-red-600 transition p-2 rounded-lg hover:bg-red-50 touch-target">
+                                <Trash2 size={15} />
                               </button>
                             </div>
-                          </td>
-                        </tr>
+                          </div>
+                        </li>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </ul>
+                  }
+                />
               </div>
             )
           ))}
@@ -438,7 +474,7 @@ export function SubjectManagement() {
                   placeholder="e.g. Mathematics"
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Grade Level</label>
                   <select value={form.grade_level} onChange={e => setForm(p => ({ ...p, grade_level: parseInt(e.target.value) }))}

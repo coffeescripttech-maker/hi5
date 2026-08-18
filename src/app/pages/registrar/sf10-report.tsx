@@ -21,6 +21,7 @@ import {
   useSchoolHeader
 } from '../../components/school-form-header';
 import './sf1.css';
+import { DocumentViewer } from '../../components/DocumentViewer';
 
 /* ── Types ── */
 interface LearningAreaRow {
@@ -760,6 +761,7 @@ export function SF10Report() {
       {/* ────────────────────────────────────────────────────────────── */}
       {!loadingReport && sf10Data && selectedStudent && (
         <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-x-auto">
+          <DocumentViewer>
           <div
             id="sf10-print-area"
             className="p-4 sm:p-6 text-[10px] leading-tight text-black">
@@ -1551,6 +1553,7 @@ export function SF10Report() {
               </div>
             </div>
           </div>
+          </DocumentViewer>
         </div>
       )}
     </div>

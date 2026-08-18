@@ -73,7 +73,7 @@ export function DocumentCompletion() {
   const completedStudents = students.filter(s => s.submitted_count === s.total_count).length;
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto pb-10">
+    <div className="space-y-5 max-w-6xl mx-auto pb-10 px-3 sm:px-0">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />

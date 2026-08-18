@@ -34,6 +34,7 @@ import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { strandTracksApi, StrandTrackRow } from '../../services/strandTracks';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { sectionsApi, SectionRow } from '../../services/sections';
+import { HybridTable } from '../../components/HybridTable';
 import { z } from 'zod';
 
 // ── Zod Validation Schemas ──────────────────────────────────────────────
@@ -1228,7 +1229,7 @@ export function EnrollmentModule() {
     ];
 
     return (
-      <div className="space-y-6 max-w-8xl mx-auto">
+      <div className="w-full max-w-8xl mx-auto space-y-6 px-3 sm:px-0">
         {/* Enrollment closed banner */}
         {!enrollmentOpen && (
           <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl p-5 shadow-sm">
@@ -1371,97 +1372,157 @@ export function EnrollmentModule() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50/80">
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                      Student
-                    </th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                      LRN
-                    </th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                      Grade
-                    </th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                      Section
-                    </th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                      Program
-                    </th>
-                    <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
+            <HybridTable
+              desktop={
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50/80">
+                        <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          Student
+                        </th>
+                        <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          LRN
+                        </th>
+                        <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          Grade
+                        </th>
+                        <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          Section
+                        </th>
+                        <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          Program
+                        </th>
+                        <th className="text-left px-6 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {recentEnrollments.map(e => (
+                        <tr
+                          key={e.id}
+                          className="hover:bg-emerald-50/40 transition-colors duration-150">
+                          <td className="px-6 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0">
+                                {e.student_name.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-medium text-gray-900 truncate">
+                                  {e.student_name}
+                                </p>
+                                <p className="text-[11px] text-gray-400 font-mono">
+                                  {e.student_display_id || `#${e.id}`}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3.5 font-mono text-xs text-gray-400">
+                            {e.lrn}
+                          </td>
+                          <td className="px-6 py-3.5 text-gray-600">
+                            Grade {e.grade_level}
+                          </td>
+                          <td className="px-6 py-3.5">
+                            {e.section_name ? (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/50">
+                                {e.section_name}
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/50">
+                                Pending Section
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-3.5">
+                            {PROGRAM_BADGES[e.program] ? (
+                              <span
+                                className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${PROGRAM_BADGES[e.program]?.bg || 'bg-emerald-50'} ${PROGRAM_BADGES[e.program]?.text || 'text-emerald-700'}`}>
+                                {PROGRAM_BADGES[e.program]?.label || e.program}
+                              </span>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-3.5">
+                            {e.status === 'enrolled' ? (
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
+                                Enrolled
+                              </span>
+                            ) : e.status === 'dropped' ? (
+                              <span className="bg-red-50 text-red-600 border border-red-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
+                                Dropped
+                              </span>
+                            ) : (
+                              <span className="bg-amber-50 text-amber-700 border border-amber-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
+                                Transferred
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              }
+              mobile={
+                <ul className="divide-y divide-gray-50">
                   {recentEnrollments.map(e => (
-                    <tr
-                      key={e.id}
-                      className="hover:bg-emerald-50/40 transition-colors duration-150">
-                      <td className="px-6 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0">
+                    <li key={e.id} className="px-4 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm flex-shrink-0">
                             {e.student_name.charAt(0)}
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 truncate">
                               {e.student_name}
                             </p>
-                            <p className="text-[11px] text-gray-400 font-mono">
-                              {e.student_display_id || `#${e.id}`}
+                            <p className="text-[11px] text-gray-400 font-mono truncate">
+                              {e.student_display_id || `#${e.id}`} · {e.lrn}
                             </p>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-3.5 font-mono text-xs text-gray-400">
-                        {e.lrn}
-                      </td>
-                      <td className="px-6 py-3.5 text-gray-600">
-                        Grade {e.grade_level}
-                      </td>
-                      <td className="px-6 py-3.5">
+                        {e.status === 'enrolled' ? (
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/50 px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0">
+                            Enrolled
+                          </span>
+                        ) : e.status === 'dropped' ? (
+                          <span className="bg-red-50 text-red-600 border border-red-200/50 px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0">
+                            Dropped
+                          </span>
+                        ) : (
+                          <span className="bg-amber-50 text-amber-700 border border-amber-200/50 px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0">
+                            Transferred
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs text-gray-600">Grade {e.grade_level}</span>
                         {e.section_name ? (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/50">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/50">
                             {e.section_name}
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/50">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200/50">
                             Pending Section
                           </span>
                         )}
-                      </td>
-                      <td className="px-6 py-3.5">
                         {PROGRAM_BADGES[e.program] ? (
                           <span
-                            className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${PROGRAM_BADGES[e.program]?.bg || 'bg-emerald-50'} ${PROGRAM_BADGES[e.program]?.text || 'text-emerald-700'}`}>
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${PROGRAM_BADGES[e.program]?.bg || 'bg-emerald-50'} ${PROGRAM_BADGES[e.program]?.text || 'text-emerald-700'}`}>
                             {PROGRAM_BADGES[e.program]?.label || e.program}
                           </span>
                         ) : (
                           <span className="text-gray-300 text-xs">—</span>
                         )}
-                      </td>
-                      <td className="px-6 py-3.5">
-                        {e.status === 'enrolled' ? (
-                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
-                            Enrolled
-                          </span>
-                        ) : e.status === 'dropped' ? (
-                          <span className="bg-red-50 text-red-600 border border-red-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
-                            Dropped
-                          </span>
-                        ) : (
-                          <span className="bg-amber-50 text-amber-700 border border-amber-200/50 px-2.5 py-1 rounded-full text-[11px] font-medium">
-                            Transferred
-                          </span>
-                        )}
-                      </td>
-                    </tr>
+                      </div>
+                    </li>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </ul>
+              }
+            />
           )}
         </div>
       </div>
@@ -1483,7 +1544,7 @@ export function EnrollmentModule() {
 
     if (enrolledNew) {
       return (
-        <div className="max-w-lg mx-auto text-center py-12 sm:py-16">
+        <div className="w-full max-w-lg mx-auto text-center py-12 sm:py-16 px-3 sm:px-0">
           {/* Animated checkmark */}
           <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-200/50 animate-[pulse_2s_ease-in-out_infinite]">
             <CheckCircle size={44} className="text-emerald-600" />
@@ -1553,7 +1614,7 @@ export function EnrollmentModule() {
     }
 
     return (
-      <div className="max-w-4xl mx-auto space-y-5">
+      <div className="w-full max-w-4xl mx-auto space-y-5 px-3 sm:px-0">
         <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <button
             onClick={resetAll}
@@ -2251,7 +2312,7 @@ export function EnrollmentModule() {
   if (flow === 'returning') {
     if (enrolledRet && foundStudent) {
       return (
-        <div className="max-w-lg mx-auto text-center py-12 sm:py-16">
+        <div className="w-full max-w-lg mx-auto text-center py-12 sm:py-16 px-3 sm:px-0">
           <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-200/50 animate-[pulse_2s_ease-in-out_infinite]">
             <CheckCircle size={44} className="text-emerald-600" />
           </div>
@@ -2324,7 +2385,7 @@ export function EnrollmentModule() {
     }
 
     return (
-      <div className="max-w-4xl mx-auto space-y-5">
+      <div className="w-full max-w-4xl mx-auto space-y-5 px-3 sm:px-0">
         <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <button
             onClick={resetAll}
@@ -2900,7 +2961,7 @@ export function EnrollmentModule() {
 
     if (dropDone && dropFound) {
       return (
-        <div className="max-w-lg mx-auto text-center py-12 sm:py-16">
+        <div className="w-full max-w-lg mx-auto text-center py-12 sm:py-16 px-3 sm:px-0">
           <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-red-200/50 animate-[pulse_2s_ease-in-out_infinite]">
             <CheckCircle size={44} className="text-red-500" />
           </div>
@@ -2971,7 +3032,7 @@ export function EnrollmentModule() {
     }
 
     return (
-      <div className="max-w-4xl mx-auto space-y-5">
+      <div className="w-full max-w-4xl mx-auto space-y-5 px-3 sm:px-0">
         <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <button
             onClick={resetAll}

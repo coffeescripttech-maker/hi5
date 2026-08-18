@@ -4,7 +4,7 @@ import { StudentRiskList } from "../../components/StudentRiskList";
 
 export function AtRiskView() {
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />

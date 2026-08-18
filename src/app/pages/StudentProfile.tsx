@@ -12,6 +12,7 @@ import { enrollmentsApi, EnrollmentRow } from "../services/enrollments";
 import { gradesApi, GradeHistoryYear } from "../services/grades";
 import { useApp } from "../context/AppContext";
 import { useRoleAccent } from "../utils/roleTheme";
+import { HybridTable } from "../components/HybridTable";
 
 const TABS = [
   { id: "personal", label: "Personal Information", icon: User },
@@ -138,7 +139,7 @@ export function StudentProfile() {
   // ── loading skeleton ──
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto space-y-5">
+      <div className="max-w-5xl mx-auto w-full space-y-4 px-3 sm:space-y-5 sm:px-0">
         {/* skeleton header */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-pulse">
           <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
@@ -177,7 +178,7 @@ export function StudentProfile() {
   // ── not found ──
   if (!student) {
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto w-full px-3 sm:px-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
             <AlertCircle size={32} className="text-red-300" />
@@ -197,7 +198,7 @@ export function StudentProfile() {
 
   // ── main ──
   return (
-    <div className="max-w-5xl mx-auto space-y-5 pb-10">
+    <div className="max-w-5xl mx-auto w-full space-y-4 px-3 sm:space-y-5 sm:px-0 pb-10">
 
       {/* ────────── HERO CARD ────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
@@ -453,46 +454,73 @@ export function StudentProfile() {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-100">
-                  <table className="w-full min-w-[600px]">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-gray-50 to-gray-50/80">
-                        {["School Year", "Grade Level", "Section", "Program", "Enrollment Date", "Status"].map(h => (
-                          <th key={h} className="text-left px-5 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {enrollments.map((e, idx) => {
+                <HybridTable
+                  desktop={
+                    <div className="overflow-x-auto rounded-xl border border-gray-100">
+                      <table className="w-full min-w-[600px]">
+                        <thead>
+                          <tr className="bg-gradient-to-r from-gray-50 to-gray-50/80">
+                            {["School Year", "Grade Level", "Section", "Program", "Enrollment Date", "Status"].map(h => (
+                              <th key={h} className="text-left px-5 py-3.5 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {enrollments.map((e, idx) => {
+                            const badge = STATUS_BADGE[e.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", ring: "", label: e.status };
+                            return (
+                              <tr
+                                key={e.id}
+                                className={`transition-all duration-150 ${
+                                  idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                                } hover:bg-gray-50 hover:shadow-xs`}
+                              >
+                                <td className="px-5 py-4 font-semibold text-gray-800 text-sm">{e.sy_label}</td>
+                                <td className="px-5 py-4 text-gray-600 text-sm">Grade {e.section_grade_level ?? e.grade_level}</td>
+                                <td className="px-5 py-4 text-gray-600 text-sm font-medium">{e.section_name}</td>
+                                <td className="px-5 py-4">
+                                  <span className="text-[11px] font-medium text-gray-500 capitalize bg-gray-100 px-2 py-0.5 rounded-md">{e.program || "regular"}</span>
+                                </td>
+                                <td className="px-5 py-4 text-gray-500 text-sm">{formatDate(e.enrollment_date)}</td>
+                                <td className="px-5 py-4">
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border capitalize ${badge.bg}`}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                    {badge.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  mobile={
+                    <ul className="rounded-xl border border-gray-100 divide-y divide-gray-50">
+                      {enrollments.map(e => {
                         const badge = STATUS_BADGE[e.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", ring: "", label: e.status };
                         return (
-                          <tr
-                            key={e.id}
-                            className={`transition-all duration-150 ${
-                              idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
-                            } hover:bg-gray-50 hover:shadow-xs`}
-                          >
-                            <td className="px-5 py-4 font-semibold text-gray-800 text-sm">{e.sy_label}</td>
-                            <td className="px-5 py-4 text-gray-600 text-sm">Grade {e.section_grade_level ?? e.grade_level}</td>
-                            <td className="px-5 py-4 text-gray-600 text-sm font-medium">{e.section_name}</td>
-                            <td className="px-5 py-4">
-                              <span className="text-[11px] font-medium text-gray-500 capitalize bg-gray-100 px-2 py-0.5 rounded-md">{e.program || "regular"}</span>
-                            </td>
-                            <td className="px-5 py-4 text-gray-500 text-sm">{formatDate(e.enrollment_date)}</td>
-                            <td className="px-5 py-4">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border capitalize ${badge.bg}`}>
+                          <li key={e.id} className="px-4 py-3.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-bold text-gray-800">{e.section_name || "—"}</p>
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border capitalize flex-shrink-0 ${badge.bg}`}>
                                 <span className="w-1.5 h-1.5 rounded-full bg-current" />
                                 {badge.label}
                               </span>
-                            </td>
-                          </tr>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              SY {e.sy_label} · Grade {e.section_grade_level ?? e.grade_level}
+                              {e.program && e.program !== "regular" ? ` · ${e.program}` : ""}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">{formatDate(e.enrollment_date)}</p>
+                          </li>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                    </ul>
+                  }
+                />
               )}
             </div>
           )}
@@ -560,36 +588,64 @@ export function StudentProfile() {
                             No grades recorded for this school year yet.
                           </p>
                         ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full min-w-[600px]">
-                              <thead>
-                                <tr className="bg-gray-50/80">
-                                  {["Subject", "Q1", "Q2", "Q3", "Q4", "Final Rating", "Descriptor"].map(h => (
-                                    <th key={h} className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">
-                                      {h}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
+                          <HybridTable
+                            desktop={
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[600px]">
+                                  <thead>
+                                    <tr className="bg-gray-50/80">
+                                      {["Subject", "Q1", "Q2", "Q3", "Q4", "Final Rating", "Descriptor"].map(h => (
+                                        <th key={h} className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] border-b border-gray-100">
+                                          {h}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-50">
+                                    {sy.subjects.map(sub => {
+                                      const desc = getDescriptor(sub.final_average);
+                                      return (
+                                        <tr key={`${sy.school_year_id}-${sub.subject_id}`} className="transition-colors hover:bg-gray-50">
+                                          <td className="px-4 py-3 font-semibold text-gray-800 text-sm whitespace-nowrap">{sub.subject_name}</td>
+                                          {[sub.q1, sub.q2, sub.q3, sub.q4].map((q, qi) => (
+                                            <td key={qi} className="px-4 py-3 text-gray-600 text-sm text-center">{q ?? "—"}</td>
+                                          ))}
+                                          <td className={`px-4 py-3 text-sm font-bold text-center ${sub.final_average != null ? desc.color : "text-gray-400"}`}>
+                                            {sub.final_average ?? "—"}
+                                          </td>
+                                          <td className={`px-4 py-3 text-sm font-medium ${desc.color}`}>{desc.label}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            }
+                            mobile={
+                              <ul className="divide-y divide-gray-50">
                                 {sy.subjects.map(sub => {
                                   const desc = getDescriptor(sub.final_average);
                                   return (
-                                    <tr key={`${sy.school_year_id}-${sub.subject_id}`} className="transition-colors hover:bg-gray-50">
-                                      <td className="px-4 py-3 font-semibold text-gray-800 text-sm whitespace-nowrap">{sub.subject_name}</td>
-                                      {[sub.q1, sub.q2, sub.q3, sub.q4].map((q, qi) => (
-                                        <td key={qi} className="px-4 py-3 text-gray-600 text-sm text-center">{q ?? "—"}</td>
-                                      ))}
-                                      <td className={`px-4 py-3 text-sm font-bold text-center ${sub.final_average != null ? desc.color : "text-gray-400"}`}>
-                                        {sub.final_average ?? "—"}
-                                      </td>
-                                      <td className={`px-4 py-3 text-sm font-medium ${desc.color}`}>{desc.label}</td>
-                                    </tr>
+                                    <li key={`${sy.school_year_id}-${sub.subject_id}`} className="px-4 py-3">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-semibold text-gray-800 truncate">{sub.subject_name}</p>
+                                        <span className={`text-sm font-bold flex-shrink-0 ${sub.final_average != null ? desc.color : "text-gray-400"}`}>{sub.final_average ?? "—"}</span>
+                                      </div>
+                                      <p className={`text-[10px] font-medium mt-0.5 ${desc.color}`}>{desc.label}</p>
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1.5">
+                                        {[sub.q1, sub.q2, sub.q3, sub.q4].map((q, qi) => (
+                                          <div key={qi} className="text-center rounded-lg bg-gray-50/80 border border-gray-100 py-1.5">
+                                            <p className="text-[9px] font-semibold text-gray-400 uppercase">Q{qi + 1}</p>
+                                            <p className="text-xs font-medium text-gray-700">{q ?? "—"}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </li>
                                   );
                                 })}
-                              </tbody>
-                            </table>
-                          </div>
+                              </ul>
+                            }
+                          />
                         )}
                       </div>
                     );

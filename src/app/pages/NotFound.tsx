@@ -6,7 +6,7 @@ import logoImage from "../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png
 export function NotFound() {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-dvh bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Decorative orbs */}
       <div className="absolute top-[-80px] right-[-80px] w-80 h-80 rounded-full opacity-10 pointer-events-none"
         style={{ background: "radial-gradient(circle, #93c5fd, transparent 70%)" }} />

@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { LogOut } from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { ROLE_LABELS, type NavGroup, type Role } from '../../navigation';
@@ -73,7 +73,7 @@ export function Sidebar({
   return (
     <aside
       aria-label="Sidebar navigation"
-      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-gradient-to-b ${ROLE_GRADIENTS[roleKey]} text-white shadow-xl transition-all duration-300 md:static ${
+      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-gradient-to-b ${ROLE_GRADIENTS[roleKey]} pb-safe text-white shadow-xl transition-all duration-300 md:static ${
         mobileSidebarOpen
           ? 'translate-x-0'
           : '-translate-x-full md:translate-x-0'
@@ -113,6 +113,15 @@ export function Sidebar({
             SY {schoolYearLabel || '2025–2026'}
           </p>
         </div>
+        {/* Mobile close button */}
+        <button
+          onClick={onCloseMobile}
+          aria-label="Close navigation menu"
+          className={`ml-auto inline-flex touch-target h-11 w-11 items-center justify-center rounded-xl text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:hidden ${
+            isIcons ? 'md:hidden' : ''
+          }`}>
+          <X size={20} />
+        </button>
       </div>
 
       {/* Nav */}

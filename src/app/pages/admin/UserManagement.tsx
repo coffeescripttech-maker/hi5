@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import { usersApi, UserRow, CreateUserPayload, UpdateUserPayload } from "../../services/users";
 import { useApp } from "../../context/AppContext";
+import { HybridTable } from "../../components/HybridTable";
 
 type UserRole = "admin" | "teacher" | "registrar" | "principal";
 const ROLES: UserRole[] = ["admin", "teacher", "registrar", "principal"];
@@ -222,12 +223,12 @@ export function UserManagement() {
   };
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* ── HEADER ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
         <div className="p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 flex items-center justify-center flex-shrink-0">
                 <Users size={22} className="text-white" />
@@ -238,13 +239,13 @@ export function UserManagement() {
               </div>
             </div>
             <button onClick={openCreate}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all w-full sm:w-auto">
               <Plus size={15} /> Add New User
             </button>
           </div>
 
           {/* Role quick-links */}
-          <div className="mt-5 grid grid-cols-4 gap-3">
+          <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {ROLES.map(r => {
               const RoleIcon = roleIcons[r];
               return (
@@ -268,7 +269,7 @@ export function UserManagement() {
           {showPermissions && (
             <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
               <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.06em] mb-2.5">{ROLE_LABEL[showPermissions] || showPermissions} Role Permissions</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
                 {PERMISSIONS[showPermissions]?.map(perm => (
                   <div key={perm} className="flex items-start gap-2 text-xs text-blue-800">
                     <CheckCircle size={12} className="text-blue-500 mt-0.5 flex-shrink-0" />{perm}
@@ -281,14 +282,14 @@ export function UserManagement() {
       </div>
 
       {/* ── FILTER BAR ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col lg:flex-row lg:items-center gap-3">
+        <div className="relative flex-1 w-full">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="Search by name, username, or email..."
             value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter size={13} className="text-gray-400" />
           <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em] mr-1">Role:</span>
           <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
@@ -305,7 +306,7 @@ export function UserManagement() {
             <option value="inactive">Inactive</option>
           </select>
         </div>
-        <span className="text-xs text-gray-400 ml-auto">{filteredUsers.length} of {users.length} users</span>
+        <span className="text-xs text-gray-400 lg:ml-auto">{filteredUsers.length} of {users.length} users</span>
       </div>
 
       {/* ── TABLE ── */}
@@ -322,6 +323,8 @@ export function UserManagement() {
           </div>
         ) : (
           <>
+            <HybridTable
+              desktop={
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/80">
@@ -395,6 +398,64 @@ export function UserManagement() {
                 </tbody>
               </table>
             </div>
+              }
+              mobile={
+                filteredUsers.length === 0 ? (
+                  <p className="px-5 py-14 text-center text-gray-400 text-sm">No users found.</p>
+                ) : (
+                  <ul className="divide-y divide-gray-50">
+                    {filteredUsers.map(user => {
+                      const RoleIcon = roleIcons[user.role] || User;
+                      return (
+                        <li key={user.id} className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                <span className="text-blue-700 font-bold text-sm">{user.name.charAt(0)}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-gray-800 text-sm truncate">{user.name}</p>
+                                <p className="text-gray-400 text-xs truncate">{user.email}</p>
+                                <p className="text-gray-500 font-mono text-xs mt-0.5 truncate">@{user.username}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button onClick={() => openEdit(user)}
+                                className="p-2 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition touch-target">
+                                <Edit2 size={15} />
+                              </button>
+                              <button onClick={() => setShowDeleteConfirm(user.id)}
+                                className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition touch-target">
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${roleBadge[user.role] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
+                              <RoleIcon size={11} />{ROLE_LABEL[user.role] || user.role}
+                            </span>
+                            {user.status !== "active" ? (
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${STATUS_CLASS[user.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${user.status === "idle" ? "bg-amber-500" : "bg-gray-400"}`} />
+                                {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">Active</span>
+                            )}
+                            <span className="flex items-center gap-1 text-gray-400 text-[11px]">
+                              <Clock size={11} />
+                              {user.last_login
+                                ? new Date(user.last_login).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
+                                : "Never logged in"}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
+              }
+            />
             <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
               <p className="text-xs text-gray-400">Showing {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""}</p>
               <div className="flex gap-3">
@@ -470,7 +531,7 @@ export function UserManagement() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Username</label>
                   <div className="relative">
@@ -536,7 +597,7 @@ export function UserManagement() {
 
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Role Assignment</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {ROLES.map(r => {
                     const RoleIcon = roleIcons[r];
                     const isSelected = formValue("role") === r;
@@ -559,7 +620,7 @@ export function UserManagement() {
                   Employment Information{" "}
                   <span className="text-[10px] text-gray-400 font-normal normal-case">(optional — shows on the user's profile)</span>
                 </p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Employee ID</label>
                     <div className="relative">
@@ -580,7 +641,7 @@ export function UserManagement() {
                         placeholder="e.g. Mathematics Teacher" />
                     </div>
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Date Hired</label>
                     <div className="relative">
                       <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
