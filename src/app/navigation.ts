@@ -44,6 +44,7 @@ export interface NavItem {
   label: string;
   icon: React.ElementType;
   path: string;
+  disabled?: boolean;
 }
 
 export interface NavGroup {
@@ -77,7 +78,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'admin_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/admin/forms/sf1' },
         { key: 'admin_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/admin/forms/sf5' },
         { key: 'admin_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/admin/forms/sf9' },
-        { key: 'admin_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/admin/forms/sf10' }
+        { key: 'admin_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/admin/forms/sf10', disabled: true }
       ]
     },
     {
@@ -124,7 +125,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'teacher_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/teacher/forms/sf1' },
         { key: 'teacher_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/teacher/forms/sf5' },
         { key: 'teacher_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/teacher/forms/sf9' },
-        { key: 'teacher_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/teacher/forms/sf10' }
+        { key: 'teacher_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/teacher/forms/sf10', disabled: true }
       ]
     },
     {
@@ -133,7 +134,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'teacher_grades', label: 'Grade Management', icon: BookOpen, path: '/teacher/grades' },
         { key: 'teacher_upload', label: 'Upload Grades', icon: Upload, path: '/teacher/upload' },
         { key: 'teacher_documents', label: 'Document Management', icon: FileText, path: '/teacher/documents' },
-        { key: 'teacher_atrisk', label: 'At-Risk Detection', icon: AlertTriangle, path: '/teacher/atrisk' }
+        { key: 'teacher_atrisk', label: 'At-Risk Detection', icon: AlertTriangle, path: '/teacher/atrisk', disabled: true }
       ]
     },
     {
@@ -165,7 +166,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'registrar_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/registrar/forms/sf1' },
         { key: 'registrar_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/registrar/forms/sf5' },
         { key: 'registrar_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/registrar/forms/sf9' },
-        { key: 'registrar_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/registrar/forms/sf10' }
+        { key: 'registrar_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/registrar/forms/sf10', disabled: true }
       ]
     },
     {
@@ -176,7 +177,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'registrar_grade_distribution', label: 'Grade Distribution', icon: BarChart2, path: '/registrar/grade-distribution' },
         { key: 'registrar_grade_corrections', label: 'Grade Corrections', icon: MessageSquare, path: '/registrar/grade-corrections' },
         { key: 'registrar_document_completion', label: 'Document Completion', icon: ClipboardList, path: '/registrar/document-completion' },
-        { key: 'registrar_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/registrar/atrisk' }
+        { key: 'registrar_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/registrar/atrisk', disabled: true }
       ]
     },
     {
@@ -213,7 +214,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'principal_grades', label: 'Grade Progress', icon: ClipboardList, path: '/principal/grade-progress' },
         { key: 'principal_promotions', label: 'Promotion Stats', icon: GraduationCap, path: '/principal/promotion-stats' },
         { key: 'principal_graduates', label: 'Alumni / Graduates', icon: Award, path: '/principal/graduates' },
-        { key: 'principal_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/principal/at-risk' }
+        { key: 'principal_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/principal/at-risk', disabled: true }
       ]
     },
     {

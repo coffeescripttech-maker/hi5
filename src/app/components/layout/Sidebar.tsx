@@ -147,11 +147,14 @@ export function Sidebar({
                 {group.items.map(item => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
+                  const isDisabled = item.disabled;
                   const button = (
                     <button
                       data-nav-item
                       aria-current={active ? 'page' : undefined}
+                      aria-disabled={isDisabled}
                       onClick={() => {
+                        if (isDisabled) return;
                         navigate(item.path);
                         onCloseMobile();
                       }}
@@ -160,9 +163,11 @@ export function Sidebar({
                           ? 'md:h-11 md:w-11 md:justify-center md:px-0 md:mx-auto'
                           : ''
                       } ${
-                        active
-                          ? 'bg-white/15 text-white shadow-sm'
-                          : 'text-white/60 hover:bg-white/10 hover:text-white'
+                        isDisabled
+                          ? 'cursor-not-allowed opacity-40'
+                          : active
+                            ? 'bg-white/15 text-white shadow-sm'
+                            : 'text-white/60 hover:bg-white/10 hover:text-white'
                       }`}>
                       {active && (
                         <span
@@ -174,15 +179,17 @@ export function Sidebar({
                       <Icon
                         size={20}
                         className={`flex-shrink-0 transition-colors duration-200 ${
-                          active
-                            ? 'text-white'
-                            : 'text-white/50 group-hover:text-white'
+                          isDisabled
+                            ? 'text-white/40'
+                            : active
+                              ? 'text-white'
+                              : 'text-white/50 group-hover:text-white'
                         }`}
                       />
                       <span
                         className={`flex-1 truncate text-left ${
                           isIcons ? 'md:hidden' : ''
-                        }`}>
+                        } ${isDisabled ? 'opacity-40' : ''}`}>
                         {item.label}
                       </span>
                     </button>
