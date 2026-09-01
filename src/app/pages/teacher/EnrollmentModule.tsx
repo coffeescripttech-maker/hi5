@@ -34,6 +34,7 @@ import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { strandTracksApi, StrandTrackRow } from '../../services/strandTracks';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { sectionsApi, SectionRow } from '../../services/sections';
+import { gradesApi, GradeHistoryYear } from '../../services/grades';
 import { HybridTable } from '../../components/HybridTable';
 import { z } from 'zod';
 
@@ -509,6 +510,9 @@ export function EnrollmentModule() {
     lrn: '',
     guardian: '',
     contact: '',
+    height: '',
+    weight: '',
+    guardian4ps: false,
     classifications: [] as string[]
   });
   const [newGrade, setNewGrade] = useState<number | null>(null);
@@ -537,6 +541,7 @@ export function EnrollmentModule() {
   const [retStep, setRetStep] = useState<RetStep>(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [foundStudent, setFoundStudent] = useState<StudentRow | null>(null);
+  const [retGradeHistory, setRetGradeHistory] = useState<GradeHistoryYear[]>([]);
   const [retGrade, setRetGrade] = useState<number | null>(null);
   const [enrolledRet, setEnrolledRet] = useState(false);
   const [retErrors, setRetErrors] = useState<Record<string, string>>({});
@@ -768,6 +773,11 @@ export function EnrollmentModule() {
         // Clear any grade picked for a previously searched student so the
         // validation for the new student always starts from a clean slate.
         setRetGrade(null);
+        // Fetch the student's previous grades / academic history for review
+        setRetGradeHistory([]);
+        gradesApi.history(students[0].id)
+          .then(h => setRetGradeHistory(h.school_years || []))
+          .catch(() => { /* history display is optional */ });
       } else {
         setNotFound(true);
       }
@@ -853,6 +863,9 @@ export function EnrollmentModule() {
       lrn: '',
       guardian: '',
       contact: '',
+      height: '',
+      weight: '',
+      guardian4ps: false,
       classifications: []
     });
     setNewGrade(null);
@@ -879,6 +892,7 @@ export function EnrollmentModule() {
     setSearchQuery('');
     setFoundStudent(null);
     setRetGrade(null);
+    setRetGradeHistory([]);
     setEnrolledRet(false);
     setNotFound(false);
     setShowSuggestions(false);
@@ -940,7 +954,10 @@ export function EnrollmentModule() {
         birthdate: newData.birthdate,
         address: newData.address || undefined,
         guardian: newData.guardian || undefined,
-        contact: newData.contact || undefined
+        contact: newData.contact || undefined,
+        height_cm: newData.height ? parseFloat(newData.height) : undefined,
+        weight_kg: newData.weight ? parseFloat(newData.weight) : undefined,
+        guardian_4ps: newData.guardian4ps
       });
       // Enroll without section — student goes to Pending Section Queue
       await enrollmentsApi.create({
@@ -1866,6 +1883,76 @@ export function EnrollmentModule() {
                   )}
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                    Height (cm)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    value={newData.height}
+                    onChange={e => updateNewField('height', e.target.value)}
+                    className="w-full border border-gray-200 focus:border-emerald-400 focus:ring-emerald-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75"
+                    placeholder="e.g. 152.4"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    value={newData.weight}
+                    onChange={e => updateNewField('weight', e.target.value)}
+                    className="w-full border border-gray-200 focus:border-emerald-400 focus:ring-emerald-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75"
+                    placeholder="e.g. 45.5"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                    BMI (auto-computed)
+                  </label>
+                  <div className="w-full border border-emerald-100 bg-emerald-50/60 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-emerald-800">
+                    {(() => {
+                      const h = parseFloat(newData.height);
+                      const w = parseFloat(newData.weight);
+                      if (!h || !w || h <= 0) return <span className="text-gray-400 font-normal">Enter height &amp; weight</span>;
+                      const bmi = w / Math.pow(h / 100, 2);
+                      const rounded = Math.round(bmi * 10) / 10;
+                      const cat = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
+                      return `${rounded} — ${cat}`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                  Guardian 4Ps Beneficiary?
+                </label>
+                <div className="flex items-center gap-2">
+                  {[
+                    { value: false, label: 'No' },
+                    { value: true, label: 'Yes' }
+                  ].map(opt => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => updateNewField('guardian4ps', opt.value as any)}
+                      className={`px-5 py-2 rounded-xl text-sm font-semibold border transition-all ${
+                        newData.guardian4ps === opt.value
+                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                          : 'bg-white border-gray-200 text-gray-500 hover:border-emerald-300'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2">
                   Classification (check all that apply)
@@ -2638,6 +2725,33 @@ export function EnrollmentModule() {
                       <span className="font-medium text-gray-800">{v}</span>
                     </div>
                   ))}
+                  {retGradeHistory.length > 0 && (
+                    <div className="pt-2 border-t border-emerald-100">
+                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2">
+                        Previous Grades &amp; Academic History
+                      </p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {retGradeHistory.map(y => (
+                          <div key={y.school_year_id} className="bg-white border border-emerald-100 rounded-lg px-3 py-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-semibold text-gray-700">
+                                S.Y. {y.sy_label}{y.grade_level != null ? ` · Grade ${y.grade_level}` : ''}
+                              </span>
+                              <span className={`text-xs font-bold ${
+                                y.general_average == null ? 'text-gray-400'
+                                  : y.general_average >= 75 ? 'text-emerald-700' : 'text-red-600'
+                              }`}>
+                                {y.general_average != null ? `Gen. Ave: ${y.general_average}` : 'No grades yet'}
+                              </span>
+                            </div>
+                            {y.section_name && (
+                              <p className="text-[11px] text-gray-400 mt-0.5">Section: {y.section_name}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

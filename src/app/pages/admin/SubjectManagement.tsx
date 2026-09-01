@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { BookOpen, Plus, Trash2, CheckCircle, X, AlertTriangle, Edit2, Filter, Clock, Layers, Sparkles, GraduationCap, FlaskConical, Globe } from "lucide-react";
+import { BookOpen, Plus, Trash2, CheckCircle, X, AlertTriangle, Edit2, Filter, Clock, Layers, Sparkles, GraduationCap, FlaskConical, Globe, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { subjectsApi, SubjectRow, CreateSubjectPayload, UpdateSubjectPayload, BulkSubjectItem } from "../../services/subjects";
+import { subjectsApi, SubjectRow, CreateSubjectPayload, UpdateSubjectPayload, BulkSubjectItem, TeacherAssignmentRow } from "../../services/subjects";
+import { usersApi, UserRow } from "../../services/users";
 import { useApp } from "../../context/AppContext";
 import { HybridTable } from "../../components/HybridTable";
 
@@ -133,6 +134,65 @@ export function SubjectManagement() {
   const [popPresetId, setPopPresetId] = useState<string>("matatag_jhs");
   const [popGrades, setPopGrades] = useState<number[]>([7, 8, 9, 10]);
   const [populating, setPopulating] = useState(false);
+
+  /* ── Teacher–Subject Assignments ── */
+  const [assignments, setAssignments] = useState<TeacherAssignmentRow[]>([]);
+  const [teachers, setTeachers] = useState<UserRow[]>([]);
+  const [assignSubject, setAssignSubject] = useState<SubjectRow | null>(null);
+  const [togglingTeacherId, setTogglingTeacherId] = useState<number | null>(null);
+
+  const fetchAssignments = () => {
+    subjectsApi.teacherAssignments()
+      .then(setAssignments)
+      .catch(() => {}); // non-critical; chips simply stay empty on failure
+  };
+
+  const fetchTeachers = () => {
+    usersApi.list()
+      .then(users => setTeachers(users.filter(u => u.role === "teacher" && u.status === "active")))
+      .catch(err => showToast("error", "Failed to load teachers: " + (err.detail?.error || err.message)));
+  };
+
+  useEffect(() => { fetchAssignments(); }, []);
+
+  // Teachers assigned to the currently open subject (derived)
+  const assignedForSubject = useMemo(() => {
+    if (!assignSubject) return [] as TeacherAssignmentRow[];
+    return assignments.filter(a => a.subject_id === assignSubject.id);
+  }, [assignments, assignSubject]);
+
+  const openAssign = (s: SubjectRow) => {
+    setAssignSubject(s);
+    fetchTeachers();
+    fetchAssignments();
+  };
+
+  const toggleAssignment = async (teacherId: number) => {
+    if (!assignSubject || togglingTeacherId !== null) return;
+    const isAssigned = assignedForSubject.some(a => a.teacher_id === teacherId);
+    setTogglingTeacherId(teacherId);
+    try {
+      if (isAssigned) {
+        await subjectsApi.unassignTeacher(assignSubject.id, teacherId);
+        setAssignments(prev => prev.filter(a => !(a.subject_id === assignSubject.id && a.teacher_id === teacherId)));
+        showToast("success", "Teacher unassigned from subject.");
+      } else {
+        await subjectsApi.assignTeacher(assignSubject.id, teacherId);
+        const t = teachers.find(x => x.id === teacherId);
+        setAssignments(prev => [...prev, {
+          subject_id: assignSubject.id,
+          teacher_id: teacherId,
+          teacher_name: t?.name || `Teacher #${teacherId}`,
+          employee_id: t?.employee_id ?? null,
+        }]);
+        showToast("success", "Teacher assigned to subject.");
+      }
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Failed to update assignment");
+    } finally {
+      setTogglingTeacherId(null);
+    }
+  };
 
   const fetchSubjects = () => {
     setLoading(true);
@@ -362,6 +422,7 @@ export function SubjectManagement() {
                             {[
                               { label: "Subject Name", key: "name" },
                               { label: "Type", key: "type" },
+                              { label: "Assigned Teachers", key: "teachers" },
                               { label: "Hrs/Week", key: "hours" },
                               { label: "Actions", key: "actions" },
                             ].map(col => (
@@ -382,9 +443,29 @@ export function SubjectManagement() {
                                   {TYPE_LABEL[s.subject_type]}
                                 </span>
                               </td>
-                              <td className="px-5 py-3.5 text-center text-sm text-gray-600">{s.hours_per_week}</td>
+                              <td className="px-5 py-3.5 text-center text-sm text-gray-600">{s.hours_per_week} hrs/week</td>
+                              <td className="px-5 py-3.5">
+                                {assignments.filter(a => a.subject_id === s.id).length === 0 ? (
+                                  <button onClick={() => openAssign(s)}
+                                    className="text-[11px] font-semibold text-gray-400 hover:text-blue-600 transition flex items-center gap-1.5">
+                                    <Users size={12} /> Assign teacher
+                                  </button>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {assignments.filter(a => a.subject_id === s.id).map(a => (
+                                      <span key={a.teacher_id} className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg">
+                                        {a.teacher_name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
                               <td className="px-5 py-3.5 text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  <button onClick={() => openAssign(s)} title="Assign Teachers"
+                                    className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
+                                    <Users size={14} />
+                                  </button>
                                   <button onClick={() => openEdit(s)}
                                     className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
                                     <Edit2 size={14} />
@@ -416,8 +497,19 @@ export function SubjectManagement() {
                                   <Clock size={11} /> {s.hours_per_week} hrs/week
                                 </span>
                               </div>
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {assignments.filter(a => a.subject_id === s.id).map(a => (
+                                  <span key={a.teacher_id} className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg">
+                                    {a.teacher_name}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
+                              <button onClick={() => openAssign(s)}
+                                className="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-lg hover:bg-indigo-50 touch-target">
+                                <Users size={15} />
+                              </button>
                               <button onClick={() => openEdit(s)}
                                 className="text-blue-400 hover:text-blue-600 transition p-2 rounded-lg hover:bg-blue-50 touch-target">
                                 <Edit2 size={15} />
@@ -486,6 +578,11 @@ export function SubjectManagement() {
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Hours per Week</label>
                   <input type="number" min={1} max={10} value={form.hours_per_week} onChange={e => setForm(p => ({ ...p, hours_per_week: parseInt(e.target.value) || 0 }))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
+                  {form.hours_per_week > 0 && (
+                    <p className="text-[11px] text-gray-400 mt-1.5">
+                      {form.hours_per_week} hrs/week &asymp; {Math.max(1, Math.round((form.hours_per_week / 4) * 10) / 10)} hr/day over 4 days
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
@@ -522,6 +619,84 @@ export function SubjectManagement() {
               <button onClick={handleSave} disabled={!form.name}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
                 {editSubject ? "Save Changes" : "Add Subject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Assign Teachers Modal ── */}
+      {assignSubject && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Users size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">Assign Teachers</h3>
+                  <p className="text-indigo-200 text-xs">{assignSubject.name} &middot; Grade {assignSubject.grade_level} &middot; current school year</p>
+                </div>
+              </div>
+              <button onClick={() => setAssignSubject(null)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              <p className="text-[11px] text-gray-400 px-2 pb-3">
+                Toggled teachers are saved immediately. Assigned teachers may encode grades for this subject;
+                unassigned teachers see it read-only in Grade Management.
+              </p>
+              {teachers.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Users size={20} className="text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm font-medium">No active teachers found</p>
+                  <p className="text-gray-400 text-xs mt-1">Add teachers in User Management first.</p>
+                </div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {teachers.map(t => {
+                    const isAssigned = assignedForSubject.some(a => a.teacher_id === t.id);
+                    const isToggling = togglingTeacherId === t.id;
+                    return (
+                      <li key={t.id}>
+                        <button onClick={() => toggleAssignment(t.id)} disabled={togglingTeacherId !== null}
+                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+                            isAssigned
+                              ? "border-indigo-200 bg-indigo-50/70"
+                              : "border-gray-100 bg-white hover:bg-gray-50"
+                          } ${togglingTeacherId !== null && !isToggling ? "opacity-50" : ""}`}>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{t.name}</p>
+                            <p className="text-[11px] text-gray-400 truncate">
+                              {t.employee_id ? `Employee ID: ${t.employee_id}` : `@${t.username}`}
+                            </p>
+                          </div>
+                          {isToggling ? (
+                            <svg className="animate-spin w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : isAssigned ? (
+                            <span className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 flex-shrink-0">
+                              <CheckCircle size={14} /> Assigned
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-gray-300 flex-shrink-0">Not assigned</span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <span className="text-xs text-gray-400">{assignedForSubject.length} teacher{assignedForSubject.length !== 1 && "s"} assigned</span>
+              <button onClick={() => setAssignSubject(null)}
+                className="border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-100 transition">
+                Done
               </button>
             </div>
           </div>

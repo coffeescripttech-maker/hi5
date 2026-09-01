@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { LogOut, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { ROLE_LABELS, type NavGroup, type Role } from '../../navigation';
@@ -33,7 +33,7 @@ export function Sidebar({
   mobileSidebarOpen,
   onCloseMobile
 }: SidebarProps) {
-  const { role, username, profilePhoto, logout, schoolName, schoolYearLabel } =
+  const { role, username, profilePhoto, schoolName, schoolYearLabel } =
     useApp();
   const accent = useRoleAccent();
   const navigate = useNavigate();
@@ -44,11 +44,6 @@ export function Sidebar({
   const isHidden = sidebarState === 'hidden';
 
   const isActive = (path: string) => location.pathname === path;
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   // Focus the first nav item when the mobile drawer opens, and close on Escape.
   useEffect(() => {
@@ -237,12 +232,6 @@ export function Sidebar({
               </p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-sm text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
-            <LogOut size={18} className="flex-shrink-0" />
-            <span>Logout</span>
-          </button>
         </div>
 
         {/* Compact variant (icons desktop mode) */}
@@ -263,14 +252,6 @@ export function Sidebar({
                 <span className="text-sm font-bold text-white">{initials}</span>
               )}
             </div>
-          </Tooltip>
-          <Tooltip label="Logout">
-            <button
-              onClick={handleLogout}
-              aria-label="Logout"
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
-              <LogOut size={18} />
-            </button>
           </Tooltip>
         </div>
       </div>

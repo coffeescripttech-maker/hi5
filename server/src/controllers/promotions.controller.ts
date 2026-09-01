@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { getConnection, query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
@@ -443,6 +444,8 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
     let nextLabel: string | null = null;
     if (parts.length === 2 && !Number.isNaN(parseInt(parts[0])) && !Number.isNaN(parseInt(parts[1]))) {
       nextLabel = `${parseInt(parts[0]) + 1}-${parseInt(parts[1]) + 1}`;
+    } else if (parts.length === 1 && !Number.isNaN(parseInt(parts[0]))) {
+      nextLabel = `${parseInt(parts[0]) + 1}`;
     }
 
     let nextSchoolYearId = schoolYearId;
@@ -545,6 +548,13 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
       "promotions",
       null
     );
+
+    // Real-time notification: bulk promotion finished (SSE push, no refresh).
+    createNotification({
+      title: "Bulk Promotion",
+      message: `Bulk year-end promotion completed — ${sections.length} sections processed (${sections.length - failures.length} succeeded${failures.length ? `, ${failures.length} failed` : ""}).`,
+      type: failures.length ? "warning" : "success",
+    });
 
     res.json({
       message: `Bulk promotion completed. ${sections.length} sections processed (${sections.length - failures.length} succeeded).`,

@@ -13,6 +13,7 @@ import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
+import { FormPrintPreview } from '../../components/FormPrintPreview';
 import { DocumentViewer } from '../../components/DocumentViewer';
 
 /* ---------------------------------------------------------------- */
@@ -142,6 +143,8 @@ export function SF1Register() {
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  // Print confirmation preview — no form goes straight to window.print().
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // ── Filter selections ──
   const [syId, setSyId] = useState(1);
@@ -391,13 +394,24 @@ export function SF1Register() {
                 {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                 {exporting ? 'Generating…' : 'PDF'}
               </Button>
-              <Button size="sm" onClick={() => window.print()} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
+              <Button size="sm" onClick={() => setPreviewOpen(true)} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
                 <Printer className="size-4" /> Print
               </Button>
             </div>
           </div>
         </div>
       </div>
+
+      <FormPrintPreview
+        open={previewOpen}
+        title="SF1 — School Register"
+        elementId="sf1-print-area"
+        onClose={() => setPreviewOpen(false)}
+        onExportPdf={handleExportPdf}
+        exporting={exporting}
+        orientation="landscape"
+        format="letter"
+      />
 
       {/* Grade / Section Selector */}
       <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

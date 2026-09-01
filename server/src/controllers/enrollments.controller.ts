@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
@@ -267,6 +268,16 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
       "enrollments",
       result.insertId
     );
+
+    // Real-time notification: new enrollment (SSE push, no refresh).
+    createNotification({
+      title: "New Enrollment",
+      message:
+        sectionName !== "Pending Section"
+          ? `${student[0].name} was enrolled into ${sectionName}.`
+          : `${student[0].name} was enrolled (Pending Section — awaiting assignment).`,
+      type: "success",
+    });
 
     const newEnrollment = await query<RowDataPacket[]>(
       `SELECT e.*, s.name AS student_name, s.student_id, sec.name AS section_name, sy.sy_label

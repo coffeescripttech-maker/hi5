@@ -1,7 +1,97 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+
+/* ── Grade security helpers (Module: Grade Security) ─────────────────── */
+
+/**
+ * Subjects a teacher is assigned to teach for a school year
+ * (teacher_subject_assignments). Rows without a school_year_id apply to all years.
+ */
+async function getTeacherSubjectIds(
+  teacherId: number,
+  schoolYearId: number
+): Promise<Set<number>> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT subject_id FROM teacher_subject_assignments
+     WHERE teacher_id = ? AND (school_year_id = ? OR school_year_id IS NULL)`,
+    [teacherId, schoolYearId]
+  );
+  return new Set(rows.map(r => r.subject_id as number));
+}
+
+/**
+ * Section ids a teacher advises (sections.adviser_id) or is assigned to
+ * (teacher_section_assignments) for a school year.
+ */
+async function getTeacherSectionIds(
+  teacherId: number,
+  schoolYearId: number
+): Promise<Set<number>> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT DISTINCT sec.id
+     FROM sections sec
+     LEFT JOIN teacher_section_assignments tsa
+       ON tsa.section_id = sec.id AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
+     WHERE sec.adviser_id = ? OR tsa.teacher_id = ?`,
+    [schoolYearId, teacherId, teacherId]
+  );
+  return new Set(rows.map(r => r.id as number));
+}
+
+/** Section id a student is enrolled in for a school year (or null). */
+async function getStudentSectionId(
+  studentId: number,
+  schoolYearId: number
+): Promise<number | null> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT e.section_id FROM enrollments e
+     WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled' LIMIT 1`,
+    [studentId, schoolYearId]
+  );
+  return rows.length > 0 ? (rows[0].section_id as number) : null;
+}
+
+/** True when the configured grade-edit deadline has passed (teacher read-only). */
+async function isPastGradeDeadline(): Promise<boolean> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT grade_deadline_enabled, grade_edit_deadline FROM school_settings WHERE id = 1 LIMIT 1`
+  );
+  const s = rows[0] as RowDataPacket | undefined;
+  if (!s) return false;
+  if (Number(s.grade_deadline_enabled) !== 1 || !s.grade_edit_deadline) return false;
+  return new Date(String(s.grade_edit_deadline)).getTime() < Date.now();
+}
+
+/**
+ * Enforce teacher grade-encoding scope: teachers may only encode grades for
+ * subjects they are assigned to teach AND students in their advisory/assigned
+ * sections. Returns an error message when blocked, otherwise null.
+ */
+async function teacherGradeBlockReason(
+  teacherId: number,
+  schoolYearId: number,
+  subjectId: number,
+  studentId: number
+): Promise<string | null> {
+  if (await isPastGradeDeadline()) {
+    return "The grade editing deadline has passed. Grades are now read-only — contact the Registrar for corrections.";
+  }
+  const [allowedSubjects, teacherSections] = await Promise.all([
+    getTeacherSubjectIds(teacherId, schoolYearId),
+    getTeacherSectionIds(teacherId, schoolYearId),
+  ]);
+  if (!allowedSubjects.has(subjectId)) {
+    return "Access denied: you may only encode grades for subjects assigned to you.";
+  }
+  const studentSection = await getStudentSectionId(studentId, schoolYearId);
+  if (!studentSection || !teacherSections.has(studentSection)) {
+    return "Access denied: you may only encode grades for students in your advisory section.";
+  }
+  return null;
+}
 
 /**
  * GET /api/grades — Get grades with filters
@@ -163,6 +253,20 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
     }
     const enrollment_id = enrollments[0].id;
 
+    // Grade security: teachers encode only their assigned subject + advisory section.
+    if (req.user!.role === "teacher") {
+      const blockReason = await teacherGradeBlockReason(
+        req.user!.userId,
+        school_year_id,
+        subject_id,
+        student_id
+      );
+      if (blockReason) {
+        res.status(403).json({ error: blockReason });
+        return;
+      }
+    }
+
     // Check if grade is locked
     const lockedCheck = await query<RowDataPacket[]>(
       "SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ? AND is_locked = 1",
@@ -209,6 +313,23 @@ export async function batchUpsertGrades(req: Request, res: Response): Promise<vo
     }
 
     let updated = 0;
+    if (req.user!.role === "teacher") {
+      // Security pre-pass: reject the whole batch if any row is out of scope.
+      for (const g of grades) {
+        const { student_id, subject_id, school_year_id } = g;
+        if (!student_id || !subject_id || !school_year_id) continue;
+        const reason = await teacherGradeBlockReason(
+          req.user!.userId,
+          school_year_id,
+          subject_id,
+          student_id
+        );
+        if (reason) {
+          res.status(403).json({ error: reason });
+          return;
+        }
+      }
+    }
     for (const g of grades) {
       const { student_id, subject_id, school_year_id, quarter, grade } = g;
 
@@ -274,6 +395,16 @@ export async function lockGrades(req: Request, res: Response): Promise<void> {
     const result = await query<ResultSetHeader>(sql, params);
 
     await logActivity(req.user!.userId, `Locked ${result.affectedRows} grade(s)`, "grades", null);
+
+    if (result.affectedRows > 0) {
+      // Real-time notification: grades submitted/locked (SSE push, no refresh).
+      createNotification({
+        title: "Grades Submitted",
+        message: `${result.affectedRows} grade(s) were submitted and locked for review.`,
+        type: "info",
+      });
+    }
+
     res.json({ message: `${result.affectedRows} grade(s) locked.` });
   } catch (error) {
     console.error("Lock grades error:", error);

@@ -41,8 +41,18 @@ export interface PopulateSubjectsResult {
   skipped_count: number;
 }
 
+/* ── Teacher–Subject Assignments (Admin) ── */
+
+export interface TeacherAssignmentRow {
+  subject_id: number;
+  teacher_id: number;
+  teacher_name: string;
+  employee_id: string | null;
+}
+
 export const subjectsApi = {
   list: () => api.get<SubjectRow[]>("/subjects"),
+  assigned: () => api.get<SubjectRow[]>("/subjects/me/assigned"),
   get: (id: number) => api.get<SubjectRow>(`/subjects/${id}`),
   create: (data: CreateSubjectPayload) =>
     api.post<SubjectRow>("/subjects", data),
@@ -52,4 +62,10 @@ export const subjectsApi = {
   // Bulk-insert a curriculum preset; existing (name, grade) pairs are skipped server-side
   populate: (items: BulkSubjectItem[]) =>
     api.post<PopulateSubjectsResult>("/subjects/populate", { items }),
+  // Teacher–subject assignment management (Admin only)
+  teacherAssignments: () => api.get<TeacherAssignmentRow[]>("/subjects/teachers/assignments"),
+  assignTeacher: (subjectId: number, teacherId: number) =>
+    api.post<{ message: string }>(`/subjects/${subjectId}/teachers`, { teacher_id: teacherId }),
+  unassignTeacher: (subjectId: number, teacherId: number) =>
+    api.del<{ message: string }>(`/subjects/${subjectId}/teachers/${teacherId}`),
 };

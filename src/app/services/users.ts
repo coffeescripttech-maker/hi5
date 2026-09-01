@@ -16,6 +16,7 @@ export interface UserRow {
   employee_id: string | null;
   designation: string | null;
   date_hired: string | null;
+  end_of_contract: string | null;
   last_login: string | null;
   created_at: string;
   updated_at: string;
@@ -32,6 +33,7 @@ export interface CreateUserPayload {
   employee_id?: string;
   designation?: string;
   date_hired?: string;
+  end_of_contract?: string;
 }
 
 export interface UpdateUserPayload {
@@ -44,6 +46,7 @@ export interface UpdateUserPayload {
   employee_id?: string;
   designation?: string;
   date_hired?: string;
+  end_of_contract?: string;
 }
 
 export const usersApi = {

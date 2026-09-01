@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Users, Layers, TrendingUp, GraduationCap, BookOpen, Activity, School, AlertTriangle, BarChart3, PieChart as PieChartIcon } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Users, Layers, TrendingUp, GraduationCap, BookOpen, Activity, School, AlertTriangle, BarChart3, PieChart as PieChartIcon, Target } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from "recharts";
 import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
+import { gradesApi, GradeDistribution } from "../../services/grades";
 import { useApp } from "../../context/AppContext";
 import { StudentRiskOverview } from "../../components/StudentRiskOverview";
 import { PageContainer } from "../../components/PageContainer";
@@ -15,6 +16,9 @@ export function PrincipalDashboard() {
   const [loading, setLoading] = useState(true);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
+  // Grade performance data (school-wide, current SY) for the analytics charts.
+  // Optional: if it fails (no grades yet), the performance cards simply hide.
+  const [distribution, setDistribution] = useState<GradeDistribution | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -26,6 +30,21 @@ export function PrincipalDashboard() {
     }).catch(err => {
       showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
     }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { schoolYearsApi } = await import("../../services/schoolYears");
+        const years = await schoolYearsApi.list();
+        const current = years.find(y => y.is_current === 1);
+        if (!current) return;
+        const dist = await gradesApi.getDistribution({ school_year_id: current.id });
+        if (!cancelled) setDistribution(dist);
+      } catch { /* performance analytics are optional */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const gradeLevels = [7, 8, 9, 10, 11, 12];
@@ -52,6 +71,38 @@ export function PrincipalDashboard() {
     { name: "Open High", value: enrollments.filter(e => e.status === "enrolled" && e.program === "open_high").length, color: "#e9d5ff" },
     { name: "ALS-SHS", value: enrollments.filter(e => e.status === "enrolled" && e.program === "als_shs").length, color: "#7c3aed" },
   ].filter(p => p.value > 0);
+
+  // ── Principal analytics (charts added for at-a-glance school-wide insight) ──
+
+  // Enrollment trend: enrolled students per school year, chronological.
+  const trendData = Array.from(
+    enrollments.reduce((map, e) => {
+      if (e.status === "enrolled") map.set(e.sy_label, (map.get(e.sy_label) || 0) + 1);
+      return map;
+    }, new Map<string, number>())
+  )
+    .map(([sy, count]) => ({ sy, students: count }))
+    .sort((a, b) => a.sy.localeCompare(b.sy));
+
+  // Male/female ratio across enrolled students (sex comes from enrollments list).
+  const maleCount = enrollments.filter(e => e.status === "enrolled" && (e.sex || "").toLowerCase() === "male").length;
+  const femaleCount = enrollments.filter(e => e.status === "enrolled" && (e.sex || "").toLowerCase() === "female").length;
+  const genderData = [
+    { name: "Male", value: maleCount, color: "#7c3aed" },
+    { name: "Female", value: femaleCount, color: "#f0abfc" },
+  ].filter(g => g.value > 0);
+
+  // School-wide grade distribution: sum subject buckets per range.
+  const distData = distribution
+    ? ["90-100", "85-89", "80-84", "75-79", "<75"].map(range => {
+        const color = distribution.subjects[0]?.buckets.find(b => b.range === range)?.color || "#9333ea";
+        return {
+          range,
+          count: distribution.subjects.reduce((sum, s) => sum + (s.buckets.find(b => b.range === range)?.count || 0), 0),
+          color,
+        };
+      })
+    : [];
 
   if (loading) {
     return (
@@ -167,6 +218,124 @@ export function PrincipalDashboard() {
             </PieChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* ANALYTICS — trend, grade distribution, gender ratio, passing rate */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <TrendingUp size={14} className="text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-800 text-sm">Enrollment Trend</h3>
+          </div>
+          {trendData.length > 1 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="sy" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="students" stroke="#4f46e5" strokeWidth={3} dot={{ fill: "#4f46e5", r: 5 }} name="Enrolled" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[260px] flex flex-col items-center justify-center text-gray-400">
+              <TrendingUp size={28} className="mb-2 opacity-40" />
+              <p className="text-sm font-medium">Trend needs multiple school years</p>
+              <p className="text-xs mt-1">Enrolled: {trendData[0]?.students ?? 0} in {trendData[0]?.sy ?? "—"}</p>
+            </div>
+          )}
+        </div>
+
+        {distribution && distData.some(d => d.count > 0) ? (
+          <>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
+                  <BarChart3 size={14} className="text-white" />
+                </div>
+                <h3 className="font-semibold text-gray-800 text-sm">Grade Distribution (School-wide)</h3>
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={distData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="range" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" name="Grades" radius={[4, 4, 0, 0]}>
+                    {distData.map((d, idx) => (
+                      <Cell key={idx} fill={d.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
+                  <Users size={14} className="text-white" />
+                </div>
+                <h3 className="font-semibold text-gray-800 text-sm">Male / Female Ratio</h3>
+              </div>
+              {genderData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={(e: any) => `${e.name}: ${e.value}`}>
+                      {genderData.map((g, idx) => (
+                        <Cell key={idx} fill={g.color} />
+                      ))}
+                    </Pie>
+                    <Legend />
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[260px] flex items-center justify-center text-gray-400 text-sm">
+                  No sex data recorded on enrollments
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm flex items-center justify-center flex-shrink-0">
+                  <Target size={14} className="text-white" />
+                </div>
+                <h3 className="font-semibold text-gray-800 text-sm">Overall Performance</h3>
+              </div>
+              <div className="h-[260px] flex flex-col items-center justify-center gap-4">
+                <svg width="180" height="180" viewBox="0 0 180 180">
+                  <circle cx="90" cy="90" r="70" fill="none" stroke="#f3e8ff" strokeWidth="16" />
+                  <circle
+                    cx="90" cy="90" r="70" fill="none"
+                    stroke={distribution!.overall_pass_rate >= 75 ? "#22c55e" : "#ef4444"}
+                    strokeWidth="16" strokeLinecap="round"
+                    strokeDasharray={`${(distribution!.overall_pass_rate / 100) * 439.8} 439.8`}
+                    transform="rotate(-90 90 90)"
+                  />
+                  <text x="90" y="86" textAnchor="middle" style={{ fill: "#111827", fontSize: 32, fontWeight: 800 }}>
+                    {distribution!.overall_pass_rate}%
+                  </text>
+                  <text x="90" y="112" textAnchor="middle" style={{ fill: "#9ca3af", fontSize: 12, fontWeight: 600 }}>
+                    Passing Rate
+                  </text>
+                </svg>
+                <p className="text-xs text-gray-400 text-center max-w-[240px]">
+                  Average pass rate across {distribution!.subjects.length} learning area{distribution!.subjects.length === 1 ? "" : "s"} · {distribution!.total_students} students graded
+                </p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 lg:col-span-2">
+            <div className="h-[120px] flex flex-col items-center justify-center text-gray-400">
+              <BarChart3 size={24} className="mb-2 opacity-40" />
+              <p className="text-sm font-medium">Grade analytics appear once grades are encoded for the current school year</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* STUDENT RISK OVERVIEW */}

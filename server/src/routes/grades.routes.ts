@@ -28,6 +28,6 @@ router.get("/submission-status", getGradeSubmissionStatus);
 router.post("/", authorize("admin", "teacher", "registrar"), upsertGrade);
 router.post("/batch", authorize("admin", "teacher", "registrar"), batchUpsertGrades);
 router.post("/lock", authorize("admin", "teacher"), lockGrades);
-router.post("/unlock", authorize("admin"), unlockGrades);
+router.post("/unlock", authorize("admin", "registrar"), unlockGrades);
 
 export default router;

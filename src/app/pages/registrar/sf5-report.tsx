@@ -16,6 +16,7 @@ import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
 import { DocumentViewer } from '../../components/DocumentViewer';
+import { FormPrintPreview } from '../../components/FormPrintPreview';
 
 /* ---------------------------------------------------------------- */
 /* DepEd School Form 5 (SF5)                                        */
@@ -196,6 +197,8 @@ export function SF5Report() {
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  // Print confirmation preview — no form goes straight to window.print().
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // ── Filter selections ──
   const [syId, setSyId] = useState(1);
@@ -565,11 +568,22 @@ export function SF5Report() {
                 {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                 {exporting ? 'Generating…' : 'PDF'}
               </Button>
-              <Button size="sm" onClick={() => window.print()} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
+              <Button size="sm" onClick={() => setPreviewOpen(true)} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
                 <Printer className="size-4" /> Print
               </Button>
             </div>
           </div>
+
+          <FormPrintPreview
+            open={previewOpen}
+            title="SF5 — Promotion Report"
+            elementId="sf5-print-area"
+            onClose={() => setPreviewOpen(false)}
+            onExportPdf={handleExportPdf}
+            exporting={exporting}
+            orientation="landscape"
+            format="letter"
+          />
         </div>
       </div>
 

@@ -49,19 +49,22 @@ export function UploadGrades() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load teacher's sections, all subjects, and school years
+  // Load teacher's sections, assigned subjects, and school years
+  const [assignedSubjectIds, setAssignedSubjectIds] = useState<Set<number>>(new Set());
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [secs, subs, yrs] = await Promise.all([
+        const [secs, subs, yrs, assigned] = await Promise.all([
           sectionsApi.listMySections(),
           subjectsApi.list(),
           schoolYearsApi.list(),
+          subjectsApi.assigned().catch(() => [] as SubjectRow[]),
         ]);
         if (cancelled) return;
         setSections(secs);
         setSubjects(subs);
+        setAssignedSubjectIds(new Set(assigned.map(s => s.id)));
         setYears(yrs);
         // Default to the current school year
         const current = yrs.find(y => y.is_current === 1);
@@ -75,14 +78,22 @@ export function UploadGrades() {
     return () => { cancelled = true; };
   }, [showToast]);
 
-  // Subjects available for the selected section's grade level
+  // Subjects available for the selected section's grade level + teacher's assigned scope.
+  // Teachers may only encode/import grades for subjects assigned to them via
+  // teacher_subject_assignments. Strict by design — matches the backend, which rejects
+  // imports for unassigned subjects. Zero assignments = empty dropdown (never a dead-end submit).
   const sectionSubjects = useMemo(() => {
-    if (!selectedSectionId) return subjects;
-    const sec = sections.find(s => s.id === selectedSectionId);
-    if (!sec) return subjects;
-    const matched = subjects.filter(s => s.grade_level === sec.grade_level);
-    return matched.length > 0 ? matched : subjects;
-  }, [subjects, sections, selectedSectionId]);
+    let base = subjects;
+    if (selectedSectionId) {
+      const sec = sections.find(s => s.id === selectedSectionId);
+      if (sec) {
+        const matched = subjects.filter(s => s.grade_level === sec.grade_level);
+        base = matched.length > 0 ? matched : subjects;
+      }
+    }
+    base = base.filter(s => assignedSubjectIds.has(s.id));
+    return base;
+  }, [subjects, sections, assignedSubjectIds, selectedSectionId]);
 
   // If the selected subject is no longer valid for the section, reset it
   useEffect(() => {
@@ -277,6 +288,11 @@ export function UploadGrades() {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+            {sectionSubjects.length === 0 && (
+              <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 mt-1.5">
+                No subjects assigned to you yet — grade importing is disabled. Contact the Administrator to update your subject assignments.
+              </p>
+            )}
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">

@@ -147,7 +147,7 @@ export function UserManagement() {
     setEditUser(null);
     setNewUser({
       name: "", username: "", email: "", role: "teacher", password: "",
-      employee_id: "", designation: "", date_hired: "",
+      employee_id: "", designation: "", date_hired: "", end_of_contract: "",
     });
     setPassword("");
     setShowModal(true);
@@ -171,6 +171,7 @@ export function UserManagement() {
           employee_id: editUser.employee_id || undefined,
           designation: editUser.designation || undefined,
           date_hired: editUser.date_hired || undefined,
+          end_of_contract: editUser.end_of_contract || undefined,
         };
         await usersApi.update(editUser.id, payload);
         showToast("success", `User "${editUser.name}" updated successfully.`);
@@ -642,12 +643,25 @@ export function UserManagement() {
                     </div>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Date Hired</label>
-                    <div className="relative">
-                      <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input type="date" value={toDateInput(formValue("date_hired"))}
-                        onChange={e => handleChange("date_hired", e.target.value)}
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Date Hired</label>
+                        <div className="relative">
+                          <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input type="date" value={toDateInput(formValue("date_hired"))}
+                            onChange={e => handleChange("date_hired", e.target.value)}
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">End of Contract</label>
+                        <div className="relative">
+                          <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input type="date" value={toDateInput(formValue("end_of_contract"))}
+                            onChange={e => handleChange("end_of_contract", e.target.value)}
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

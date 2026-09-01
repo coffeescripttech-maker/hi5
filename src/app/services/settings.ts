@@ -15,6 +15,9 @@ export interface SchoolSettingsRow {
   current_sy_id: number | null;
   current_sy_label: string | null;
   updated_at: string;
+  // Grade security settings (from migration 018)
+  grade_deadline_enabled?: number;
+  grade_edit_deadline?: string | null;
 }
 
 export interface UpdateSettingsPayload {
@@ -25,6 +28,9 @@ export interface UpdateSettingsPayload {
   district?: string;
   principal_name?: string;
   registrar_name?: string;
+  // Grade security settings
+  grade_deadline_enabled?: boolean | number;
+  grade_edit_deadline?: string | null;
 }
 
 export interface SectionTypeThreshold {

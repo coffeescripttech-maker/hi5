@@ -13,6 +13,7 @@ export interface SectionRow {
   adviser_id: number | null;
   adviser_name: string | null;
   min_average: number;
+  max_average: number | null;
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -25,6 +26,7 @@ export interface CreateSectionPayload {
   capacity: number;
   adviser_id?: number;
   min_average: number;
+  max_average?: number | null;
 }
 
 export interface UpdateSectionPayload {
@@ -33,6 +35,7 @@ export interface UpdateSectionPayload {
   capacity?: number;
   adviser_id?: number | null;
   min_average?: number;
+  max_average?: number | null;
   is_active?: number;
 }
 

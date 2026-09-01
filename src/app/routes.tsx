@@ -37,6 +37,9 @@ import { DocumentCompletion } from "./pages/registrar/DocumentCompletion";
 import { RegistrarProfile } from "./pages/registrar/RegistrarProfile";
 import { SubjectView } from "./pages/registrar/SubjectView";
 import { SectionAssignment } from "./pages/registrar/SectionAssignment";
+import { ScheduleModifier } from "./pages/registrar/ScheduleModifier";
+import { LisExport as RegistrarLisExport } from "./pages/registrar/LisExport";
+import { PrincipalExportCenter } from "./pages/principal/PrincipalExportCenter";
 import { CertificateOfEnrollment } from "./pages/registrar/CertificateOfEnrollment";
 import { GoodMoralCertificate } from "./pages/registrar/GoodMoralCertificate";
 import { PrincipalDashboard } from "./pages/principal/PrincipalDashboard";
@@ -51,6 +54,7 @@ import { StudentProfile } from "./pages/StudentProfile";
 import { SystemGuide } from "./pages/SystemGuide";
 import { NotFound } from "./pages/NotFound";
 import { ActivityLogs } from "./pages/admin/ActivityLogs";
+import { AdminRooms } from "./pages/admin/AdminRooms";
 
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
@@ -68,6 +72,7 @@ export const router = createBrowserRouter([
       { path: "access-control", Component: RoleAccessControl },
       { path: "lis-export", Component: LisExport },
       { path: "subjects", Component: SubjectManagement },
+      { path: "rooms", Component: AdminRooms },
       { path: "sections", Component: SectionCreation },
       { path: "forms/:formCode?", Component: SchoolForms },
     ],
@@ -109,6 +114,8 @@ export const router = createBrowserRouter([
       { path: "sections", Component: SectionCreation },
       { path: "subjects", Component: SubjectView },
       { path: "section-assignment", Component: SectionAssignment },
+      { path: "schedule-modifier", Component: ScheduleModifier },
+      { path: "lis-export", Component: RegistrarLisExport },
       { path: "certificates/enrollment", Component: CertificateOfEnrollment },
       { path: "certificates/good-moral", Component: GoodMoralCertificate },
       { path: "guide", Component: SystemGuide },
@@ -129,6 +136,7 @@ export const router = createBrowserRouter([
       { path: "promotions", Component: PromotionStats },
       { path: "section-population", Component: SectionPopulation },
       { path: "sections", Component: SectionPopulation },
+      { path: "exports/:section", Component: PrincipalExportCenter },
       { path: "profile", Component: PrincipalProfile },
       { path: "guide", Component: SystemGuide },
     ],

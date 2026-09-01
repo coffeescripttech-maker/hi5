@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { exec } from "child_process";
 import path from "path";
@@ -82,6 +83,13 @@ export async function createBackup(req: Request, res: Response): Promise<void> {
       );
 
       await logActivity(req.user!.userId, `Database backup created: ${filename}`, "backups", backupId);
+
+      // Real-time notification: manual backup completed (SSE push, no refresh).
+      createNotification({
+        title: "Database Backup",
+        message: `Manual backup completed successfully: ${filename} (${(stats.size / 1024).toFixed(1)} KB).`,
+        type: "success",
+      });
     } catch (execError: any) {
       // Mark as failed
       await query<ResultSetHeader>(

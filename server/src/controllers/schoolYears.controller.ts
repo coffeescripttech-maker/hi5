@@ -46,27 +46,55 @@ export async function createSchoolYear(req: Request, res: Response): Promise<voi
     const { sy_label, enrollment_start_date, enrollment_end_date } = req.body;
 
     if (!sy_label) {
-      res.status(400).json({ error: "sy_label is required (e.g. '2026-2027')." });
+      res.status(400).json({ error: "sy_label is required (e.g. '2026-2027' or '2026')." });
+      return;
+    }
+
+    const trimmed = String(sy_label).trim();
+    // Accept both school-year ranges ("2026-2027") and calendar years ("2026").
+    if (!/^\d{4}[-–]\d{4}$/.test(trimmed) && !/^\d{4}$/.test(trimmed)) {
+      res.status(400).json({
+        error: "School year must be a school-year range (e.g. '2026-2027') or a calendar year (e.g. '2026').",
+      });
       return;
     }
 
     // Check duplicate
     const existing = await query<RowDataPacket[]>(
       "SELECT id FROM school_years WHERE sy_label = ?",
-      [sy_label]
+      [trimmed]
     );
     if (existing.length > 0) {
-      res.status(409).json({ error: `School year "${sy_label}" already exists.` });
+      res.status(409).json({ error: `School year "${trimmed}" already exists.` });
       return;
     }
 
+    // If this is the first school year ever, make it the active one automatically
+    // (prevents the system from falling back to a stale/previous year).
+    const countRows = await query<RowDataPacket[]>("SELECT COUNT(*) AS c FROM school_years");
+    const isFirst = Number(countRows[0]?.c || 0) === 0;
+
     const result = await query<ResultSetHeader>(
-      `INSERT INTO school_years (sy_label, enrollment_start_date, enrollment_end_date)
-       VALUES (?, ?, ?)`,
-      [sy_label, enrollment_start_date || null, enrollment_end_date || null]
+      `INSERT INTO school_years (sy_label, is_current, enrollment_open, enrollment_start_date, enrollment_end_date)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        trimmed,
+        isFirst ? 1 : 0,
+        isFirst ? 1 : 0,
+        enrollment_start_date || null,
+        enrollment_end_date || null,
+      ]
     );
 
-    await logActivity(req.user!.userId, `Created school year "${sy_label}"`, "school_years", result.insertId);
+    if (isFirst) {
+      // Keep school_settings in sync so the whole app uses the same active SY.
+      await query<ResultSetHeader>(
+        "UPDATE school_settings SET current_sy_id = ? WHERE id = 1",
+        [result.insertId]
+      );
+    }
+
+    await logActivity(req.user!.userId, `Created school year "${trimmed}"`, "school_years", result.insertId);
 
     const newYear = await query<RowDataPacket[]>("SELECT * FROM school_years WHERE id = ?", [result.insertId]);
     res.status(201).json(newYear[0]);
@@ -170,11 +198,14 @@ export async function archiveSchoolYear(req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Determine the next school year label (e.g. 2025-2026 → 2026-2027)
+    // Determine the next school year label (e.g. 2025-2026 → 2026-2027,
+    // or a calendar-year label 2026 → 2027)
     const parts = String(current.sy_label).split(/[-–]/);
     let nextLabel: string | null = null;
     if (parts.length === 2 && !Number.isNaN(parseInt(parts[0])) && !Number.isNaN(parseInt(parts[1]))) {
       nextLabel = `${parseInt(parts[0]) + 1}-${parseInt(parts[1]) + 1}`;
+    } else if (parts.length === 1 && !Number.isNaN(parseInt(parts[0]))) {
+      nextLabel = `${parseInt(parts[0]) + 1}`;
     }
 
     if (!nextLabel) {

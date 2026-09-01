@@ -12,6 +12,7 @@ interface SectionRow extends RowDataPacket {
   current_count: number;
   adviser_id: number | null;
   min_average: number;
+  max_average: number | null;
   is_active: number;
   created_at: Date;
   updated_at: Date;
@@ -146,7 +147,7 @@ export async function getSectionById(req: Request, res: Response): Promise<void>
  */
 export async function createSection(req: Request, res: Response): Promise<void> {
   try {
-    const { name, grade_level, section_type, capacity, adviser_id, min_average, is_active } = req.body;
+    const { name, grade_level, section_type, capacity, adviser_id, min_average, max_average, is_active } = req.body;
 
     if (!name || !grade_level || !section_type || !capacity || min_average === undefined) {
       res.status(400).json({ error: "Missing required fields: name, grade_level, section_type, capacity, min_average." });
@@ -171,9 +172,9 @@ export async function createSection(req: Request, res: Response): Promise<void> 
     }
 
     const result = await query<ResultSetHeader>(
-      `INSERT INTO sections (name, grade_level, section_type, capacity, adviser_id, min_average, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, grade_level, section_type, capacity, adviser_id || null, min_average, is_active !== undefined ? is_active : 1]
+      `INSERT INTO sections (name, grade_level, section_type, capacity, adviser_id, min_average, max_average, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, grade_level, section_type, capacity, adviser_id || null, min_average, max_average ?? null, is_active !== undefined ? is_active : 1]
     );
 
     await logActivity(req.user!.userId, `Created section "${name}"`, "sections", result.insertId);
@@ -192,7 +193,7 @@ export async function createSection(req: Request, res: Response): Promise<void> 
 export async function updateSection(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { name, grade_level, section_type, capacity, adviser_id, min_average, is_active } = req.body;
+    const { name, grade_level, section_type, capacity, adviser_id, min_average, max_average, is_active } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM sections WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -208,6 +209,7 @@ export async function updateSection(req: Request, res: Response): Promise<void> 
     if (section_type !== undefined) { fields.push("section_type = ?"); params.push(section_type); }
     if (capacity !== undefined) { fields.push("capacity = ?"); params.push(capacity); }
     if (min_average !== undefined) { fields.push("min_average = ?"); params.push(min_average); }
+    if (max_average !== undefined) { fields.push("max_average = ?"); params.push(max_average); }
     if (adviser_id !== undefined) { fields.push("adviser_id = ?"); params.push(adviser_id); }
     if (is_active !== undefined) { fields.push("is_active = ?"); params.push(is_active); }
 

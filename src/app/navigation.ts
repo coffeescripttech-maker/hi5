@@ -34,7 +34,8 @@ import {
   PieChart,
   ClipboardList,
   MessageSquare,
-  Award
+  Award,
+  MapPin
 } from 'lucide-react';
 
 export type Role = 'admin' | 'teacher' | 'registrar' | 'principal';
@@ -64,12 +65,13 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'admin_users', label: 'User Management', icon: Users, path: '/admin/users' },
         { key: 'admin_subjects', label: 'Subject Management', icon: BookOpen, path: '/admin/subjects' },
         { key: 'admin_sections', label: 'Section Creation', icon: Layers, path: '/admin/sections' },
-        {
+                {
           key: 'admin_academic_year',
           label: 'Academic Year Mgmt.',
           icon: Calendar,
           path: '/admin/academic-year'
-        }
+        },
+        { key: 'admin_rooms', label: 'Room Management', icon: MapPin, path: '/admin/rooms' }
       ]
     },
     {
@@ -86,7 +88,6 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { key: 'admin_settings', label: 'School Settings', icon: Settings, path: '/admin/settings' },
         { key: 'admin_backup', label: 'Database Backup', icon: Database, path: '/admin/backup' },
-        { key: 'admin_lis_export', label: 'LIS Export', icon: Upload, path: '/admin/lis-export' },
         { key: 'admin_logs', label: 'Activity Logs', icon: Activity, path: '/admin/logs' },
         { key: 'admin_rbac', label: 'Role Access Control', icon: ShieldCheck, path: '/admin/access-control' },
         { key: 'admin_profile', label: 'My Profile', icon: User, path: '/admin/profile' },
@@ -181,6 +182,13 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       ]
     },
     {
+      group: 'Scheduling & LIS',
+      items: [
+        { key: 'registrar_schedule', label: 'Schedule Modifier', icon: Calendar, path: '/registrar/schedule-modifier' },
+        { key: 'registrar_lis_export', label: 'LIS Export', icon: Upload, path: '/registrar/lis-export' }
+      ]
+    },
+    {
       group: 'Certificates',
       items: [
         { key: 'registrar_certificate_enrollment', label: 'Certificate of Enrollment', icon: FileText, path: '/registrar/certificates/enrollment' },
@@ -215,6 +223,14 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'principal_promotions', label: 'Promotion Stats', icon: GraduationCap, path: '/principal/promotion-stats' },
         { key: 'principal_graduates', label: 'Alumni / Graduates', icon: Award, path: '/principal/graduates' },
         { key: 'principal_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/principal/at-risk', disabled: true }
+      ]
+    },
+    {
+      group: 'Exports',
+      items: [
+        { key: 'principal_export_documents', label: 'School Documents', icon: FileText, path: '/principal/exports/documents' },
+        { key: 'principal_export_reports', label: 'Reports', icon: BarChart2, path: '/principal/exports/reports' },
+        { key: 'principal_export_data', label: 'School-wide Data', icon: FileSpreadsheet, path: '/principal/exports/data' }
       ]
     },
     {

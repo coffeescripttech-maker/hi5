@@ -28,11 +28,13 @@ import certificatesRoutes from "./routes/certificates.routes";
 import pdfRoutes from "./routes/pdf.routes";
 import strandTracksRoutes from "./routes/strandTracks.routes";
 import schedulesRoutes from "./routes/schedules.routes";
+import roomsRoutes from "./routes/rooms.routes";
 import lisRoutes from "./routes/lis.routes";
 import rbacRoutes from "./routes/rbac.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { startUserStatusCron } from "./cron/userStatusCron";
 import { startBackupCron } from "./cron/backupCron";
+import { startActivityLogCron } from "./cron/activityLogCron";
 
 // Load .env
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -92,6 +94,7 @@ app.use("/api/certificates", certificatesRoutes);
 app.use("/api/pdf", pdfRoutes);
 app.use("/api/strand-tracks", strandTracksRoutes);
 app.use("/api/schedules", schedulesRoutes);
+app.use("/api/rooms", roomsRoutes);
 app.use("/api/lis", lisRoutes);
 app.use("/api/rbac", rbacRoutes);
 
@@ -125,6 +128,7 @@ async function start() {
   if (dbConnected) {
     startUserStatusCron();
     startBackupCron();
+    startActivityLogCron();
   }
 }
 

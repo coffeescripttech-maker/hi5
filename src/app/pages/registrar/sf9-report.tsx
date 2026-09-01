@@ -10,6 +10,7 @@ import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
+import { FormPrintPreview } from '../../components/FormPrintPreview';
 import './sf1.css';
 import { DocumentViewer } from '../../components/DocumentViewer';
 /* ── Constants (DepEd SF9 layout) ── */
@@ -247,6 +248,8 @@ export function SF9Report() {
   const [sf9Data, setSf9Data] = useState<SF9Row | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Print confirmation preview — no form goes straight to window.print().
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /* ── Editable cell state (attendance, observed values) ── */
@@ -573,12 +576,23 @@ export function SF9Report() {
                   {exporting ? 'Generating…' : 'PDF'}
                 </button>
                 <button
-                  onClick={handlePrint}
+                  onClick={() => setPreviewOpen(true)}
                   className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm">
                   <Printer size={14} /> Print
                 </button>
               </div>
             </div>
+
+            <FormPrintPreview
+              open={previewOpen}
+              title="SF9 — Report Card"
+              elementId="sf9-print-area"
+              onClose={() => setPreviewOpen(false)}
+              onExportPdf={handleExportPdf}
+              exporting={exporting}
+              orientation="landscape"
+              format="letter"
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">

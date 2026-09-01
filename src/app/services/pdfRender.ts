@@ -113,6 +113,17 @@ const SIZE_UTILITY_RE = /(?:^|\s)(?:[a-z]+:)?[wh]-[a-z0-9/]+/;
 const FLUID_SIZE_RE = /(?:^|\s)(?:[a-z]+:)?[wh]-(?:full|screen|fit|max|min)/;
 /** min-w-* / max-w-* / min-h-* / max-h-* utilities. */
 const MINMAX_RE = /(?:^|\s)(?:[a-z]+:)?(?:min|max)-[wh]-/;
+/**
+ * Logical size longhands Chrome enumerates separately from width/height.
+ * In horizontal-tb writing mode block-size == height and inline-size ==
+ * width, so without this guard the measured SCREEN height of every block
+ * would be pinned into the print page (block-size: 1153px on .sf1-page,
+ * min-block-size: 1200px → a 1200px min-height!). Any print-time reflow —
+ * zoom, page-width page breaks — then overflows those pinned boxes and
+ * paints text on top of following blocks: the garbled second page on
+ * SF5/SF9 exports.
+ */
+const LOGICAL_SIZE_RE = /^(min-|max-)?(block|inline)-size$/;
 
 /**
  * Whether an element's laid-out width/height should be preserved verbatim.
@@ -143,6 +154,10 @@ function isFluidSize(value: string): boolean {
 
 /** Elements processed per chunk before yielding to the event loop. */
 const INLINE_CHUNK = 16;
+
+/** Per-side border longhands force-inlined after the generic pass (see below). */
+const BORDER_SIDES = ["top", "right", "bottom", "left"] as const;
+const BORDER_KINDS = ["width", "style", "color"] as const;
 
 let uaBaselineFrame: HTMLIFrameElement | null = null;
 const uaBaselines = new Map<string, CSSStyleDeclaration>();
@@ -206,19 +221,29 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
         const value = cs.getPropertyValue(prop);
 
         // Pixel widths/heights on reflowing blocks are skipped so content
-        // re-wraps to the letter page width, like the Print Preview.
-        if (prop === "width" || prop === "height") {
+        // re-wraps to the letter page width, like the Print Preview. The
+        // logical longhands (block-size/inline-size) map onto the same axes
+        // and must follow the exact same rule — see LOGICAL_SIZE_RE.
+        if (
+          prop === "width" ||
+          prop === "height" ||
+          prop === "block-size" ||
+          prop === "inline-size"
+        ) {
           if (!pinSize && !isFluidSize(value)) continue;
         }
         // min/max sizes are only preserved when they were explicitly set.
+        // (camelCase lookup covers both physical and logical property names.)
         if (
           (prop.startsWith("min-") || prop.startsWith("max-")) &&
-          /-[wh]$/.test(prop) &&
+          (/-[wh]$/.test(prop) || LOGICAL_SIZE_RE.test(prop)) &&
           !pinSize &&
-          !MINMAX_RE.test(cls) &&
-          !(hEl.style[prop as "minWidth"] || hEl.style[prop as "maxWidth"])
+          !MINMAX_RE.test(cls)
         ) {
-          continue;
+          const camel = prop.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+          if (!(hEl.style[camel as "minWidth"] || hEl.style[camel as "maxWidth"])) {
+            continue;
+          }
         }
 
         // Skip properties already at the bare-UA default — the standalone page
@@ -235,6 +260,31 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
         }
 
         hEl.style.setProperty(prop, value);
+      }
+
+      // Force-inline the per-side border longhands AFTER the generic pass.
+      // Chrome's computed-style enumeration exposes the `border` shorthand but
+      // NOT the 12 per-side longhands, and a shorthand whose four sides differ
+      // (border-b, border-t, divide-y — used throughout SF9/SF10) serializes to
+      // "" and is dropped, so partial borders would vanish in the standalone
+      // page, which has no Tailwind stylesheet. Values already at the bare-UA
+      // baseline are skipped to keep the output lean. Writing width+style
+      // together also avoids the UA `medium` fallback on style-less baselines.
+      for (const side of BORDER_SIDES) {
+        for (const kind of BORDER_KINDS) {
+          const prop = `border-${side}-${kind}`;
+          const value = cs.getPropertyValue(prop);
+          if (value && value !== baseline.getPropertyValue(prop)) {
+            hEl.style.setProperty(prop, value);
+          }
+        }
+      }
+      // Table border model: keep collapse/separate exactly as rendered.
+      if (hEl.tagName === "TABLE") {
+        const collapse = cs.getPropertyValue("border-collapse");
+        if (collapse && collapse !== baseline.getPropertyValue("border-collapse")) {
+          hEl.style.setProperty("border-collapse", collapse);
+        }
       }
 
       // Make the embedded Tinos font apply wherever the page used `serif`.
@@ -264,6 +314,12 @@ function fixRootForPrint(root: HTMLElement) {
   root.style.top = "auto";
   root.style.bottom = "auto";
   root.style.width = "100%";
+  // Unpin the measured screen height: serializeElementForPdf pins the clone's
+  // width before style inlining, which also flags the root as size-pinned and
+  // captures its screen height — at print time the content must be free to
+  // reflow across pages, or overflow paints over the next page's content.
+  root.style.height = "auto";
+  root.style.setProperty("block-size", "auto");
   root.style.maxWidth = "none";
   root.style.minWidth = "0";
   root.style.margin = "0";
@@ -358,6 +414,32 @@ function collectPrintCss(): string {
     if (css.includes("@media print") || css.includes("@page")) {
       blocks.push(css);
     }
+  }
+  // Production builds ship stylesheets as <link> tags, which the <style> scan
+  // above never sees. The SF registers' print rules (zoom that fits the wide
+  // sheet to the page, .sf1-sheet reset, @page size/margins) live in sf1.css —
+  // losing them un-zooms the page so the right-most columns and outer table
+  // borders are clipped off the paper. Pull @media print and @page rules out
+  // of every accessible stylesheet via CSSOM. Cross-origin sheets throw on
+  // cssRules access and are skipped; same-origin Vite assets are readable.
+  for (const sheet of Array.from(document.styleSheets)) {
+    const owner = sheet.ownerNode as HTMLElement | null;
+    if (owner && owner.tagName === "STYLE") continue; // already captured above
+    let rules: CSSRuleList;
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue; // cross-origin stylesheet — not readable
+    }
+    const parts: string[] = [];
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSMediaRule && /print/i.test(rule.conditionText)) {
+        parts.push(rule.cssText);
+      } else if (rule instanceof CSSPageRule) {
+        parts.push(rule.cssText);
+      }
+    }
+    if (parts.length) blocks.push(parts.join("\n"));
   }
   return blocks.join("\n");
 }

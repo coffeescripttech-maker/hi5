@@ -8,10 +8,15 @@
  * emerald. The real `/api/notifications` API is intentionally NOT wired
  * (that would be a behavior change, out of scope).
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
+import {
+  useLiveNotifications,
+  formatLiveTime
+} from '../../hooks/useLiveNotifications';
+import type { NotificationRow } from '../../services/notifications';
 
 const ALL_NOTIFICATIONS: Record<
   string,
@@ -147,32 +152,86 @@ const ALL_NOTIFICATIONS: Record<
   ]
 };
 
+const NOTIF_TYPE_ICONS: Record<string, string> = {
+  info: 'ℹ️',
+  success: '✅',
+  warning: '⚠️',
+  error: '❌',
+  security: '🛡️'
+};
+
 export function NotificationsDropdown() {
   const {
     role,
-    readNotifs,
-    markAllRead,
-    markOneRead,
-    securityNotifs
+    readNotifs: ctxReadNotifs,
+    markAllRead: ctxMarkAllRead,
+    markOneRead: ctxMarkOneRead,
+    securityNotifs,
+    showToast
   } = useApp();
   const accent = useRoleAccent();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Real-time subscription — DB notifications pushed via SSE, no refresh.
+  const onNewLive = useCallback(
+    (n: NotificationRow) => {
+      showToast('info', n.title ? `${n.title} — ${n.message}` : n.message);
+    },
+    [showToast]
+  );
+  const {
+    notifications: liveNotifs,
+    unreadCount: liveUnread,
+    loading: liveLoading,
+    markOneRead: liveMarkOneRead,
+    markAllRead: liveMarkAllRead
+  } = useLiveNotifications(onNewLive);
+
+  // Until the first snapshot returns, keep the legacy static list as a
+  // graceful placeholder so the bell never renders empty on startup.
+  const isFallback = liveLoading && liveNotifs.length === 0;
   const staticNotifs = ALL_NOTIFICATIONS[role || 'admin'] || [];
-  const currentNotifs = [
-    ...securityNotifs.map(n => ({
-      id: parseInt(n.id, 36) || 9999,
-      icon: n.icon,
-      text: n.text,
-      time: n.time,
-      isSecurity: true
-    })),
-    ...staticNotifs.map(n => ({ ...n, isSecurity: false }))
-  ];
-  const unreadCount =
-    securityNotifs.length +
-    staticNotifs.filter(n => !readNotifs.includes(n.id)).length;
+  const securityItems = securityNotifs.map(n => ({
+    id: parseInt(n.id, 36) || 9999,
+    icon: n.icon,
+    text: n.text,
+    time: n.time,
+    isSecurity: true,
+    isRead: false
+  }));
+  const liveItems = liveNotifs.map(n => ({
+    id: n.id,
+    icon: NOTIF_TYPE_ICONS[n.type] || 'ℹ️',
+    text: n.title ? `${n.title} — ${n.message}` : n.message,
+    time: formatLiveTime(n.created_at),
+    isSecurity: false,
+    isRead: n.is_read === 1
+  }));
+  const currentNotifs = isFallback
+    ? [
+        ...securityItems,
+        ...staticNotifs.map(n => ({
+          ...n,
+          isSecurity: false,
+          isRead: ctxReadNotifs.includes(n.id)
+        }))
+      ]
+    : [...securityItems, ...liveItems];
+  const unreadCount = isFallback
+    ? securityNotifs.length +
+      staticNotifs.filter(n => !ctxReadNotifs.includes(n.id)).length
+    : securityNotifs.length + liveUnread;
+
+  const handleMarkAllRead = () => {
+    if (isFallback) ctxMarkAllRead();
+    else liveMarkAllRead();
+  };
+  const handleMarkOneRead = (id: number, isSecurity: boolean) => {
+    if (isSecurity) return;
+    if (isFallback) ctxMarkOneRead(id);
+    else liveMarkOneRead(id);
+  };
 
   // Close when clicking outside the bell / panel.
   useEffect(() => {
@@ -231,7 +290,7 @@ export function NotificationsDropdown() {
                 </span>
               )}
               <button
-                onClick={markAllRead}
+                onClick={handleMarkAllRead}
                 className="text-xs font-medium transition-colors hover:underline"
                 style={{ color: accent.chartHex }}>
                 Mark all read
@@ -242,12 +301,12 @@ export function NotificationsDropdown() {
           {/* Items */}
           <div className="app-scroll max-h-72 overflow-y-auto">
             {currentNotifs.map((n, idx) => {
-              const isUnread = !readNotifs.includes(n.id);
+              const isUnread = !(n as { isRead?: boolean }).isRead;
               const isSec = (n as { isSecurity?: boolean }).isSecurity;
               return (
                 <div
                   key={`${n.id}-${idx}`}
-                  onClick={() => !isSec && markOneRead(n.id)}
+                  onClick={() => handleMarkOneRead(n.id, !!isSec)}
                   className={`flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-slate-700/40 ${
                     idx > 0
                       ? 'border-t border-gray-100 dark:border-slate-700/60'

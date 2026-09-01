@@ -56,6 +56,26 @@ export function AcademicYearManagement() {
   const sortYears = (years: SchoolYearRow[]) =>
     [...years].sort((a, b) => a.sy_label.localeCompare(b.sy_label));
 
+  // Derive the natural successor label — supports both "2026-2027" and "2026".
+  const deriveNextLabel = (label: string): string => {
+    const parts = label.split(/[-–]/);
+    const start = parseInt(parts[0]);
+    if (Number.isNaN(start)) return "";
+    if (parts.length === 2 && !Number.isNaN(parseInt(parts[1]))) {
+      return `${start + 1}-${parseInt(parts[1]) + 1}`;
+    }
+    return `${start + 1}`;
+  };
+
+  // After any list refresh, sync the current + next labels from the active year.
+  const syncCurrentFromList = (sys: SchoolYearRow[]) => {
+    const cur = sys.find(sy => sy.is_current === 1);
+    if (cur) {
+      setCurrentSY(cur.sy_label);
+      setNextSY(deriveNextLabel(cur.sy_label));
+    }
+  };
+
   useEffect(() => {
     Promise.all([
       schoolYearsApi.list(),
@@ -66,14 +86,7 @@ export function AcademicYearManagement() {
       const current = sys.find(sy => sy.is_current === 1);
       if (current) {
         setCurrentSY(current.sy_label);
-        const parts = current.sy_label.split("–").length > 1
-          ? current.sy_label.split("–")
-          : current.sy_label.split("-");
-        if (parts.length === 2) {
-          const nextStart = parseInt(parts[0]) + 1;
-          const nextEnd = parseInt(parts[1]) + 1;
-          setNextSY(`${nextStart}–${nextEnd}`);
-        }
+        setNextSY(deriveNextLabel(current.sy_label));
       }
 
       setPromotionSummary(deriveSummary(proms));
@@ -127,6 +140,7 @@ export function AcademicYearManagement() {
       );
       const sys = await schoolYearsApi.list();
       setSchoolYears(sortYears(sys));
+      syncCurrentFromList(sys);
       refreshSchoolInfo();
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to update enrollment.");
@@ -146,8 +160,7 @@ export function AcademicYearManagement() {
       // Refresh the school year list so the new active year shows as current
       const sys = await schoolYearsApi.list();
       setSchoolYears(sortYears(sys));
-      const cur = sys.find(s => s.is_current === 1);
-      if (cur) setCurrentSY(cur.sy_label);
+      syncCurrentFromList(sys);
 
       refreshSchoolInfo();
       showToast("success", res.message || `School Year ${currentSY} archived. ${nextSY} is now active.`);
@@ -201,14 +214,35 @@ export function AcademicYearManagement() {
             </div>
           </div>
           {/* Create new SY form */}
-          <div className="flex items-center gap-2 w-full lg:w-auto">
-            <input
-              value={newSYLabel}
-              onChange={e => setNewSYLabel(e.target.value)}
-              placeholder="e.g. 2031-2032"
-              className="border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0 lg:w-28"
-              onKeyDown={async e => {
-                if (e.key === "Enter" && newSYLabel.trim()) {
+          <div className="w-full lg:w-auto flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <input
+                value={newSYLabel}
+                onChange={e => setNewSYLabel(e.target.value)}
+                placeholder="e.g. 2026-2027 or 2026"
+                className="border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0 lg:w-44"
+                onKeyDown={async e => {
+                  if (e.key === "Enter" && newSYLabel.trim()) {
+                    setCreating(true);
+                    try {
+                      await schoolYearsApi.create({ sy_label: newSYLabel.trim() });
+                      showToast("success", `School year "${newSYLabel.trim()}" created.`);
+                      setNewSYLabel("");
+                      const sys = await schoolYearsApi.list();
+                      setSchoolYears(sortYears(sys));
+                      syncCurrentFromList(sys);
+                      refreshSchoolInfo();
+                    } catch (err: any) {
+                      showToast("error", err.detail?.error || err.message || "Failed to create.");
+                    } finally {
+                      setCreating(false);
+                    }
+                  }
+                }}
+              />
+              <button
+                onClick={async () => {
+                  if (!newSYLabel.trim()) return;
                   setCreating(true);
                   try {
                     await schoolYearsApi.create({ sy_label: newSYLabel.trim() });
@@ -216,35 +250,23 @@ export function AcademicYearManagement() {
                     setNewSYLabel("");
                     const sys = await schoolYearsApi.list();
                     setSchoolYears(sortYears(sys));
+                    syncCurrentFromList(sys);
+                    refreshSchoolInfo();
                   } catch (err: any) {
                     showToast("error", err.detail?.error || err.message || "Failed to create.");
                   } finally {
                     setCreating(false);
                   }
-                }
-              }}
-            />
-            <button
-              onClick={async () => {
-                if (!newSYLabel.trim()) return;
-                setCreating(true);
-                try {
-                  await schoolYearsApi.create({ sy_label: newSYLabel.trim() });
-                  showToast("success", `School year "${newSYLabel.trim()}" created.`);
-                  setNewSYLabel("");
-                  const sys = await schoolYearsApi.list();
-                  setSchoolYears(sortYears(sys));
-                } catch (err: any) {
-                  showToast("error", err.detail?.error || err.message || "Failed to create.");
-                } finally {
-                  setCreating(false);
-                }
-              }}
-              disabled={creating || !newSYLabel.trim()}
-              className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-xs font-medium transition flex-shrink-0"
-            >
-              <Plus size={13} /> {creating ? "..." : "Create"}
-            </button>
+                }}
+                disabled={creating || !newSYLabel.trim()}
+                className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-xs font-medium transition flex-shrink-0"
+              >
+                <Plus size={13} /> {creating ? "..." : "Create"}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 leading-snug lg:text-right">
+              Supports <span className="font-medium">"2026-2027"</span> (school year) or <span className="font-medium">"2026"</span> (calendar year). The first year created becomes active automatically.
+            </p>
           </div>
         </div>
         <div className="p-5">
@@ -269,7 +291,9 @@ export function AcademicYearManagement() {
                       <div className={`rounded-xl border p-4 transition ${
                         isCurrent
                           ? "border-blue-300 bg-blue-50 shadow-sm ring-1 ring-blue-200"
-                          : "border-gray-200 bg-white hover:border-blue-200 hover:shadow-sm"
+                          : sy.enrollment_open === 1
+                            ? "border-gray-200 bg-white hover:border-blue-200 hover:shadow-sm"
+                            : "border-gray-200 bg-gray-50/80 opacity-60 saturate-50 hover:opacity-100 hover:saturate-100 hover:border-blue-200 hover:shadow-sm"
                       }`}>
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-center gap-3 min-w-0">
@@ -288,6 +312,11 @@ export function AcademicYearManagement() {
                                 {isCurrent && (
                                   <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                                     <Star size={9} /> Current
+                                  </span>
+                                )}
+                                {!isCurrent && sy.enrollment_open !== 1 && (
+                                  <span className="bg-gray-200 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    Inactive
                                   </span>
                                 )}
                               </div>
@@ -333,14 +362,7 @@ export function AcademicYearManagement() {
                                     showToast("success", `"${sy.sy_label}" is now the current school year.`);
                                     const sys = await schoolYearsApi.list();
                                     setSchoolYears(sortYears(sys));
-                                    const current = sys.find(s => s.is_current === 1);
-                                    if (current) {
-                                      setCurrentSY(current.sy_label);
-                                      const parts = current.sy_label.split(/[–-]/);
-                                      if (parts.length === 2) {
-                                        setNextSY(`${parseInt(parts[0]) + 1}–${parseInt(parts[1]) + 1}`);
-                                      }
-                                    }
+                                    syncCurrentFromList(sys);
                                     refreshSchoolInfo();
                                   } catch (err: any) {
                                     showToast("error", err.detail?.error || err.message || "Failed to set current.");
@@ -354,10 +376,7 @@ export function AcademicYearManagement() {
                               <button
                                 onClick={() => {
                                   setCurrentSY(sy.sy_label);
-                                  const parts = sy.sy_label.split(/[–-]/);
-                                  if (parts.length === 2) {
-                                    setNextSY(`${parseInt(parts[0]) + 1}–${parseInt(parts[1]) + 1}`);
-                                  }
+                                  setNextSY(deriveNextLabel(sy.sy_label));
                                 }}
                                 className="text-[11px] font-medium text-gray-500 hover:bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 transition"
                               >

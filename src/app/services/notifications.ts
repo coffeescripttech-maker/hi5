@@ -14,6 +14,11 @@ export interface NotificationRow {
   is_read?: number;
 }
 
+export interface NotificationsListResponse {
+  notifications: NotificationRow[];
+  unread_count: number;
+}
+
 export interface CreateNotificationPayload {
   role?: string;
   user_id?: number;
@@ -23,7 +28,7 @@ export interface CreateNotificationPayload {
 }
 
 export const notificationsApi = {
-  list: () => api.get<NotificationRow[]>("/notifications"),
+  list: () => api.get<NotificationsListResponse>("/notifications"),
   create: (data: CreateNotificationPayload) =>
     api.post<NotificationRow>("/notifications", data),
   markRead: (id: number) =>

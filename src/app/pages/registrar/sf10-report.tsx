@@ -15,6 +15,7 @@ import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
+import { FormPrintPreview } from '../../components/FormPrintPreview';
 import { SchoolFormTitleBlock } from '../../components/school-form-title';
 import {
   SchoolFormHeader,
@@ -314,6 +315,8 @@ export function SF10Report() {
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // Print confirmation preview — no form goes straight to window.print().
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   /* ── Lookups ── */
   const [sections, setSections] = useState<SectionRow[]>([]);
@@ -621,13 +624,24 @@ export function SF10Report() {
                   {exporting ? 'Generating…' : 'PDF'}
                 </button>
                 <button
-                  onClick={handlePrint}
+                  onClick={() => setPreviewOpen(true)}
                   disabled={!sf10Data}
                   className="inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-40 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm">
                   <Printer size={14} /> Print
                 </button>
               </div>
             </div>
+
+            <FormPrintPreview
+              open={previewOpen}
+              title="SF10 — Permanent Record"
+              elementId="sf10-print-area"
+              onClose={() => setPreviewOpen(false)}
+              onExportPdf={handleExportPdf}
+              exporting={exporting}
+              orientation="landscape"
+              format="letter"
+            />
 
             {/* Searchable learner picker */}
             <div className="relative max-w-xl">

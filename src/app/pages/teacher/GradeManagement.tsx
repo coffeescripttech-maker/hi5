@@ -8,6 +8,7 @@ import { studentsApi, StudentRow } from "../../services/students";
 import { gradesApi } from "../../services/grades";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { atRiskApi, StudentRiskTrend } from "../../services/atRisk";
+import { settingsApi } from "../../services/settings";
 import { useApp } from "../../context/AppContext";
 import { PageContainer } from "../../components/PageContainer";
 import { HybridTable } from "../../components/HybridTable";
@@ -118,6 +119,12 @@ export function GradeManagement() {
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const [grades, setGrades] = useState<GradeEntry[]>([]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
+  // Subject-level scope: which subject IDs this teacher may encode grades for.
+  // The teacher can *view* all subjects but can only *edit* their assigned ones.
+  const [assignedSubjectIds, setAssignedSubjectIds] = useState<Set<number>>(new Set());
+  // True when the assigned-subjects API failed — lets us show a distinct banner
+  // (editing is still locked, matching the strict backend behavior).
+  const [assignedLoadFailed, setAssignedLoadFailed] = useState(false);
   const [locked, setLocked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -132,12 +139,34 @@ export function GradeManagement() {
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
   const [schoolYearId, setSchoolYearId] = useState(1);
   const [riskMap, setRiskMap] = useState<Map<number, StudentRiskTrend>>(new Map());
+  // Grade security: when the school's grade-edit deadline has passed,
+  // teachers get read-only access (Registrar can still unlock/amend).
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
+  // Subject-level grade scope: teacher may EDIT only assigned subjects (view-all is allowed).
+  // Strict by design — mirrors the backend (grades.controller.ts), which rejects saves for
+  // unassigned subjects. While the assignment list is loading (or failed), inputs stay
+  // disabled so the teacher never types something that will only fail on submit.
+  const canEditSubject = (subjectId: number): boolean =>
+    assignedSubjectIds.has(subjectId);
 
-  // Fetch teacher-scoped students + subjects + SY
+
+  // Fetch teacher-scoped students + subjects + assigned subject IDs + SY
   useEffect(() => {
     Promise.all([
       studentsApi.listMyStudents(),
       subjectsApi.list(),
+      (() => {
+        try {
+          const p = subjectsApi.assigned();
+          return p;
+        } catch {
+          setAssignedLoadFailed(true);
+          return Promise.resolve([] as SubjectRow[]);
+        }
+      })().catch(() => {
+        setAssignedLoadFailed(true);
+        return [] as SubjectRow[];
+      }), // assigned subjects (optional)
       (async () => {
         try {
           const { schoolYearsApi } = await import("../../services/schoolYears");
@@ -146,9 +175,10 @@ export function GradeManagement() {
           return current?.id || 1;
         } catch { return 1; }
       })(),
-    ]).then(([studs, subs, sy]) => {
+    ]).then(([studs, subs, assigned, sy]) => {
       setStudents(studs);
       setSubjects(subs);
+      setAssignedSubjectIds(new Set(assigned.map(s => s.id)));
       setSchoolYearId(sy);
       // If opened from a student profile (?student_id=...), pre-select that student
       const params = new URLSearchParams(window.location.search);
@@ -164,7 +194,9 @@ export function GradeManagement() {
     }).finally(() => {
       setLoading(false);
     });
-  }, []);
+    }, []);
+
+  // Optional: load the linear-regression risk classification for suggestion
 
   // Optional: load the linear-regression risk classification for suggestion
   // chips. Never fatal — if it fails, students just show no chip.
@@ -180,6 +212,20 @@ export function GradeManagement() {
       .catch(() => { /* risk indicators are optional — ignore failures */ });
     return () => { cancelled = true; };
   }, [schoolYearId]);
+
+  // Grade security: check the configured encoding deadline.
+  useEffect(() => {
+    let cancelled = false;
+    settingsApi.get()
+      .then(s => {
+        if (cancelled) return;
+        const enabled = s.grade_deadline_enabled === 1;
+        const deadline = s.grade_edit_deadline ? new Date(s.grade_edit_deadline).getTime() : 0;
+        if (enabled && deadline && deadline < Date.now()) setDeadlinePassed(true);
+      })
+      .catch(() => { /* read-only guard is informational — backend enforces anyway */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const riskInfo = (studentId: number): { dot: string; label: string } => {
     const t = riskMap.get(studentId);
@@ -287,7 +333,10 @@ export function GradeManagement() {
   }, [selectedStudent, schoolYearId]);
 
   const updateGrade = (idx: number, quarter: "q1" | "q2" | "q3" | "q4", value: string) => {
-    if (locked) return;
+    // Subject-level grade security: only assigned subjects may be edited.
+    const subject = grades[idx];
+    if (subject && !canEditSubject(subject.subject_id)) return;
+    if (locked || deadlinePassed) return;
     const parsed = parseFloat(value);
     const num = value === "" ? "" : Math.min(100, Math.max(0, isNaN(parsed) ? 0 : parsed));
     setGrades(g => g.map((row, i) => i === idx ? { ...row, [quarter]: num } : row));
@@ -296,9 +345,16 @@ export function GradeManagement() {
 
   const handleSave = async () => {
     if (!selectedStudent) return;
+    // Subject-level scope guard: nothing to save if no subjects are assigned.
+    if (assignedSubjectIds.size === 0 || grades.every(g => !canEditSubject(g.subject_id))) {
+      showToast("info", "You are not assigned to any of this student's subjects — nothing to save.");
+      return;
+    }
     setSaving(true);
     try {
       for (const entry of grades) {
+        // Subject-level scope: only persist grades for assigned subjects.
+        if (!canEditSubject(entry.subject_id)) continue;
         const quarters: ("q1" | "q2" | "q3" | "q4")[] = ["q1", "q2", "q3", "q4"];
         for (const q of quarters) {
           const qi = quarters.indexOf(q) + 1;
@@ -536,6 +592,29 @@ export function GradeManagement() {
       {/* ── Grades Table ── */}
       {selectedStudent && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
+          {(assignedSubjectIds.size === 0 || assignedLoadFailed) && (
+            <div className="bg-blue-50 border-b border-blue-200 px-5 py-3 flex items-start gap-2">
+              <Lock size={14} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              {assignedLoadFailed ? (
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  We couldn't verify your subject assignments, so grade encoding is <strong>temporarily disabled</strong>. Please refresh the page to retry.
+                </p>
+              ) : (
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  You are not assigned to any subjects for this school year — grade encoding is <strong>disabled</strong>. You can still view grades. Contact the Administrator to update your subject assignments.
+                </p>
+              )}
+            </div>
+          )}
+          {deadlinePassed && (
+            <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 leading-relaxed">
+                The grade editing deadline has passed — grades are now <strong>read-only</strong>.
+                Contact the Registrar to request a correction or unlock.
+              </p>
+            </div>
+          )}
           <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
@@ -609,16 +688,25 @@ export function GradeManagement() {
                       const isMapeh = MAPEH_ORDER.includes(row.subject);
                       return (
                         <tr key={row.subject} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
-                          <td className={`pr-3 py-3 text-sm ${isMapeh ? "pl-8 font-medium text-gray-600" : "pl-5 font-semibold text-gray-700"}`}>{row.subject}</td>
+                          <td className={`pr-3 py-3 text-sm ${isMapeh ? "pl-8 font-medium text-gray-600" : "pl-5 font-semibold text-gray-700"}`}>
+                            <span className="flex items-center gap-2">
+                              {row.subject}
+                              {!canEditSubject(row.subject_id) && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full" title="Read-only — not your assigned subject">
+                                  <Lock size={9} /> Read-only
+                                </span>
+                              )}
+                            </span>
+                          </td>
                           {(["q1", "q2", "q3", "q4"] as const).map(q => (
                             <td key={q} className="px-3 py-2.5 text-center">
                               <input
                                 type="number" min="0" max="100" step="0.01"
                                 value={row[q]}
                                 onChange={e => updateGrade(idx, q, e.target.value)}
-                                disabled={locked}
+                                disabled={locked || deadlinePassed || !canEditSubject(row.subject_id)} 
                                 className={`w-20 text-center border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
-                                  locked ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "border-gray-200 bg-white"
+                                  (locked || !canEditSubject(row.subject_id)) ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "border-gray-200 bg-white"
                                 }`}
                               />
                             </td>
@@ -658,7 +746,14 @@ export function GradeManagement() {
                       return (
                         <li key={row.subject} className="px-4 py-3.5">
                           <div className="flex items-center justify-between gap-2">
-                            <p className={`text-sm ${isMapeh ? "pl-3 font-medium text-gray-600" : "font-semibold text-gray-700"}`}>{row.subject}</p>
+                            <p className={`text-sm ${isMapeh ? "pl-3 font-medium text-gray-600" : "font-semibold text-gray-700"}`}>
+                              {row.subject}
+                              {!canEditSubject(row.subject_id) && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1" title="Read-only">
+                                  <Lock size={9} /> Read-only
+                                </span>
+                              )}
+                            </p>
                             <span className="text-xs font-extrabold text-gray-800 flex-shrink-0">Final: {finalGrade}</span>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
@@ -669,10 +764,10 @@ export function GradeManagement() {
                                   type="number" min="0" max="100" step="0.01"
                                   value={row[q]}
                                   onChange={e => updateGrade(idx, q, e.target.value)}
-                                  disabled={locked}
+                                  disabled={locked || deadlinePassed || !canEditSubject(row.subject_id)} 
                                   inputMode="decimal"
                                   className={`w-full text-center border rounded-lg px-1 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
-                                    locked ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "border-gray-200 bg-white"
+                                    (locked || !canEditSubject(row.subject_id)) ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "border-gray-200 bg-white"
                                   }`}
                                 />
                               </div>
@@ -707,7 +802,7 @@ export function GradeManagement() {
                   <>
                     <button
                       onClick={handleSave}
-                      disabled={saving}
+                      disabled={saving || deadlinePassed || assignedSubjectIds.size === 0}
                       className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
                     >
                       {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
@@ -715,7 +810,7 @@ export function GradeManagement() {
                     </button>
                     <button
                       onClick={() => setShowLockModal(true)}
-                      disabled={saving}
+                      disabled={saving || deadlinePassed || assignedSubjectIds.size === 0}
                       className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
                     >
                       <Lock size={15} /> Lock & Finalize

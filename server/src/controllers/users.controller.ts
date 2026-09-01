@@ -17,6 +17,7 @@ interface UserRow extends RowDataPacket {
   employee_id: string | null;
   designation: string | null;
   date_hired: string | null;
+  end_of_contract: string | null;
   last_login: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -29,7 +30,7 @@ export async function listUsers(_req: Request, res: Response): Promise<void> {
   try {
     const users = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, last_login, created_at, updated_at
+              status, employee_id, designation, date_hired, end_of_contract, last_login, created_at, updated_at
        FROM users ORDER BY name ASC`
     );
     res.json(users);
@@ -47,7 +48,7 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const users = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, last_login, created_at, updated_at
+              status, employee_id, designation, date_hired, end_of_contract, last_login, created_at, updated_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -69,7 +70,7 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
  */
 export async function createUser(req: Request, res: Response): Promise<void> {
   try {
-    const { username, password, name, email, role, phone, address, employee_id, designation, date_hired } = req.body;
+    const { username, password, name, email, role, phone, address, employee_id, designation, date_hired, end_of_contract } = req.body;
 
     if (!username || !password || !name || !email || !role) {
       res.status(400).json({ error: "Missing required fields: username, password, name, email, role." });
@@ -94,16 +95,16 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await query<ResultSetHeader>(
-      `INSERT INTO users (username, password_hash, name, email, role, phone, address, employee_id, designation, date_hired)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [username, passwordHash, name, email, role, phone || null, address || null, employee_id || null, designation || null, date_hired || null]
+      `INSERT INTO users (username, password_hash, name, email, role, phone, address, employee_id, designation, date_hired, end_of_contract)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [username, passwordHash, name, email, role, phone || null, address || null, employee_id || null, designation || null, date_hired || null, end_of_contract || null]
     );
 
     await logActivity(req.user!.userId, `Created user "${username}" (${role})`, "users", result.insertId);
 
     const newUser = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, created_at
+              status, employee_id, designation, date_hired, end_of_contract, created_at
        FROM users WHERE id = ?`,
       [result.insertId]
     );
@@ -121,7 +122,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 export async function updateUser(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { password, name, email, role, phone, address, profile_photo_url, employee_id, designation, date_hired } = req.body;
+    const { password, name, email, role, phone, address, profile_photo_url, employee_id, designation, date_hired, end_of_contract } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM users WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -147,6 +148,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     if (employee_id !== undefined) { fields.push("employee_id = ?"); params.push(employee_id); }
     if (designation !== undefined) { fields.push("designation = ?"); params.push(designation); }
     if (date_hired !== undefined) { fields.push("date_hired = ?"); params.push(date_hired); }
+    if (end_of_contract !== undefined) { fields.push("end_of_contract = ?"); params.push(end_of_contract); }
     if (password !== undefined) {
       const passwordHash = await bcrypt.hash(password, 10);
       fields.push("password_hash = ?"); params.push(passwordHash);
@@ -167,7 +169,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
     const updated = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, last_login, created_at, updated_at
+              status, employee_id, designation, date_hired, end_of_contract, last_login, created_at, updated_at
        FROM users WHERE id = ?`,
       [id]
     );

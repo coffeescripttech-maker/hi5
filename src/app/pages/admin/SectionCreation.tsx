@@ -154,7 +154,7 @@ export function SectionCreation() {
   const [saved, setSaved] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editTarget, setEditTarget] = useState<SectionRow | null>(null);
-  const [editForm, setEditForm] = useState({ capacity: "", adviser_id: "", minAvg: "" });
+  const [editForm, setEditForm] = useState({ capacity: "", adviser_id: "", minAvg: "", maxAvg: "" });
   const [form, setForm] = useState({
     gradeLevel: "7",
     sectionName: "",
@@ -162,6 +162,7 @@ export function SectionCreation() {
     capacity: "45",
     adviser_id: "",
     minAvg: "85",
+    maxAvg: "",
   });
 
   // ── Manage Types modal state ──
@@ -223,12 +224,13 @@ export function SectionCreation() {
         section_type: form.type,
         capacity: parseInt(form.capacity),
         min_average: parseInt(form.minAvg),
+        max_average: form.maxAvg ? parseFloat(form.maxAvg) : null,
         adviser_id: form.adviser_id ? parseInt(form.adviser_id) : undefined,
       };
       await sectionsApi.create(payload);
       setShowForm(false);
       setSaved(true);
-      setForm({ gradeLevel: "7", sectionName: "", type: "ste", capacity: "45", adviser_id: "", minAvg: "85" });
+      setForm({ gradeLevel: "7", sectionName: "", type: "ste", capacity: "45", adviser_id: "", minAvg: "85", maxAvg: "" });
       setTimeout(() => setSaved(false), 2500);
       fetchSections();
     } catch (err: any) {
@@ -242,6 +244,7 @@ export function SectionCreation() {
       capacity: String(sec.capacity),
       adviser_id: sec.adviser_id ? String(sec.adviser_id) : "",
       minAvg: String(sec.min_average),
+      maxAvg: sec.max_average ? String(sec.max_average) : "",
     });
   };
 
@@ -262,6 +265,7 @@ export function SectionCreation() {
         capacity: parseInt(editForm.capacity),
         adviser_id: editForm.adviser_id ? parseInt(editForm.adviser_id) : null,
         min_average: parseInt(editForm.minAvg),
+        max_average: editForm.maxAvg ? parseFloat(editForm.maxAvg) : null,
       };
       await sectionsApi.update(editTarget.id, payload);
       setEditTarget(null);
@@ -395,7 +399,7 @@ export function SectionCreation() {
                             { label: "Adviser", key: "adviser" },
                             { label: "Capacity", key: "capacity" },
                             { label: "Enrolled", key: "enrolled" },
-                            { label: "Min. Avg", key: "minAvg" },
+                            { label: "Threshold", key: "minAvg" },
                             { label: "Occupancy", key: "occupancy" },
                             { label: "Actions", key: "actions" },
                           ].map(col => (
@@ -429,7 +433,7 @@ export function SectionCreation() {
                               </td>
                               <td className="px-4 py-3.5 text-center font-medium text-gray-700">{sec.capacity}</td>
                               <td className="px-4 py-3.5 text-center font-bold text-blue-700">{sec.current_count}</td>
-                              <td className="px-4 py-3.5 text-center text-xs text-gray-500 font-medium">{sec.min_average}+</td>
+                              <td className="px-4 py-3.5 text-center text-xs text-gray-500 font-medium">{sec.max_average ? `${sec.min_average} – ${sec.max_average}` : `${sec.min_average}+`}</td>
                               <td className="px-4 py-3.5">
                                 <div className="flex items-center justify-center gap-2">
                                   <div className="w-16 bg-gray-100 rounded-full h-1.5">
@@ -472,7 +476,7 @@ export function SectionCreation() {
                                 <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
                                   {sec.name}
                                 </span>
-                                <span className="text-xs text-gray-400 font-medium">{sec.min_average}+ min avg</span>
+                                <span className="text-xs text-gray-400 font-medium">{sec.max_average ? `thresh ${sec.min_average} – ${sec.max_average}` : `${sec.min_average}+ min avg`}</span>
                               </div>
                               <div className="flex items-center gap-2 mt-2">
                                 {sec.adviser_name ? (
@@ -572,6 +576,12 @@ export function SectionCreation() {
                 <input type="number" value={form.minAvg} onChange={e => setForm(p => ({ ...p, minAvg: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
               </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Max. Average <span className="text-gray-300">(optional)</span></label>
+                <input type="number" value={form.maxAvg} onChange={e => setForm(p => ({ ...p, maxAvg: e.target.value }))}
+                  placeholder="e.g. 100"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
+              </div>
               <div className="sm:col-span-2">
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Adviser (optional)</label>
                 <TeacherSearch
@@ -587,7 +597,7 @@ export function SectionCreation() {
               </div>
               </div>
               <div className="bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700">
-                Section: <strong>{form.gradeLevel}-{form.sectionName || "?"}</strong> · Track: <strong>{sectionTypes.find(t => t.name === form.type)?.label || form.type}</strong> · Capacity: <strong>{form.capacity}</strong> · Min. Avg: <strong>{form.minAvg}+</strong>
+                Section: <strong>{form.gradeLevel}-{form.sectionName || "?"}</strong> · Track: <strong>{sectionTypes.find(t => t.name === form.type)?.label || form.type}</strong> · Capacity: <strong>{form.capacity}</strong> · Threshold: <strong>{form.maxAvg ? `${form.minAvg} – ${form.maxAvg}` : `${form.minAvg}+`}</strong>
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
@@ -644,6 +654,12 @@ export function SectionCreation() {
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Min. Average</label>
                   <input type="number" value={editForm.minAvg} onChange={e => setEditForm(p => ({ ...p, minAvg: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Max. Average <span className="text-gray-300">(optional)</span></label>
+                  <input type="number" value={editForm.maxAvg} onChange={e => setEditForm(p => ({ ...p, maxAvg: e.target.value }))}
+                    placeholder="e.g. 100"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
                 </div>
               </div>

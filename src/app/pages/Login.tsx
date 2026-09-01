@@ -20,7 +20,8 @@ import {
   BookOpen,
   FileText,
   Sparkles,
-  Landmark
+  Landmark,
+  X
 } from 'lucide-react';
 import bgImage from '../../assets/202c9b6425aa8d526006a7e3262187c250e06d15.png';
 import logoImage from '../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png';
@@ -134,6 +135,151 @@ const ANIM_STYLE = `
 .hi5-orb-2 { animation: hi5Float 12s ease-in-out infinite reverse; }
 `;
 
+/* ── Legal content (Terms / Privacy / Conditions) ────────────────────── */
+const LEGAL_CONTENT: Record<
+  'terms' | 'privacy' | 'conditions',
+  { title: string; intro: string; sections: { heading: string; body: string }[] }
+> = {
+  terms: {
+    title: 'Terms of Service',
+    intro:
+      'By accessing and using the Hi5 Portal of Don Servillano Platon Memorial National High School (DSPMNHS), you accept these terms in full.',
+    sections: [
+      {
+        heading: '1. Authorized Use',
+        body: 'The Hi5 Portal is intended solely for authorized school personnel of DSPMNHS. Accounts are issued individually and must not be shared. Unauthorized access or use is prohibited and may result in disciplinary and legal action.'
+      },
+      {
+        heading: '2. Account Responsibility',
+        body: 'You are responsible for all activity performed under your account. Keep your password confidential and notify the ICT Coordinator immediately if you suspect unauthorized use.'
+      },
+      {
+        heading: '3. Acceptable Use',
+        body: 'You agree to use the system only for legitimate school operations such as enrollment, records management, grade encoding, and reporting. Attempting to access data outside your assigned role or tampering with records is strictly prohibited.'
+      },
+      {
+        heading: '4. Availability',
+        body: "While the school strives for continuous availability, the system may be temporarily unavailable due to maintenance, backups, or events beyond the school's control."
+      },
+      {
+        heading: '5. Changes to Terms',
+        body: 'DSPMNHS may update these terms from time to time. Continued use of the portal after changes are posted constitutes acceptance of the revised terms.'
+      }
+    ]
+  },
+  privacy: {
+    title: 'Privacy Policy',
+    intro:
+      'The Hi5 Portal processes personal data in compliance with the Data Privacy Act of 2012 (Republic Act No. 10173) and its Implementing Rules and Regulations.',
+    sections: [
+      {
+        heading: '1. Data Collected',
+        body: 'The system collects and processes student personal information (name, LRN, birthdate, sex, address, guardian details, academic records) and employee information (name, email, role, employment details) strictly for educational purposes.'
+      },
+      {
+        heading: '2. Purpose of Processing',
+        body: 'Personal data is processed for enrollment management, academic record-keeping, school form generation (SF1, SF5, SF9, SF10), reporting to the Department of Education, and the academic welfare of learners.'
+      },
+      {
+        heading: '3. Data Security',
+        body: 'The school applies role-based access control, encrypted authentication, audit logging, and regular database backups to protect personal data against unauthorized access, alteration, or disclosure.'
+      },
+      {
+        heading: '4. Data Retention',
+        body: 'Records are retained in accordance with DepEd retention policies. Data no longer necessary for its purpose is disposed of securely following NPC guidelines.'
+      },
+      {
+        heading: '5. Rights of Data Subjects',
+        body: "Under RA 10173, data subjects have the right to access, correct, and request processing restrictions on their personal data. Inquiries may be directed to the school's designated Data Protection Officer."
+      }
+    ]
+  },
+  conditions: {
+    title: 'Conditions of Use',
+    intro:
+      'The following conditions govern day-to-day use of the Hi5 Portal by all school personnel.',
+    sections: [
+      {
+        heading: '1. Role-Based Access',
+        body: "Access to modules and data is limited to what your role (Administrator, Teacher, Registrar, or Principal) requires. You must not attempt to circumvent, probe, or disable the system's access controls."
+      },
+      {
+        heading: '2. Accuracy of Records',
+        body: 'Users encoding grades, enrollment data, or documents must verify their accuracy before submission. Corrections after submission must follow the official grade correction workflow.'
+      },
+      {
+        heading: '3. Confidentiality',
+        body: "Student records viewed within the portal are confidential. Exported files and printed school forms must be handled and stored in accordance with the school's data privacy policy."
+      },
+      {
+        heading: '4. Audit & Monitoring',
+        body: 'All significant actions within the portal are logged for accountability. By using the system you consent to this logging for legitimate school purposes.'
+      },
+      {
+        heading: '5. Termination of Access',
+        body: 'Access may be suspended or revoked upon separation from the school, violation of these conditions, or upon directive of the School Administrator.'
+      }
+    ]
+  }
+};
+
+/** Modal viewer for the legal documents linked from the consent checkbox */
+function LegalModal({
+  kind,
+  onClose
+}: {
+  kind: 'terms' | 'privacy' | 'conditions';
+  onClose: () => void;
+}) {
+  const doc = LEGAL_CONTENT[kind];
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}>
+      <div
+        className="hi5-card bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-bold text-gray-800">{doc.title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-5 py-4 overflow-y-auto space-y-4">
+          <p className="text-xs text-gray-500 leading-relaxed">{doc.intro}</p>
+          {doc.sections.map(s => (
+            <div key={s.heading}>
+              <p className="text-xs font-bold text-gray-700 mb-1">
+                {s.heading}
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed">{s.body}</p>
+            </div>
+          ))}
+          <p className="text-[11px] text-gray-400 border-t border-gray-100 pt-3">
+            Last updated: 2026 · Don Servillano Platon Memorial National High
+            School, Sta. Cruz, Tinambac, Camarines Sur
+          </p>
+        </div>
+        <div className="px-5 py-3.5 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+            style={{
+              background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)'
+            }}>
+            I have read and understood
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Login() {
   const navigate = useNavigate();
   const {
@@ -169,6 +315,11 @@ export function Login() {
     confirm?: string;
   }>({});
   const [countdown, setCountdown] = useState(0);
+  // Terms & Conditions gate — login stays disabled until the user agrees
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [legalModal, setLegalModal] = useState<
+    null | 'terms' | 'privacy' | 'conditions'
+  >(null);
 
   // Auto-focus the username field on load
   useEffect(() => {
@@ -279,6 +430,12 @@ export function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLockedOut) return;
+    if (!agreedToTerms) {
+      setError(
+        'You must agree to the Terms and Conditions before signing in.'
+      );
+      return;
+    }
     if (!validateAll()) return; // inline field errors shown
     setError('');
     setLoading(true);
@@ -295,6 +452,12 @@ export function Login() {
   /** Fill credentials from a demo account and submit immediately */
   const handleDemoLogin = (account: (typeof DEMO_ACCOUNTS)[number]) => {
     if (isLockedOut) return;
+    if (!agreedToTerms) {
+      setError(
+        'You must agree to the Terms and Conditions before signing in.'
+      );
+      return;
+    }
     setError('');
     setLoading(true);
     setUsernameInput(account.username);
@@ -445,8 +608,7 @@ export function Login() {
               'SF1 · SF5 · SF9 · SF10',
               'AI At-Risk Detection',
               'Auto-Sectioning',
-              'Grade Management',
-              'RA 10173 Compliant'
+              'Grade Management'
             ].map(f => (
               <span
                 key={f}
@@ -1026,6 +1188,47 @@ export function Login() {
                 </button>
               </div>
 
+              {/* Terms & Conditions gate */}
+              <div className="flex items-start gap-2.5 rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-3">
+                <input
+                  id="agree-terms"
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={e => {
+                    setAgreedToTerms(e.target.checked);
+                    if (e.target.checked && error.startsWith('You must agree'))
+                      setError('');
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-400 cursor-pointer"
+                />
+                <label
+                  htmlFor="agree-terms"
+                  className="text-xs text-gray-600 leading-relaxed cursor-pointer select-none">
+                  I agree to the{' '}
+                  <button
+                    type="button"
+                    onClick={() => setLegalModal('terms')}
+                    className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">
+                    Terms of Service
+                  </button>
+                  ,{' '}
+                  <button
+                    type="button"
+                    onClick={() => setLegalModal('privacy')}
+                    className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">
+                    Privacy Policy
+                  </button>{' '}
+                  and{' '}
+                  <button
+                    type="button"
+                    onClick={() => setLegalModal('conditions')}
+                    className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">
+                    Conditions
+                  </button>
+                  .
+                </label>
+              </div>
+
               {/* Errors */}
               {error && (
                 <div
@@ -1060,7 +1263,7 @@ export function Login() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading || isLockedOut}
+                disabled={loading || isLockedOut || !agreedToTerms}
                 className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all duration-200 hover:brightness-105 active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2 shadow-lg mt-1"
                 style={{
                   background: isLockedOut
@@ -1118,12 +1321,6 @@ export function Login() {
             {/* Trust footer */}
             <div className="hi5-card hi5-stagger-4 mt-6 pt-5 border-t border-gray-200 flex flex-col gap-1.5">
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <Shield size={11} className="text-emerald-500" />
-                <span>
-                  DepEd compliant · Data Privacy Act of 2012 (RA 10173)
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
                 <Lock size={11} className="text-emerald-500" />
                 <span>For authorized school personnel only</span>
               </div>
@@ -1134,6 +1331,12 @@ export function Login() {
           </div>
         </div>
       </div>
+      {legalModal && (
+        <LegalModal
+          kind={legalModal}
+          onClose={() => setLegalModal(null)}
+        />
+      )}
     </>
   );
 }

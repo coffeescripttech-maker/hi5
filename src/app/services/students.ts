@@ -14,6 +14,9 @@ export interface StudentRow {
   address: string | null;
   guardian: string | null;
   contact: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  guardian_4ps?: number;
   status: "enrolled" | "pending" | "dropped" | "transferred" | "graduated";
   created_at: string;
   updated_at: string;
@@ -60,6 +63,9 @@ export interface CreateStudentPayload {
   address?: string;
   guardian?: string;
   contact?: string;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  guardian_4ps?: boolean;
 }
 
 export interface UpdateStudentPayload {
@@ -68,6 +74,9 @@ export interface UpdateStudentPayload {
   address?: string;
   guardian?: string;
   contact?: string;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  guardian_4ps?: boolean;
   status?: "enrolled" | "pending" | "dropped" | "transferred" | "graduated";
 }
 

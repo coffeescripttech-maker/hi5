@@ -3,7 +3,7 @@ import {
   Settings, Calendar, Layers, Save,
   AlertTriangle, Info, Lock, Unlock, ChevronDown,
   GraduationCap, Building2, Hash, MapPin, Globe, CalendarDays,
-  UserCheck, FileText
+  UserCheck, FileText, ShieldCheck
 } from "lucide-react";
 import { settingsApi, SectionTypeThreshold } from "../../services/settings";
 import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
@@ -27,6 +27,9 @@ export function SchoolSettings() {
   const [registrarName, setRegistrarName] = useState("");
   const [loading, setLoading] = useState(true);
   const [sectionTypes, setSectionTypes] = useState<SectionType[]>([]);
+  // Grade security settings
+  const [gradeDeadlineEnabled, setGradeDeadlineEnabled] = useState(false);
+  const [gradeEditDeadline, setGradeEditDeadline] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -43,6 +46,9 @@ export function SchoolSettings() {
       setPrincipalName(settings.principal_name || "");
       setRegistrarName(settings.registrar_name || "");
       setThresholds(thresholdsData);
+      // Grade security settings
+      setGradeDeadlineEnabled(settings.grade_deadline_enabled === 1);
+      setGradeEditDeadline(settings.grade_edit_deadline ? settings.grade_edit_deadline.split("T")[0] : "");
       const current = sys.find(sy => sy.is_current === 1);
       if (current) {
         setSchoolYear(current.sy_label);
@@ -56,15 +62,27 @@ export function SchoolSettings() {
   }, []);
 
   const handleSaveSchoolInfo = async () => {
+    // Required-field validation: prevent save when required fields are empty
+    const requiredFields: { value: string; label: string }[] = [
+      { value: schoolName.trim(), label: "School Name" },
+      { value: schoolId.trim(), label: "School ID" },
+      { value: region.trim(), label: "Region" },
+      { value: division.trim(), label: "Division" },
+    ];
+    const missing = requiredFields.filter(f => !f.value).map(f => f.label);
+    if (missing.length > 0) {
+      showToast("error", `Required fields cannot be empty: ${missing.join(", ")}`);
+      return;
+    }
     setSaving(true);
     try {
       const updated = await settingsApi.update({
-        school_name: schoolName,
-        school_id: schoolId,
-        region,
-        division,
-        principal_name: principalName,
-        registrar_name: registrarName,
+        school_name: schoolName.trim(),
+        school_id: schoolId.trim(),
+        region: region.trim(),
+        division: division.trim(),
+        principal_name: principalName.trim(),
+        registrar_name: registrarName.trim(),
       });
       // Update local state from the server response so it reflects the persisted values
       setSchoolName(updated.school_name);
@@ -84,6 +102,10 @@ export function SchoolSettings() {
   };
 
   const handleSaveSchoolYear = async () => {
+    if (!schoolYear.trim()) {
+      showToast("error", "School year label cannot be empty.");
+      return;
+    }
     setSaving(true);
     try {
       const sys = await schoolYearsApi.list();
@@ -106,6 +128,27 @@ export function SchoolSettings() {
       showToast("success", "School year & enrollment settings saved successfully.");
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveGradeDeadline = async () => {
+    if (gradeDeadlineEnabled && !gradeEditDeadline) {
+      showToast("error", "Please select a deadline date before saving.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await settingsApi.update({
+        grade_deadline_enabled: gradeDeadlineEnabled,
+        grade_edit_deadline: gradeDeadlineEnabled && gradeEditDeadline ? gradeEditDeadline : null,
+      });
+      setGradeDeadlineEnabled(updated.grade_deadline_enabled === 1);
+      setGradeEditDeadline(updated.grade_edit_deadline ? updated.grade_edit_deadline.split("T")[0] : "");
+      showToast("success", "Grade encoding deadline saved successfully.");
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Failed to save grade deadline");
     } finally {
       setSaving(false);
     }
@@ -238,6 +281,61 @@ export function SchoolSettings() {
         {sectionFooter(handleSaveSchoolInfo, "Save School Info")}
       </div>
 
+      {/* Data Privacy — RA 10173 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <ShieldCheck size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Data Privacy — RA 10173</h3>
+            <p className="text-xs text-gray-400">Data Privacy Act of 2012 compliance information</p>
+          </div>
+        </div>
+        <div className="p-5 sm:p-6 space-y-4 text-sm text-gray-600">
+          <div>
+            <p className="font-semibold text-gray-700 text-xs uppercase tracking-wider mb-1">Compliance Statement</p>
+            <p className="text-xs leading-relaxed text-gray-500">
+              The Hi5 Portal processes personal data in compliance with the Data Privacy Act of 2012
+              (Republic Act No. 10173) and its Implementing Rules and Regulations. Access is governed
+              by a least-privilege, role-based access control (RBAC) model configured under
+              Role Access Control.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 text-xs uppercase tracking-wider mb-1">Data Collected</p>
+            <p className="text-xs leading-relaxed text-gray-500">
+              Student personal information (name, LRN, birthdate, sex, address, guardian details,
+              academic records) and employee information (name, email, role, employment details),
+              strictly for enrollment management, academic record-keeping, school form generation
+              (SF1, SF5, SF9, SF10), and DepEd reporting.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 text-xs uppercase tracking-wider mb-1">Security Measures</p>
+            <p className="text-xs leading-relaxed text-gray-500">
+              Role-based access control, encrypted authentication (bcrypt + JWT), full audit logging
+              of significant actions, upload restrictions, and scheduled encrypted database backups.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 text-xs uppercase tracking-wider mb-1">Rights of Data Subjects</p>
+            <p className="text-xs leading-relaxed text-gray-500">
+              Data subjects may access, correct, and request processing restrictions on their personal
+              data under RA 10173. Inquiries should be directed to the school's designated Data
+              Protection Officer.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
+            <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              All users must agree to the Terms of Service, Privacy Policy, and Conditions of Use —
+              presented at login — before accessing any personal data in this system.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* School Year Configuration */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
@@ -256,10 +354,11 @@ export function SchoolSettings() {
               <div className="relative">
                 <CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="text" value={schoolYear} onChange={e => setSchoolYear(e.target.value)}
-                  className={`${inputClass} w-44`} placeholder="e.g. 2025-2026" />
+                  className={`${inputClass} w-44`} placeholder="e.g. 2025-2026 or 2026" />
               </div>
               <span className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-200">Currently Active</span>
             </div>
+            <p className="text-[11px] text-gray-400 mt-1.5 ml-1">Accepts a school-year range ("2025-2026") or a single calendar year ("2026").</p>
           </div>
 
           <div className="border-t border-gray-100 pt-5">
@@ -310,6 +409,60 @@ export function SchoolSettings() {
           </div>
         </div>
         {sectionFooter(handleSaveSchoolYear, "Save Year & Enrollment Settings")}
+      </div>
+
+      {/* Grade Encoding Deadline */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+              <Lock size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 text-sm">Grade Encoding Deadline</h3>
+              <p className="text-xs text-gray-400">Lock grades after the deadline; Registrar can unlock</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-6 space-y-4">
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl p-3">
+            <Info size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-amber-700">
+              Teachers can only encode/edit grades until the deadline. After the deadline, grades become
+              read-only for teachers. The Registrar can unlock grades for corrections if needed.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setGradeDeadlineEnabled(!gradeDeadlineEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${gradeDeadlineEnabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${gradeDeadlineEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+            <span className="text-sm text-gray-700">Enable grade encoding deadline</span>
+          </div>
+
+          {gradeDeadlineEnabled && (
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">
+                Deadline Date
+              </label>
+              <div className="relative max-w-xs">
+                <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="date"
+                  value={gradeEditDeadline}
+                  onChange={e => setGradeEditDeadline(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        {sectionFooter(handleSaveGradeDeadline, "Save Grade Deadline")}
       </div>
 
       {/* Auto-Sectioning Grade Thresholds */}

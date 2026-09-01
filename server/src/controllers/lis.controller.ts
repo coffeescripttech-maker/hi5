@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
+import * as XLSX from "xlsx";
 
 /**
  * Escape a value for CSV output.
@@ -69,8 +70,49 @@ function buildFilters(req: Request, syId: number): { clause: string; params: any
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. Learner Profile CSV
+// Shared dataset builders — one source of truth for CSV, Excel, JSON & PDF.
+// Each returns { title, sy_label, columns, rows } with RAW (un-escaped) values;
+// the CSV exporter applies esc() at serialization time (identical output).
 // ─────────────────────────────────────────────────────────────────────────────
+
+export interface LisDataset {
+  title: string;
+  sy_label: string;
+  columns: string[];
+  rows: (string | number)[][];
+}
+
+/** Learner Profile — personal data + enrollment info. */
+async function fetchLearnerProfile(req: Request): Promise<LisDataset | null> {
+  const sy = await resolveSY(req);
+  if (!sy.id) return null;
+
+  const { clause, params } = buildFilters(req, sy.id);
+
+  const students = await query<RowDataPacket[]>(
+    `SELECT s.lrn, s.name, s.birthdate, s.sex, s.address,
+            s.guardian, s.contact, s.grade_level,
+            sec.name AS section_name,
+            e.program, e.status AS enrollment_status
+     FROM enrollments e
+     JOIN students s ON e.student_id = s.id
+     LEFT JOIN sections sec ON e.section_id = sec.id
+     WHERE e.status IN ('enrolled','pending')${clause}
+     ORDER BY s.grade_level, sec.name, s.name`,
+    params
+  );
+
+  return {
+    title: "Learner Profile",
+    sy_label: sy.label,
+    columns: ["LRN", "Learner Name", "Birthdate", "Sex", "Address", "Guardian", "Contact", "Grade Level", "Section", "Program", "Status"],
+    rows: students.map((s: any) => [
+      s.lrn ?? "", s.name ?? "", formatDate(s.birthdate), s.sex ?? "",
+      s.address ?? "", s.guardian ?? "", s.contact ?? "", s.grade_level ?? "",
+      s.section_name ?? "", s.program ?? "", s.enrollment_status ?? "",
+    ]),
+  };
+}
 
 /**
  * GET /api/lis/learner-profile
@@ -80,41 +122,105 @@ function buildFilters(req: Request, syId: number): { clause: string; params: any
  */
 export async function downloadLearnerProfile(req: Request, res: Response): Promise<void> {
   try {
-    const sy = await resolveSY(req);
-    if (!sy.id) { res.status(400).json({ error: "No school year found." }); return; }
+    const ds = await fetchLearnerProfile(req);
+    if (!ds) { res.status(400).json({ error: "No school year found." }); return; }
 
-    const { clause, params } = buildFilters(req, sy.id);
-
-    const students = await query<RowDataPacket[]>(
-      `SELECT s.lrn, s.name, s.birthdate, s.sex, s.address,
-              s.guardian, s.contact, s.grade_level,
-              sec.name AS section_name,
-              e.program, e.status AS enrollment_status
-       FROM enrollments e
-       JOIN students s ON e.student_id = s.id
-       LEFT JOIN sections sec ON e.section_id = sec.id
-       WHERE e.status IN ('enrolled','pending')${clause}
-       ORDER BY s.grade_level, sec.name, s.name`,
-      params
-    );
-
-    const header = "LRN,Learner Name,Birthdate,Sex,Address,Guardian,Contact,Grade Level,Section,Program,Status";
-    const rows = students.map(s =>
-      [esc(s.lrn), esc(s.name), esc(formatDate(s.birthdate)), esc(s.sex),
-       esc(s.address), esc(s.guardian), esc(s.contact), esc(s.grade_level),
-       esc(s.section_name), esc(s.program), esc(s.enrollment_status)].join(",")
-    );
-
-    sendCSV(res, `lis-learner-profile-${sy.label}.csv`, [header, ...rows].join("\n"));
+    sendCSV(res, `lis-learner-profile-${ds.sy_label}.csv`, datasetToCsv(ds));
   } catch (error) {
     console.error("LIS learner profile error:", error);
     res.status(500).json({ error: "Failed to generate learner profile CSV." });
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. Grade Summary CSV
-// ─────────────────────────────────────────────────────────────────────────────
+/** Grade Summary — pivoted per-subject quarterly grades + general average. */
+async function fetchGradesExport(req: Request): Promise<LisDataset | null> {
+  const sy = await resolveSY(req);
+  if (!sy.id) return null;
+
+  const { clause, params } = buildFilters(req, sy.id);
+
+  // Get all subjects for the queried grade levels
+  const subjects = await query<RowDataPacket[]>(
+    `SELECT DISTINCT sub.id, sub.name
+     FROM subjects sub
+     WHERE sub.is_active = 1
+     ORDER BY sub.name`
+  );
+
+  // Get students with their grades
+  const gradeData = await query<RowDataPacket[]>(
+    `SELECT s.id, s.lrn, s.name, s.grade_level,
+            sec.name AS section_name,
+            g.subject_id, g.quarter, g.grade
+     FROM enrollments e
+     JOIN students s ON e.student_id = s.id
+     LEFT JOIN sections sec ON e.section_id = sec.id
+     LEFT JOIN grades g ON g.student_id = s.id AND g.school_year_id = e.school_year_id
+     WHERE e.status IN ('enrolled','pending')${clause}
+     ORDER BY s.name, g.subject_id, g.quarter`,
+    params
+  );
+
+  // Pivot data: student_id → { subject_id → { quarter → grade } }
+  const subjectMap = new Map<number, { id: number; name: string }>();
+  subjects.forEach((sub: any) => subjectMap.set(sub.id, { id: sub.id, name: sub.name }));
+
+  const studentGrades = new Map<number, Map<number, any>>();
+  const studentInfo = new Map<number, any>();
+
+  for (const row of gradeData as any[]) {
+    if (!studentInfo.has(row.id)) {
+      studentInfo.set(row.id, {
+        lrn: row.lrn,
+        name: row.name,
+        grade_level: row.grade_level,
+        section_name: row.section_name,
+      });
+    }
+    if (row.subject_id && row.grade !== null) {
+      if (!studentGrades.has(row.id)) studentGrades.set(row.id, new Map());
+      const subMap = studentGrades.get(row.id)!;
+      if (!subMap.has(row.subject_id)) subMap.set(row.subject_id, {});
+      subMap.get(row.subject_id)![row.quarter] = row.grade;
+    }
+  }
+
+  const orderedSubjects: { id: number; name: string }[] = [];
+  const columns = ["LRN", "Learner Name", "Grade Level", "Section"];
+  subjectMap.forEach((sub) => {
+    orderedSubjects.push(sub);
+    columns.push(`${sub.name}_Q1`, `${sub.name}_Q2`, `${sub.name}_Q3`, `${sub.name}_Q4`);
+  });
+  columns.push("General Average", "Promotion Status");
+
+  const rows: (string | number)[][] = [];
+  for (const [studentId, info] of studentInfo) {
+    const grades = studentGrades.get(studentId) || new Map();
+    const allGrades: number[] = [];
+    const subjectGrades: (string | number)[] = [];
+
+    orderedSubjects.forEach((sub) => {
+      const qGrades = grades.get(sub.id);
+      for (let q = 1; q <= 4; q++) {
+        const g = qGrades?.[q];
+        subjectGrades.push(g !== undefined ? String(g) : "");
+        if (g !== undefined && g !== null) allGrades.push(Number(g));
+      }
+    });
+
+    const ga = allGrades.length > 0
+      ? (allGrades.reduce((a, b) => a + b, 0) / allGrades.length).toFixed(2)
+      : "";
+    const promoted = ga ? (parseFloat(ga) >= 75 ? "PROMOTED" : "RETAINED") : "";
+
+    rows.push([
+      info.lrn ?? "", info.name ?? "", info.grade_level ?? "", info.section_name ?? "",
+      ...subjectGrades, ga, promoted,
+    ]);
+  }
+
+  return { title: "Grade Summary", sy_label: sy.label, columns, rows };
+}
 
 /**
  * GET /api/lis/grades
@@ -125,107 +231,52 @@ export async function downloadLearnerProfile(req: Request, res: Response): Promi
  */
 export async function downloadGrades(req: Request, res: Response): Promise<void> {
   try {
-    const sy = await resolveSY(req);
-    if (!sy.id) { res.status(400).json({ error: "No school year found." }); return; }
+    const ds = await fetchGradesExport(req);
+    if (!ds) { res.status(400).json({ error: "No school year found." }); return; }
 
-    const { clause, params } = buildFilters(req, sy.id);
-
-    // Get all subjects for the queried grade levels
-    const subjects = await query<RowDataPacket[]>(
-      `SELECT DISTINCT sub.id, sub.name
-       FROM subjects sub
-       WHERE sub.is_active = 1
-       ORDER BY sub.name`
-    );
-
-    // Get students with their grades
-    const gradeData = await query<RowDataPacket[]>(
-      `SELECT s.id, s.lrn, s.name, s.grade_level,
-              sec.name AS section_name,
-              g.subject_id, g.quarter, g.grade
-       FROM enrollments e
-       JOIN students s ON e.student_id = s.id
-       LEFT JOIN sections sec ON e.section_id = sec.id
-       LEFT JOIN grades g ON g.student_id = s.id AND g.school_year_id = e.school_year_id
-       WHERE e.status IN ('enrolled','pending')${clause}
-       ORDER BY s.name, g.subject_id, g.quarter`,
-      params
-    );
-
-    // Compute general averages and promotion status per student
-    const subjectMap = new Map<number, { id: number; name: string }>();
-    subjects.forEach((sub: any) => subjectMap.set(sub.id, { id: sub.id, name: sub.name }));
-
-    // Pivot data: student_id → { subject_id → { quarter → grade } }
-    const studentGrades = new Map<number, any>();
-    const studentInfo = new Map<number, any>();
-
-    for (const row of gradeData as any[]) {
-      if (!studentInfo.has(row.id)) {
-        studentInfo.set(row.id, {
-          lrn: row.lrn,
-          name: row.name,
-          grade_level: row.grade_level,
-          section_name: row.section_name,
-        });
-      }
-      if (row.subject_id && row.grade !== null) {
-        if (!studentGrades.has(row.id)) studentGrades.set(row.id, new Map());
-        const subMap = studentGrades.get(row.id);
-        if (!subMap.has(row.subject_id)) subMap.set(row.subject_id, {});
-        subMap.get(row.subject_id)[row.quarter] = row.grade;
-      }
-    }
-
-    // Build header
-    const subjHeaders: string[] = [];
-    const subjNames: string[] = [];
-    subjectMap.forEach((sub) => {
-      subjNames.push(sub.name);
-      subjHeaders.push(`${esc(sub.name)}_Q1`, `${esc(sub.name)}_Q2`, `${esc(sub.name)}_Q3`, `${esc(sub.name)}_Q4`);
-    });
-
-    const header = ["LRN", "Learner Name", "Grade Level", "Section", ...subjHeaders, "General Average", "Promotion Status"];
-
-    // Build rows
-    const rows: string[] = [];
-    for (const [studentId, info] of studentInfo) {
-      const grades = studentGrades.get(studentId) || new Map();
-      const allGrades: number[] = [];
-      const subjectGrades: string[] = [];
-
-      subjNames.forEach((_, idx) => {
-        const sub = subjects[idx];
-        if (!sub) return;
-        const qGrades = grades.get(sub.id);
-        for (let q = 1; q <= 4; q++) {
-          const g = qGrades?.[q];
-          subjectGrades.push(g !== undefined ? String(g) : "");
-          if (g !== undefined && g !== null) allGrades.push(Number(g));
-        }
-      });
-
-      const ga = allGrades.length > 0
-        ? (allGrades.reduce((a, b) => a + b, 0) / allGrades.length).toFixed(2)
-        : "";
-      const promoted = ga ? (parseFloat(ga) >= 75 ? "PROMOTED" : "RETAINED") : "";
-
-      rows.push([
-        esc(info.lrn), esc(info.name), esc(info.grade_level), esc(info.section_name),
-        ...subjectGrades, ga, promoted,
-      ].join(","));
-    }
-
-    sendCSV(res, `lis-grades-${sy.label}.csv`, [header.join(","), ...rows].join("\n"));
+    sendCSV(res, `lis-grades-${ds.sy_label}.csv`, datasetToCsv(ds));
   } catch (error) {
     console.error("LIS grades error:", error);
     res.status(500).json({ error: "Failed to generate grades CSV." });
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. Enrolled List CSV
-// ─────────────────────────────────────────────────────────────────────────────
+/** Enrolled List — program/track info + classifications. */
+async function fetchEnrolledList(req: Request): Promise<LisDataset | null> {
+  const sy = await resolveSY(req);
+  if (!sy.id) return null;
+
+  const { clause, params } = buildFilters(req, sy.id);
+
+  const students = await query<RowDataPacket[]>(
+    `SELECT s.lrn, s.name, s.grade_level, s.sex, s.guardian,
+            sec.name AS section_name,
+            e.program, e.enrollment_date, e.status AS enrollment_status,
+            st.code AS track_code,
+            GROUP_CONCAT(DISTINCT sc.classification SEPARATOR '|') AS classifications
+     FROM enrollments e
+     JOIN students s ON e.student_id = s.id
+     LEFT JOIN sections sec ON e.section_id = sec.id
+     LEFT JOIN strand_tracks st ON e.strand_track_id = st.id
+     LEFT JOIN student_classifications sc ON sc.student_id = s.id AND sc.school_year_id = e.school_year_id
+     WHERE e.status IN ('enrolled','pending')${clause}
+     GROUP BY s.id, s.lrn, s.name, s.grade_level, s.sex, s.guardian,
+              sec.name, e.program, e.enrollment_date, e.status, st.code
+     ORDER BY s.grade_level, sec.name, s.name`,
+    params
+  );
+
+  return {
+    title: "Enrolled List",
+    sy_label: sy.label,
+    columns: ["LRN", "Learner Name", "Grade Level", "Sex", "Section", "Program", "Track", "Guardian", "Classifications", "Enrollment Date", "Status"],
+    rows: students.map((s: any) => [
+      s.lrn ?? "", s.name ?? "", s.grade_level ?? "", s.sex ?? "",
+      s.section_name ?? "", s.program ?? "", s.track_code ?? "",
+      s.guardian ?? "", s.classifications ?? "", formatDate(s.enrollment_date), s.enrollment_status ?? "",
+    ]),
+  };
+}
 
 /**
  * GET /api/lis/enrolled-list
@@ -235,41 +286,138 @@ export async function downloadGrades(req: Request, res: Response): Promise<void>
  */
 export async function downloadEnrolledList(req: Request, res: Response): Promise<void> {
   try {
-    const sy = await resolveSY(req);
-    if (!sy.id) { res.status(400).json({ error: "No school year found." }); return; }
+    const ds = await fetchEnrolledList(req);
+    if (!ds) { res.status(400).json({ error: "No school year found." }); return; }
 
-    const { clause, params } = buildFilters(req, sy.id);
-
-    const students = await query<RowDataPacket[]>(
-      `SELECT s.lrn, s.name, s.grade_level, s.sex, s.guardian,
-              sec.name AS section_name,
-              e.program, e.enrollment_date, e.status AS enrollment_status,
-              st.code AS track_code,
-              GROUP_CONCAT(DISTINCT sc.classification SEPARATOR '|') AS classifications
-       FROM enrollments e
-       JOIN students s ON e.student_id = s.id
-       LEFT JOIN sections sec ON e.section_id = sec.id
-       LEFT JOIN strand_tracks st ON e.strand_track_id = st.id
-       LEFT JOIN student_classifications sc ON sc.student_id = s.id AND sc.school_year_id = e.school_year_id
-       WHERE e.status IN ('enrolled','pending')${clause}
-       GROUP BY s.id, s.lrn, s.name, s.grade_level, s.sex, s.guardian,
-                sec.name, e.program, e.enrollment_date, e.status, st.code
-       ORDER BY s.grade_level, sec.name, s.name`,
-      params
-    );
-
-    const header = "LRN,Learner Name,Grade Level,Sex,Section,Program,Track,Guardian,Classifications,Enrollment Date,Status";
-    const rows = students.map(s =>
-      [esc(s.lrn), esc(s.name), esc(s.grade_level), esc(s.sex),
-       esc(s.section_name), esc(s.program), esc(s.track_code),
-       esc(s.guardian), esc(s.classifications), esc(formatDate(s.enrollment_date)),
-       esc(s.enrollment_status)].join(",")
-    );
-
-    sendCSV(res, `lis-enrolled-list-${sy.label}.csv`, [header, ...rows].join("\n"));
+    sendCSV(res, `lis-enrolled-list-${ds.sy_label}.csv`, datasetToCsv(ds));
   } catch (error) {
     console.error("LIS enrolled list error:", error);
     res.status(500).json({ error: "Failed to generate enrolled list CSV." });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Serialization helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Serialize a dataset to CSV (esc applied here, output identical to legacy). */
+function datasetToCsv(ds: LisDataset): string {
+  const lines = [ds.columns.map(esc).join(",")];
+  for (const r of ds.rows) lines.push(r.map(esc).join(","));
+  return lines.join("\n");
+}
+
+/**
+ * Send a dataset as a real Excel (.xlsx) workbook:
+ *  - merged title + school-year banner rows
+ *  - auto-sized columns (fixes truncated columns & LRN scientific notation —
+ *    all values are written as text/typed cells, not dumped CSV)
+ *  - autofilter on the header row
+ */
+function sendXlsx(res: Response, filename: string, ds: LisDataset): void {
+  const aoa: (string | number)[][] = [
+    [ds.title],
+    [`Department of Education · School Year ${ds.sy_label}`],
+    [],
+    ds.columns,
+    ...ds.rows,
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Content-based column widths, clamped for readability.
+  ws["!cols"] = ds.columns.map((_, i) => {
+    let max = String(ds.columns[i]).length;
+    for (const r of ds.rows) {
+      const v = r[i];
+      if (v !== null && v !== undefined && String(v).length > max) max = String(v).length;
+    }
+    return { wch: Math.min(Math.max(max + 2, 10), 45) };
+  });
+
+  const lastCol = XLSX.utils.encode_col(ds.columns.length - 1);
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: ds.columns.length - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: ds.columns.length - 1 } },
+  ];
+  // Header is 1-based row 4 (title, subtitle, spacer, header).
+  if (ds.rows.length > 0) {
+    ws["!autofilter"] = { ref: `A4:${lastCol}${4 + ds.rows.length}` };
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "LIS Export");
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(buf);
+}
+
+/** Shared handler body for the three .xlsx endpoints. */
+async function handleXlsx(
+  req: Request,
+  res: Response,
+  fetcher: (r: Request) => Promise<LisDataset | null>,
+  baseName: string,
+  errorLabel: string
+): Promise<void> {
+  try {
+    const ds = await fetcher(req);
+    if (!ds) { res.status(400).json({ error: "No school year found." }); return; }
+    sendXlsx(res, `${baseName}-${ds.sy_label}.xlsx`, ds);
+  } catch (error) {
+    console.error(`${errorLabel} XLSX error:`, error);
+    res.status(500).json({ error: `Failed to generate ${errorLabel} Excel file.` });
+  }
+}
+
+/**
+ * GET /api/lis/learner-profile.xlsx — official Excel workbook (Registrar).
+ */
+export async function downloadLearnerProfileXlsx(req: Request, res: Response): Promise<void> {
+  await handleXlsx(req, res, fetchLearnerProfile, "lis-learner-profile", "learner profile");
+}
+
+/**
+ * GET /api/lis/grades.xlsx — official Excel workbook (Registrar).
+ */
+export async function downloadGradesXlsx(req: Request, res: Response): Promise<void> {
+  await handleXlsx(req, res, fetchGradesExport, "lis-grades", "grades");
+}
+
+/**
+ * GET /api/lis/enrolled-list.xlsx — official Excel workbook (Registrar).
+ */
+export async function downloadEnrolledListXlsx(req: Request, res: Response): Promise<void> {
+  await handleXlsx(req, res, fetchEnrolledList, "lis-enrolled-list", "enrolled list");
+}
+
+/**
+ * GET /api/lis/data?card=learner-profile|grades|enrolled-list
+ *
+ * Returns the same dataset as JSON so clients can compose high-quality
+ * official PDF documents (headers, school info, borders, spacing) and print
+ * them through the existing /api/pdf/render pipeline.
+ */
+export async function lisData(req: Request, res: Response): Promise<void> {
+  try {
+    const card = String(req.query.card || "");
+    let ds: LisDataset | null = null;
+    if (card === "learner-profile") ds = await fetchLearnerProfile(req);
+    else if (card === "grades") ds = await fetchGradesExport(req);
+    else if (card === "enrolled-list") ds = await fetchEnrolledList(req);
+    else {
+      res.status(400).json({ error: "Unknown export type. Use card=learner-profile|grades|enrolled-list." });
+      return;
+    }
+    if (!ds) { res.status(400).json({ error: "No school year found." }); return; }
+    res.json(ds);
+  } catch (error) {
+    console.error("LIS data error:", error);
+    res.status(500).json({ error: "Failed to fetch export data." });
   }
 }
 

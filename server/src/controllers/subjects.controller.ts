@@ -15,6 +15,44 @@ interface SubjectRow extends RowDataPacket {
 }
 
 /**
+ * GET /api/subjects/me/assigned — Get subjects assigned to the logged-in teacher
+ * (from teacher_subject_assignments for the current school year).
+ * Teachers only: returns subject IDs to enforce subject-level grade encoding scope.
+ */
+export async function getAssignedSubjects(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    // Get current school year
+    const currentSY = await query<RowDataPacket[]>(
+      "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+    );
+    const schoolYearId = currentSY.length > 0 ? currentSY[0].id : null;
+
+    let sql = `
+      SELECT DISTINCT s.*, tsa.created_at AS assigned_at
+      FROM subjects s
+      JOIN teacher_subject_assignments tsa ON tsa.subject_id = s.id
+      WHERE tsa.teacher_id = ?
+    `;
+    const params: any[] = [userId];
+
+    if (schoolYearId) {
+      sql += " AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)";
+      params.push(schoolYearId);
+    }
+
+    sql += " ORDER BY s.grade_level ASC, s.name ASC";
+
+    const subjects = await query<SubjectRow[]>(sql, params);
+    res.json(subjects);
+  } catch (error) {
+    console.error("Get assigned subjects error:", error);
+    res.status(500).json({ error: "Failed to fetch assigned subjects." });
+  }
+}
+
+/**
  * GET /api/subjects — List subjects with filters
  * Query: ?grade_level=7&subject_type=core&strand_track_id=1
  *
@@ -272,5 +310,159 @@ export async function populateSubjects(req: Request, res: Response): Promise<voi
   } catch (error) {
     console.error("Populate subjects error:", error);
     res.status(500).json({ error: "Failed to populate subjects." });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Teacher–Subject Assignments (Admin UI for grade encoding scope)
+   Backed by teacher_subject_assignments for the CURRENT school year.
+   ═══════════════════════════════════════════════════════════════════ */
+
+interface TeacherAssignmentRow extends RowDataPacket {
+  subject_id: number;
+  teacher_id: number;
+  teacher_name: string;
+  employee_id: string | null;
+}
+
+/** Resolve the current school year id (or null when none is active). */
+async function getCurrentSchoolYearId(): Promise<number | null> {
+  const rows = await query<RowDataPacket[]>(
+    "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+  );
+  return rows.length > 0 ? (rows[0].id as number) : null;
+}
+
+/**
+ * GET /api/subjects/teachers/assignments — All teacher-subject assignments
+ * for the current school year, used by the Admin Subject Management page.
+ */
+export async function listTeacherAssignments(_req: Request, res: Response): Promise<void> {
+  try {
+    const schoolYearId = await getCurrentSchoolYearId();
+    if (!schoolYearId) {
+      res.json([]);
+      return;
+    }
+    const rows = await query<TeacherAssignmentRow[]>(
+      `SELECT tsa.subject_id, tsa.teacher_id, u.name AS teacher_name, u.employee_id
+       FROM teacher_subject_assignments tsa
+       JOIN users u ON u.id = tsa.teacher_id
+       WHERE tsa.school_year_id = ?
+       ORDER BY u.name ASC`,
+      [schoolYearId]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error("List teacher assignments error:", error);
+    res.status(500).json({ error: "Failed to fetch teacher assignments." });
+  }
+}
+
+/**
+ * POST /api/subjects/:id/teachers — Assign a teacher to a subject
+ * for the current school year. Body: { teacher_id: number }
+ */
+export async function assignTeacherToSubject(req: Request, res: Response): Promise<void> {
+  try {
+    const subjectId = parseInt(String(req.params.id));
+    const teacherId = parseInt(String(req.body?.teacher_id ?? ""));
+    if (!Number.isFinite(subjectId) || !Number.isFinite(teacherId)) {
+      res.status(400).json({ error: "Valid subject_id and teacher_id are required." });
+      return;
+    }
+
+    // Validate subject exists
+    const subjects = await query<RowDataPacket[]>("SELECT id, name FROM subjects WHERE id = ?", [subjectId]);
+    if (subjects.length === 0) {
+      res.status(404).json({ error: "Subject not found." });
+      return;
+    }
+
+    // Validate the user is an active teacher
+    const teachers = await query<RowDataPacket[]>(
+      "SELECT id, name FROM users WHERE id = ? AND role = 'teacher'",
+      [teacherId]
+    );
+    if (teachers.length === 0) {
+      res.status(400).json({ error: "Selected user is not a teacher." });
+      return;
+    }
+
+    const schoolYearId = await getCurrentSchoolYearId();
+    if (!schoolYearId) {
+      res.status(400).json({ error: "No active school year. Set a current school year first." });
+      return;
+    }
+
+    // Guard against duplicates (unique key also protects, but check for a clean 409)
+    const existing = await query<RowDataPacket[]>(
+      "SELECT id FROM teacher_subject_assignments WHERE teacher_id = ? AND subject_id = ? AND school_year_id = ?",
+      [teacherId, subjectId, schoolYearId]
+    );
+    if (existing.length > 0) {
+      res.status(409).json({ error: "This teacher is already assigned to this subject." });
+      return;
+    }
+
+    await query<ResultSetHeader>(
+      "INSERT INTO teacher_subject_assignments (teacher_id, subject_id, school_year_id) VALUES (?, ?, ?)",
+      [teacherId, subjectId, schoolYearId]
+    );
+
+    await logActivity(
+      req.user!.userId,
+      `Assigned teacher "${teachers[0].name}" to subject "${subjects[0].name}"`,
+      "teacher_subject_assignments",
+      `${teacherId}-${subjectId}`
+    );
+
+    res.status(201).json({ message: "Teacher assigned successfully." });
+  } catch (error) {
+    console.error("Assign teacher error:", error);
+    res.status(500).json({ error: "Failed to assign teacher." });
+  }
+}
+
+/**
+ * DELETE /api/subjects/:id/teachers/:teacherId — Remove a teacher's
+ * assignment from a subject for the current school year.
+ */
+export async function unassignTeacherFromSubject(req: Request, res: Response): Promise<void> {
+  try {
+    const subjectId = parseInt(String(req.params.id));
+    const teacherId = parseInt(String(req.params.teacherId));
+    if (!Number.isFinite(subjectId) || !Number.isFinite(teacherId)) {
+      res.status(400).json({ error: "Valid subject_id and teacher_id are required." });
+      return;
+    }
+
+    const schoolYearId = await getCurrentSchoolYearId();
+    if (!schoolYearId) {
+      res.status(400).json({ error: "No active school year." });
+      return;
+    }
+
+    const result = await query<ResultSetHeader>(
+      "DELETE FROM teacher_subject_assignments WHERE teacher_id = ? AND subject_id = ? AND school_year_id = ?",
+      [teacherId, subjectId, schoolYearId]
+    );
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: "Assignment not found." });
+      return;
+    }
+
+    await logActivity(
+      req.user!.userId,
+      `Unassigned teacher ID ${teacherId} from subject ID ${subjectId}`,
+      "teacher_subject_assignments",
+      `${teacherId}-${subjectId}`
+    );
+
+    res.json({ message: "Teacher unassigned successfully." });
+  } catch (error) {
+    console.error("Unassign teacher error:", error);
+    res.status(500).json({ error: "Failed to unassign teacher." });
   }
 }

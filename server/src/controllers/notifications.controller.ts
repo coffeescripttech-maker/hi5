@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+import { createNotification as persistNotification } from "../services/notify";
+import { notificationBus, NotificationBusRow } from "../services/notificationBus";
 
 /**
  * GET /api/notifications — List notifications for the current user
@@ -60,16 +62,11 @@ export async function createNotification(req: Request, res: Response): Promise<v
       return;
     }
 
-    const result = await query<ResultSetHeader>(
-      `INSERT INTO notifications (user_id, role, type, title, message)
-       VALUES (?, ?, ?, ?, ?)`,
-      [user_id || null, role || null, notifType, title, message]
-    );
+    const row = await persistNotification({ title, message, type: notifType, user_id: user_id || null, role: role || null });
 
-    await logActivity(req.user!.userId, `Created notification: "${title}"`, "notifications", result.insertId);
+    await logActivity(req.user!.userId, `Created notification: "${title}"`, "notifications", row?.id ?? null);
 
-    const newNotif = await query<RowDataPacket[]>("SELECT * FROM notifications WHERE id = ?", [result.insertId]);
-    res.status(201).json(newNotif[0]);
+    res.status(201).json(row);
   } catch (error) {
     console.error("Create notification error:", error);
     res.status(500).json({ error: "Failed to create notification." });
@@ -131,4 +128,51 @@ export async function markAllAsRead(req: Request, res: Response): Promise<void> 
     console.error("Mark all as read error:", error);
     res.status(500).json({ error: "Failed to mark notifications as read." });
   }
+}
+
+/**
+ * GET /api/notifications/stream — Server-Sent Events endpoint.
+ *
+ * One long-lived, low-cost connection per user. New notifications are pushed
+ * the instant they are created (via notificationBus) so the UI updates with
+ * no polling and no page refresh. A 30s heartbeat keeps the socket alive
+ * through proxies. Auth runs through the standard middleware (Bearer header,
+ * cookie, or ?token= query — EventSource can't set headers, so clients use
+ * ?token=, which authenticate() already supports for download links).
+ */
+export function streamNotifications(req: Request, res: Response): void {
+  const userId = req.user!.userId;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  // SSE handshake comment — some proxies/browsers need an initial byte.
+  res.write(": connected\n\n");
+
+  const send = (event: string, data: unknown) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const onNotification = (n: NotificationBusRow) => {
+    // Visibility mirrors GET /api/notifications: personal rows for the owner,
+    // NULL user_id rows broadcast to everyone.
+    if (n.user_id === null || n.user_id === userId) {
+      send("notification", n);
+    }
+  };
+
+  notificationBus.on("notification", onNotification);
+
+  // Heartbeat (keep-alive) + disconnect cleanup.
+  const heartbeat = setInterval(() => {
+    res.write(": ping\n\n");
+  }, 30000);
+
+  req.on("close", () => {
+    notificationBus.off("notification", onNotification);
+    clearInterval(heartbeat);
+  });
 }

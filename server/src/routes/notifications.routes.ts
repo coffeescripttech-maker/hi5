@@ -6,6 +6,7 @@ import {
   createNotification,
   markAsRead,
   markAllAsRead,
+  streamNotifications,
 } from "../controllers/notifications.controller";
 
 const router = Router();
@@ -13,6 +14,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/", listNotifications);
+router.get("/stream", streamNotifications);
 router.post("/", authorize("admin"), createNotification);
 router.post("/read-all", markAllAsRead);
 router.post("/:id/read", markAsRead);

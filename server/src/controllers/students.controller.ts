@@ -14,6 +14,9 @@ interface StudentRow extends RowDataPacket {
   address: string | null;
   guardian: string | null;
   contact: string | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  guardian_4ps: number;
   status: "enrolled" | "pending" | "dropped" | "transferred" | "graduated";
   created_at: Date;
   updated_at: Date;
@@ -236,7 +239,7 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
  */
 export async function createStudent(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status } = req.body;
+    const { student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps } = req.body;
 
     if (!student_id || !lrn || !name || !grade_level || !sex || !birthdate) {
       res.status(400).json({ error: "Missing required fields: student_id, lrn, name, grade_level, sex, birthdate." });
@@ -259,9 +262,9 @@ export async function createStudent(req: Request, res: Response): Promise<void> 
     }
 
     const result = await query<ResultSetHeader>(
-      `INSERT INTO students (student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [student_id, lrn, name, grade_level, sex, birthdate, address || null, guardian || null, contact || null, status || "pending"]
+      `INSERT INTO students (student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [student_id, lrn, name, grade_level, sex, birthdate, address || null, guardian || null, contact || null, status || "pending", height_cm || null, weight_kg || null, guardian_4ps ? 1 : 0]
     );
 
     await logActivity(req.user!.userId, `Created student "${name}" (${student_id})`, "students", result.insertId);
@@ -280,7 +283,7 @@ export async function createStudent(req: Request, res: Response): Promise<void> 
 export async function updateStudent(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { lrn, name, grade_level, sex, birthdate, address, guardian, contact, status } = req.body;
+    const { lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM students WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -305,6 +308,9 @@ export async function updateStudent(req: Request, res: Response): Promise<void> 
     if (address !== undefined) { fields.push("address = ?"); params.push(address); }
     if (guardian !== undefined) { fields.push("guardian = ?"); params.push(guardian); }
     if (contact !== undefined) { fields.push("contact = ?"); params.push(contact); }
+    if (height_cm !== undefined) { fields.push("height_cm = ?"); params.push(height_cm || null); }
+    if (weight_kg !== undefined) { fields.push("weight_kg = ?"); params.push(weight_kg || null); }
+    if (guardian_4ps !== undefined) { fields.push("guardian_4ps = ?"); params.push(guardian_4ps ? 1 : 0); }
     if (status !== undefined) { fields.push("status = ?"); params.push(status); }
 
     if (fields.length === 0) {
