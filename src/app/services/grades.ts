@@ -41,6 +41,10 @@ export interface CorrectionRequestPayload {
   /** null = all quarters */
   quarter: number | null;
   justification: string;
+  /** Preset from the common-mistake dropdown; "Other" when free text used. */
+  common_mistake?: string | null;
+  /** Free-text reason shown when common_mistake === "Other". */
+  other_mistake?: string | null;
 }
 
 export interface CorrectionRequestRow {
@@ -56,6 +60,8 @@ export interface CorrectionRequestRow {
   requested_by: number;
   requested_by_name: string;
   justification: string;
+  common_mistake: string | null;
+  other_mistake: string | null;
   status: "pending" | "approved" | "rejected";
   reviewed_by: number | null;
   reviewed_by_name: string | null;

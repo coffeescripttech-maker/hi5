@@ -9,6 +9,62 @@ import { RowDataPacket } from "mysql2";
  * SF1 (School Form 1) is the school register showing all enrolled students
  * with their personal details, organized by section/grade.
  */
+/**
+ * Teacher scope: a teacher may build a school form for a student only when
+ * they are the student's section adviser or hold a subject assignment in the
+ * same school year (matches teacher_subject_assignments). Without an explicit
+ * school_year_id the check runs against the student's latest active enrollment.
+ */
+async function isTeacherAllowedForStudent(
+  userId: number,
+  studentId: number,
+  schoolYearId?: string
+): Promise<boolean> {
+  let sql: string;
+  const params: any[] = [userId, studentId];
+
+  if (schoolYearId) {
+    sql = `
+      SELECT 1 AS allowed
+      FROM enrollments e
+      LEFT JOIN sections sec ON e.section_id = sec.id
+      WHERE e.student_id = ?
+        AND e.status IN ('enrolled', 'completed')
+        AND e.school_year_id = ?
+        AND (
+          sec.adviser_id = ?
+          OR EXISTS (
+            SELECT 1 FROM teacher_subject_assignments tsa
+            WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
+          )
+        )
+      LIMIT 1`;
+    params.push(parseInt(schoolYearId));
+    params.push(userId);
+  } else {
+    sql = `
+      SELECT 1 AS allowed
+      FROM enrollments e
+      LEFT JOIN sections sec ON e.section_id = sec.id
+      WHERE e.student_id = ?
+        AND e.status IN ('enrolled', 'completed')
+        AND (
+          sec.adviser_id = ?
+          OR EXISTS (
+            SELECT 1 FROM teacher_subject_assignments tsa
+            WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
+          )
+        )
+      ORDER BY e.school_year_id DESC
+      LIMIT 1`;
+    params.push(userId);
+  }
+
+  const rows = await query<RowDataPacket[]>(sql, params);
+  return rows.length > 0;
+}
+
+
 export async function getSF1(req: Request, res: Response): Promise<void> {
   try {
     const { school_year_id, section_id, grade_level } = req.query;
@@ -41,6 +97,12 @@ export async function getSF1(req: Request, res: Response): Promise<void> {
     if (grade_level) {
       sql += " AND s.grade_level = ?";
       params.push(parseInt(grade_level as string));
+    }
+
+    // Teachers may only see their own advised sections.
+    if (req.user!.role === "teacher") {
+      sql += " AND sec.adviser_id = ?";
+      params.push(req.user!.userId);
     }
 
     sql += " ORDER BY s.grade_level ASC, sec.name ASC, s.name ASC";
@@ -113,6 +175,12 @@ export async function getSF5(req: Request, res: Response): Promise<void> {
       params.push(parseInt(section_id as string));
     }
 
+    // Teachers may only see their own advised sections.
+    if (req.user!.role === "teacher") {
+      sql += " AND sec.adviser_id = ?";
+      params.push(req.user!.userId);
+    }
+
     sql += ` GROUP BY s.id, s.student_id, s.lrn, s.name, s.grade_level, s.sex, sec.name, sec.section_type
              ORDER BY s.grade_level ASC, sec.name ASC, s.name ASC`;
 
@@ -122,7 +190,7 @@ export async function getSF5(req: Request, res: Response): Promise<void> {
     const promoted = students.filter((s: any) => s.promotion_status === "PROMOTED").length;
 
     const settings = await query<RowDataPacket[]>(
-      "SELECT school_name, school_id FROM school_settings WHERE id = 1"
+      "SELECT school_name, school_id, principal_name FROM school_settings WHERE id = 1"
     );
 
     res.json({
@@ -154,6 +222,18 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (req.user!.role === "teacher") {
+      const allowed = await isTeacherAllowedForStudent(
+        req.user!.userId,
+        Number(student_id),
+        school_year_id as string | undefined
+      );
+      if (!allowed) {
+        res.status(403).json({ error: "You can only generate school forms for students assigned to you." });
+        return;
+      }
+    }
+
     const params: any[] = [student_id];
     let syFilter = "";
     if (school_year_id) {
@@ -174,9 +254,11 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
     // subject set for historical report cards (a student was a different
     // grade level in previous years than they are today).
     const enrollments = await query<RowDataPacket[]>(
-      `SELECT e.*, sec.name AS section_name, sec.section_type, sec.grade_level AS grade_level, sy.sy_label
+      `SELECT e.*, sec.name AS section_name, sec.section_type, sec.grade_level AS grade_level, sy.sy_label,
+              adv.name AS adviser_name
        FROM enrollments e
        JOIN sections sec ON e.section_id = sec.id
+       LEFT JOIN users adv ON sec.adviser_id = adv.id
        JOIN school_years sy ON e.school_year_id = sy.id
        WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : ""}
        ORDER BY sy.is_current DESC LIMIT 1`,
@@ -208,7 +290,7 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
       : null;
 
     const settings = await query<RowDataPacket[]>(
-      "SELECT school_name, school_id FROM school_settings WHERE id = 1"
+      "SELECT school_name, school_id, principal_name FROM school_settings WHERE id = 1"
     );
 
     res.json({
@@ -238,6 +320,17 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
     if (!student_id) {
       res.status(400).json({ error: "student_id is required." });
       return;
+    }
+
+    if (req.user!.role === "teacher") {
+      const allowed = await isTeacherAllowedForStudent(
+        req.user!.userId,
+        Number(student_id)
+      );
+      if (!allowed) {
+        res.status(403).json({ error: "You can only generate school forms for students assigned to you." });
+        return;
+      }
     }
 
     const student = await query<RowDataPacket[]>(

@@ -297,7 +297,7 @@ function checkboxInput(props: {
 
 /* ── Component ── */
 export function SF10Report() {
-  const { showToast } = useApp();
+  const { showToast, role } = useApp();
   const accent = useRoleAccent();
   const [header, setHeader] = useSchoolHeader();
 
@@ -331,8 +331,8 @@ export function SF10Report() {
 
   useEffect(() => {
     Promise.all([
-      studentsApi.list(),
-      sectionsApi.list(),
+      role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
+      role === "teacher" ? sectionsApi.listMySections() : sectionsApi.list(),
       settingsApi.get()
     ])
       .then(([studs, secs, st]) => {

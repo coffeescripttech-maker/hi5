@@ -187,8 +187,7 @@ export async function listGraduates(req: Request, res: Response): Promise<void> 
  */
 export async function getStudentById(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const students = await query<StudentRow[]>(
       `SELECT * FROM students WHERE id = ?`,
       [id]
@@ -282,7 +281,7 @@ export async function createStudent(req: Request, res: Response): Promise<void> 
  */
 export async function updateStudent(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM students WHERE id = ?", [id]);
@@ -336,7 +335,7 @@ export async function updateStudent(req: Request, res: Response): Promise<void> 
  */
 export async function updateClassifications(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { classifications, school_year_id } = req.body;
 
     if (!classifications || !Array.isArray(classifications) || classifications.length === 0) {
@@ -400,8 +399,7 @@ export async function updateClassifications(req: Request, res: Response): Promis
  */
 export async function deleteStudent(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>("SELECT id, name, student_id FROM students WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "Student not found." });

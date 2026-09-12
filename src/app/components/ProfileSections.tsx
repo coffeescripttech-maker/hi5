@@ -113,22 +113,21 @@ const TONE: Record<Tone, ToneClasses> = {
   },
 };
 
+import { ROLE_LABELS as NAV_ROLE_LABELS } from "../navigation";
+
 const ROLE_LABELS: Record<Role, string> = {
+  ...NAV_ROLE_LABELS,
+};
+
+/** Fallback display name + subtitle when the DB has no name / designation. */
+const ROLE_NAME: Record<Role, string> = {
   admin: "Administrator",
   teacher: "Teacher",
   registrar: "Registrar",
   principal: "Principal",
 };
-
-/** Fallback display name + subtitle when the DB has no name / designation. */
-const ROLE_NAME: Record<Role, string> = {
-  admin: "System Administrator",
-  teacher: "Teacher",
-  registrar: "Registrar",
-  principal: "Principal",
-};
 const ROLE_SUBTITLE: Record<Role, string> = {
-  admin: "System Administrator",
+  admin: "Administrator",
   teacher: "Faculty Member",
   registrar: "School Registrar",
   principal: "School Principal",
@@ -590,6 +589,10 @@ export function ChangePasswordModal({
 
   const handleSubmit = async () => {
     setError(null);
+    if (!current) {
+      setError("Please enter your current password to confirm your identity.");
+      return;
+    }
     if (next.length < 8) {
       setError("New password must be at least 8 characters.");
       return;
@@ -619,6 +622,8 @@ export function ChangePasswordModal({
         onChange={e => { set(e.target.value); if (error) setError(null); }}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        data-lpignore="true"
+        data-1p-ignore="true"
         className={`w-full pl-3 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 border border-gray-200 bg-white ${accent.ring}`}
       />
       <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -647,7 +652,7 @@ export function ChangePasswordModal({
         <div className="p-6 space-y-4">
           <div>
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Current Password</label>
-            {input(current, setCurrent, "Enter current password", "current-password")}
+            {input(current, setCurrent, "Enter current password", "new-password")}
           </div>
           <div>
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">New Password</label>

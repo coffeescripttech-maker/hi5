@@ -187,7 +187,7 @@ function MiniCountTable({
 }
 
 export function SF5Report() {
-  const { schoolName, schoolYearLabel, showToast } = useApp();
+  const { schoolName, schoolYearLabel, showToast, role } = useApp();
   const accent = useRoleAccent();
 
   // ── API data ──
@@ -227,8 +227,8 @@ export function SF5Report() {
   // ── Load data on mount ──
   useEffect(() => {
     Promise.all([
-      studentsApi.list(),
-      sectionsApi.list(),
+      role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
+      role === "teacher" ? sectionsApi.listMySections() : sectionsApi.list(),
       enrollmentsApi.list(),
       settingsApi.get(),
       schoolYearsApi.list()

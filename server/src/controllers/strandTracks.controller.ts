@@ -58,7 +58,7 @@ export async function listStrandTracks(req: Request, res: Response): Promise<voi
  */
 export async function getStrandTrackById(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const tracks = await query<StrandTrackRow[]>(
       "SELECT * FROM strand_tracks WHERE id = ?",
       [id]
@@ -127,7 +127,7 @@ export async function createStrandTrack(req: Request, res: Response): Promise<vo
  */
 export async function updateStrandTrack(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { code, name, track_type, grade_level, description, sort_order, is_active } = req.body;
 
     const existing = await query<RowDataPacket[]>(
@@ -186,8 +186,7 @@ export async function updateStrandTrack(req: Request, res: Response): Promise<vo
  */
 export async function deleteStrandTrack(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>(
       "SELECT id, code, name FROM strand_tracks WHERE id = ?",
       [id]
@@ -229,8 +228,7 @@ export async function deleteStrandTrack(req: Request, res: Response): Promise<vo
  */
 export async function getTrackSubjects(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const subjects = await query<RowDataPacket[]>(
       `SELECT s.* FROM subjects s
        JOIN subject_strand_tracks sst ON sst.subject_id = s.id
@@ -252,7 +250,7 @@ export async function getTrackSubjects(req: Request, res: Response): Promise<voi
  */
 export async function setTrackSubjects(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { subject_ids } = req.body;
 
     if (!Array.isArray(subject_ids)) {

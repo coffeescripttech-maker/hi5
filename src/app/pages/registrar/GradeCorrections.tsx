@@ -72,7 +72,8 @@ export function GradeCorrections() {
         r.student_name?.toLowerCase().includes(q) ||
         r.subject_name?.toLowerCase().includes(q) ||
         r.requested_by_name?.toLowerCase().includes(q) ||
-        r.justification?.toLowerCase().includes(q)
+        r.justification?.toLowerCase().includes(q) ||
+        r.common_mistake?.toLowerCase().includes(q)
       );
     }
     return true;
@@ -220,6 +221,12 @@ export function GradeCorrections() {
                   </td>
                   <td className="px-4 py-4 text-gray-600 max-w-[240px]">
                     <p className="line-clamp-2 text-xs leading-relaxed">{r.justification}</p>
+                    {(r.common_mistake || r.other_mistake) && (
+                      <p className="text-[11px] text-amber-700 mt-1 line-clamp-1">
+                        {r.common_mistake}
+                        {r.common_mistake === "Other" && r.other_mistake ? `: ${r.other_mistake}` : ""}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-4 text-gray-600">{r.requested_by_name}</td>
                   <td className="px-4 py-4">
@@ -299,6 +306,17 @@ export function GradeCorrections() {
                   {confirmingRow.quarter ? QUARTER_LABEL[confirmingRow.quarter] : "All quarters"}
                 </span>
               </div>
+              {confirmingRow.common_mistake && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Common mistake</span>
+                  <span className="font-semibold text-gray-900 text-right">
+                    {confirmingRow.common_mistake}
+                    {confirmingRow.common_mistake === "Other" && confirmingRow.other_mistake
+                      ? `: ${confirmingRow.other_mistake}`
+                      : ""}
+                  </span>
+                </div>
+              )}
             </div>
 
             {confirming.action === "approved" ? (

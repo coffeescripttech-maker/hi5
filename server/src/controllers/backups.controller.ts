@@ -119,7 +119,7 @@ export async function createBackup(req: Request, res: Response): Promise<void> {
  */
 export async function restoreBackup(req: Request, res: Response): Promise<void> {
   try {
-    const backupId = parseInt(req.params.id);
+    const backupId = parseInt(req.params.id as string);
     if (isNaN(backupId)) {
       res.status(400).json({ error: "Invalid backup ID." });
       return;

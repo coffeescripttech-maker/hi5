@@ -37,16 +37,13 @@ interface SortConfig { key: SortKey; dir: SortDir }
 
 export function SectionManagement() {
   const navigate = useNavigate();
-  const { showToast, role } = useApp();
+  const { showToast } = useApp();
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState<string>("all");
   const [sort, setSort] = useState<SortConfig>({ key: "grade_level", dir: "asc" });
   const [selectedSection, setSelectedSection] = useState<SectionRow | null>(null);
-
-  // Scope toggle: "mine" (default for teachers) or "all"
-  const [scope, setScope] = useState<"mine" | "all">("mine");
 
   // Section-scoped students
   const [sectionStudents, setSectionStudents] = useState<StudentRow[]>([]);
@@ -57,10 +54,8 @@ export function SectionManagement() {
 
   useEffect(() => {
     setLoading(true);
-    // Default to teacher's own sections, but allow viewing all
-    const fetcher = scope === "mine" ? sectionsApi.listMySections() : sectionsApi.list();
     Promise.all([
-      fetcher,
+      sectionsApi.listMySections(),
       schoolYearsApi.current(),
     ]).then(([secs, sy]) => {
       setSections(secs);
@@ -68,7 +63,7 @@ export function SectionManagement() {
     }).catch(err => {
       showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
     }).finally(() => setLoading(false));
-  }, [scope]);
+  }, []);
 
   // Fetch section-scoped students when selectedSection changes
   useEffect(() => {
@@ -182,35 +177,11 @@ export function SectionManagement() {
                 <Layers size={22} className="text-emerald-700" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Section Management</h2>
-                <p className="text-sm text-gray-400">View and manage class sections across all grade levels.</p>
+                <h2 className="text-lg font-bold text-gray-900 tracking-tight">My Sections</h2>
+                <p className="text-sm text-gray-400">Sections where you serve as class adviser.</p>
               </div>
             </div>
-            {/* Scope toggle */}
-            {role === "teacher" && (
-              <div className="flex items-center bg-gray-100 rounded-xl p-0.5 shadow-xs">
-                <button
-                  onClick={() => setScope("mine")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                    scope === "mine"
-                      ? "bg-white text-emerald-700 shadow-sm border border-gray-200/50"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <Users size={13} className="inline mr-1.5 -mt-0.5" />My Sections
-                </button>
-                <button
-                  onClick={() => setScope("all")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                    scope === "all"
-                      ? "bg-white text-emerald-700 shadow-sm border border-gray-200/50"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <Layers size={13} className="inline mr-1.5 -mt-0.5" />All Sections
-                </button>
-              </div>
-            )}
+
           </div>
 
           {/* Stats Grid */}

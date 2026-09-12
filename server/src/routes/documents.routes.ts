@@ -5,6 +5,7 @@ import { authenticate } from "../middleware/auth";
 import { authorize } from "../middleware/roleGuard";
 import {
   listDocuments,
+  getMyDocuments,
   downloadDocument,
   uploadDocument,
   updateDocumentStatus,
@@ -42,6 +43,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/", listDocuments);
+router.get("/my-documents", authorize("teacher"), getMyDocuments);
 router.get("/template", authorize("admin", "teacher", "registrar"), getTemplate);
 router.get("/:id/download", downloadDocument);
 router.get("/:id/preview", authorize("admin", "teacher", "registrar"), previewDocument);

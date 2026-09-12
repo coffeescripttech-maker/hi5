@@ -5,6 +5,7 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
 import path from "path";
 import fs from "fs";
 import * as XLSX from "xlsx";
+import { buildGradeTemplate } from "../utils/gradeTemplate";
 
 const UPLOADS_DIR = path.resolve(__dirname, "../../uploads");
 
@@ -158,12 +159,42 @@ export async function listDocuments(req: Request, res: Response): Promise<void> 
 }
 
 /**
+ * GET /api/documents/my-documents — Documents for the teacher's assigned
+ * subjects in the active school year (teacher-scoped).
+ */
+export async function getMyDocuments(req: Request, res: Response): Promise<void> {
+  try {
+    const teacherId = req.user!.userId;
+
+    const docs = await query<RowDataPacket[]>(
+      `SELECT d.*, u.name AS uploaded_by_name,
+              sec.name AS section_name, sub.name AS subject_name
+       FROM uploaded_documents d
+       JOIN users u ON d.uploaded_by = u.id
+       LEFT JOIN sections sec ON d.section_id = sec.id
+       LEFT JOIN subjects sub ON d.subject_id = sub.id
+       JOIN teacher_subject_assignments tsa
+         ON d.subject_id = tsa.subject_id
+        AND d.school_year_id = tsa.school_year_id
+       WHERE tsa.teacher_id = ?
+         AND tsa.school_year_id = (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1)
+       ORDER BY d.created_at DESC`,
+      [teacherId]
+    );
+
+    res.json(docs);
+  } catch (error) {
+    console.error("List my documents error:", error);
+    res.status(500).json({ error: "Failed to fetch documents." });
+  }
+}
+
+/**
  * GET /api/documents/:id/download — Download a document
  */
 export async function downloadDocument(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const docs = await query<RowDataPacket[]>(
       "SELECT * FROM uploaded_documents WHERE id = ?",
       [id]
@@ -281,26 +312,12 @@ export async function getTemplate(req: Request, res: Response): Promise<void> {
     if (subject.length === 0) { res.status(404).json({ error: "Subject not found." }); return; }
     if (section.length === 0) { res.status(404).json({ error: "Section not found." }); return; }
 
-    const gradeHeader = `Grade (Q${quarter} — ${subject[0].name})`;
-
-    const aoa: (string | number)[][] = [["LRN", "Student Name", gradeHeader]];
-    for (const s of students as any[]) {
-      // LRN kept as a string so Excel doesn't mangle it into scientific notation
-      aoa.push([String(s.lrn), s.name, ""]);
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    // Keep the LRN column as text to preserve leading zeros / formatting
-    for (let r = 1; r < aoa.length; r++) {
-      const cell = ws[`A${r + 1}`];
-      if (cell) { cell.t = "s"; cell.z = "@"; }
-    }
-    ws["!cols"] = [{ wch: 18 }, { wch: 40 }, { wch: 24 }];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Grades");
-
-    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const buf = buildGradeTemplate({
+      sectionName: section[0].name,
+      subjectName: subject[0].name,
+      quarter,
+      rows: (students as any[]).map(s => ({ lrn: String(s.lrn), name: String(s.name) })),
+    });
     const safe = (s: string) => s.replace(/[^\w-]+/g, "_");
     const fileName = `${safe(section[0].name)}_Q${quarter}_${safe(subject[0].name)}_template.xlsx`;
 
@@ -318,8 +335,7 @@ export async function getTemplate(req: Request, res: Response): Promise<void> {
  */
 export async function previewDocument(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const docs = await query<RowDataPacket[]>(
       "SELECT * FROM uploaded_documents WHERE id = ?",
       [id]
@@ -348,8 +364,7 @@ export async function previewDocument(req: Request, res: Response): Promise<void
  */
 export async function importDocument(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const docs = await query<RowDataPacket[]>(
       "SELECT * FROM uploaded_documents WHERE id = ?",
       [id]
@@ -425,7 +440,7 @@ export async function importDocument(req: Request, res: Response): Promise<void>
  */
 export async function updateDocumentStatus(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status } = req.body;
 
     const validStatuses = ["pending", "validated", "imported", "failed"];

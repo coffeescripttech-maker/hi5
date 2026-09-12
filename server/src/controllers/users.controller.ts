@@ -45,7 +45,7 @@ export async function listUsers(_req: Request, res: Response): Promise<void> {
  */
 export async function getUserById(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const users = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
               status, employee_id, designation, date_hired, end_of_contract, last_login, created_at, updated_at
@@ -82,9 +82,24 @@ export async function createUser(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Check duplicate username
+    // Username syntax rules (shared with the frontend): 3-50 chars,
+    // letters, numbers, dots, underscores, and hyphens only.
+    if (
+      typeof username !== "string" ||
+      username.length < 3 ||
+      username.length > 50 ||
+      !/^[a-zA-Z0-9_.-]+$/.test(username)
+    ) {
+      res.status(400).json({
+        error:
+          "Username must be 3-50 characters and may only contain letters, numbers, dots, underscores, and hyphens."
+      });
+      return;
+    }
+
+    // Check duplicate username (case-insensitive)
     const existing = await query<RowDataPacket[]>(
-      "SELECT id FROM users WHERE username = ? OR email = ?",
+      "SELECT id FROM users WHERE LOWER(username) = LOWER(?) OR email = ?",
       [username, email]
     );
     if (existing.length > 0) {
@@ -121,8 +136,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
  */
 export async function updateUser(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-    const { password, name, email, role, phone, address, profile_photo_url, employee_id, designation, date_hired, end_of_contract } = req.body;
+    const id = req.params.id as string;
+    const { password, username, name, email, role, phone, address, profile_photo_url, employee_id, designation, date_hired, end_of_contract } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM users WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -141,6 +156,30 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
         return;
       }
       fields.push("role = ?"); params.push(role);
+    }
+    if (username !== undefined) {
+      if (
+        typeof username !== "string" ||
+        username.length < 3 ||
+        username.length > 50 ||
+        !/^[a-zA-Z0-9_.-]+$/.test(username)
+      ) {
+        res.status(400).json({
+          error:
+            "Username must be 3-50 characters and may only contain letters, numbers, dots, underscores, and hyphens."
+        });
+        return;
+      }
+      // Case-insensitive uniqueness, excluding this user.
+      const clash = await query<RowDataPacket[]>(
+        "SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id <> ?",
+        [username, id]
+      );
+      if (clash.length > 0) {
+        res.status(409).json({ error: "Username already exists." });
+        return;
+      }
+      fields.push("username = ?"); params.push(username);
     }
     if (phone !== undefined) { fields.push("phone = ?"); params.push(phone); }
     if (address !== undefined) { fields.push("address = ?"); params.push(address); }
@@ -186,8 +225,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
  */
 export async function deleteUser(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     if (parseInt(id) === req.user!.userId) {
       res.status(400).json({ error: "You cannot delete your own account." });
       return;
@@ -214,7 +252,7 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
  */
 export async function updateUserStatus(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status } = req.body;
 
     if (!["active", "idle", "inactive"].includes(status)) {

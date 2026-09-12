@@ -13,16 +13,28 @@ export interface ActivityLogRow {
   created_at: string;
 }
 
+function buildQuery(params?: { page?: number; limit?: number }): string {
+  if (!params) return "";
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return "";
+  return "?" + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+}
+
+export interface ActivityLogPage {
+  data: ActivityLogRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export const logsApi = {
-  list: (params?: { page?: number; limit?: number }) => {
-    const query = params
-      ? "?" + new URLSearchParams(
-          Object.entries(params)
-            .filter(([_, v]) => v !== undefined)
-            .map(([k, v]) => [k, String(v)])
-        ).toString()
-      : "";
-    // API returns { data: ActivityLogRow[], pagination: {...} } — unwrap .data
-    return api.get<{ data: ActivityLogRow[] }>(`/logs${query}`).then(r => r.data);
-  },
+  // Unwraps .data for summary feeds (dashboard keeps its own limit).
+  list: (params?: { page?: number; limit?: number }) =>
+    api.get<ActivityLogPage>(`/logs${buildQuery(params)}`).then(r => r.data),
+  // Returns the full payload so the logs page can render pagination controls.
+  listPage: (params?: { page?: number; limit?: number }) =>
+    api.get<ActivityLogPage>(`/logs${buildQuery(params)}`).then(r => r),
 };

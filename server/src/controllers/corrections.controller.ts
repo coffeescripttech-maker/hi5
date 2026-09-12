@@ -87,17 +87,32 @@ export async function getCorrectionById(req: Request, res: Response): Promise<vo
  */
 export async function createCorrection(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, subject_id, school_year_id, quarter, justification } = req.body;
+    const { student_id, subject_id, school_year_id, quarter, justification, common_mistake, other_mistake } = req.body;
 
     if (!student_id || !school_year_id || !justification) {
       res.status(400).json({ error: "Missing required fields: student_id, school_year_id, justification." });
       return;
     }
 
+    // "Other" preset without free text is not actionable — require it.
+    if (common_mistake === "Other" && !(other_mistake || "").trim()) {
+      res.status(400).json({ error: "Please describe the mistake when selecting 'Other'." });
+      return;
+    }
+
     const result = await query<ResultSetHeader>(
-      `INSERT INTO grade_correction_requests (student_id, subject_id, school_year_id, quarter, requested_by, justification)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [student_id, subject_id || null, school_year_id, quarter || null, req.user!.userId, justification]
+      `INSERT INTO grade_correction_requests (student_id, subject_id, school_year_id, quarter, requested_by, justification, common_mistake, other_mistake)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        student_id,
+        subject_id || null,
+        school_year_id,
+        quarter || null,
+        req.user!.userId,
+        justification,
+        (common_mistake || "").trim() || null,
+        (other_mistake || "").trim() || null,
+      ]
     );
 
     await logActivity(

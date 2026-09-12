@@ -21,6 +21,7 @@ import {
   UserCheck,
   ShieldCheck,
   Calendar,
+  CalendarDays,
   Database,
   Layers,
   BookMarked,
@@ -107,7 +108,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'teacher_my_students', label: 'My Students', icon: UsersRound, path: '/teacher/my-students' },
         {
           key: 'teacher_sections',
-          label: 'Section Management',
+          label: 'My Sections',
           icon: BookMarked,
           path: '/teacher/sections'
         },
@@ -184,6 +185,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     {
       group: 'Scheduling & LIS',
       items: [
+        { key: 'registrar_master_schedule', label: 'Master Schedule', icon: CalendarDays, path: '/registrar/master-schedule' },
         { key: 'registrar_schedule', label: 'Schedule Modifier', icon: Calendar, path: '/registrar/schedule-modifier' },
         { key: 'registrar_lis_export', label: 'LIS Export', icon: Upload, path: '/registrar/lis-export' }
       ]
@@ -259,5 +261,5 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Administrator',
   teacher: 'Teacher',
   registrar: 'Registrar',
-  principal: 'Principal'
+  principal: 'School Head'
 };

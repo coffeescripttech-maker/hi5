@@ -358,6 +358,12 @@ function inlineComputedStyles(root: HTMLElement) {
       hEl.style.display = "none";
     }
 
+    // SVG subtrees are self-contained (internal <style> + attributes keep the
+    // diagram layout) — inlining computed transforms would shift their
+    // transform-origin to the view-box center and scramble the diagram. The
+    // early return skips the subtree, since the child walk happens at the tail.
+    if (el.namespaceURI === "http://www.w3.org/2000/svg") return;
+
     // Font & text properties.
     if (cs.fontSize) hEl.style.setProperty("font-size", cs.fontSize);
     if (cs.fontWeight) hEl.style.setProperty("font-weight", cs.fontWeight);

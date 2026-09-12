@@ -210,6 +210,15 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
         continue;
       }
 
+      // SVG subtrees are self-contained: their internal <style> block and
+      // presentation attributes already hold the diagram's layout, so the
+      // computed-style pass must skip them. Inlining style.transform over an
+      // SVG `transform` attribute moves the transform-origin to the view-box
+      // center and scrambles mermaid node positions.
+      if (el.namespaceURI === "http://www.w3.org/2000/svg") {
+        continue;
+      }
+
       const baseline = getUaBaseline(hEl.tagName);
       const cls = hEl.className || "";
       const pinSize = shouldPinSize(hEl, cls);

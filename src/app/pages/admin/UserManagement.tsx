@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import { usersApi, UserRow, CreateUserPayload, UpdateUserPayload } from "../../services/users";
+import { ROLE_LABELS, type Role } from "../../navigation";
 import { useApp } from "../../context/AppContext";
 import { HybridTable } from "../../components/HybridTable";
 
@@ -22,6 +23,7 @@ const userSchema = z.object({
     .trim()
     .min(1, "Username is required")
     .min(3, "Username must be at least 3 characters")
+    .max(50, "Username must be at most 50 characters")
     .regex(/^[a-zA-Z0-9_.-]+$/, "Username may only contain letters, numbers, dots, dashes, and underscores"),
   email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
   password: z.string().refine(v => v === "" || v.length >= MIN_PASSWORD, `Password must be at least ${MIN_PASSWORD} characters, or leave blank for default`),
@@ -62,9 +64,7 @@ const PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Admin", teacher: "Teacher", registrar: "Registrar", principal: "Principal",
-};
+
 
 const roleIcons: Record<string, any> = {
   admin: Shield, teacher: GraduationCap, registrar: FileText, principal: User,
@@ -165,6 +165,7 @@ export function UserManagement() {
       if (editUser) {
         const payload: UpdateUserPayload = {
           name: editUser.name,
+          username: editUser.username,
           email: editUser.email,
           role: editUser.role,
           status: editUser.status,
@@ -257,7 +258,7 @@ export function UserManagement() {
                       : "border-gray-100 bg-gray-50 text-gray-600 hover:border-blue-200 hover:bg-blue-50/50"
                   }`}>
                   <RoleIcon size={15} />
-                  <span className="font-semibold">{ROLE_LABEL[r] || r}</span>
+                  <span className="font-semibold">{ROLE_LABELS[r] || r}</span>
                   <span className={`ml-auto text-[11px] font-bold px-2 py-0.5 rounded-full border ${roleBadge[r]}`}>
                     {users.filter(u => u.role === r).length}
                   </span>
@@ -269,7 +270,7 @@ export function UserManagement() {
           {/* Permissions expand */}
           {showPermissions && (
             <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-              <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.06em] mb-2.5">{ROLE_LABEL[showPermissions] || showPermissions} Role Permissions</p>
+              <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.06em] mb-2.5">{ROLE_LABELS[showPermissions as Role] || showPermissions} Role Permissions</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
                 {PERMISSIONS[showPermissions]?.map(perm => (
                   <div key={perm} className="flex items-start gap-2 text-xs text-blue-800">
@@ -296,7 +297,7 @@ export function UserManagement() {
           <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
             className="border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
             <option value="all">All Roles</option>
-            {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+            {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </select>
           <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em] mr-1 ml-1">Status:</span>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
@@ -360,7 +361,7 @@ export function UserManagement() {
                         </td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${roleBadge[user.role] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-                            <RoleIcon size={11} />{ROLE_LABEL[user.role] || user.role}
+                            <RoleIcon size={11} />{ROLE_LABELS[user.role] || user.role}
                           </span>
                         </td>
                         <td className="px-4 py-4">
@@ -433,7 +434,7 @@ export function UserManagement() {
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${roleBadge[user.role] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-                              <RoleIcon size={11} />{ROLE_LABEL[user.role] || user.role}
+                              <RoleIcon size={11} />{ROLE_LABELS[user.role] || user.role}
                             </span>
                             {user.status !== "active" ? (
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${STATUS_CLASS[user.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
@@ -609,7 +610,7 @@ export function UserManagement() {
                             ? "border-blue-500 bg-blue-50 text-blue-700"
                             : "border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:bg-blue-50/50"
                         }`}>
-                        <RoleIcon size={18} />{ROLE_LABEL[r]}
+                        <RoleIcon size={18} />{ROLE_LABELS[r]}
                       </button>
                     );
                   })}
@@ -668,7 +669,7 @@ export function UserManagement() {
               </div>
 
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.04em] mb-2">{ROLE_LABEL[currentRole]} Permissions Preview</p>
+                <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.04em] mb-2">{ROLE_LABELS[currentRole]} Permissions Preview</p>
                 <ul className="space-y-1">
                   {PERMISSIONS[currentRole]?.map(p => (
                     <li key={p} className="flex items-start gap-2 text-xs text-blue-700">

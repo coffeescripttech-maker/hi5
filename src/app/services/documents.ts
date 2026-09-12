@@ -63,6 +63,9 @@ export const documentsApi = {
       : "";
     return api.get<DocumentRow[]>(`/documents${query}`);
   },
+  // Teacher-scoped: only files for the teacher's assigned subjects in the
+  // active school year (GET /api/documents/my-documents).
+  myDocuments: () => api.get<DocumentRow[]>("/documents/my-documents"),
   upload: (formData: FormData) =>
     api.upload<DocumentRow>("/documents/upload", formData),
   download: (id: number) => {

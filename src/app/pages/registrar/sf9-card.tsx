@@ -216,7 +216,19 @@ export function SF9Card() {
                 </div>
                 <div className="flex items-end gap-4">
                   <FillLine label="Age :" className="w-20" />
-                  <FillLine label="Sex:" />
+                  <div className="flex min-w-0 flex-1 items-end gap-1">
+                    <span className="whitespace-nowrap text-[11px] font-semibold">Sex:</span>
+                    <select
+                      defaultValue=""
+                      className="sf1-input min-w-0 flex-1 border-b border-black bg-transparent text-[11px] outline-none focus:bg-amber-50"
+                    >
+                      <option value="" disabled>
+                        Select
+                      </option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex items-end gap-4">
                   <FillLine label="Grade :" className="w-20" />
@@ -240,11 +252,18 @@ export function SF9Card() {
               {/* Signatures */}
               <div className="flex justify-between pt-6 text-center text-[10px]">
                 <div className="flex-1">
-                  <div className="mx-2 border-t border-black pt-0.5 italic">Principal IV</div>
+                  <input
+                    placeholder="Name"
+                    className="mx-2 w-[calc(100%-1rem)] border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] italic outline-none focus:bg-amber-50"
+                  />
+                  <div className="pt-0.5 italic">Principal IV</div>
                 </div>
                 <div className="flex-1">
-                  <div className="font-bold">RICHARD R. RAQUEÑO</div>
-                  <div className="italic">Adviser</div>
+                  <input
+                    placeholder="Name"
+                    className="mx-2 w-[calc(100%-1rem)] border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
+                  />
+                  <div className="pt-0.5 italic">Adviser</div>
                 </div>
               </div>
             </div>

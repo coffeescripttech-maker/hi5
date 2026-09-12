@@ -24,7 +24,7 @@ export function AdminProfile() {
   const { showToast, profilePhoto, setProfilePhoto } = useApp();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    name: "System Administrator", email: "admin@school.edu.ph",
+    name: "", email: "",
     phone: "", address: "",
     employeeId: "", designation: "", dateHired: "",
   });
@@ -122,7 +122,7 @@ export function AdminProfile() {
       <ProfileHeader
         tone="blue"
         name={form.name}
-        role="admin"
+        role={account.role}
         designation={form.designation}
         email={form.email}
         employeeId={form.employeeId}

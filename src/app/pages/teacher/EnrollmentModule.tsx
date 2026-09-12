@@ -497,6 +497,7 @@ const getSection = (avg: number | null) => {
 export function EnrollmentModule() {
   const { showToast } = useApp();
   const [flow, setFlow] = useState<Flow>('select');
+  const [showAllRecent, setShowAllRecent] = useState(false);
 
   // New student state
   const [newStep, setNewStep] = useState<NewStep>(1);
@@ -1004,6 +1005,14 @@ export function EnrollmentModule() {
 
   const handleConfirmReturning = async () => {
     if (!foundStudent || !retGrade) return;
+    // Graduated students are soft-archived and cannot be re-enrolled.
+    if (foundStudent.status === "graduated") {
+      showToast(
+        'error',
+        `${foundStudent.name} has already graduated and cannot be re-enrolled. Graduated records are archived.`
+      );
+      return;
+    }
     // A student can only be enrolled once per school year — the returned student
     // must be moved into the NEXT school year, not re-enrolled in the current one.
     if (alreadyEnrolledThisSY) {
@@ -1110,13 +1119,16 @@ export function EnrollmentModule() {
     const closedCount = syEnrollments.filter(
       e => e.status === 'dropped' || e.status === 'transferred'
     ).length;
-    const recentEnrollments = [...syEnrollments]
+    const recentEnrollmentsAll = [...syEnrollments]
       .sort(
         (a, b) =>
           (b.enrollment_date || '').localeCompare(a.enrollment_date || '') ||
           b.id - a.id
-      )
-      .slice(0, 6);
+      );
+    // Show the 6 most recent unless the user expands the list.
+    const recentEnrollments = showAllRecent
+      ? recentEnrollmentsAll
+      : recentEnrollmentsAll.slice(0, 6);
 
     const statCards = [
       {
@@ -1371,9 +1383,19 @@ export function EnrollmentModule() {
                 </p>
               </div>
             </div>
-            <span className="text-xs font-semibold text-gray-500 bg-gray-50 ring-1 ring-gray-100 px-2.5 py-1 rounded-full flex-shrink-0">
-              {enrolledCount} enrolled
-            </span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs font-semibold text-gray-500 bg-gray-50 ring-1 ring-gray-100 px-2.5 py-1 rounded-full">
+                {enrolledCount} enrolled
+              </span>
+              {recentEnrollmentsAll.length > 6 && (
+                <button
+                  onClick={() => setShowAllRecent(v => !v)}
+                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 bg-emerald-50 px-2.5 py-1 rounded-full transition-colors"
+                >
+                  {showAllRecent ? 'Show less' : `Show all ${recentEnrollmentsAll.length}`}
+                </button>
+              )}
+            </div>
           </div>
 
           {recentEnrollments.length === 0 ? (

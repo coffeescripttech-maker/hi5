@@ -133,7 +133,7 @@ function formatDateInput(value: string | null | undefined): string {
 /* ---------------------------------------------------------------- */
 
 export function SF1Register() {
-  const { schoolName, schoolYearLabel, showToast } = useApp();
+  const { schoolName, schoolYearLabel, showToast, role } = useApp();
   const accent = useRoleAccent();
 
   // ── API data ──
@@ -176,8 +176,8 @@ export function SF1Register() {
   // ── Load data on mount ──
   useEffect(() => {
     Promise.all([
-      studentsApi.list(),
-      sectionsApi.list(),
+      role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
+      role === "teacher" ? sectionsApi.listMySections() : sectionsApi.list(),
       enrollmentsApi.list(),
       settingsApi.get(),
       schoolYearsApi.list(),

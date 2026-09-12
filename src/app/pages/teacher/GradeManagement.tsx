@@ -135,6 +135,8 @@ export function GradeManagement() {
   const [correctionSubject, setCorrectionSubject] = useState("");
   const [correctionQuarter, setCorrectionQuarter] = useState("");
   const [correctionJustification, setCorrectionJustification] = useState("");
+  const [correctionMistake, setCorrectionMistake] = useState("");
+  const [correctionOther, setCorrectionOther] = useState("");
   const [correctionSubmitted, setCorrectionSubmitted] = useState(false);
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
   const [schoolYearId, setSchoolYearId] = useState(1);
@@ -406,6 +408,8 @@ export function GradeManagement() {
         school_year_id: schoolYearId,
         quarter: correctionQuarter ? Number(correctionQuarter) : null,
         justification: correctionJustification,
+        common_mistake: correctionMistake || null,
+        other_mistake: correctionMistake === "Other" ? correctionOther.trim() || null : null,
       });
       setCorrectionSubmitted(true);
       showToast("success", "Correction request submitted for review.");
@@ -818,7 +822,7 @@ export function GradeManagement() {
                   </>
                 ) : (
                   <button
-                    onClick={() => { setShowCorrectionModal(true); setCorrectionSubject(""); setCorrectionJustification(""); setCorrectionSubmitted(false); }}
+                    onClick={() => { setShowCorrectionModal(true); setCorrectionSubject(""); setCorrectionJustification(""); setCorrectionMistake(""); setCorrectionOther(""); setCorrectionSubmitted(false); }}
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
                   >
                     <MessageSquare size={15} /> Request Grade Correction
@@ -940,6 +944,35 @@ export function GradeManagement() {
                       <option value="4">4th Quarter</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
+                      Common Mistake <span className="text-gray-300">(optional)</span>
+                    </label>
+                    <select
+                      value={correctionMistake}
+                      onChange={e => { setCorrectionMistake(e.target.value); if (e.target.value !== "Other") setCorrectionOther(""); }}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
+                    >
+                      <option value="">Select a reason...</option>
+                      <option value="Wrong item count">Wrong item count</option>
+                      <option value="Transposed score">Transposed score</option>
+                      <option value="Missing student">Missing student</option>
+                      <option value="Computation error">Computation error</option>
+                      <option value="Encoding lag">Encoding lag</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {correctionMistake === "Other" && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Describe the mistake</label>
+                      <textarea
+                        value={correctionOther}
+                        onChange={e => setCorrectionOther(e.target.value)}
+                        rows={2} placeholder="Briefly describe what went wrong..."
+                        className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Justification</label>
                     <textarea

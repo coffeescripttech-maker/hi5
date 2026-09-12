@@ -38,6 +38,7 @@ import { RegistrarProfile } from "./pages/registrar/RegistrarProfile";
 import { SubjectView } from "./pages/registrar/SubjectView";
 import { SectionAssignment } from "./pages/registrar/SectionAssignment";
 import { ScheduleModifier } from "./pages/registrar/ScheduleModifier";
+import { MasterSchedule } from "./pages/registrar/MasterSchedule";
 import { LisExport as RegistrarLisExport } from "./pages/registrar/LisExport";
 import { PrincipalExportCenter } from "./pages/principal/PrincipalExportCenter";
 import { CertificateOfEnrollment } from "./pages/registrar/CertificateOfEnrollment";
@@ -115,6 +116,7 @@ export const router = createBrowserRouter([
       { path: "subjects", Component: SubjectView },
       { path: "section-assignment", Component: SectionAssignment },
       { path: "schedule-modifier", Component: ScheduleModifier },
+      { path: "master-schedule", Component: MasterSchedule },
       { path: "lis-export", Component: RegistrarLisExport },
       { path: "certificates/enrollment", Component: CertificateOfEnrollment },
       { path: "certificates/good-moral", Component: GoodMoralCertificate },

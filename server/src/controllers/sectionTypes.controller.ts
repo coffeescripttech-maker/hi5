@@ -76,7 +76,7 @@ export async function createSectionType(req: Request, res: Response): Promise<vo
  */
 export async function updateSectionType(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { label, color_code, icon, sort_order, is_active } = req.body;
 
     const existing = await query<RowDataPacket[]>(
@@ -126,8 +126,7 @@ export async function updateSectionType(req: Request, res: Response): Promise<vo
  */
 export async function deleteSectionType(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<SectionTypeRow[]>(
       "SELECT id, name, is_locked FROM section_types WHERE id = ?",
       [id]

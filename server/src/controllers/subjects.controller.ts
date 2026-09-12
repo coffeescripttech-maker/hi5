@@ -109,7 +109,7 @@ export async function listSubjects(req: Request, res: Response): Promise<void> {
  */
 export async function getSubjectById(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const subjects = await query<SubjectRow[]>("SELECT * FROM subjects WHERE id = ?", [id]);
 
     if (subjects.length === 0) {
@@ -172,7 +172,7 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
  */
 export async function updateSubject(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, grade_level, hours_per_week, subject_type, is_active } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM subjects WHERE id = ?", [id]);
@@ -212,8 +212,7 @@ export async function updateSubject(req: Request, res: Response): Promise<void> 
  */
 export async function deleteSubject(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>("SELECT id, name FROM subjects WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "Subject not found." });

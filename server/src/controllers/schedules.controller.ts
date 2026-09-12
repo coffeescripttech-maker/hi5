@@ -80,10 +80,9 @@ export async function findConflicts(
   const { school_year_id, day_of_week, start_time, end_time, room_id, teacher_id, section_id, excludeScheduleId } = opts;
   if (!school_year_id || !day_of_week || !start_time || !end_time) return [];
 
-  const params: any[] = [school_year_id, day_of_week, start_time, end_time, start_time, end_time];
+  const params: any[] = [school_year_id, day_of_week, end_time, start_time];
   const ands: string[] = [
     "sc.school_year_id = ?", "sc.day_of_week = ?",
-    "sc.start_time < ?", "sc.end_time > ?",
     "sc.start_time < ?", "sc.end_time > ?",
   ];
   if (room_id) { ands.push("sc.room_id = ?"); params.push(room_id); }
@@ -92,7 +91,7 @@ export async function findConflicts(
   if (excludeScheduleId) { ands.push("sc.id <> ?"); params.push(excludeScheduleId); }
 
   const sql = `${SELECT_WITH_NAMES} WHERE ${ands.join(" AND ")} ORDER BY sc.start_time ASC`;
-    const [rows] = await conn.execute<RowDataPacket[]>(sql, params);
+  const [rows] = (await conn.execute(sql, params)) as [RowDataPacket[], unknown];
   const conflicts: ScheduleConflict[] = [];
   for (const r of rows) {
     if (room_id && r.room_id === room_id) conflicts.push({ type: "room", message: "Room is already occupied at this time", existing: summarise(r) });

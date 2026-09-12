@@ -53,6 +53,7 @@ export interface SF9Row {
   school: {
     school_name: string;
     school_id: string;
+    principal_name: string | null;
   } | null;
   student: {
     id: number;
@@ -66,6 +67,7 @@ export interface SF9Row {
     section_name: string;
     sy_label: string;
     grade_level: number;
+    adviser_name: string | null;
   } | null;
   general_average: number | null;
   subjects: Array<{

@@ -450,6 +450,21 @@ export async function unlockGrades(req: Request, res: Response): Promise<void> {
  * GET /api/grades/compute/averages — Compute general average for a student
  * Query: ?student_id=1&school_year_id=1
  */
+interface SubjectAverageRow extends RowDataPacket {
+  subject_id: number;
+  subject_name: string;
+  subject_type: string;
+  subject_average: number;
+}
+
+/** Aggregate rows may include the synthetic MAPEH entry (plain object, no RowDataPacket brand). */
+type SubjectAverageEntry = {
+  subject_id: number;
+  subject_name: string;
+  subject_type: string;
+  subject_average: number;
+};
+
 export async function computeAverages(req: Request, res: Response): Promise<void> {
   try {
     const { student_id, school_year_id } = req.query;
@@ -459,7 +474,7 @@ export async function computeAverages(req: Request, res: Response): Promise<void
       return;
     }
 
-    const averages = await query<RowDataPacket[]>(
+    const averages = await query<SubjectAverageRow[]>(
       `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type,
               ROUND(AVG(g.grade), 2) AS subject_average
        FROM subjects s
@@ -473,9 +488,11 @@ export async function computeAverages(req: Request, res: Response): Promise<void
     // Group MAPEH components (Music, Arts, Physical Education, Health) into one subject
     const MAPEH_NAMES = ["Music", "Arts", "Physical Education", "Health"];
     const mapehComponents = averages.filter((a: any) => MAPEH_NAMES.includes(a.subject_name));
-    const otherSubjects = averages.filter((a: any) => !MAPEH_NAMES.includes(a.subject_name));
+    const otherSubjects: SubjectAverageEntry[] = averages.filter(
+      (a: any) => !MAPEH_NAMES.includes(a.subject_name)
+    );
 
-    let subjectsForAverage = otherSubjects;
+    let subjectsForAverage: SubjectAverageEntry[] = otherSubjects;
     if (mapehComponents.length > 0) {
       const mapehAvg = mapehComponents.reduce((sum: number, a: any) => sum + parseFloat(a.subject_average || 0), 0) / mapehComponents.length;
       subjectsForAverage = [

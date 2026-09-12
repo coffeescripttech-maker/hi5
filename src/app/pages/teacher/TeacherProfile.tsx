@@ -15,7 +15,7 @@ export function TeacherProfile() {
   const { showToast, profilePhoto, setProfilePhoto } = useApp();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    name: "Teacher", email: "teacher@school.edu.ph",
+    name: "", email: "",
     phone: "", address: "",
     employeeId: "", designation: "", dateHired: "",
   });

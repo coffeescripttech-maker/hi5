@@ -124,8 +124,7 @@ export async function listEnrollments(req: Request, res: Response): Promise<void
  */
 export async function getEnrollmentById(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const enrollments = await query<RowDataPacket[]>(
       `SELECT e.*, s.name AS student_name, s.student_id, s.lrn, s.grade_level,
               sec.name AS section_name, sec.section_type, sec.capacity,
@@ -171,6 +170,14 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
     const student = await query<RowDataPacket[]>("SELECT id, name, status, grade_level FROM students WHERE id = ?", [student_id]);
     if (student.length === 0) {
       res.status(404).json({ error: "Student not found." });
+      return;
+    }
+
+    // Graduated students are soft-archived and cannot be re-enrolled.
+    if (student[0].status === "graduated") {
+      res.status(403).json({
+        error: `${student[0].name} has already graduated and cannot be re-enrolled. Graduated records are archived.`
+      });
       return;
     }
 
@@ -302,7 +309,7 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
  */
 export async function updateEnrollment(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status, remarks, section_id } = req.body;
 
     const existing = await query<RowDataPacket[]>(
@@ -500,7 +507,7 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
       );
 
       await query<ResultSetHeader>(
-        "UPDATE students SET status = 'graduated' WHERE id = ?",
+        "UPDATE students SET status = 'graduated', is_archived = 1, archived_at = COALESCE(archived_at, NOW()) WHERE id = ?",
         [enrollment.student_id]
       );
 
@@ -542,8 +549,7 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
  */
 export async function deleteEnrollment(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>(
       `SELECT e.*, s.name AS student_name FROM enrollments e JOIN students s ON e.student_id = s.id WHERE e.id = ?`,
       [id]

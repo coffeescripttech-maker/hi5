@@ -1,8 +1,14 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { BookOpen, Download, Printer, ZoomIn, ZoomOut, Workflow, Repeat } from "lucide-react";
+import { useApp } from "../context/AppContext";
+import { exportToPdf } from "../services/pdfExport";
+import { downloadRenderedPdf, type PdfRenderOptions } from "../services/pdfRender";
+import { Download, Loader2, Printer, ZoomIn, ZoomOut, Workflow, Repeat } from "lucide-react";
 
 const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+
+/** Reset the user's zoom while printing/exporting so diagrams fit the page. */
+const GUIDE_PRINT_CSS = `.guide-zoom { transform: none !important; }`;
 
 /** Map partial text content of flowchart nodes to their system route */
 const NODE_ROUTES: [string, string, string][] = [
@@ -168,11 +174,13 @@ flowchart LR
 
 export function SystemGuide() {
   const navigate = useNavigate();
+  const { showToast } = useApp();
   const [lifecycleSvg, setLifecycleSvg] = useState("");
   const [yearlySvg, setYearlySvg] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [exporting, setExporting] = useState(false);
   const lifecycleRef = useCallback((node: HTMLDivElement | null) => {
     if (!node || !lifecycleSvg) return;
     // Attach click handlers to flowchart nodes
@@ -287,14 +295,39 @@ export function SystemGuide() {
 
   const handlePrint = () => window.print();
 
+  const handleDownloadPdf = async () => {
+    if (exporting) return;
+    setExporting(true);
+    const options: PdfRenderOptions = {
+      elementId: "system-guide-pdf",
+      filename: "system-guide",
+      orientation: "landscape",
+      format: "letter",
+      printCss: GUIDE_PRINT_CSS,
+    };
+    try {
+      await downloadRenderedPdf(options);
+      showToast("success", "PDF exported successfully.");
+    } catch {
+      try {
+        await exportToPdf(options);
+        showToast("info", "Server render unavailable — used local fallback.");
+      } catch {
+        showToast("error", "Failed to export PDF. Please try again.");
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
+    <div id="system-guide-pdf" className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
         <div className="p-5 sm:p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-200 flex items-center justify-center flex-shrink-0">
-            <BookOpen size={22} className="text-white" />
+          <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <img src="/deped-seal.svg" alt="Department of Education seal" className="w-10 h-10 object-contain" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">System Guide — Student Lifecycle</h2>
@@ -304,7 +337,7 @@ export function SystemGuide() {
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-4 sm:px-5 py-3">
+      <div className="no-print flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-4 sm:px-5 py-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-gray-600">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#e0e7ff] border border-indigo-400 inline-block" /> Admin</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#d1fae5] border border-emerald-400 inline-block" /> Teacher</span>
@@ -332,6 +365,14 @@ export function SystemGuide() {
           <button onClick={handleDownloadSVG} className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200 transition">
             <Download size={13} /> SVG
           </button>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={exporting}
+            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200 transition disabled:opacity-60"
+          >
+            {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+            {exporting ? "Exporting..." : "PDF"}
+          </button>
           <button onClick={handlePrint} className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 transition">
             <Printer size={13} /> Print
           </button>
@@ -355,7 +396,7 @@ export function SystemGuide() {
             <p className="text-xs text-gray-400">All 6 phases across Admin, Teacher, Registrar, and Principal roles</p>
           </div>
         </div>
-        <div className="p-5 overflow-x-auto" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}>
+        <div className="guide-zoom p-5 overflow-x-auto" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}>
           <div className="min-w-[800px]" ref={lifecycleRef}>
             {lifecycleSvg ? (
               <div dangerouslySetInnerHTML={{ __html: lifecycleSvg }} />

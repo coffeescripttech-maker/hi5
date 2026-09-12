@@ -38,6 +38,7 @@ export interface CreateUserPayload {
 
 export interface UpdateUserPayload {
   name?: string;
+  username?: string;
   email?: string;
   role?: "admin" | "teacher" | "registrar" | "principal";
   status?: "active" | "idle" | "inactive";

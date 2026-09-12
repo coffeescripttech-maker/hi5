@@ -758,9 +758,9 @@ async function completeSectionCore(
       [s.enrollment_id]
     );
 
-    // Update student status to graduated
+    // Update student status to graduated and soft-archive the record
     await query<ResultSetHeader>(
-      "UPDATE students SET status = 'graduated' WHERE id = ?",
+      "UPDATE students SET status = 'graduated', is_archived = 1, archived_at = COALESCE(archived_at, NOW()) WHERE id = ?",
       [s.student_id]
     );
 
@@ -853,7 +853,7 @@ export async function rollbackCompletion(req: Request, res: Response): Promise<v
 
       // Revert student status — only students this completion graduated.
       await connection.query(
-        `UPDATE students SET status = 'enrolled'
+        `UPDATE students SET status = 'enrolled', is_archived = 0, archived_at = NULL
          WHERE status = 'graduated' AND id IN (${placeholders})`,
         studentIds
       );

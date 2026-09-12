@@ -59,6 +59,12 @@ const MARKINGS = [
   ['NO', 'Not Observed']
 ];
 
+/** DB stores `male`/`female`; render the standard DepEd labels. */
+const SEX_LABELS: Record<string, string> = {
+  male: 'Male',
+  female: 'Female'
+};
+
 const MONTHS = [
   'Jun',
   'Jul',
@@ -223,7 +229,7 @@ function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
 
 /* ── Component ── */
 export function SF9Report() {
-  const { showToast } = useApp();
+  const { showToast, role } = useApp();
   const accent = useRoleAccent();
   const [searchParams] = useSearchParams();
   const preselectedStudentId = searchParams.get('student_id');
@@ -325,8 +331,8 @@ export function SF9Report() {
     // authenticated user) so previous school years remain reachable even when
     // the student was under a different adviser's section that year.
     Promise.all([
-      studentsApi.list(),
-      sectionsApi.list(),
+      role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
+      role === "teacher" ? sectionsApi.listMySections() : sectionsApi.list(),
       enrollmentsApi.list(),
       schoolYearsApi.list()
     ])
@@ -361,7 +367,10 @@ export function SF9Report() {
               (e: EnrollmentRow) =>
                 e.student_id === sid && e.status === 'enrolled'
             );
-          if (enrollment) {
+          if (
+            enrollment &&
+            (role !== "teacher" || studs.some(s => s.id === sid))
+          ) {
             setSelectedGrade(String(enrollment.section_grade_level));
             // Set section and student — the effects will preserve these
             const sec = activeSections.find(
@@ -468,8 +477,14 @@ export function SF9Report() {
             ? sections.find(s => s.id === enrollment.section_id)
             : null;
         setSignerNames(prev => ({
-          principal: prev.principal,
-          adviser: sec?.adviser_name || prev.adviser
+          // Prefill from the DepEd-recorded names; manual edits are preserved
+          // because we only fill empty slots.
+          principal: prev.principal || data.school?.principal_name || '',
+          adviser:
+            prev.adviser ||
+            data.enrollment?.adviser_name ||
+            sec?.adviser_name ||
+            ''
         }));
       })
       .catch(err =>
@@ -1063,7 +1078,10 @@ export function SF9Report() {
                       <div className="flex items-end gap-1 flex-1">
                         <span className="text-[11px] font-semibold">Sex:</span>
                         <span className="flex-1 border-b border-black text-[11px] pl-1">
-                          {sf9Data.student?.sex || '—'}
+                          {sf9Data.student?.sex
+                            ? SEX_LABELS[sf9Data.student.sex.toLowerCase()] ??
+                              sf9Data.student.sex
+                            : '—'}
                         </span>
                       </div>
                     </div>

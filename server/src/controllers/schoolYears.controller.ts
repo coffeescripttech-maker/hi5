@@ -109,7 +109,7 @@ export async function createSchoolYear(req: Request, res: Response): Promise<voi
  */
 export async function updateSchoolYear(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { sy_label, enrollment_open, enrollment_start_date, enrollment_end_date } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM school_years WHERE id = ?", [id]);
@@ -148,8 +148,7 @@ export async function updateSchoolYear(req: Request, res: Response): Promise<voi
  */
 export async function setCurrentSchoolYear(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>("SELECT id, sy_label FROM school_years WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "School year not found." });
@@ -184,8 +183,7 @@ export async function setCurrentSchoolYear(req: Request, res: Response): Promise
  */
 export async function archiveSchoolYear(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>("SELECT * FROM school_years WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "School year not found." });

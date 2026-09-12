@@ -109,8 +109,7 @@ export async function getTeacherSections(req: Request, res: Response): Promise<v
  */
 export async function getSectionById(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const sections = await query<RowDataPacket[]>(
       `SELECT s.*, u.name AS adviser_name,
               (SELECT COUNT(*) FROM enrollments e JOIN school_years sy ON e.school_year_id = sy.id WHERE e.section_id = s.id AND sy.is_current = 1) AS enrolled_count
@@ -192,7 +191,7 @@ export async function createSection(req: Request, res: Response): Promise<void> 
  */
 export async function updateSection(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, grade_level, section_type, capacity, adviser_id, min_average, max_average, is_active } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM sections WHERE id = ?", [id]);
@@ -235,8 +234,7 @@ export async function updateSection(req: Request, res: Response): Promise<void> 
  */
 export async function deleteSection(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>("SELECT id, name FROM sections WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "Section not found." });

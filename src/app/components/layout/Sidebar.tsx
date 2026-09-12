@@ -94,7 +94,9 @@ export function Sidebar({
           <img
             src={logoImage}
             alt="Hi5 Portal"
-            className="h-full w-full object-contain p-0.5"
+            className={`h-full w-full object-contain p-0.5 transition-transform duration-300 ${
+              !isIcons && !isHidden ? 'scale-x-[-1]' : ''
+            }`}
           />
         </div>
         <div className={`min-w-0 ${isIcons ? 'md:hidden' : ''}`}>

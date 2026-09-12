@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import path from "path";
 import dotenv from "dotenv";
 
@@ -56,6 +56,6 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
  * Generate a JWT token
  */
 export function generateToken(payload: JwtPayload): string {
-  const expiresIn = process.env.JWT_EXPIRES_IN || "8h";
+  const expiresIn = (process.env.JWT_EXPIRES_IN || "8h") as SignOptions["expiresIn"];
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }

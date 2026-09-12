@@ -1,5 +1,13 @@
 import React from "react";
-import { Activity, Clock, SearchX } from "lucide-react";
+import { Activity, Clock, ChevronDown, ChevronUp, SearchX } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "../../components/ui/pagination";
 import { logsApi, ActivityLogRow } from "../../services/logs";
 import { HybridTable } from "../../components/HybridTable";
 
@@ -36,15 +44,48 @@ function categoryMeta(entityType: string | null): { label: string; badge: string
 
 export function ActivityLogs() {
   const [logs, setLogs] = React.useState<ActivityLogRow[]>([]);
+  const [pagination, setPagination] = React.useState({
+    page: 1,
+    limit: 6,
+    total: 0,
+    totalPages: 1,
+  });
+  const [page, setPage] = React.useState(1);
+  const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Collapsed shows the newest 6 (fast page load); Expand raises to 50 and
+  // reveals the pagination controls below.
+  const limit = expanded ? 50 : 6;
+
   React.useEffect(() => {
-    logsApi.list({ limit: 100 })
-      .then(setLogs)
-      .catch(err => setError(err.detail?.error || err.message || "Failed to load logs"))
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    logsApi
+      .listPage({ page, limit })
+      .then(res => {
+        if (cancelled) return;
+        setLogs(res.data);
+        setPagination(res.pagination);
+      })
+      .catch(err => {
+        if (!cancelled)
+          setError(err.detail?.error || err.message || "Failed to load logs");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, limit]);
+
+  const toggleExpanded = () => {
+    setPage(1);
+    setExpanded(v => !v);
+  };
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
@@ -80,11 +121,24 @@ export function ActivityLogs() {
           </div>
         ) : (
           <>
-            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-3">
               <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                <Clock size={12} /> Showing the latest {logs.length} entries
+                <Clock size={12} /> Showing {logs.length}
+                {expanded ? " of " : " latest of "}
+                {pagination.total} entries
               </p>
-              <span className="text-xs text-gray-500">Total: <strong>{logs.length}</strong></span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">
+                  Total: <strong>{pagination.total}</strong>
+                </span>
+                <button
+                  onClick={toggleExpanded}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                >
+                  {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  {expanded ? "Show less" : "Show more"}
+                </button>
+              </div>
             </div>
             <HybridTable
               desktop={
@@ -169,6 +223,64 @@ export function ActivityLogs() {
                 )
               }
             />
+            {expanded && pagination.totalPages > 1 && (
+              <Pagination className="py-3">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={e => {
+                        e.preventDefault();
+                        setPage(p => Math.max(1, p - 1));
+                      }}
+                      {...(page === 1
+                        ? { className: "pointer-events-none opacity-40" }
+                        : {})}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                    .filter(
+                      n =>
+                        n === 1 ||
+                        n === pagination.totalPages ||
+                        Math.abs(n - page) <= 1
+                    )
+                    .map((n, i, arr) => (
+                      <React.Fragment key={n}>
+                        {i > 0 && n - arr[i - 1] > 1 && (
+                          <PaginationItem>
+                            <span className="px-1 text-gray-400">…</span>
+                          </PaginationItem>
+                        )}
+                        <PaginationItem>
+                          <PaginationLink
+                            href="#"
+                            isActive={n === page}
+                            onClick={e => {
+                              e.preventDefault();
+                              setPage(n);
+                            }}
+                          >
+                            {n}
+                          </PaginationLink>
+                        </PaginationItem>
+                      </React.Fragment>
+                    ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={e => {
+                        e.preventDefault();
+                        setPage(p => Math.min(pagination.totalPages, p + 1));
+                      }}
+                      {...(page === pagination.totalPages
+                        ? { className: "pointer-events-none opacity-40" }
+                        : {})}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
           </>
         )}
       </div>

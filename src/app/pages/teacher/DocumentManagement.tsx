@@ -55,7 +55,7 @@ export function DocumentManagement() {
 
   const load = () => {
     setRefreshing(true);
-    documentsApi.list()
+    documentsApi.myDocuments()
       .then(setDocuments)
       .catch(err => showToast("error", "Failed to load documents: " + (err.detail?.error || err.message)))
       .finally(() => { setLoading(false); setRefreshing(false); });
@@ -63,7 +63,8 @@ export function DocumentManagement() {
 
   useEffect(() => {
     load();
-    subjectsApi.list()
+    // Subject filter lists only the teacher's assigned subjects.
+    subjectsApi.assigned()
       .then(setSubjects)
       .catch(() => { /* subject filter is optional — ignore failures */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,7 +112,7 @@ export function DocumentManagement() {
             </div>
             <div>
               <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">Document Management</h2>
-              <p className="text-gray-500 text-sm">View and track all your submitted grade files and their submission status</p>
+              <p className="text-gray-500 text-sm">Your submitted grade files for your assigned subjects, with submission status</p>
             </div>
           </div>
           <button
