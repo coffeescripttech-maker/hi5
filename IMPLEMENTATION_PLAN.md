@@ -394,9 +394,9 @@ User requested a coordinated set of teacher-role fixes, admin/system-wide enhanc
 ## Verification plan
 
 ### Automated checks
-- [ ] Frontend type check: `npm run build` (runs `tsc -b && vite build`)
-- [ ] Backend type check: `npm run build` (runs `tsc` in `server/`)
-- [ ] Run existing backend tests: `npm test` (inside `server/`)
+- [x] Frontend type check: `npm run build` (runs `tsc -b && vite build`)
+- [x] Backend type check: `npm run build` (runs `tsc` in `server/`)
+- [x] Run existing backend tests: `npm test` (inside `server/`)
 - [ ] Run existing e2e smoke test if relevant: `npm run test:e2e`
 
 ### Manual smoke tests
