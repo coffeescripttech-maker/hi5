@@ -11,8 +11,9 @@ import { RowDataPacket } from "mysql2";
  */
 /**
  * Teacher scope: a teacher may build a school form for a student only when
- * they are the student's section adviser or hold a subject assignment in the
- * same school year (matches teacher_subject_assignments). Without an explicit
+ * they are the student's section adviser or are assigned to the student's
+ * section in the same school year (matches teacher_section_assignments).
+ * Without an explicit
  * school_year_id the check runs against the student's latest active enrollment.
  */
 async function isTeacherAllowedForStudent(
@@ -21,7 +22,7 @@ async function isTeacherAllowedForStudent(
   schoolYearId?: string
 ): Promise<boolean> {
   let sql: string;
-  const params: any[] = [userId, studentId];
+  let params: any[];
 
   if (schoolYearId) {
     sql = `
@@ -34,13 +35,13 @@ async function isTeacherAllowedForStudent(
         AND (
           sec.adviser_id = ?
           OR EXISTS (
-            SELECT 1 FROM teacher_subject_assignments tsa
+            SELECT 1 FROM teacher_section_assignments tsa
             WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
+              AND tsa.section_id = e.section_id
           )
         )
       LIMIT 1`;
-    params.push(parseInt(schoolYearId));
-    params.push(userId);
+    params = [studentId, parseInt(schoolYearId), userId, userId];
   } else {
     sql = `
       SELECT 1 AS allowed
@@ -51,13 +52,14 @@ async function isTeacherAllowedForStudent(
         AND (
           sec.adviser_id = ?
           OR EXISTS (
-            SELECT 1 FROM teacher_subject_assignments tsa
+            SELECT 1 FROM teacher_section_assignments tsa
             WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
+              AND tsa.section_id = e.section_id
           )
         )
       ORDER BY e.school_year_id DESC
       LIMIT 1`;
-    params.push(userId);
+    params = [studentId, userId, userId];
   }
 
   const rows = await query<RowDataPacket[]>(sql, params);
