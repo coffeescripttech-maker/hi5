@@ -6,6 +6,7 @@ import path from "path";
 
 import { testConnection } from "./config/database";
 import authRoutes from "./routes/auth.routes";
+import publicRoutes from "./routes/public.routes";
 import usersRoutes from "./routes/users.routes";
 import studentsRoutes from "./routes/students.routes";
 import sectionsRoutes from "./routes/sections.routes";
@@ -72,6 +73,7 @@ app.use(cookieParser());
 // ─── Routes ─────────────────────────────────────────────────────────────────────
 
 app.use("/api/auth", authRoutes);
+app.use("/api", publicRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/students", studentsRoutes);
 app.use("/api/sections", sectionsRoutes);

@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { subjectsApi, SubjectRow, CreateSubjectPayload, UpdateSubjectPayload, BulkSubjectItem, TeacherAssignmentRow } from "../../services/subjects";
 import { usersApi, UserRow } from "../../services/users";
 import { useApp } from "../../context/AppContext";
+import { formatHoursPerWeek } from "../../utils/hours";
 import { HybridTable } from "../../components/HybridTable";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -443,7 +444,7 @@ export function SubjectManagement() {
                                   {TYPE_LABEL[s.subject_type]}
                                 </span>
                               </td>
-                              <td className="px-5 py-3.5 text-center text-sm text-gray-600">{s.hours_per_week} hrs/week</td>
+                              <td className="px-5 py-3.5 text-center text-sm text-gray-600 whitespace-nowrap">{formatHoursPerWeek(s.hours_per_week)}</td>
                               <td className="px-5 py-3.5">
                                 {assignments.filter(a => a.subject_id === s.id).length === 0 ? (
                                   <button onClick={() => openAssign(s)}
@@ -494,7 +495,7 @@ export function SubjectManagement() {
                                   {TYPE_LABEL[s.subject_type]}
                                 </span>
                                 <span className="flex items-center gap-1 text-xs text-gray-400">
-                                  <Clock size={11} /> {s.hours_per_week} hrs/week
+                                  <Clock size={11} /> {formatHoursPerWeek(s.hours_per_week)}
                                 </span>
                               </div>
                               <div className="flex flex-wrap gap-1.5 mt-2">
@@ -580,7 +581,7 @@ export function SubjectManagement() {
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
                   {form.hours_per_week > 0 && (
                     <p className="text-[11px] text-gray-400 mt-1.5">
-                      {form.hours_per_week} hrs/week &asymp; {Math.max(1, Math.round((form.hours_per_week / 4) * 10) / 10)} hr/day over 4 days
+                      {form.hours_per_week > 0 ? formatHoursPerWeek(form.hours_per_week) : "Enter weekly hours"}
                     </p>
                   )}
                 </div>

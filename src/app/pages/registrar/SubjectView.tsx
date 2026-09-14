@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BookOpen, BookMarked, GraduationCap, Clock, SlidersHorizontal, X } from "lucide-react";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { useApp } from "../../context/AppContext";
+import { formatHoursPerWeek } from "../../utils/hours";
 
 const TYPE_COLORS: Record<string, string> = {
   core: "bg-blue-50 text-blue-700 border-blue-200/50",
@@ -212,7 +213,7 @@ export function SubjectView() {
                     <td className="px-6 py-3.5">
                       <div className="flex items-center gap-1.5">
                         <Clock size={13} className="text-gray-300" />
-                        <span className="text-sm text-gray-700 font-medium">{s.hours_per_week} hrs</span>
+                        <span className="text-sm text-gray-700 font-medium">{formatHoursPerWeek(s.hours_per_week)}</span>
                       </div>
                     </td>
                   </tr>

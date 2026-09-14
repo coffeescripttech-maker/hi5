@@ -54,6 +54,17 @@ export interface BackupSettings {
   backup_enabled: number;
 }
 
+/** Public (unauthenticated) school info for the login screen. */
+export interface SchoolInfo {
+  school_name: string;
+  current_sy_label: string;
+  enrollment_open: boolean;
+}
+
+export const schoolInfoApi = {
+  get: () => api.get<SchoolInfo>("/school-info"),
+};
+
 export const settingsApi = {
   get: () => api.get<SchoolSettingsRow>("/settings"),
   update: (data: UpdateSettingsPayload) =>

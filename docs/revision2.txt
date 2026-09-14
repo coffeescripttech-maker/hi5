@@ -1,0 +1,37 @@
+REVISIONS 2
+ADDITIONAL SYSTEM REVISIONS:
+Teacher Role Features & Fixes
+ 1. Academic Year: Dynamically synced to the real-time active school year. (NOT FIXED)
+2. My Sections View: Removed the global "All Sections" view. Teachers will now only see "My
+Sections" (the specific sections they are actively teaching). (NOT FIXED)
+3. Subject & Document Filtering: The Document Management section now filters files to display only
+those relevant to the teacher's designated subjects. (NOT FIXED)
+4. Grade Change Requests: Added a field for common mistakes when requesting grade
+modifications (optional). (FIXED)
+5. Upload Grades Template: Fixed formatting issues in the downloadable/uploadable grade entry
+template (NOT FIXED)
+6. School Form (SF) Generation: Restricted SF generation exclusively to a teacher's assigned
+students. (NOT FIXED)
+7. Student Management & Status Updates
+ Recently Enrolled List: Shows 6 recent students by default, with an Expand button to view the rest.
+(NOT FIXED)
+ 8. Student & Enrollment Updates:
+- Graduated students can no longer be re-enrolled, meaning it will automatically locks/archives
+student accounts, to preserve their historical section and academic data. (NOT FIXED)
+Admin & System-Wide Enhancements:
+ - Admin Activity Logs : Applied pagination—displays 6 recent entries by default with an Expand
+option to view full history. (NOT FIXED)
+ - Replaced placeholder account labels with standardized default names (e.g., School Head, Admin).
+- School Form 9 (SF9) Updates:
+ Gender Selection: Converted the gender input on SF9 to a standardized dropdown menu.
+- Replaced system usernames with actual full names.
+Security & Account Controls
+- Profile Security: Mandatory manual input required for the "Current Password" field during profile
+updates (autofill disabled). (FIXED)
+- Username Validation: Added specific syntax and constraint rules for username creation/changes
+(FIXED)
+9. UI, Navigation & Documentation Improvements
+- Sidebar Navigation: Moved the sidebar collapse/expand toggle button directly into the navbar bar
+instead of page body. Expanding the sidebar flips the brand logo. (NOT FIXED)
+10. User Guide Flowchart: Added an easy-to-follow PDF system guide with explanations designed
+for non-technical users. (NOT FIXED)

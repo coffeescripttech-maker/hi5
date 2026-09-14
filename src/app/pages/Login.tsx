@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import { authApi, setToken, LoginResponse } from '../services/api';
 import { ApiError } from '../services/api';
+import { schoolInfoApi, SchoolInfo } from '../services/settings';
 import { z } from 'zod';
 import {
   Eye,
@@ -317,6 +318,8 @@ export function Login() {
   const [countdown, setCountdown] = useState(0);
   // Terms & Conditions gate — login stays disabled until the user agrees
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  // Live school-year label for the login badges (public endpoint, best-effort)
+  const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
   const [legalModal, setLegalModal] = useState<
     null | 'terms' | 'privacy' | 'conditions'
   >(null);
@@ -324,6 +327,23 @@ export function Login() {
   // Auto-focus the username field on load
   useEffect(() => {
     document.getElementById('login-username')?.focus();
+  }, []);
+
+  // Fetch the active school year so the badges stay in sync with System Settings.
+  // Non-blocking: on any failure the static fallback text stays on screen.
+  useEffect(() => {
+    let cancelled = false;
+    schoolInfoApi
+      .get()
+      .then((info) => {
+        if (!cancelled) setSchoolInfo(info);
+      })
+      .catch(() => {
+        /* keep the static fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Lockout countdown ticker
@@ -589,7 +609,9 @@ export function Login() {
             }}>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-emerald-300 text-xs font-medium">
-              School Year 2025–2026 · Active
+              {schoolInfo
+                ? `School Year ${schoolInfo.current_sy_label}${schoolInfo.enrollment_open ? " · Active" : " · Enrollment Closed"}`
+                : "School Year 2025–2026 · Active"}
             </span>
           </div>
           <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
@@ -678,7 +700,7 @@ export function Login() {
           }}>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-emerald-300 text-[11px] font-medium whitespace-nowrap">
-            SY 2025–26
+            {schoolInfo ? `SY ${schoolInfo.current_sy_label}` : "SY 2025–26"}
           </span>
         </div>
       </div>

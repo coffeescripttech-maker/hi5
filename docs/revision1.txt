@@ -1,0 +1,156 @@
+REVISIONS
+No Schedule Modifier — There is currently no way to edit or modify class schedules. This needs to
+be added.
+LIS should be Registrar only — The LIS export feature is currently accessible to both Teacher and
+Registrar. It should be removed from the Teacher side and placed exclusively under the Registrar.
+(FIXED)
+LIS Export Excel format bugged — The exported Excel file from the LIS module has formatting
+issues. Needs to be corrected. (NOT FIXED)
+LIS Export Document Quality — The exported PDF files from the LIS module are too plain and
+unpolished. The layout, formatting, and overall appearance need to be improved to look like a
+proper official document, not a raw data dump. Headers, borders, proper spacing, and a clean
+structure should be applied to all exported files. (NOT FIXED)
+NOTIFICATIONS
+Real-time notifications are not working. They should update live without needing to refresh the
+page. FIXED
+---
+**ADMIN
+Hours per Week Display — The format currently shows something like "03.03.03.03" which is
+confusing. It should be readable, for example "3 hrs/day, 4 days a week" or a proper table format.
+(NOT FIXED)
+Create School Year — The Create SY function is not working or incomplete. Needs to be fixed. (NOT
+FIXED)
+SF5 PDF — The lines/borders in the generated SF5 PDF are bugged. Needs formatting fix. (NOT
+FIXED)
+SF9 PDF — Same issue as SF5. Lines/borders in the generated SF9 PDF are broken. (NOT FIXED)
+Manual Backup — The manual database backup feature is not working. Admin should be able to
+trigger a backup on demand. (NOT FIXED)
+---
+TEACHER AND REGISTRAR
+No Schedule Modifier — There is currently no way to edit or modify class schedules. This needs to
+be added. (REGISTRAR DOES NOT HAVE THIS MODULE)
+LIS should be Registrar only — The LIS export feature is currently accessible to both Teacher and
+Registrar. It should be removed from the Teacher side and placed exclusively under the Registrar.
+(FIXED)
+LIS Export Excel format bugged — The exported Excel file from the LIS module has formatting
+issues. Needs to be corrected. (NOT FIXED)
+SYSTEM-WIDE
+Grade Thresholds per Section — Admins should be able to set different grade thresholds per
+section, not just a single global threshold for all. (NOT FIXED)
+Add More Sections and Special Sections — The system should support adding more sections
+including special program sections like STE and SPFL. (FIXED)
+ENROLLMENT — Student Basic Information
+Add two missing fields:
+- Height and weight with full BMI computation
+- Guardian personal information should include a field indicating if the guardian is a 4Ps beneficiary
+(NOT FIXED)
+---
+ENROLLMENT — Returning Students
+When a returning student is looked up by LRN, the system should show a preview of their previous
+grades before confirming enrollment, not just auto-populate their personal info. (NOT FIXED)
+---
+TEACHER ROLE — Adviser Management
+Add an Adviser Management module. This means the teacher only sees and manages the students
+under their advisory class, nothing outside of that. (FIXED)
+---
+TEACHER ROLE — Grade Management Restrictions
+A teacher can only encode grades for the subject they are assigned to handle. They can view other
+subjects' grades but cannot edit them. Subject-level permission locks grade encoding to the
+teacher's designated subject only. (NOT FIXED- IF TEACHER IS MATH TEACHER HE CAN ONLY EDIT
+THE GRADES IN STUDENT’s MATH SUBJ)
+---
+TEACHER ROLE — Grade Editing Time Limit
+Once grades are submitted, there is a time limit for making changes. After the deadline, the teacher
+can no longer edit on their own. Any correction must go through the Registrar. (NOT FIXED)
+PRINCIPAL ROLE — Export
+The Principal should be able to export all school documents, not just view them. Export access
+should cover school-wide reports and data. (NOT FIXED)
+PRINCIPAL ROLE — Graphs
+The Principal's dashboard should include graphs and visual analytics, not just numbers or tables.
+Charts showing enrollment trends, grade distributions, at-risk counts, and similar data should be
+visible at a glance. (FIXED)
+**LOGIN PAGE**
+- Remove the "RA 10173 Compliant" badge from the login page and move it to Settings
+- Add Terms, Privacy Policy, and Conditions section on the login page (NOT FIXED)
+- User cannot log in unless they check the box agreeing to the Terms and Conditions. Login button
+stays disabled until agreed. (NOT FIXED)
+---
+**NOTIFICATIONS**
+- Real-time notifications are not working. They should update live without needing to refresh the
+page. (NOT TESTED)
+---
+**ADMIN**
+- Hours per Week display format is confusing (currently shows "03.03.03.03"). Should display in a
+readable format such as "3 hrs/day, 4 days a week" (NOT FIXED)
+- Create School Year function is not working or incomplete. Needs to be fixed. (NOT FIXED-IN LOG
+IN PAGE THERE IS “School Year - 2025-2026 Active” IT SHOULD BE LIVE AND CONNECTED TO
+THE SYSTEM’s SETTINGS)
+- SF5 PDF has broken lines and borders. Needs formatting fix. (NOT FIXED)
+- SF9 PDF has the same broken lines and borders issue. Needs formatting fix. (NOT FIXED)
+- Manual database backup feature is not working. Admin should be able to trigger a backup on
+demand. (NOT FIXED)
+- School Settings required fields must be properly marked and validated. Empty required fields
+should block saving. (NOT FIXED)
+- School Year configuration should have a calendar year option. (NOT FIXED)
+- Closed or inactive school years should appear grayed out so users can distinguish active from
+inactive terms. (NOT FIXED)
+- Fix the bug where the system reverts to a previous school year. It should stay on the current active
+school year. (IN CALENDAR)
+- Add a Total Students label or counter on the dashboard.
+- Add a deletion schedule for activity logs. Old logs should be automatically cleared after a set
+period. (NOT FIXED)
+- Remove the redundant Admin logout button. Keep only one. (NOT FIXED)
+- Remove the redundant search bar on pages that have duplicate search bars. (NOT FIXED)
+- Date Hired field should be paired with an End of Contract field. (NOT FIXED)
+- Grade thresholds should be configurable per section, not just a single global threshold for all
+sections. (NOT FIXED)
+- Support adding more sections including special program sections such as STE and SPFL. (FIXED)
+---
+**ENROLLMENT**
+- Add Height and Weight fields with full BMI computation to the Student Basic Information form.
+(NOT FIXED)
+- Add a Guardian 4Ps beneficiary status field under Guardian Personal Information. (NOT FIXED)
+- When a returning student is looked up by LRN, show a preview of their previous grades before
+confirming enrollment. (NOT FIXED)
+---
+**TEACHER ROLE**
+- Add Adviser Management module. Teacher should only see and manage students under their own
+advisory class. (NOT FIXED-REMOVE THE ALL SECTIONS)
+- Grade encoding must be restricted per subject. A teacher can only encode grades for their
+assigned subject. They can view other subjects' grades but cannot edit them. (NOT FIXED)
+- Add a grade editing time limit. After the deadline, the teacher can no longer edit grades on their
+own. Any correction must go through the Registrar. (NOT FIXED)
+- Remove schedule modifier from Teacher side. Teachers should not be able to modify schedules.
+(NOT FIXED-TEACHERS CAN VIEW THEIR OWN SCHEDULE-REGISTRAR SHOULD BE THE ONE TO
+MODIFY)
+- Remove LIS export access from Teacher. LIS should be Registrar only. (FIXED)
+---
+**REGISTRAR**
+- LIS export feature should be exclusive to the Registrar role only. (FIXED)
+- Fix the LIS Export Excel file formatting. The exported Excel file has layout issues. (NOT FIXED)
+- Improve the LIS Export PDF quality. The current exported documents are too plain. Apply proper
+headers, borders, spacing, and a clean structure to make them look like official documents. (NOT
+FIXED)
+- Add schedule modifier for Registrar. (NOT FIXED)
+---
+**SCHOOL FORMS**
+- When generating any school form (SF1, SF5, SF9, SF10), the system should show a preview of the
+document first before printing or exporting. (NOT FIXED(
+- The preview screen should have an Edit button so the user can correct any mistakes before
+finalizing. (NOT FIXED)
+- The form should not go straight to print without giving the user a chance to review it first. (NOT
+FIXED)
+---
+**PRINCIPAL ROLE**
+- Principal should be able to export all school documents and data, not just view them.
+- Principal dashboard should include graphs and visual analytics such as enrollment trends, grade
+distributions, and at-risk student counts. (NOT FIXED)
+---
+**SYSTEM WIDE**
+- Notifications must be real-time across all roles. (NOT TESTED
+- RA 10173 Compliant information should be moved from the login page to the Settings page. (NOT
+FIXED)
+- Remove the logout button the main navigation sidebar across all dashboards to eliminate
+redundancy. (NOT FIXED)
+- Remove duplicate search bars on dashboard headers where redundant search and navigation
+components exist. (NOT FIXED)
