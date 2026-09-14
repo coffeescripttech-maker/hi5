@@ -163,6 +163,7 @@ const NOTIF_TYPE_ICONS: Record<string, string> = {
 export function NotificationsDropdown() {
   const {
     role,
+    schoolYearLabel,
     readNotifs: ctxReadNotifs,
     markAllRead: ctxMarkAllRead,
     markOneRead: ctxMarkOneRead,
@@ -191,7 +192,10 @@ export function NotificationsDropdown() {
   // Until the first snapshot returns, keep the legacy static list as a
   // graceful placeholder so the bell never renders empty on startup.
   const isFallback = liveLoading && liveNotifs.length === 0;
-  const staticNotifs = ALL_NOTIFICATIONS[role || 'admin'] || [];
+  const staticNotifs = (ALL_NOTIFICATIONS[role || 'admin'] || []).map(n => ({
+    ...n,
+    text: n.text.replace(/2025[–-]2026/g, schoolYearLabel || '2025–2026')
+  }));
   const securityItems = securityNotifs.map(n => ({
     id: parseInt(n.id, 36) || 9999,
     icon: n.icon,

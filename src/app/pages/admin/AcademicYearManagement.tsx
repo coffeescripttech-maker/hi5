@@ -40,10 +40,10 @@ const deriveSummary = (proms: PromotionRow[]): GradeTransition[] =>
   });
 
 export function AcademicYearManagement() {
-  const { showToast, refreshSchoolInfo } = useApp();
+  const { showToast, refreshSchoolInfo, schoolYearLabel } = useApp();
   const [step, setStep] = useState<Step>("idle");
   const [expandedGrade, setExpandedGrade] = useState<string | null>(null);
-  const [currentSY, setCurrentSY] = useState("2025–2026");
+  const [currentSY, setCurrentSY] = useState(schoolYearLabel || "2025–2026");
   const [nextSY, setNextSY] = useState("2026–2027");
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [loading, setLoading] = useState(true);

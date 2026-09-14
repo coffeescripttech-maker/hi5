@@ -47,7 +47,7 @@ type SortKey = "name" | "lrn" | "grade_level" | "section_name" | "sex" | "status
 type SortDir = "asc" | "desc";
 
 export function EnrollmentReport() {
-  const { showToast } = useApp();
+  const { showToast, schoolYearLabel } = useApp();
   const [lrnSearch, setLrnSearch] = useState("");
   const [nameSearch, setNameSearch] = useState("");
   const [filterSection, setFilterSection] = useState("All Sections");
@@ -59,7 +59,7 @@ export function EnrollmentReport() {
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [syLabel, setSyLabel] = useState("2025–2026");
+  const [syLabel, setSyLabel] = useState(schoolYearLabel || "2025–2026");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);

@@ -95,8 +95,14 @@ const SCHOOL_FORMS: SchoolForm[] = [
 type ActiveForm = 'SF1' | 'SF5' | 'SF9' | 'SF10' | null;
 
 export function SchoolForms() {
-  const { showToast, role } = useApp();
+  const { showToast, role, schoolYearLabel } = useApp();
   const accent = useRoleAccent();
+  // Live school-year label for anything printed on official forms.
+  const activeSY = schoolYearLabel || "2025–2026";
+  const prevSY = (() => {
+    const start = parseInt(activeSY.split(/[\-–]/)[0]);
+    return !Number.isNaN(start) ? `${start - 1}` + "–" + `${start}` : "2024–2025";
+  })();
   const { formCode } = useParams<{ formCode?: string }>();
   const userLabel = role === 'teacher' ? 'Class Adviser' : role === 'admin' ? 'Admin' : 'Registrar';
   const initialForm = formCode?.toUpperCase() as ActiveForm;
@@ -329,7 +335,7 @@ export function SchoolForms() {
                     {currentForm.title} — {currentForm.subtitle}
                   </h3>
                   <p className="text-gray-500 text-xs mt-0.5">
-                    School Year 2025–2026 · Authorized: {userLabel}
+                    School Year {activeSY} · Authorized: {userLabel}
                   </p>
                 </div>
               </div>
@@ -407,8 +413,8 @@ export function SchoolForms() {
                     School Year
                   </label>
                   <select className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
-                    <option>2025–2026</option>
-                    <option>2024–2025</option>
+                    <option>{activeSY}</option>
+                    <option>{prevSY}</option>
                   </select>
                 </div>
                 <div>
@@ -508,7 +514,7 @@ export function SchoolForms() {
                       </p>
                       <p>
                         <span className="font-bold">School Year:</span>{' '}
-                        2025–2026
+{activeSY}
                       </p>
                       {activeForm !== 'SF10' && activeForm !== 'SF9' && (
                         <>
@@ -634,7 +640,7 @@ export function SchoolForms() {
                       <div>
                         <p className="font-bold text-xs uppercase tracking-wide text-emerald-800 border-b border-emerald-200 pb-1 mb-3">
                           REPORT ON PROMOTION AND LEVEL OF PROFICIENCY — END OF
-                          SCHOOL YEAR 2025–2026
+                          SCHOOL YEAR {activeSY}
                         </p>
                         <table className="w-full border-collapse text-xs">
                           <thead>
@@ -806,7 +812,7 @@ export function SchoolForms() {
                         return (
                           <div className="space-y-3">
                             <p className="font-bold text-xs uppercase tracking-wide text-violet-800 border-b border-violet-200 pb-1">
-                              LEARNER'S PROGRESS REPORT CARD — SY 2025–2026
+                              LEARNER'S PROGRESS REPORT CARD — SY {activeSY}
                             </p>
                             <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs border border-gray-200 rounded p-3 bg-violet-50/30">
                               <p>
@@ -827,7 +833,7 @@ export function SchoolForms() {
                               </p>
                               <p>
                                 <span className="font-bold">School Year:</span>{' '}
-                                2025–2026
+{activeSY}
                               </p>
                               <p>
                                 <span className="font-bold">
@@ -1059,7 +1065,7 @@ export function SchoolForms() {
                             </div>
                             <p className="font-bold text-xs uppercase tracking-wide text-indigo-700 mt-1">
                               Academic Record — Grade{' '}
-                              {selectedStudent.grade_level} · SY 2025–2026
+                              {selectedStudent.grade_level} · SY {activeSY}
                             </p>
                             <table className="w-full border-collapse text-xs">
                               <thead>

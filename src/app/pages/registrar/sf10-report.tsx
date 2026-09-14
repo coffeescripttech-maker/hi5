@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Loader2,
   Printer,
@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
+import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { settingsApi, SchoolSettingsRow } from '../../services/settings';
 import { formsApi, SF10Row } from '../../services/forms';
 import { useApp } from '../../context/AppContext';
@@ -310,6 +312,15 @@ export function SF10Report() {
     null
   );
 
+  /* -- Cascade filters (mirrors SF9 dropdown workflow) -- */
+  const [selectedGrade, setSelectedGrade] = useState('7');
+  const [selectedSectionId, setSelectedSectionId] = useState<number | null>(
+    null
+  );
+  const [syId, setSyId] = useState(1);
+  const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
+
   /* ── Report ── */
   const [sf10Data, setSf10Data] = useState<SF10Row | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
@@ -333,11 +344,26 @@ export function SF10Report() {
     Promise.all([
       role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
       role === "teacher" ? sectionsApi.listMySections() : sectionsApi.list(),
-      settingsApi.get()
+      settingsApi.get(),
+      enrollmentsApi.list(),
+      schoolYearsApi.list()
     ])
-      .then(([studs, secs, st]) => {
+      .then(([studs, secs, st, enrs, years]) => {
         setSections(secs);
         setSettings(st);
+        setEnrollments(enrs);
+        setSchoolYears(years);
+        const currentYear = years.find(
+          (y: SchoolYearRow) => y.is_current === 1
+        );
+        setSyId(currentYear?.id ?? years[0]?.id ?? 1);
+        // Default the cascade to the first active Grade 7 section so the
+        // auto-select effect can pick a student (mirrors SF9's default).
+        const firstGrade7 = secs.filter(
+          (s: { is_active: number; grade_level: number }) =>
+            s.is_active === 1 && s.grade_level === 7
+        );
+        setSelectedSectionId(firstGrade7[0]?.id ?? null);
         setStudents(
           studs.filter(
             (s: StudentRow) =>
@@ -359,6 +385,60 @@ export function SF10Report() {
         );
       })
     : students;
+
+  /* -- Grade -> Section -> Student cascade (mirrors SF9) -- */
+  const gradeSections = useMemo(
+    () =>
+      sections.filter(
+        s => s.is_active === 1 && s.grade_level === parseInt(selectedGrade)
+      ),
+    [sections, selectedGrade]
+  );
+
+  const sectionEnrollmentIds = useMemo(
+    () =>
+      enrollments
+        .filter(
+          e =>
+            e.school_year_id === syId &&
+            e.section_grade_level === parseInt(selectedGrade) &&
+            e.section_id === selectedSectionId &&
+            e.status === 'enrolled'
+        )
+        .map(e => e.student_id),
+    [enrollments, selectedGrade, selectedSectionId, syId]
+  );
+
+  const enrolledStudents = useMemo(
+    () => students.filter(s => sectionEnrollmentIds.includes(s.id)),
+    [students, sectionEnrollmentIds]
+  );
+
+  // Auto-select first student when section/year changes (mirrors SF9).
+  useEffect(() => {
+    if (enrolledStudents.length > 0) {
+      if (
+        selectedStudentId &&
+        enrolledStudents.some(s => s.id === selectedStudentId)
+      )
+        return;
+      setSelectedStudentId(enrolledStudents[0].id);
+    } else {
+      setSelectedStudentId(null);
+    }
+    setSf10Data(null);
+  }, [selectedGrade, selectedSectionId, syId]);
+
+  // Reset section when grade changes — only if it no longer belongs to the grade.
+  useEffect(() => {
+    const gs = sections.filter(
+      s => s.is_active === 1 && s.grade_level === parseInt(selectedGrade)
+    );
+    if (selectedSectionId && gs.some(s => s.id === selectedSectionId)) return;
+    if (gs.length > 0) setSelectedSectionId(gs[0].id);
+    else setSelectedSectionId(null);
+    setSf10Data(null);
+  }, [selectedGrade]);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
 
@@ -606,8 +686,9 @@ export function SF10Report() {
                     SF10 — Learner's Permanent Academic Record
                   </h2>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    Search a learner to open their SF10-JHS (Formerly Form 137)
-                    with grades auto-filled from the database.
+                    Filter by grade and section, or search a learner to open
+                    their SF10-JHS (Formerly Form 137) with grades auto-filled from the
+                    database.
                   </p>
                 </div>
               </div>
@@ -643,10 +724,101 @@ export function SF10Report() {
               format="letter"
             />
 
+            {/* -- Grade -> Section -> Student cascade (mirrors SF9) -- */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5 mt-5">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
+                  School Year
+                </label>
+                <select
+                  value={syId}
+                  onChange={e => setSyId(parseInt(e.target.value))}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
+                  {schoolYears.length === 0 && (
+                    <option value="">Loading years...</option>
+                  )}
+                  {schoolYears.map(y => (
+                    <option key={y.id} value={y.id}>
+                      {y.sy_label}
+                      {y.is_current === 1 ? ' (Current)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
+                  Grade Level
+                </label>
+                <select
+                  value={selectedGrade}
+                  onChange={e => setSelectedGrade(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
+                  {[7, 8, 9, 10, 11, 12].map(g => (
+                    <option key={g} value={g}>
+                      Grade {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
+                  Section
+                </label>
+                <select
+                  value={selectedSectionId ?? ''}
+                  onChange={e => setSelectedSectionId(parseInt(e.target.value))}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
+                  {gradeSections.length === 0 && (
+                    <option value="">No sections</option>
+                  )}
+                  {gradeSections.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
+                  Student
+                </label>
+                <select
+                  value={selectedStudentId ?? ''}
+                  onChange={e => {
+                    const sid = parseInt(e.target.value);
+                    const chosen = enrolledStudents.find(s => s.id === sid);
+                    setSelectedStudentId(sid);
+                    setSearchQuery(
+                      chosen ? `${chosen.lrn} — ${chosen.name}` : ''
+                    );
+                    setSf10Data(null);
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
+                  {enrolledStudents.length === 0 && (
+                    <option value="">No students enrolled</option>
+                  )}
+                  {enrolledStudents.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.lrn} — {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* -- or quick search -- */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-gray-100" />
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.05em]">
+                or quick search
+              </span>
+              <div className="h-px flex-1 bg-gray-100" />
+            </div>
+
             {/* Searchable learner picker */}
             <div className="relative max-w-xl">
               <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
-                Learner
+                Search learner
               </label>
               <div className="relative">
                 <Search

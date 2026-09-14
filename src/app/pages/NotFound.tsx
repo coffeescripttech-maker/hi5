@@ -1,10 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router";
 import { Home, FileQuestion, ArrowLeft } from "lucide-react";
+import { useApp } from "../context/AppContext";
 import logoImage from "../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png";
 
 export function NotFound() {
   const navigate = useNavigate();
+  const { schoolYearLabel } = useApp();
   return (
     <div className="min-h-dvh bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Decorative orbs */}
@@ -36,7 +38,7 @@ export function NotFound() {
         <p className="text-blue-200/70 text-sm mb-2">
           The page you're looking for doesn't exist or you may not have access to it.
         </p>
-        <p className="text-blue-300/50 text-xs mb-8">Hi5 Portal · DSPMNHS · SY 2025–2026</p>
+        <p className="text-blue-300/50 text-xs mb-8">Hi5 Portal · DSPMNHS · SY {schoolYearLabel || '2025–2026'}</p>
 
         <div className="flex items-center justify-center gap-3">
           <button
