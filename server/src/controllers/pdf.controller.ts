@@ -26,6 +26,9 @@ const CHROME_CANDIDATES = [
   "/usr/bin/chromium",
 ].filter(Boolean) as string[];
 
+/** Minimal DOM surface reached inside the headless Chromium page (tsc for Node has no DOM lib). */
+type PageDom = { document: { fonts: { ready: Promise<unknown> } } };
+
 function findChromeExecutable(): string {
   for (const candidate of CHROME_CANDIDATES) {
     try {
@@ -89,7 +92,7 @@ async function renderPdfBuffer(html: string): Promise<Buffer> {
 
       // Wait for the embedded @font-face fonts to finish loading before printing.
       await Promise.race([
-        page.evaluate(() => document.fonts.ready),
+        page.evaluate(() => (globalThis as unknown as PageDom).document.fonts.ready),
         new Promise((r) => setTimeout(r, 8000)),
       ]);
 
