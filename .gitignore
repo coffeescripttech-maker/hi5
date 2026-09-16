@@ -44,3 +44,9 @@ ai-service/saved/
 !ai-service/saved/.gitkeep
 __pycache__/
 *.pyc
+
+# Runtime artifacts — ephemeral + sensitive; must never be committed
+server/uploads/
+server/backups/
+server/downloads/
+server/*.pdf
