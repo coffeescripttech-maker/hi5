@@ -3,12 +3,56 @@ import { useNavigate } from "react-router";
 import { useApp } from "../context/AppContext";
 import { exportToPdf } from "../services/pdfExport";
 import { downloadRenderedPdf, type PdfRenderOptions } from "../services/pdfRender";
-import { Download, Loader2, Printer, ZoomIn, ZoomOut, Workflow, Repeat } from "lucide-react";
+import {
+  BookMarked,
+  BookOpen,
+  ClipboardList,
+  Download,
+  Loader2,
+  Printer,
+  Repeat,
+  Users,
+  Workflow,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import {
+  GUIDE_META,
+  gettingStarted,
+  roles,
+  howtos,
+  glossary,
+} from "../data/systemGuideContent";
 
 const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
 
-/** Reset the user's zoom while printing/exporting so diagrams fit the page. */
-const GUIDE_PRINT_CSS = `.guide-zoom { transform: none !important; }`;
+/**
+ * Print rules for the written user guide PDF (portrait letter, paginated by
+ * section). Embedded by the PDF renderer in a second <style> after its base
+ * `@page { size: letter landscape; margin: 0 }`, so these win the cascade:
+ * @page geometry comes entirely from here (`preferCSSPageSize: true`).
+ *
+ * The flowchart canvases are allowed to span pages by staying out of the
+ * `page-break-inside: avoid` list — only individual cards/rows are kept
+ * together. Width fixes: min-w-[800px] on the diagram canvases and mermaid's
+ * own max-width are overridden so the charts scale to the portrait content
+ * width instead of being clipped (stylesheet !important beats inline styles,
+ * and the style-inliner skips SVG subtrees, leaving their CSS-able width).
+ */
+const GUIDE_PRINT_CSS = `
+@page { size: letter portrait; margin: 0.4in; }
+.no-print { display: none !important; }
+.print-page { page-break-after: always; }
+.print-section { page-break-before: always; }
+.print-section:first-of-type { page-break-before: auto; }
+.role-card, .howto, .glossary-item, .diagram-block, .quick-ref-card { page-break-inside: avoid; }
+.guide-zoom { transform: none !important; overflow: visible !important; }
+.diagram-canvas, .guide-zoom { min-width: 0 !important; }
+#system-guide-pdf svg { max-width: 100% !important; height: auto !important; }
+`;
+
+/** Fallback when the school-name setting hasn't been configured yet. */
+const SCHOOL_NAME_FALLBACK = "Don Servillano Platon Memorial National High School";
 
 /** Map partial text content of flowchart nodes to their system route */
 const NODE_ROUTES: [string, string, string][] = [
@@ -172,9 +216,31 @@ flowchart LR
   G-->H[🎓 Grade 12 -> Graduation]:::system
 `;
 
+/** Short step lists for the appendix quick-reference cards. */
+const QUICK_REF = [
+  {
+    role: "Admin",
+    color: "bg-indigo-50 border-indigo-200",
+    textColor: "text-indigo-700",
+    steps: ["Create School Years", "Create Subjects", "Create Sections & Types", "Manage Users", "Configure Settings"],
+  },
+  {
+    role: "Teacher",
+    color: "bg-emerald-50 border-emerald-200",
+    textColor: "text-emerald-700",
+    steps: ["Enroll Students (no section)", "Encode Q1-Q4 Grades", "Lock Grades", "Generate School Forms", "Bulk Promotion / Completers"],
+  },
+  {
+    role: "Registrar",
+    color: "bg-amber-50 border-amber-200",
+    textColor: "text-amber-700",
+    steps: ["Assign Sections from Pending Queue", "Monitor Enrollment", "Generate Certificates", "Run Reports", "Track At-Risk Students"],
+  },
+];
+
 export function SystemGuide() {
   const navigate = useNavigate();
-  const { showToast } = useApp();
+  const { showToast, schoolName, schoolYearLabel } = useApp();
   const [lifecycleSvg, setLifecycleSvg] = useState("");
   const [yearlySvg, setYearlySvg] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -300,8 +366,8 @@ export function SystemGuide() {
     setExporting(true);
     const options: PdfRenderOptions = {
       elementId: "system-guide-pdf",
-      filename: "system-guide",
-      orientation: "landscape",
+      filename: "hi5-system-user-guide",
+      orientation: "portrait",
       format: "letter",
       printCss: GUIDE_PRINT_CSS,
     };
@@ -322,16 +388,16 @@ export function SystemGuide() {
 
   return (
     <div id="system-guide-pdf" className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
-      {/* Header */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Header (on screen only — the PDF has its own cover page) */}
+      <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
         <div className="p-5 sm:p-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center flex-shrink-0 overflow-hidden">
             <img src="/deped-seal.svg" alt="Department of Education seal" className="w-10 h-10 object-contain" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">System Guide — Student Lifecycle</h2>
-            <p className="text-gray-500 text-sm">Complete workflow from Grade 7 enrollment to Grade 12 graduation</p>
+            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">System Guide — User Guide</h2>
+            <p className="text-gray-500 text-sm">A written guide for every role, with the student life-cycle flowcharts at the end</p>
           </div>
         </div>
       </div>
@@ -385,89 +451,190 @@ export function SystemGuide() {
         </div>
       )}
 
-      {/* Full Lifecycle */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* ── Cover page ── */}
+      <div className="print-page bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
+        <div className="p-8 sm:p-12 text-center">
+          <img src="/deped-seal.svg" alt="Department of Education seal" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto object-contain mb-5" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-[-0.02em]">{GUIDE_META.title}</h1>
+          <p className="mt-2 text-indigo-600 font-medium text-sm sm:text-base">{GUIDE_META.subtitle}</p>
+          <div className="mt-8 space-y-1.5">
+            <p className="text-gray-800 font-semibold text-lg">{schoolName || SCHOOL_NAME_FALLBACK}</p>
+            {schoolYearLabel && <p className="text-gray-500 text-sm">School Year {schoolYearLabel}</p>}
+          </div>
+          <p className="mt-6 mx-auto max-w-md text-gray-500 text-sm">{GUIDE_META.audience}</p>
+          <p className="mt-10 text-xs text-gray-400">{GUIDE_META.footer}</p>
+        </div>
+      </div>
+
+      {/* ── Getting Started & Login ── */}
+      <section className="print-section bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <BookOpen size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Getting Started & Login</h3>
+            <p className="text-xs text-gray-400">What the portal is, and how to sign in for the first time</p>
+          </div>
+        </div>
+        <div className="px-5 sm:px-6 py-5 space-y-3">
+          {gettingStarted.map((para, i) => (
+            <p key={i} className="text-sm text-gray-700 leading-relaxed">{para}</p>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Role Overviews ── */}
+      <section className="print-section bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <Users size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Role Overviews</h3>
+            <p className="text-xs text-gray-400">What each role does, and which pages they use</p>
+          </div>
+        </div>
+        <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {roles.map(r => (
+            <div key={r.role} className="role-card rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+              <h4 className="font-bold text-sm text-gray-900">{r.role}</h4>
+              <p className="mt-1 text-xs text-gray-600 leading-relaxed">{r.summary}</p>
+              <ul className="mt-3 space-y-1.5">
+                {r.duties.map((d, i) => (
+                  <li key={i} className="text-xs text-gray-600 flex items-start gap-2">
+                    <span className="text-indigo-500 mt-0.5 flex-shrink-0">•</span>
+                    {d}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {r.pages.map(p => (
+                  <span key={p} className="text-[10px] font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">{p}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Step-by-Step How-Tos ── */}
+      <section className="print-section bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <ClipboardList size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Step-by-Step How-Tos</h3>
+            <p className="text-xs text-gray-400">Follow these steps for the most common tasks</p>
+          </div>
+        </div>
+        <div className="px-5 sm:px-6 py-5 space-y-4">
+          {howtos.map(ht => (
+            <div key={ht.title} className="howto rounded-xl border border-gray-100 p-4">
+              <h4 className="font-bold text-sm text-gray-900">{ht.title}</h4>
+              <p className="mt-1 text-xs text-gray-500">{ht.summary}</p>
+              <ol className="mt-3 space-y-2">
+                {ht.steps.map((s, i) => (
+                  <li key={i} className="text-xs text-gray-700 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-px">{i + 1}</span>
+                    <span className="leading-relaxed">{s}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Glossary of Terms ── */}
+      <section className="print-section bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <BookMarked size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Glossary of Terms</h3>
+            <p className="text-xs text-gray-400">Plain-language meanings of words used in this guide</p>
+          </div>
+        </div>
+        <div className="px-5 sm:px-6 py-5">
+          <dl>
+            {glossary.map(g => (
+              <div key={g.term} className="glossary-item py-3 border-b border-gray-100 last:border-b-0">
+                <dt className="font-semibold text-sm text-gray-900">{g.term}</dt>
+                <dd className="mt-0.5 text-xs text-gray-600 leading-relaxed">{g.definition}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      {/* ── Visual Overview: Flowchart Appendix ── */}
+      <section className="print-section print-appendix bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
             <Workflow size={16} className="text-indigo-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Full Lifecycle: Grade 7 → Graduation</h3>
-            <p className="text-xs text-gray-400">All 6 phases across Admin, Teacher, Registrar, and Principal roles</p>
+            <h3 className="font-semibold text-gray-900 text-sm">Visual Overview — Flowcharts</h3>
+            <p className="text-xs text-gray-400">The student lifecycle at a glance (click any node to open that page)</p>
           </div>
         </div>
-        <div className="guide-zoom p-5 overflow-x-auto" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}>
-          <div className="min-w-[800px]" ref={lifecycleRef}>
-            {lifecycleSvg ? (
-              <div dangerouslySetInnerHTML={{ __html: lifecycleSvg }} />
-            ) : error ? null : (
-              <div className="flex items-center gap-3 text-gray-400 text-sm py-10">
-                <div className="w-4 h-4 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
-                Loading flowchart...
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Simplified Yearly Cycle */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
-            <Repeat size={16} className="text-indigo-600" />
-          </div>
+        <div className="p-5 sm:p-6 space-y-6">
+          {/* Full Lifecycle */}
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Simplified Yearly Cycle</h3>
-            <p className="text-xs text-gray-400">Role-by-role view of the annual loop</p>
-          </div>
-        </div>
-        <div className="p-5 overflow-x-auto">
-          {yearlySvg ? (
-            <div dangerouslySetInnerHTML={{ __html: yearlySvg }} />
-          ) : error ? null : (
-            <div className="flex items-center gap-3 text-gray-400 text-sm py-6">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
-              Loading...
+            <h4 className="font-semibold text-gray-900 text-sm">Full Lifecycle: Grade 7 → Graduation</h4>
+            <p className="text-xs text-gray-400 mb-3">All 6 phases across Admin, Teacher, Registrar, and Principal roles</p>
+            <div className="guide-zoom rounded-xl border border-gray-100 overflow-x-auto" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}>
+              <div className="diagram-canvas min-w-[800px]" ref={lifecycleRef}>
+                {lifecycleSvg ? (
+                  <div dangerouslySetInnerHTML={{ __html: lifecycleSvg }} />
+                ) : error ? null : (
+                  <div className="flex items-center gap-3 text-gray-400 text-sm py-10">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
+                    Loading flowchart...
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Quick Reference */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          {
-            role: "Admin",
-            color: "bg-indigo-50 border-indigo-200",
-            textColor: "text-indigo-700",
-            steps: ["Create School Years", "Create Subjects", "Create Sections & Types", "Manage Users", "Configure Settings"],
-          },
-          {
-            role: "Teacher",
-            color: "bg-emerald-50 border-emerald-200",
-            textColor: "text-emerald-700",
-            steps: ["Enroll Students (no section)", "Encode Q1-Q4 Grades", "Lock Grades", "Generate School Forms", "Bulk Promotion / Completers"],
-          },
-          {
-            role: "Registrar",
-            color: "bg-amber-50 border-amber-200",
-            textColor: "text-amber-700",
-            steps: ["Assign Sections from Pending Queue", "Monitor Enrollment", "Generate Certificates", "Run Reports", "Track At-Risk Students"],
-          },
-        ].map(card => (
-          <div key={card.role} className={`${card.color} rounded-2xl p-4 shadow-sm`}>
-            <p className={`font-bold text-sm ${card.textColor} mb-2`}>{card.role}</p>
-            <ol className="space-y-1.5">
-              {card.steps.map((step, i) => (
-                <li key={i} className="text-xs text-gray-600 flex items-start gap-2">
-                  <span className={`font-bold ${card.textColor} flex-shrink-0`}>{i + 1}.</span>
-                  {step}
-                </li>
-              ))}
-            </ol>
           </div>
-        ))}
-      </div>
+
+          {/* Simplified Yearly Cycle */}
+          <div className="diagram-block">
+            <h4 className="font-semibold text-gray-900 text-sm">Simplified Yearly Cycle</h4>
+            <p className="text-xs text-gray-400 mb-3">Role-by-role view of the annual loop</p>
+            <div className="rounded-xl border border-gray-100 overflow-x-auto">
+              {yearlySvg ? (
+                <div dangerouslySetInnerHTML={{ __html: yearlySvg }} />
+              ) : error ? null : (
+                <div className="flex items-center gap-3 text-gray-400 text-sm py-6">
+                  <div className="w-4 h-4 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
+                  Loading...
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Reference */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {QUICK_REF.map(card => (
+              <div key={card.role} className={`quick-ref-card ${card.color} rounded-2xl p-4 shadow-sm`}>
+                <p className={`font-bold text-sm ${card.textColor} mb-2`}>{card.role}</p>
+                <ol className="space-y-1.5">
+                  {card.steps.map((step, i) => (
+                    <li key={i} className="text-xs text-gray-600 flex items-start gap-2">
+                      <span className={`font-bold ${card.textColor} flex-shrink-0`}>{i + 1}.</span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
