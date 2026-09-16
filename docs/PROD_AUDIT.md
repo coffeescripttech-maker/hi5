@@ -7,14 +7,14 @@
 
 ## TL;DR
 
-The backend is **functionally complete and well-architected** (auth, RBAC, forms, reports, LIS, PDF, notifications all work). It is **not production-ready as-is** — there is **1 hard blocker** (B2), **1 fixed security item** (B1, 2026-09-16), **6 must-fix security/config items**, and **3 open deployment decisions** (email is decided). Nothing here is a deep refactor; every fix is a config change or a small code swap.
+The backend is **functionally complete and well-architected** (auth, RBAC, forms, reports, LIS, PDF, notifications all work). It is **not production-ready as-is** — there is **1 hard blocker** (B2), **1 fixed security item** (B1, 2026-09-16), **6 must-fix security/config items**, and **all deployment decisions settled** — host/DB/storage = Railway (see [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md)). Nothing here is a deep refactor; every fix is a config change or a small code swap.
 
 **Hard blockers (the app will misbehave or leak if deployed today):**
 
 | # | Blocker | Where | Impact |
 |---|---------|-------|--------|
 | ~~B1~~ | ~~Forgot-password returns the reset code in the API response~~ | ✅ **FIXED 2026-09-16** — code is emailed via Gmail SMTP; prod never returns it (501/502 on misconfig/failure, stored code wiped). | `auth.controller.ts` + new `config/mailer.ts` | Needs `GMAIL_USER` + `GMAIL_APP_PASSWORD` set on the host. |
-| B2 | Uploaded files + generated PDFs are **committed to git** and can't survive an ephemeral host (Railway/Render restarts wipe local disk). | tracked: `server/uploads/*.xlsx`, `server/downloads/*.pdf`, `*.pdf` at repo root | Real student documents sit in the public repo; files will vanish on every redeploy. |
+| B2 | Uploaded files + generated PDFs are **committed to git** and can't survive an ephemeral host (Railway/Render restarts wipe local disk). | resolved: artifacts untracked (`33ae05a`); storage env-ified (`532159b`) | Files live on local disk — on Railway they must land on a Volume at `/data` (see [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md)) |
 
 **Quick security/config fixes (must do before go-live):**
 
@@ -31,10 +31,10 @@ The backend is **functionally complete and well-architected** (auth, RBAC, forms
 
 **Deployment decisions I need from you** (these change what I build):
 
-1. **Where will the backend run?** — Railway (I see your old `altaria.proxy.rlwy.net` MySQL in the .env), Render, Fly, or a VPS? This decides storage + backups + cron strategy.
+1. ~~Where will the backend run?~~ — ✅ **DECIDED 2026-09-16: Railway** (Dockerfile via `server/railway.json`; Root Directory `server`). Plan: [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md).
 2. ~~Email provider~~ — ✅ **DECIDED 2026-09-16: Gmail SMTP** via App Password (`GMAIL_USER` + `GMAIL_APP_PASSWORD`). Wiring is done; only host env vars remain.
-3. **Database:** move to a managed MySQL (Railway/Render/Aiven) — yes/no? The current `root`/no-password local config won't work remotely.
-4. **File storage:** persistent disk (works on Railway/VPS) vs object storage (S3/Cloudflare R2) — for the 10MB-uploaded documents + generated PDFs.
+3. ~~Database: managed MySQL?~~ — ✅ **DECIDED 2026-09-16: Railway MySQL** (fresh instance; `DB_SSL=require`. Reusing the old `altaria.proxy.rlwy.net` requires rotating its password first).
+4. ~~File storage:~~ — ✅ **DECIDED 2026-09-16: Railway Volume** at `/data` → `UPLOAD_DIR=/data/uploads`, `BACKUP_DIR=/data/backups`.
 
 ---
 
@@ -99,8 +99,8 @@ The backend is **functionally complete and well-architected** (auth, RBAC, forms
 6. Move file writes to persistent volume (or object storage); flip `mysqldump`/`BACKUP_DIR` to the host's paths.
 
 **Phase 2 — deploy:**
-7. Managed MySQL (or your Railway DB), SSL on, secrets injected, `PDF_CHROME_PATH` + Chromium installed, Node pinned.
-8. Deploy, then run the full smoke checklist (login, SF10/SF9, forgot-password, LIS, backups).
+7. Railway MySQL + `DB_SSL=require`, secrets injected; Chromium/mysqldump/Node ship in the Docker image (steps in [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md)).
+8. Deploy, then run the full smoke checklist (login, SF10/SF9, forgot-password email, LIS, backups) — checklist in [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md).
 
 ---
 
