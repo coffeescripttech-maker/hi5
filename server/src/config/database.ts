@@ -14,6 +14,9 @@ const pool: Pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectTimeout: 10_000,
+  // TLS for a remote managed MySQL (Railway/cloud): DB_SSL=require.
+  ssl: process.env.DB_SSL === "require" ? { rejectUnauthorized: false } : undefined,
 });
 
 /**

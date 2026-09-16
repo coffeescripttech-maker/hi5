@@ -14,7 +14,10 @@ import {
   importDocument,
 } from "../controllers/documents.controller";
 
-const UPLOADS_DIR = path.resolve(__dirname, "../../uploads");
+const UPLOADS_DIR = path.resolve(
+  __dirname,
+  process.env.UPLOAD_DIR || "../../uploads"
+);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),

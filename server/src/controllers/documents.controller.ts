@@ -7,7 +7,10 @@ import fs from "fs";
 import * as XLSX from "xlsx";
 import { buildGradeTemplate } from "../utils/gradeTemplate";
 
-const UPLOADS_DIR = path.resolve(__dirname, "../../uploads");
+const UPLOADS_DIR = path.resolve(
+  __dirname,
+  process.env.UPLOAD_DIR || "../../uploads"
+);
 
 // Ensure uploads directory exists
 if (!fs.existsSync(UPLOADS_DIR)) {

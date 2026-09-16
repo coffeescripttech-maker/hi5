@@ -1,0 +1,12 @@
+# Keep secrets + bulky/generated files out of the image and build context
+.env
+node_modules
+dist
+uploads
+downloads
+backups
+*.pdf
+*.log
+.git
+.gitignore
+*.md
