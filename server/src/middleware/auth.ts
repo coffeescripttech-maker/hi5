@@ -5,6 +5,13 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
+// Fail fast in production: a missing JWT secret must never silently fall back
+// to a known dev value where real tokens are issued.
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET must be set in the environment when NODE_ENV=production."
+  );
+}
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_dev_secret_do_not_use_in_prod";
 
 export interface JwtPayload {

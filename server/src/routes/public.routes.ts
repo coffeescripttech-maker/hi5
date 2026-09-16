@@ -29,7 +29,7 @@ router.get("/school-info", async (_req, res) => {
     res.json({
       school_name: schoolName,
       current_sy_label: sy?.sy_label ?? "",
-      enrollment_open: sy ? (sy.enrollment_open === 1 || sy.enrollment_open === true) : false,
+      enrollment_open: sy ? sy.enrollment_open === 1 : false,
     });
   } catch (err) {
     // Never leak errors to the unauthenticated login page; degrade gracefully.

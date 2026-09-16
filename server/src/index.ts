@@ -3,6 +3,9 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import path from "path";
+import helmet from "helmet";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
 
 import { testConnection } from "./config/database";
 import authRoutes from "./routes/auth.routes";
@@ -54,17 +57,56 @@ const MOBILE_ORIGINS = [
   "https://127.0.0.1",
 ];
 
+// Comma-separated extra origins (e.g. Vercel preview domains) via FRONTEND_ORIGINS.
+const EXTRA_ORIGINS = (process.env.FRONTEND_ORIGINS || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// The Vercel deployment may be reached from hi5-six.vercel.app and its branch
+// preview subdomains (hi5-six-git-<branch>-<hash>-<team>.vercel.app). Token
+// auth means the allowlist is a convenience boundary, not the security one.
+const isAllowedOrigin = (origin: string): boolean =>
+  origin === (process.env.FRONTEND_URL || "http://localhost:5173") ||
+  EXTRA_ORIGINS.includes(origin) ||
+  MOBILE_ORIGINS.includes(origin) ||
+  (process.env.NODE_ENV !== "production" && ["http://localhost:3000"].includes(origin)) ||
+  /^https:\/\/hi5-six[\w-]*\.vercel\.app$/.test(origin);
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no Origin (curl, server-to-server) and known origins
     if (!origin) return callback(null, true);
-    const allowed = origin === (process.env.FRONTEND_URL || "http://localhost:5173")
-      || MOBILE_ORIGINS.includes(origin)
-      || (process.env.NODE_ENV !== "production" && ["http://localhost:3000"].includes(origin));
-    callback(null, allowed);
+    callback(null, isAllowedOrigin(origin));
   },
   credentials: true,
 }));
+
+// ─── Security hardening ─────────────────────────────────────────────────────
+// IP-level rate limits on the credential endpoints. Per-account lockout
+// (5 attempts / 5 minutes) already exists in the auth controller; these add a
+// network-level backstop for login / password-reset abuse.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,   // 15 minutes
+  limit: 30,                   // 30 requests per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again in a few minutes." },
+});
+
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again in a few minutes." },
+});
+
+// Basic security headers (CSP off — this is a JSON API, no HTML served).
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// gzip compression for large payloads (LIS exports, report JSON).
+app.use(compression());
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -72,6 +114,9 @@ app.use(cookieParser());
 
 // ─── Routes ─────────────────────────────────────────────────────────────────────
 
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/forgot-password", resetLimiter);
+app.use("/api/auth/reset-password", resetLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api", publicRoutes);
 app.use("/api/users", usersRoutes);
