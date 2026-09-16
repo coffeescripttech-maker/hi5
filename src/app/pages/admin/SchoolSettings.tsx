@@ -3,12 +3,119 @@ import {
   Settings, Calendar, Layers, Save,
   AlertTriangle, Info, Lock, Unlock, ChevronDown,
   GraduationCap, Building2, Hash, MapPin, Globe, CalendarDays,
-  UserCheck, FileText, ShieldCheck
+  UserCheck, FileText, ShieldCheck, Plus
 } from "lucide-react";
-import { settingsApi, SectionTypeThreshold } from "../../services/settings";
+import { settingsApi, SectionTypeThreshold, LegalContentDoc } from "../../services/settings";
 import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
 import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
+
+/**
+ * Structured editor for one legal document (Terms / Privacy / Conditions).
+ * Each document is an introduction plus numbered heading + body sections,
+ * mirroring the shape of LEGAL_CONTENT rendered inside Login.tsx modals.
+ */
+function LegalDocFields({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: LegalContentDoc;
+  onChange: (doc: LegalContentDoc) => void;
+}) {
+  const setIntro = (intro: string) => onChange({ ...value, intro });
+  const setSection = (index: number, field: "heading" | "body", text: string) => {
+    const sections = value.sections.map((s, i) =>
+      i === index ? { ...s, [field]: text } : s
+    );
+    onChange({ ...value, sections });
+  };
+  const addSection = () =>
+    onChange({ ...value, sections: [...value.sections, { heading: "", body: "" }] });
+  const removeSection = (index: number) =>
+    onChange({ ...value, sections: value.sections.filter((_, i) => i !== index) });
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-3">
+      <div>
+        <p className="font-semibold text-gray-800 text-sm">{title}</p>
+        <p className="text-[11px] text-gray-400 mb-2">{description}</p>
+        <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">
+          Introduction
+        </label>
+        <textarea
+          rows={2}
+          value={value.intro}
+          onChange={(e) => setIntro(e.target.value)}
+          placeholder="Opening statement shown above the numbered sections..."
+          className="w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white resize-y"
+        />
+      </div>
+
+      {value.sections.map((section, i) => (
+        <div key={i} className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
+              Section {i + 1} Heading
+            </label>
+            <button
+              type="button"
+              onClick={() => removeSection(i)}
+              className="text-[11px] font-medium text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg transition">
+              Remove
+            </button>
+          </div>
+          <input
+            type="text"
+            value={section.heading}
+            onChange={(e) => setSection(i, "heading", e.target.value)}
+            placeholder="e.g. 2. Account Responsibility"
+            className="w-full pl-3 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
+          />
+          <textarea
+            rows={3}
+            value={section.body}
+            onChange={(e) => setSection(i, "body", e.target.value)}
+            placeholder="Body text for this section..."
+            className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white resize-y"
+          />
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={addSection}
+        className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition">
+        <Plus size={14} /> Add section
+      </button>
+    </div>
+  );
+}
+
+/** Read a stored legal document (JSON); anything malformed falls back to an empty draft. */
+function parseLegalDoc(raw: string | null | undefined): LegalContentDoc {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.intro === "string" && Array.isArray(parsed.sections)) {
+        return { intro: parsed.intro, sections: parsed.sections };
+      }
+    } catch {
+      /* fall through to empty draft */
+    }
+  }
+  return { intro: "", sections: [] };
+}
+
+/** Serialize a document for storage; an untouched document serializes to null (keep the login default). */
+function serializeLegalDoc(doc: LegalContentDoc): string | null {
+  return doc.intro.trim() || doc.sections.length > 0
+    ? JSON.stringify({ intro: doc.intro, sections: doc.sections })
+    : null;
+}
 
 export function SchoolSettings() {
   const { showToast, refreshSchoolInfo } = useApp();
@@ -30,6 +137,13 @@ export function SchoolSettings() {
   // Grade security settings
   const [gradeDeadlineEnabled, setGradeDeadlineEnabled] = useState(false);
   const [gradeEditDeadline, setGradeEditDeadline] = useState("");
+  // Legal documents shown at login (Terms / Privacy / Conditions)
+  const [legalDocs, setLegalDocs] = useState<Record<"terms" | "privacy" | "conditions", LegalContentDoc>>({
+    terms: { intro: "", sections: [] },
+    privacy: { intro: "", sections: [] },
+    conditions: { intro: "", sections: [] },
+  });
+  const [showLegalEditor, setShowLegalEditor] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -49,6 +163,11 @@ export function SchoolSettings() {
       // Grade security settings
       setGradeDeadlineEnabled(settings.grade_deadline_enabled === 1);
       setGradeEditDeadline(settings.grade_edit_deadline ? settings.grade_edit_deadline.split("T")[0] : "");
+      setLegalDocs({
+        terms: parseLegalDoc(settings.terms_of_service_text),
+        privacy: parseLegalDoc(settings.privacy_policy_text),
+        conditions: parseLegalDoc(settings.conditions_text),
+      });
       const current = sys.find(sy => sy.is_current === 1);
       if (current) {
         setSchoolYear(current.sy_label);
@@ -96,6 +215,27 @@ export function SchoolSettings() {
       showToast("success", "School information saved successfully.");
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveLegalDocs = async () => {
+    setSaving(true);
+    try {
+      const updated = await settingsApi.update({
+        terms_of_service_text: serializeLegalDoc(legalDocs.terms),
+        privacy_policy_text: serializeLegalDoc(legalDocs.privacy),
+        conditions_text: serializeLegalDoc(legalDocs.conditions),
+      });
+      setLegalDocs({
+        terms: parseLegalDoc(updated.terms_of_service_text),
+        privacy: parseLegalDoc(updated.privacy_policy_text),
+        conditions: parseLegalDoc(updated.conditions_text),
+      });
+      showToast("success", "Legal documents saved. The login screen will show the new text.");
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Failed to save legal documents");
     } finally {
       setSaving(false);
     }
@@ -333,7 +473,51 @@ export function SchoolSettings() {
               presented at login — before accessing any personal data in this system.
             </p>
           </div>
+
+          {/* Legal documents editor - Terms / Privacy / Conditions shown at login */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="font-semibold text-gray-700 text-xs uppercase tracking-wider mb-1">Legal Documents at Login</p>
+                <p className="text-xs leading-relaxed text-gray-500">
+                  Customize the Terms of Service, Privacy Policy, and Conditions of Use shown in the
+                  consent modals on the login screen. Leave a document empty to keep the current
+                  default text.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLegalEditor(v => !v)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition whitespace-nowrap">
+                {showLegalEditor ? "Hide editor" : "Edit documents"}
+              </button>
+            </div>
+
+            {showLegalEditor && (
+              <div className="mt-4 space-y-4">
+                <LegalDocFields
+                  title="Terms of Service"
+                  description="Shown when a user clicks the Terms of Service link at login."
+                  value={legalDocs.terms}
+                  onChange={(doc) => setLegalDocs(d => ({ ...d, terms: doc }))}
+                />
+                <LegalDocFields
+                  title="Privacy Policy"
+                  description="Shown when a user clicks the Privacy Policy link at login."
+                  value={legalDocs.privacy}
+                  onChange={(doc) => setLegalDocs(d => ({ ...d, privacy: doc }))}
+                />
+                <LegalDocFields
+                  title="Conditions of Use"
+                  description="Shown when a user clicks the Conditions of Use link at login."
+                  value={legalDocs.conditions}
+                  onChange={(doc) => setLegalDocs(d => ({ ...d, conditions: doc }))}
+                />
+              </div>
+            )}
+          </div>
         </div>
+        {sectionFooter(handleSaveLegalDocs, "Save Legal Content")}
       </div>
 
       {/* School Year Configuration */}

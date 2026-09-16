@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import { authApi, setToken, LoginResponse } from '../services/api';
 import { ApiError } from '../services/api';
-import { schoolInfoApi, SchoolInfo } from '../services/settings';
+import { schoolInfoApi, SchoolInfo, LegalContentDoc } from '../services/settings';
 import { z } from 'zod';
 import {
   Eye,
@@ -224,15 +224,33 @@ const LEGAL_CONTENT: Record<
   }
 };
 
+/** Parse a saved legal document (JSON) - malformed or empty content falls back to the built-in. */
+function parseLegalOverride(raw: string | null | undefined): LegalContentDoc | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.intro === 'string' && Array.isArray(parsed.sections)) {
+      return { intro: parsed.intro, sections: parsed.sections };
+    }
+  } catch {
+    /* malformed saved content - fall back to built-in */
+  }
+  return undefined;
+}
+
 /** Modal viewer for the legal documents linked from the consent checkbox */
 function LegalModal({
   kind,
-  onClose
+  onClose,
+  override
 }: {
   kind: 'terms' | 'privacy' | 'conditions';
   onClose: () => void;
+  override?: LegalContentDoc;
 }) {
-  const doc = LEGAL_CONTENT[kind];
+  const base = LEGAL_CONTENT[kind];
+  // Saved school-issued content wins; otherwise render the built-in defaults.
+  const doc = override ? { title: base.title, ...override } : base;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -323,6 +341,10 @@ export function Login() {
   const [legalModal, setLegalModal] = useState<
     null | 'terms' | 'privacy' | 'conditions'
   >(null);
+  // Saved legal documents fetched from the public school-info endpoint (best-effort)
+  const [legalOverrides, setLegalOverrides] = useState<
+    Partial<Record<'terms' | 'privacy' | 'conditions', LegalContentDoc>>
+  >({});
 
   // Auto-focus the username field on load
   useEffect(() => {
@@ -336,7 +358,14 @@ export function Login() {
     schoolInfoApi
       .get()
       .then((info) => {
-        if (!cancelled) setSchoolInfo(info);
+        if (!cancelled) {
+          setSchoolInfo(info);
+          setLegalOverrides({
+            terms: parseLegalOverride(info.terms_of_service_text),
+            privacy: parseLegalOverride(info.privacy_policy_text),
+            conditions: parseLegalOverride(info.conditions_text),
+          });
+        }
       })
       .catch(() => {
         /* keep the static fallback */
@@ -1355,6 +1384,7 @@ export function Login() {
       {legalModal && (
         <LegalModal
           kind={legalModal}
+          override={legalOverrides[legalModal]}
           onClose={() => setLegalModal(null)}
         />
       )}

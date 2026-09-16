@@ -33,6 +33,11 @@ export async function getSettings(_req: Request, res: Response): Promise<void> {
 export async function updateSettings(req: Request, res: Response): Promise<void> {
   try {
     const { school_name, school_id, region, division, district, current_sy_id, principal_name, registrar_name, grade_deadline_enabled, grade_edit_deadline } = req.body;
+    const {
+      terms_of_service_text,
+      privacy_policy_text,
+      conditions_text,
+    } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM school_settings WHERE id = 1");
     if (existing.length === 0) {
@@ -56,6 +61,19 @@ export async function updateSettings(req: Request, res: Response): Promise<void>
       if (current_sy_id !== undefined) { fields.push("current_sy_id = ?"); params.push(current_sy_id); }
       if (grade_deadline_enabled !== undefined) { fields.push("grade_deadline_enabled = ?"); params.push(grade_deadline_enabled ? 1 : 0); }
       if (grade_edit_deadline !== undefined) { fields.push("grade_edit_deadline = ?"); params.push(grade_edit_deadline ? new Date(grade_edit_deadline) : null); }
+
+      if (terms_of_service_text !== undefined) {
+        fields.push("terms_of_service_text = ?");
+        params.push(terms_of_service_text ? terms_of_service_text : null);
+      }
+      if (privacy_policy_text !== undefined) {
+        fields.push("privacy_policy_text = ?");
+        params.push(privacy_policy_text ? privacy_policy_text : null);
+      }
+      if (conditions_text !== undefined) {
+        fields.push("conditions_text = ?");
+        params.push(conditions_text ? conditions_text : null);
+      }
 
       if (fields.length === 0) {
         res.status(400).json({ error: "No fields to update." });

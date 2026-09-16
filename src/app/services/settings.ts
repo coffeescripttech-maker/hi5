@@ -18,6 +18,10 @@ export interface SchoolSettingsRow {
   // Grade security settings (from migration 018)
   grade_deadline_enabled?: number;
   grade_edit_deadline?: string | null;
+  // Legal content overrides (migration 025) — JSON strings or null
+  terms_of_service_text?: string | null;
+  privacy_policy_text?: string | null;
+  conditions_text?: string | null;
 }
 
 export interface UpdateSettingsPayload {
@@ -31,6 +35,10 @@ export interface UpdateSettingsPayload {
   // Grade security settings
   grade_deadline_enabled?: boolean | number;
   grade_edit_deadline?: string | null;
+  // Legal content overrides (migration 025) — JSON strings or null
+  terms_of_service_text?: string | null;
+  privacy_policy_text?: string | null;
+  conditions_text?: string | null;
 }
 
 export interface SectionTypeThreshold {
@@ -59,6 +67,24 @@ export interface SchoolInfo {
   school_name: string;
   current_sy_label: string;
   enrollment_open: boolean;
+  // Legal content overrides served publicly to the login modal (migration 025)
+  terms_of_service_text?: string | null;
+  privacy_policy_text?: string | null;
+  conditions_text?: string | null;
+}
+
+
+/** One legal document as rendered in the login modal (mirrors LEGAL_CONTENT in Login.tsx). */
+export interface LegalContentDoc {
+  intro: string;
+  sections: { heading: string; body: string }[];
+}
+
+/** Editable legal fields carried by the settings row. */
+export interface LegalContentFields {
+  terms_of_service_text: string | null;
+  privacy_policy_text: string | null;
+  conditions_text: string | null;
 }
 
 export const schoolInfoApi = {
