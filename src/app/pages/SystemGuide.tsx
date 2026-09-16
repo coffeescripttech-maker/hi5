@@ -1,8 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router";
-import { useApp } from "../context/AppContext";
-import { exportToPdf } from "../services/pdfExport";
-import { downloadRenderedPdf, type PdfRenderOptions } from "../services/pdfRender";
+import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router';
+import { useApp } from '../context/AppContext';
+import { exportToPdf } from '../services/pdfExport';
+import {
+  downloadRenderedPdf,
+  type PdfRenderOptions
+} from '../services/pdfRender';
 import {
   BookMarked,
   BookOpen,
@@ -10,21 +13,21 @@ import {
   Download,
   Loader2,
   Printer,
-  Repeat,
   Users,
   Workflow,
   ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+  ZoomOut
+} from 'lucide-react';
 import {
   GUIDE_META,
   gettingStarted,
   roles,
   howtos,
-  glossary,
-} from "../data/systemGuideContent";
+  glossary
+} from '../data/systemGuideContent';
 
-const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+const MERMAID_CDN =
+  'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 
 /**
  * Print rules for the written user guide PDF (portrait letter, paginated by
@@ -52,54 +55,55 @@ const GUIDE_PRINT_CSS = `
 `;
 
 /** Fallback when the school-name setting hasn't been configured yet. */
-const SCHOOL_NAME_FALLBACK = "Don Servillano Platon Memorial National High School";
+const SCHOOL_NAME_FALLBACK =
+  'Don Servillano Platon Memorial National High School';
 
 /** Map partial text content of flowchart nodes to their system route */
 const NODE_ROUTES: [string, string, string][] = [
   // Admin setup
-  ["School Year", "/admin/academic-year", "Manage Academic Years"],
-  ["Subjects", "/admin/subjects", "Manage Subjects"],
-  ["Sections and Types", "/admin/sections", "Manage Sections"],
-  ["Teacher/Registrar accounts", "/admin/users", "Manage Users"],
+  ['School Year', '/admin/academic-year', 'Manage Academic Years'],
+  ['Subjects', '/admin/subjects', 'Manage Subjects'],
+  ['Sections and Types', '/admin/sections', 'Manage Sections'],
+  ['Teacher/Registrar accounts', '/admin/users', 'Manage Users'],
 
   // Teacher enrollment
-  ["New Student", "/teacher/enroll", "Enroll New Student"],
-  ["Returning G8", "/teacher/enroll", "Enroll Returning Student"],
-  ["Balik-Aral", "/teacher/enroll", "Enroll Balik-Aral"],
-  ["Strand/Track", "/teacher/enroll", "Select Strand"],
-  ["requirements", "/teacher/enroll", "Submit Requirements"],
-  ["ENROLL", "/teacher/enroll", "Enroll Student"],
+  ['New Student', '/teacher/enroll', 'Enroll New Student'],
+  ['Returning G8', '/teacher/enroll', 'Enroll Returning Student'],
+  ['Balik-Aral', '/teacher/enroll', 'Enroll Balik-Aral'],
+  ['Strand/Track', '/teacher/enroll', 'Select Strand'],
+  ['requirements', '/teacher/enroll', 'Submit Requirements'],
+  ['ENROLL', '/teacher/enroll', 'Enroll Student'],
 
   // Registrar section assignment
-  ["Section Assignment", "/registrar/section-assignment", "Assign Sections"],
-  ["Pending Section Queue", "/registrar/section-assignment", "Pending Queue"],
-  ["Random", "/registrar/section-assignment", "Random Assignment"],
-  ["Placement", "/registrar/section-assignment", "Placement Assignment"],
-  ["Carryover", "/registrar/section-assignment", "Carryover Assignment"],
-  ["Manual", "/registrar/section-assignment", "Manual Assignment"],
+  ['Section Assignment', '/registrar/section-assignment', 'Assign Sections'],
+  ['Pending Section Queue', '/registrar/section-assignment', 'Pending Queue'],
+  ['Random', '/registrar/section-assignment', 'Random Assignment'],
+  ['Placement', '/registrar/section-assignment', 'Placement Assignment'],
+  ['Carryover', '/registrar/section-assignment', 'Carryover Assignment'],
+  ['Manual', '/registrar/section-assignment', 'Manual Assignment'],
 
   // Teacher grades
-  ["Grade Management", "/teacher/grades", "Grade Management"],
-  ["My Students", "/teacher/my-students", "My Students"],
-  ["Q1-Q4 grades", "/teacher/grades", "Encode Grades"],
-  ["locks grades", "/teacher/grades", "Lock Grades"],
-  ["School Forms", "/teacher/forms/sf1", "School Forms"],
+  ['Grade Management', '/teacher/grades', 'Grade Management'],
+  ['My Students', '/teacher/my-students', 'My Students'],
+  ['Q1-Q4 grades', '/teacher/grades', 'Encode Grades'],
+  ['locks grades', '/teacher/grades', 'Lock Grades'],
+  ['School Forms', '/teacher/forms/sf1', 'School Forms'],
 
   // Teacher promotion
-  ["Bulk Promotion", "/teacher/promote", "Bulk Promotion"],
-  ["Mark as Completers", "/teacher/promote", "Mark Completers"],
+  ['Bulk Promotion', '/teacher/promote', 'Bulk Promotion'],
+  ['Mark as Completers', '/teacher/promote', 'Mark Completers'],
 
   // Registrar monitoring
-  ["Registrar Dashboard", "/registrar", "Registrar Dashboard"],
-  ["Enrollment Report", "/registrar/enrollment-report", "Enrollment Report"],
-  ["Certificates", "/registrar/certificates/enrollment", "Certificates"],
-  ["At-Risk Students", "/registrar/atrisk", "At-Risk Students"],
+  ['Registrar Dashboard', '/registrar', 'Registrar Dashboard'],
+  ['Enrollment Report', '/registrar/enrollment-report', 'Enrollment Report'],
+  ['Certificates', '/registrar/certificates/enrollment', 'Certificates'],
+  ['At-Risk Students', '/registrar/atrisk', 'At-Risk Students'],
 
   // Principal
-  ["Principal Dashboard", "/principal", "Principal Dashboard"],
-  ["Enrollment Figures", "/principal/enrollment-figures", "Enrollment Figures"],
-  ["Grade Progress", "/principal/grade-progress", "Grade Progress"],
-  ["Promotion Stats", "/principal/promotion-stats", "Promotion Stats"],
+  ['Principal Dashboard', '/principal', 'Principal Dashboard'],
+  ['Enrollment Figures', '/principal/enrollment-figures', 'Enrollment Figures'],
+  ['Grade Progress', '/principal/grade-progress', 'Grade Progress'],
+  ['Promotion Stats', '/principal/promotion-stats', 'Promotion Stats']
 ];
 
 const LIFECYCLE_DEF = `
@@ -219,59 +223,82 @@ flowchart LR
 /** Short step lists for the appendix quick-reference cards. */
 const QUICK_REF = [
   {
-    role: "Admin",
-    color: "bg-indigo-50 border-indigo-200",
-    textColor: "text-indigo-700",
-    steps: ["Create School Years", "Create Subjects", "Create Sections & Types", "Manage Users", "Configure Settings"],
+    role: 'Admin',
+    color: 'bg-indigo-50 border-indigo-200',
+    textColor: 'text-indigo-700',
+    steps: [
+      'Create School Years',
+      'Create Subjects',
+      'Create Sections & Types',
+      'Manage Users',
+      'Configure Settings'
+    ]
   },
   {
-    role: "Teacher",
-    color: "bg-emerald-50 border-emerald-200",
-    textColor: "text-emerald-700",
-    steps: ["Enroll Students (no section)", "Encode Q1-Q4 Grades", "Lock Grades", "Generate School Forms", "Bulk Promotion / Completers"],
+    role: 'Teacher',
+    color: 'bg-emerald-50 border-emerald-200',
+    textColor: 'text-emerald-700',
+    steps: [
+      'Enroll Students (no section)',
+      'Encode Q1-Q4 Grades',
+      'Lock Grades',
+      'Generate School Forms',
+      'Bulk Promotion / Completers'
+    ]
   },
   {
-    role: "Registrar",
-    color: "bg-amber-50 border-amber-200",
-    textColor: "text-amber-700",
-    steps: ["Assign Sections from Pending Queue", "Monitor Enrollment", "Generate Certificates", "Run Reports", "Track At-Risk Students"],
-  },
+    role: 'Registrar',
+    color: 'bg-amber-50 border-amber-200',
+    textColor: 'text-amber-700',
+    steps: [
+      'Assign Sections from Pending Queue',
+      'Monitor Enrollment',
+      'Generate Certificates',
+      'Run Reports',
+      'Track At-Risk Students'
+    ]
+  }
 ];
 
 export function SystemGuide() {
   const navigate = useNavigate();
   const { showToast, schoolName, schoolYearLabel } = useApp();
-  const [lifecycleSvg, setLifecycleSvg] = useState("");
-  const [yearlySvg, setYearlySvg] = useState("");
+  const [lifecycleSvg, setLifecycleSvg] = useState('');
+  const [yearlySvg, setYearlySvg] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [exporting, setExporting] = useState(false);
-  const lifecycleRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node || !lifecycleSvg) return;
-    // Attach click handlers to flowchart nodes
-    makeNodesClickable(node);
-  }, [lifecycleSvg]);
+  const lifecycleRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node || !lifecycleSvg) return;
+      // Attach click handlers to flowchart nodes
+      makeNodesClickable(node);
+    },
+    [lifecycleSvg]
+  );
 
   /** Walk the SVG and attach click handlers matching NODE_ROUTES */
   function makeNodesClickable(container: HTMLElement) {
-    const svg = container.querySelector("svg");
+    const svg = container.querySelector('svg');
     if (!svg) return;
 
     // Attach navigation ONLY to real node groups (`g.node`). Edge labels and
     // cluster titles live outside `.node` groups — the old climb-to-parent
     // logic escaped the <svg> and bound click handlers on <body>, hijacking
     // every click on the page (wrong destination + sidebar stopped working).
-    const nodeGroups = svg.querySelectorAll("g.node") as NodeListOf<SVGGElement>;
+    const nodeGroups = svg.querySelectorAll(
+      'g.node'
+    ) as NodeListOf<SVGGElement>;
     nodeGroups.forEach(nodeGroup => {
-      const text = (nodeGroup.textContent || "").trim();
+      const text = (nodeGroup.textContent || '').trim();
       if (!text) return;
 
       for (const [match, path, label] of NODE_ROUTES) {
         if (text.includes(match)) {
-          nodeGroup.style.cursor = "pointer";
-          nodeGroup.setAttribute("title", `Click to go to: ${label}`);
-          nodeGroup.addEventListener("click", (e) => {
+          nodeGroup.style.cursor = 'pointer';
+          nodeGroup.setAttribute('title', `Click to go to: ${label}`);
+          nodeGroup.addEventListener('click', e => {
             e.stopPropagation();
             navigate(path);
           });
@@ -281,27 +308,29 @@ export function SystemGuide() {
     });
 
     // Also add clickable overlay hint text (once)
-    if (container.querySelector(".clickable-hint")) return;
-    const hint = document.createElement("div");
-    hint.className = "clickable-hint";
+    if (container.querySelector('.clickable-hint')) return;
+    const hint = document.createElement('div');
+    hint.className = 'clickable-hint';
     hint.style.cssText =
-      "position:absolute;bottom:8px;right:12px;font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;pointer-events:none;display:flex;align-items:center;gap:4px";
-    hint.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Click any node to navigate';
-    container.style.position = "relative";
+      'position:absolute;bottom:8px;right:12px;font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;pointer-events:none;display:flex;align-items:center;gap:4px';
+    hint.innerHTML =
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Click any node to navigate';
+    container.style.position = 'relative';
     container.appendChild(hint);
   }
 
   useEffect(() => {
-    if (document.getElementById("mermaid-script")) {
+    if (document.getElementById('mermaid-script')) {
       waitForMermaid();
       return;
     }
 
-    const script = document.createElement("script");
-    script.id = "mermaid-script";
+    const script = document.createElement('script');
+    script.id = 'mermaid-script';
     script.src = MERMAID_CDN;
     script.onload = () => waitForMermaid();
-    script.onerror = () => setError("Failed to load Mermaid renderer from CDN.");
+    script.onerror = () =>
+      setError('Failed to load Mermaid renderer from CDN.');
     document.head.appendChild(script);
 
     function waitForMermaid() {
@@ -319,40 +348,47 @@ export function SystemGuide() {
       const mermaid = (window as any).mermaid;
       mermaid.initialize({
         startOnLoad: false,
-        theme: "base",
+        theme: 'base',
         themeVariables: {
-          fontFamily: "system-ui, -apple-system, sans-serif",
-          primaryColor: "#6366f1",
-          primaryBorderColor: "#4f46e5",
-          primaryTextColor: "#1e293b",
-          lineColor: "#94a3b8",
-          secondaryColor: "#d1fae5",
-          tertiaryColor: "#fef3c7",
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          primaryColor: '#6366f1',
+          primaryBorderColor: '#4f46e5',
+          primaryTextColor: '#1e293b',
+          lineColor: '#94a3b8',
+          secondaryColor: '#d1fae5',
+          tertiaryColor: '#fef3c7'
         },
-        flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis", padding: 16 },
-        securityLevel: "loose",
+        flowchart: {
+          useMaxWidth: true,
+          htmlLabels: true,
+          curve: 'basis',
+          padding: 16
+        },
+        securityLevel: 'loose'
       });
 
       Promise.all([
-        mermaid.render("lifecycle-guide", LIFECYCLE_DEF),
-        mermaid.render("yearly-guide", YEARLY_DEF),
+        mermaid.render('lifecycle-guide', LIFECYCLE_DEF),
+        mermaid.render('yearly-guide', YEARLY_DEF)
       ])
         .then(([lifecycleResult, yearlyResult]) => {
           setLifecycleSvg(lifecycleResult.svg);
           setYearlySvg(yearlyResult.svg);
           setLoaded(true);
         })
-        .catch((e: any) => setError("Render error: " + e.message));
+        .catch((e: any) => setError('Render error: ' + e.message));
     }
   }, []);
 
   const handleDownloadSVG = () => {
     if (!lifecycleSvg) return;
-    const blob = new Blob([lifecycleSvg], { type: "image/svg+xml;charset=utf-8" });
+    const blob = new Blob([lifecycleSvg], {
+      type: 'image/svg+xml;charset=utf-8'
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = "student-lifecycle-flowchart.svg";
+    a.download = 'student-lifecycle-flowchart.svg';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -365,21 +401,21 @@ export function SystemGuide() {
     if (exporting) return;
     setExporting(true);
     const options: PdfRenderOptions = {
-      elementId: "system-guide-pdf",
-      filename: "hi5-system-user-guide",
-      orientation: "portrait",
-      format: "letter",
-      printCss: GUIDE_PRINT_CSS,
+      elementId: 'system-guide-pdf',
+      filename: 'hi5-system-user-guide',
+      orientation: 'portrait',
+      format: 'letter',
+      printCss: GUIDE_PRINT_CSS
     };
     try {
       await downloadRenderedPdf(options);
-      showToast("success", "PDF exported successfully.");
+      showToast('success', 'PDF exported successfully.');
     } catch {
       try {
         await exportToPdf(options);
-        showToast("info", "Server render unavailable — used local fallback.");
+        showToast('info', 'Server render unavailable — used local fallback.');
       } catch {
-        showToast("error", "Failed to export PDF. Please try again.");
+        showToast('error', 'Failed to export PDF. Please try again.');
       }
     } finally {
       setExporting(false);
@@ -387,17 +423,28 @@ export function SystemGuide() {
   };
 
   return (
-    <div id="system-guide-pdf" className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
+    <div
+      id="system-guide-pdf"
+      className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
       {/* Header (on screen only — the PDF has its own cover page) */}
       <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
         <div className="p-5 sm:p-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center flex-shrink-0 overflow-hidden">
-            <img src="/deped-seal.svg" alt="Department of Education seal" className="w-10 h-10 object-contain" />
+            <img
+              src="https://hi5-six.vercel.app/assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5-32KE5vhv.png"
+              alt="Department of Education seal"
+              className="w-10 h-10 object-contain"
+            />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">System Guide — User Guide</h2>
-            <p className="text-gray-500 text-sm">A written guide for every role, with the student life-cycle flowcharts at the end</p>
+            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
+              System Guide — User Guide
+            </h2>
+            <p className="text-gray-500 text-sm">
+              A written guide for every role, with the student life-cycle
+              flowcharts at the end
+            </p>
           </div>
         </div>
       </div>
@@ -405,41 +452,63 @@ export function SystemGuide() {
       {/* Controls */}
       <div className="no-print flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-4 sm:px-5 py-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-gray-600">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#e0e7ff] border border-indigo-400 inline-block" /> Admin</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#d1fae5] border border-emerald-400 inline-block" /> Teacher</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#fef3c7] border border-amber-400 inline-block" /> Registrar</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#f3e8ff] border border-purple-400 inline-block" /> System</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#fff7ed] border border-orange-400 inline-block" /> Decision</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-[#e0e7ff] border border-indigo-400 inline-block" />{' '}
+            Admin
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-[#d1fae5] border border-emerald-400 inline-block" />{' '}
+            Teacher
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-[#fef3c7] border border-amber-400 inline-block" />{' '}
+            Registrar
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-[#f3e8ff] border border-purple-400 inline-block" />{' '}
+            System
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-[#fff7ed] border border-orange-400 inline-block" />{' '}
+            Decision
+          </span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setZoom(z => Math.max(50, z - 10))}
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 touch-target"
-            title="Zoom out"
-          >
+            title="Zoom out">
             <ZoomOut size={16} />
           </button>
-          <span className="text-xs font-medium text-gray-500 w-10 text-center">{zoom}%</span>
+          <span className="text-xs font-medium text-gray-500 w-10 text-center">
+            {zoom}%
+          </span>
           <button
             onClick={() => setZoom(z => Math.min(200, z + 10))}
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 touch-target"
-            title="Zoom in"
-          >
+            title="Zoom in">
             <ZoomIn size={16} />
           </button>
           <div className="w-px h-5 bg-gray-200 mx-1" />
-          <button onClick={handleDownloadSVG} className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200 transition">
+          <button
+            onClick={handleDownloadSVG}
+            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200 transition">
             <Download size={13} /> SVG
           </button>
           <button
             onClick={handleDownloadPdf}
             disabled={exporting}
-            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200 transition disabled:opacity-60"
-          >
-            {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-            {exporting ? "Exporting..." : "PDF"}
+            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200 transition disabled:opacity-60">
+            {exporting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Download size={13} />
+            )}
+            {exporting ? 'Exporting...' : 'PDF'}
           </button>
-          <button onClick={handlePrint} className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 transition">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 transition">
             <Printer size={13} /> Print
           </button>
         </div>
@@ -455,14 +524,30 @@ export function SystemGuide() {
       <div className="print-page bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
         <div className="p-8 sm:p-12 text-center">
-          <img src="/deped-seal.svg" alt="Department of Education seal" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto object-contain mb-5" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-[-0.02em]">{GUIDE_META.title}</h1>
-          <p className="mt-2 text-indigo-600 font-medium text-sm sm:text-base">{GUIDE_META.subtitle}</p>
+          <img
+            src="https://hi5-six.vercel.app/assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5-32KE5vhv.png"
+            alt="Department of Education seal"
+            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto object-contain mb-5"
+          />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-[-0.02em]">
+            {GUIDE_META.title}
+          </h1>
+          <p className="mt-2 text-indigo-600 font-medium text-sm sm:text-base">
+            {GUIDE_META.subtitle}
+          </p>
           <div className="mt-8 space-y-1.5">
-            <p className="text-gray-800 font-semibold text-lg">{schoolName || SCHOOL_NAME_FALLBACK}</p>
-            {schoolYearLabel && <p className="text-gray-500 text-sm">School Year {schoolYearLabel}</p>}
+            <p className="text-gray-800 font-semibold text-lg">
+              {schoolName || SCHOOL_NAME_FALLBACK}
+            </p>
+            {schoolYearLabel && (
+              <p className="text-gray-500 text-sm">
+                School Year {schoolYearLabel}
+              </p>
+            )}
           </div>
-          <p className="mt-6 mx-auto max-w-md text-gray-500 text-sm">{GUIDE_META.audience}</p>
+          <p className="mt-6 mx-auto max-w-md text-gray-500 text-sm">
+            {GUIDE_META.audience}
+          </p>
           <p className="mt-10 text-xs text-gray-400">{GUIDE_META.footer}</p>
         </div>
       </div>
@@ -474,13 +559,19 @@ export function SystemGuide() {
             <BookOpen size={16} className="text-indigo-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Getting Started & Login</h3>
-            <p className="text-xs text-gray-400">What the portal is, and how to sign in for the first time</p>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              Getting Started & Login
+            </h3>
+            <p className="text-xs text-gray-400">
+              What the portal is, and how to sign in for the first time
+            </p>
           </div>
         </div>
         <div className="px-5 sm:px-6 py-5 space-y-3">
           {gettingStarted.map((para, i) => (
-            <p key={i} className="text-sm text-gray-700 leading-relaxed">{para}</p>
+            <p key={i} className="text-sm text-gray-700 leading-relaxed">
+              {para}
+            </p>
           ))}
         </div>
       </section>
@@ -492,26 +583,42 @@ export function SystemGuide() {
             <Users size={16} className="text-indigo-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Role Overviews</h3>
-            <p className="text-xs text-gray-400">What each role does, and which pages they use</p>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              Role Overviews
+            </h3>
+            <p className="text-xs text-gray-400">
+              What each role does, and which pages they use
+            </p>
           </div>
         </div>
         <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
           {roles.map(r => (
-            <div key={r.role} className="role-card rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+            <div
+              key={r.role}
+              className="role-card rounded-xl border border-gray-100 bg-gray-50/60 p-4">
               <h4 className="font-bold text-sm text-gray-900">{r.role}</h4>
-              <p className="mt-1 text-xs text-gray-600 leading-relaxed">{r.summary}</p>
+              <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                {r.summary}
+              </p>
               <ul className="mt-3 space-y-1.5">
                 {r.duties.map((d, i) => (
-                  <li key={i} className="text-xs text-gray-600 flex items-start gap-2">
-                    <span className="text-indigo-500 mt-0.5 flex-shrink-0">•</span>
+                  <li
+                    key={i}
+                    className="text-xs text-gray-600 flex items-start gap-2">
+                    <span className="text-indigo-500 mt-0.5 flex-shrink-0">
+                      •
+                    </span>
                     {d}
                   </li>
                 ))}
               </ul>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {r.pages.map(p => (
-                  <span key={p} className="text-[10px] font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">{p}</span>
+                  <span
+                    key={p}
+                    className="text-[10px] font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                    {p}
+                  </span>
                 ))}
               </div>
             </div>
@@ -526,19 +633,29 @@ export function SystemGuide() {
             <ClipboardList size={16} className="text-indigo-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Step-by-Step How-Tos</h3>
-            <p className="text-xs text-gray-400">Follow these steps for the most common tasks</p>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              Step-by-Step How-Tos
+            </h3>
+            <p className="text-xs text-gray-400">
+              Follow these steps for the most common tasks
+            </p>
           </div>
         </div>
         <div className="px-5 sm:px-6 py-5 space-y-4">
           {howtos.map(ht => (
-            <div key={ht.title} className="howto rounded-xl border border-gray-100 p-4">
+            <div
+              key={ht.title}
+              className="howto rounded-xl border border-gray-100 p-4">
               <h4 className="font-bold text-sm text-gray-900">{ht.title}</h4>
               <p className="mt-1 text-xs text-gray-500">{ht.summary}</p>
               <ol className="mt-3 space-y-2">
                 {ht.steps.map((s, i) => (
-                  <li key={i} className="text-xs text-gray-700 flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-px">{i + 1}</span>
+                  <li
+                    key={i}
+                    className="text-xs text-gray-700 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-px">
+                      {i + 1}
+                    </span>
                     <span className="leading-relaxed">{s}</span>
                   </li>
                 ))}
@@ -555,16 +672,26 @@ export function SystemGuide() {
             <BookMarked size={16} className="text-indigo-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Glossary of Terms</h3>
-            <p className="text-xs text-gray-400">Plain-language meanings of words used in this guide</p>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              Glossary of Terms
+            </h3>
+            <p className="text-xs text-gray-400">
+              Plain-language meanings of words used in this guide
+            </p>
           </div>
         </div>
         <div className="px-5 sm:px-6 py-5">
           <dl>
             {glossary.map(g => (
-              <div key={g.term} className="glossary-item py-3 border-b border-gray-100 last:border-b-0">
-                <dt className="font-semibold text-sm text-gray-900">{g.term}</dt>
-                <dd className="mt-0.5 text-xs text-gray-600 leading-relaxed">{g.definition}</dd>
+              <div
+                key={g.term}
+                className="glossary-item py-3 border-b border-gray-100 last:border-b-0">
+                <dt className="font-semibold text-sm text-gray-900">
+                  {g.term}
+                </dt>
+                <dd className="mt-0.5 text-xs text-gray-600 leading-relaxed">
+                  {g.definition}
+                </dd>
               </div>
             ))}
           </dl>
@@ -578,16 +705,30 @@ export function SystemGuide() {
             <Workflow size={16} className="text-indigo-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Visual Overview — Flowcharts</h3>
-            <p className="text-xs text-gray-400">The student lifecycle at a glance (click any node to open that page)</p>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              Visual Overview — Flowcharts
+            </h3>
+            <p className="text-xs text-gray-400">
+              The student lifecycle at a glance (click any node to open that
+              page)
+            </p>
           </div>
         </div>
         <div className="p-5 sm:p-6 space-y-6">
           {/* Full Lifecycle */}
           <div>
-            <h4 className="font-semibold text-gray-900 text-sm">Full Lifecycle: Grade 7 → Graduation</h4>
-            <p className="text-xs text-gray-400 mb-3">All 6 phases across Admin, Teacher, Registrar, and Principal roles</p>
-            <div className="guide-zoom rounded-xl border border-gray-100 overflow-x-auto" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}>
+            <h4 className="font-semibold text-gray-900 text-sm">
+              Full Lifecycle: Grade 7 → Graduation
+            </h4>
+            <p className="text-xs text-gray-400 mb-3">
+              All 6 phases across Admin, Teacher, Registrar, and Principal roles
+            </p>
+            <div
+              className="guide-zoom rounded-xl border border-gray-100 overflow-x-auto"
+              style={{
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: 'top left'
+              }}>
               <div className="diagram-canvas min-w-[800px]" ref={lifecycleRef}>
                 {lifecycleSvg ? (
                   <div dangerouslySetInnerHTML={{ __html: lifecycleSvg }} />
@@ -603,8 +744,12 @@ export function SystemGuide() {
 
           {/* Simplified Yearly Cycle */}
           <div className="diagram-block">
-            <h4 className="font-semibold text-gray-900 text-sm">Simplified Yearly Cycle</h4>
-            <p className="text-xs text-gray-400 mb-3">Role-by-role view of the annual loop</p>
+            <h4 className="font-semibold text-gray-900 text-sm">
+              Simplified Yearly Cycle
+            </h4>
+            <p className="text-xs text-gray-400 mb-3">
+              Role-by-role view of the annual loop
+            </p>
             <div className="rounded-xl border border-gray-100 overflow-x-auto">
               {yearlySvg ? (
                 <div dangerouslySetInnerHTML={{ __html: yearlySvg }} />
@@ -620,12 +765,21 @@ export function SystemGuide() {
           {/* Quick Reference */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {QUICK_REF.map(card => (
-              <div key={card.role} className={`quick-ref-card ${card.color} rounded-2xl p-4 shadow-sm`}>
-                <p className={`font-bold text-sm ${card.textColor} mb-2`}>{card.role}</p>
+              <div
+                key={card.role}
+                className={`quick-ref-card ${card.color} rounded-2xl p-4 shadow-sm`}>
+                <p className={`font-bold text-sm ${card.textColor} mb-2`}>
+                  {card.role}
+                </p>
                 <ol className="space-y-1.5">
                   {card.steps.map((step, i) => (
-                    <li key={i} className="text-xs text-gray-600 flex items-start gap-2">
-                      <span className={`font-bold ${card.textColor} flex-shrink-0`}>{i + 1}.</span>
+                    <li
+                      key={i}
+                      className="text-xs text-gray-600 flex items-start gap-2">
+                      <span
+                        className={`font-bold ${card.textColor} flex-shrink-0`}>
+                        {i + 1}.
+                      </span>
                       {step}
                     </li>
                   ))}
