@@ -383,14 +383,11 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
         });
         return;
       }
+      // The code goes to the inbox — never in the response, in any
+      // mode, so local testing exercises the same flow as production.
       res.json({
         message:
           "Password reset code sent to your email. Check your inbox (including spam) within 15 minutes.",
-        // Dev convenience only — never ship the code over the wire in prod.
-        ...(!isProd ? { reset_code: code } : {}),
-        ...(!isProd
-          ? { reset_expires: new Date(Date.now() + 15 * 60 * 1000).toISOString() }
-          : {}),
       });
       return;
     }

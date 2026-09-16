@@ -5,22 +5,37 @@ import type { Transporter } from "nodemailer";
  * Gmail SMTP transport for transactional email (password reset codes).
  *
  * Requires a Gmail account with 2-Step Verification enabled and an App
- * Password (Google Account -> Security -> App passwords). NEVER use the
- * raw account password here.
+ * Password (Google Account -> Security -> App passwords). NEVER use the raw
+ * account password here.
  *
  * Env vars:
  *   GMAIL_USER           - the Gmail address that sends the mail
  *   GMAIL_APP_PASSWORD   - the 16-char App Password (no spaces)
  *   GMAIL_FROM_NAME      - optional display name, default "HI5 Portal"
  *   SMTP_HOST / SMTP_PORT - optional overrides (defaults smtp.gmail.com:465)
+ *
+ * NOTE: env is read lazily (per call), NOT at module scope. index.ts calls
+ * dotenv.config() AFTER the controllers/mailer are imported, so capturing
+ * process.env at import time would always see empty Gmail vars in dev.
  */
 
-const GMAIL_USER = process.env.GMAIL_USER || "";
-const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD || "";
-const FROM_NAME = process.env.GMAIL_FROM_NAME || "HI5 Portal";
+interface MailConfig {
+  user: string;
+  pass: string;
+  fromName: string;
+}
+
+function mailConfig(): MailConfig {
+  return {
+    user: process.env.GMAIL_USER || "",
+    pass: process.env.GMAIL_APP_PASSWORD || "",
+    fromName: process.env.GMAIL_FROM_NAME || "HI5 Portal",
+  };
+}
 
 export function isMailConfigured(): boolean {
-  return Boolean(GMAIL_USER && GMAIL_APP_PASSWORD);
+  const { user, pass } = mailConfig();
+  return Boolean(user && pass);
 }
 
 let transport: Transporter | null = null;
@@ -32,13 +47,14 @@ function getTransport(): Transporter {
     );
   }
   if (!transport) {
+    const cfg = mailConfig();
     const port = parseInt(process.env.SMTP_PORT || "465", 10);
     transport = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.gmail.com",
       port,
       // 465 = implicit TLS; anything else (587 etc.) uses STARTTLS instead.
       secure: port === 465,
-      auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+      auth: { user: cfg.user, pass: cfg.pass },
       connectionTimeout: 15_000,
       greetingTimeout: 15_000,
       socketTimeout: 30_000,
@@ -57,8 +73,9 @@ export async function sendPasswordResetEmail(
   expiresMinutes = 15
 ): Promise<void> {
   const transporter = getTransport();
+  const cfg = mailConfig();
   await transporter.sendMail({
-    from: `"${FROM_NAME}" <${GMAIL_USER}>`,
+    from: `"${cfg.fromName}" <${cfg.user}>`,
     to,
     subject: "Your HI5 Portal password reset code",
     text: [
