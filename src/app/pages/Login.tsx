@@ -841,7 +841,7 @@ export function Login() {
                     </p>
                   </div>
 
-                  {/* Dev-mode code display — no email service configured yet */}
+                  {/* Dev-mode code display — only rendered when the API returns reset_code (dev build, SMTP unconfigured) */}
                   {resetCode && (
                     <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
                       <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
@@ -851,8 +851,7 @@ export function Login() {
                         {resetCode}
                       </p>
                       <p className="text-[11px] text-amber-600 mt-1.5">
-                        Valid for 15 minutes. (Demo mode — no email is actually
-                        sent.)
+                        Valid for 15 minutes. (Development build — shown here because email is not configured.)
                       </p>
                     </div>
                   )}

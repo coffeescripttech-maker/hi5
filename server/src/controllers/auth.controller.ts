@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { isMailConfigured, sendPasswordResetEmail } from "../config/mailer";
 import { generateToken } from "../middleware/auth";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -315,10 +316,10 @@ export async function logout(_req: Request, res: Response): Promise<void> {
  * POST /api/auth/forgot-password
  * Body: { email }
  *
- * Generates a 6-digit reset code tied to the user's account.
- * NOTE: No email service is configured, so the code is returned in the
- * response body. In production, swap the `return` below for an email/sms
- * delivery and return only a generic message.
+ * Generates a 6-digit reset code tied to the user's account and emails it
+ * via Gmail SMTP (GMAIL_USER + GMAIL_APP_PASSWORD). When no SMTP is
+ * configured: dev mode echoes the code in the response for testing, and
+ * production refuses rather than leaking the code over the wire.
  */
 export async function forgotPassword(req: Request, res: Response): Promise<void> {
   try {
@@ -347,6 +348,9 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     const user = users[0];
     const code = crypto.randomInt(100000, 999999).toString();
 
+    const isProd = process.env.NODE_ENV === "production";
+
+    // Persist code + expiry (verified by POST /api/auth/reset-password).
     await query<ResultSetHeader>(
       `UPDATE users
        SET password_reset_token = ?, password_reset_expires = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
@@ -361,8 +365,53 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
       null
     );
 
-    // Dev-mode delivery: return the code so the login page can show it.
-    // Replace this response with an email dispatch in production.
+    // Production: the code must be delivered to the user's inbox.
+    if (isMailConfigured()) {
+      try {
+        await sendPasswordResetEmail(user.email, code);
+      } catch (err) {
+        console.error("[forgot-password] SMTP send failed:", err);
+        // Don't leave a usable-but-undelivered code sitting on the account.
+        await query<ResultSetHeader>(
+          `UPDATE users
+           SET password_reset_token = NULL, password_reset_expires = NULL
+           WHERE id = ?`,
+          [user.id]
+        );
+        res.status(502).json({
+          error: "We could not send the reset email. Please try again in a few minutes.",
+        });
+        return;
+      }
+      res.json({
+        message:
+          "Password reset code sent to your email. Check your inbox (including spam) within 15 minutes.",
+        // Dev convenience only — never ship the code over the wire in prod.
+        ...(!isProd ? { reset_code: code } : {}),
+        ...(!isProd
+          ? { reset_expires: new Date(Date.now() + 15 * 60 * 1000).toISOString() }
+          : {}),
+      });
+      return;
+    }
+
+    if (isProd) {
+      // No email provider configured — never leak the code on a public server.
+      await query<ResultSetHeader>(
+        `UPDATE users
+         SET password_reset_token = NULL, password_reset_expires = NULL
+         WHERE id = ?`,
+        [user.id]
+      );
+      res.status(501).json({
+        error:
+          "Password reset email is not configured on this server. Please contact your School ICT Coordinator.",
+      });
+      return;
+    }
+
+    // Development fallback (no SMTP): return the code so the login page can
+    // show it for testing.
     res.json({
       message: "Password reset code generated.",
       reset_code: code,

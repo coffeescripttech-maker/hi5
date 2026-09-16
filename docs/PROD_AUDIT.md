@@ -7,13 +7,13 @@
 
 ## TL;DR
 
-The backend is **functionally complete and well-architected** (auth, RBAC, forms, reports, LIS, PDF, notifications all work). It is **not production-ready as-is** — there are **2 hard blockers**, **6 must-fix security/config items**, and **4 deployment decisions** that need your input. Nothing here is a deep refactor; every fix is a config change or a small code swap.
+The backend is **functionally complete and well-architected** (auth, RBAC, forms, reports, LIS, PDF, notifications all work). It is **not production-ready as-is** — there is **1 hard blocker** (B2), **1 fixed security item** (B1, 2026-09-16), **6 must-fix security/config items**, and **3 open deployment decisions** (email is decided). Nothing here is a deep refactor; every fix is a config change or a small code swap.
 
 **Hard blockers (the app will misbehave or leak if deployed today):**
 
 | # | Blocker | Where | Impact |
 |---|---------|-------|--------|
-| B1 | Forgot-password returns the reset code in the **API response** (dev-mode). No email is ever sent. | `server/src/controllers/auth.controller.ts:316-375` | Anyone can reset any account's password by calling the endpoint directly — **complete account takeover** on a public server. |
+| ~~B1~~ | ~~Forgot-password returns the reset code in the API response~~ | ✅ **FIXED 2026-09-16** — code is emailed via Gmail SMTP; prod never returns it (501/502 on misconfig/failure, stored code wiped). | `auth.controller.ts` + new `config/mailer.ts` | Needs `GMAIL_USER` + `GMAIL_APP_PASSWORD` set on the host. |
 | B2 | Uploaded files + generated PDFs are **committed to git** and can't survive an ephemeral host (Railway/Render restarts wipe local disk). | tracked: `server/uploads/*.xlsx`, `server/downloads/*.pdf`, `*.pdf` at repo root | Real student documents sit in the public repo; files will vanish on every redeploy. |
 
 **Quick security/config fixes (must do before go-live):**
@@ -32,7 +32,7 @@ The backend is **functionally complete and well-architected** (auth, RBAC, forms
 **Deployment decisions I need from you** (these change what I build):
 
 1. **Where will the backend run?** — Railway (I see your old `altaria.proxy.rlwy.net` MySQL in the .env), Render, Fly, or a VPS? This decides storage + backups + cron strategy.
-2. **Email provider for the reset code?** — Resend (easiest, generous free tier), Gmail SMTP, SendGrid, or SMTP2GO. The frontend's forgot-password screen currently *expects* `reset_code` in the response, so switching to email also needs a small frontend change + redeploy.
+2. ~~Email provider~~ — ✅ **DECIDED 2026-09-16: Gmail SMTP** via App Password (`GMAIL_USER` + `GMAIL_APP_PASSWORD`). Wiring is done; only host env vars remain.
 3. **Database:** move to a managed MySQL (Railway/Render/Aiven) — yes/no? The current `root`/no-password local config won't work remotely.
 4. **File storage:** persistent disk (works on Railway/VPS) vs object storage (S3/Cloudflare R2) — for the 10MB-uploaded documents + generated PDFs.
 
@@ -40,10 +40,10 @@ The backend is **functionally complete and well-architected** (auth, RBAC, forms
 
 ## Detailed findings
 
-### 1 · Email sending (flagged) — NOT production-safe
-- `forgotPassword()` generates a 6-digit code, stores it, and **returns it in the response body** — `auth.controller.ts:364-370`. There is **zero real email code** anywhere in the repo (grep for nodemailer/transporter/smtp/resend → nothing).
-- The **entire point of the lockout/`locked_until` logic on login is undermined** by this: an attacker can loop `forgot-password` on any email and reset the password without ever touching their inbox.
-- Fix path: add an SMTP/Resend call in that one handler; return a generic message; show the code on the frontend only in a `NODE_ENV !== 'production'` guard (or keep a separate admin-only reveal). Requires redeploying the frontend screen that consumes `reset_code`.
+### 1 · Email sending — ✅ FIXED 2026-09-16 (Gmail SMTP)
+- `forgotPassword()` emails the 6-digit code via **Gmail SMTP** (`nodemailer`, `smtp.gmail.com:465`, implicit TLS) — new `server/src/config/mailer.ts`, driven by `GMAIL_USER` + `GMAIL_APP_PASSWORD` (Google App Password; account needs 2-Step Verification).
+- **Password-reset code is never returned in the API response in production.** Behaviors: prod + SMTP configured → code emailed, generic response; prod + SMTP down → **502** and the stored token is wiped; prod + no SMTP → **501** (refuses, nothing leaks); dev + no SMTP → code echoed for local testing (Login.tsx amber box is gated on `reset_code` presence, so it renders only in dev). Verified live on all four paths.
+- Remaining: create the App Password and set the two env vars on the deploy host; redeploy the frontend (already gated, so optional).
 
 ### 2 · Storage & static files (flagged) — local disk + git leak
 - Uploads: `multer.diskStorage` → `server/uploads/` (`documents.routes.ts:10-20`). Three real uploaded `.xlsx` are **committed to the repo** (`git ls-files server/uploads`).
@@ -76,7 +76,7 @@ The backend is **functionally complete and well-architected** (auth, RBAC, forms
 
 ### 8 · Frontend ↔ backend contract
 - Frontend `API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api"` (`src/app/services/api.ts:11`) — the deployed Vercel app needs `VITE_API_URL=https://your-backend-domain/api` set at build time on Vercel. **Confirm this is set** — if not, the "working" frontend is only rendering static pages with no live data.
-- Forgot-password frontend screen reads `reset_code` from the response (dev flow). Switching to email delivery **requires a frontend change + redeploy**.
+- Forgot-password frontend screen reads `reset_code` from the response (dev flow). Gated on the code being present, so in prod (server never returns it) the email-flow UI works as-is; the amber dev box now only renders in dev. Frontend redeploy optional (copy tweak only).
 
 ### 9 · Misc
 - `express.json({ limit: "10mb" })` fine. `cookie-parser` unused-but-harmless.
@@ -95,7 +95,7 @@ The backend is **functionally complete and well-architected** (auth, RBAC, forms
 4. CORS: allow exact `FRONTEND_URL` + Vercel preview pattern.
 
 **Phase 1 — email + storage (host + provider decisions):**
-5. Wire the reset-code email (Resend/SMTP) and adjust the frontend forgot-password screen.
+5. ~~Wire the reset-code email~~ — ✅ DONE (Gmail SMTP). Remaining: set `GMAIL_USER` / `GMAIL_APP_PASSWORD` on the host.
 6. Move file writes to persistent volume (or object storage); flip `mysqldump`/`BACKUP_DIR` to the host's paths.
 
 **Phase 2 — deploy:**
