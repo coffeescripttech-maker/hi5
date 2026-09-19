@@ -2,9 +2,13 @@
 
 /* Hide layout chrome during print — sidebar, topbar, and anything marked no-print */
 @media print {
+  /* Legal-size paper (8.5 × 14 in) in landscape = 14 × 8.5 in — a named
+     size Chrome's headless PDF engine reliably supports. Slightly wider
+     than long bond, so the wide register fits with minimal zoom and the
+     summary tables on the right are fully visible. */
   @page {
-    size: A4 landscape;
-    margin: 6mm;
+    size: legal landscape;
+    margin: 0.2in;
   }
 
   html,
@@ -40,7 +44,7 @@
   /* Ensure the page uses full width available */
   main,
   #root > div,
-  [class*="flex-1"] {
+  [class*='flex-1'] {
     margin: 0 !important;
     padding: 0 !important;
     max-width: none !important;
@@ -49,16 +53,40 @@
   }
 
   /* Scale the wide register down so every column fits the printable
-     width of an A4 landscape page (no columns cut or trimmed).
+     width of a legal landscape page (no columns cut or trimmed).
      zoom reflows content, so page breaks still work correctly. */
   .sf1-page {
-    zoom: 0.78;
+    zoom: 0.89;
     page-break-after: always;
     break-after: page;
   }
 
+  /* SF5 is 1120px wide — legal landscape fits it at 100% with no
+     scaling, so its borders stay crisp 1px lines. */
+  .sf1-page.sf5-page {
+    zoom: 1;
+  }
+
   .sf1-page:last-child {
     page-break-after: auto;
+  }
+
+  /* Fix broken table borders under zoom: draw each cell's border
+     independently (separate model) instead of collapsing to shared
+     sub-pixel edges that Chrome drops when the page is scaled down. */
+  .sf1-page table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
+
+  /* Keep every cell border solid black at full opacity so no line
+     vanishes in the print/PDF output. */
+  .sf1-page th,
+  .sf1-page td {
+    border-color: #000 !important;
+    border-style: solid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Ensure form field borders/colors render on paper */

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Layers, Users, TrendingUp, UserPlus, BookOpen, Upload, LayoutDashboard, BarChart3, Zap, PieChart as PieChartIcon } from "lucide-react";
+import { Layers, Users, TrendingUp, UserPlus, BookOpen, LayoutDashboard, BarChart3, PieChart as PieChartIcon } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { studentsApi, StudentRow } from "../../services/students";
@@ -196,51 +196,6 @@ export function TeacherDashboard() {
               </div>
             ))}
           </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm flex items-center justify-center flex-shrink-0">
-            <Zap size={14} className="text-white" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-800">Quick Actions</h3>
-            <p className="text-gray-400 text-xs mt-0.5">Common tasks you perform often</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button onClick={() => navigate("/teacher/enroll")}
-            className="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
-            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 group-hover:shadow-lg group-hover:brightness-105 rounded-xl flex items-center justify-center transition">
-              <UserPlus size={20} className="text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-800 text-sm">Enroll Student</p>
-              <p className="text-gray-400 text-xs">New or returning student</p>
-            </div>
-          </button>
-          <button onClick={() => navigate("/teacher/grades")}
-            className="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
-            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 group-hover:shadow-lg group-hover:brightness-105 rounded-xl flex items-center justify-center transition">
-              <BookOpen size={20} className="text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-800 text-sm">Encode Grades</p>
-              <p className="text-gray-400 text-xs">Enter quarterly grades</p>
-            </div>
-          </button>
-          <button onClick={() => navigate("/teacher/upload")}
-            className="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50/50 transition group">
-            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 group-hover:shadow-lg group-hover:brightness-105 rounded-xl flex items-center justify-center transition">
-              <Upload size={20} className="text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-800 text-sm">Upload Past Grades</p>
-              <p className="text-gray-400 text-xs">Import from Excel template</p>
-            </div>
-          </button>
         </div>
       </div>
 

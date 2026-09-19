@@ -30,28 +30,28 @@ const MERMAID_CDN =
   'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 
 /**
- * Print rules for the written user guide PDF (portrait letter, paginated by
- * section). Embedded by the PDF renderer in a second <style> after its base
- * `@page { size: letter landscape; margin: 0 }`, so these win the cascade:
- * @page geometry comes entirely from here (`preferCSSPageSize: true`).
+ * Print rules for the written user guide PDF (landscape letter, paginated by
+ * section). Landscape gives the role cards room to breathe so nothing is
+ * clipped or squished against the paper edge. Embedded by the PDF renderer in
+ * a second <style> after its base `@page { size: letter landscape; margin: 0 }`,
+ * so these win the cascade: @page geometry comes entirely from here
+ * (`preferCSSPageSize: true`).
  *
- * The flowchart canvases are allowed to span pages by staying out of the
- * `page-break-inside: avoid` list — only individual cards/rows are kept
- * together. Width fixes: min-w-[800px] on the diagram canvases and mermaid's
- * own max-width are overridden so the charts scale to the portrait content
- * width instead of being clipped (stylesheet !important beats inline styles,
- * and the style-inliner skips SVG subtrees, leaving their CSS-able width).
+ * The flowcharts and on-screen controls are marked `.no-print` and excluded
+ * from the PDF entirely; only the written sections (cover, getting started,
+ * roles, how-tos, glossary, quick reference) are paginated here.
  */
 const GUIDE_PRINT_CSS = `
-@page { size: letter portrait; margin: 0.4in; }
+@page { size: letter landscape; margin: 0.4in; }
 .no-print { display: none !important; }
 .print-page { page-break-after: always; }
 .print-section { page-break-before: always; }
 .print-section:first-of-type { page-break-before: auto; }
-.role-card, .howto, .glossary-item, .diagram-block, .quick-ref-card { page-break-inside: avoid; }
-.guide-zoom { transform: none !important; overflow: visible !important; }
-.diagram-canvas, .guide-zoom { min-width: 0 !important; }
-#system-guide-pdf svg { max-width: 100% !important; height: auto !important; }
+.role-card, .howto, .glossary-item, .quick-ref-card { page-break-inside: avoid; }
+.print-section h1, .print-section h2, .print-section h3, .print-section h4,
+.print-section p, .print-section li, .print-section dt, .print-section dd,
+.print-section span { word-wrap: break-word !important; overflow-wrap: break-word !important; }
+.cover-logo { display: block !important; margin-left: auto !important; margin-right: auto !important; max-width: 3in !important; height: auto !important; }
 `;
 
 /** Fallback when the school-name setting hasn't been configured yet. */
@@ -403,7 +403,7 @@ export function SystemGuide() {
     const options: PdfRenderOptions = {
       elementId: 'system-guide-pdf',
       filename: 'hi5-system-user-guide',
-      orientation: 'portrait',
+      orientation: 'landscape',
       format: 'letter',
       printCss: GUIDE_PRINT_CSS
     };
@@ -527,7 +527,7 @@ export function SystemGuide() {
           <img
             src="https://hi5-six.vercel.app/assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5-32KE5vhv.png"
             alt="Department of Education seal"
-            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto object-contain mb-5"
+            className="cover-logo block w-20 h-20 sm:w-24 sm:h-24 mx-auto object-contain mb-5"
           />
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-[-0.02em]">
             {GUIDE_META.title}
@@ -591,7 +591,7 @@ export function SystemGuide() {
             </p>
           </div>
         </div>
-        <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="p-5 sm:p-6 grid grid-cols-1 gap-4">
           {roles.map(r => (
             <div
               key={r.role}
@@ -698,8 +698,51 @@ export function SystemGuide() {
         </div>
       </section>
 
-      {/* ── Visual Overview: Flowchart Appendix ── */}
-      <section className="print-section print-appendix bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* ── Quick Reference (included in PDF) ── */}
+      <section className="print-section bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <ClipboardList size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              Quick Reference
+            </h3>
+            <p className="text-xs text-gray-400">
+              Role-by-role checklist at a glance
+            </p>
+          </div>
+        </div>
+        <div className="p-5 sm:p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {QUICK_REF.map(card => (
+              <div
+                key={card.role}
+                className={`quick-ref-card ${card.color} rounded-2xl p-4 shadow-sm`}>
+                <p className={`font-bold text-sm ${card.textColor} mb-2`}>
+                  {card.role}
+                </p>
+                <ol className="space-y-1.5">
+                  {card.steps.map((step, i) => (
+                    <li
+                      key={i}
+                      className="text-xs text-gray-600 flex items-start gap-2">
+                      <span
+                        className={`font-bold ${card.textColor} flex-shrink-0`}>
+                        {i + 1}.
+                      </span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Visual Overview: Flowcharts (web view only — excluded from PDF) ── */}
+      <section className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
             <Workflow size={16} className="text-indigo-600" />
@@ -760,32 +803,6 @@ export function SystemGuide() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Quick Reference */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {QUICK_REF.map(card => (
-              <div
-                key={card.role}
-                className={`quick-ref-card ${card.color} rounded-2xl p-4 shadow-sm`}>
-                <p className={`font-bold text-sm ${card.textColor} mb-2`}>
-                  {card.role}
-                </p>
-                <ol className="space-y-1.5">
-                  {card.steps.map((step, i) => (
-                    <li
-                      key={i}
-                      className="text-xs text-gray-600 flex items-start gap-2">
-                      <span
-                        className={`font-bold ${card.textColor} flex-shrink-0`}>
-                        {i + 1}.
-                      </span>
-                      {step}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))}
           </div>
         </div>
       </section>

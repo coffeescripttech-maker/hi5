@@ -1,5 +1,5 @@
 /**
- * Role sidebar — brand header, RBAC-filtered nav groups, user + logout footer.
+ * Role sidebar — brand header, RBAC-filtered nav groups, user footer.
  *
  * Preserves the dark role gradient brand surface and exact-path active
  * matching from the original shell. The collapse state is applied with
@@ -107,7 +107,7 @@ export function Sidebar({
             {schoolName || 'DSPMNHS'}
           </p>
           <p className="text-[11px] leading-tight text-white/50">
-            SY {schoolYearLabel || '2025–2026'}
+            SY {schoolYearLabel ?? '--'}
           </p>
         </div>
         {/* Mobile close button */}
@@ -207,7 +207,7 @@ export function Sidebar({
         </div>
       </nav>
 
-      {/* Footer: user + logout */}
+      {/* Footer: user */}
       <div className="relative flex-shrink-0 border-t border-white/10 p-3">
         {/* Full variant (mobile drawer + 'full' desktop mode) */}
         <div className={`space-y-1 ${isIcons ? 'md:hidden' : ''}`}>

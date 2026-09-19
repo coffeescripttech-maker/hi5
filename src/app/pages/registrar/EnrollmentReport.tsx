@@ -59,7 +59,7 @@ export function EnrollmentReport() {
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [syLabel, setSyLabel] = useState(schoolYearLabel || "2025–2026");
+  const [syLabel, setSyLabel] = useState(schoolYearLabel ?? "--");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);

@@ -38,7 +38,7 @@ export function NotFound() {
         <p className="text-blue-200/70 text-sm mb-2">
           The page you're looking for doesn't exist or you may not have access to it.
         </p>
-        <p className="text-blue-300/50 text-xs mb-8">Hi5 Portal · DSPMNHS · SY {schoolYearLabel || '2025–2026'}</p>
+        <p className="text-blue-300/50 text-xs mb-8">Hi5 Portal · DSPMNHS · SY {schoolYearLabel ?? '--'}</p>
 
         <div className="flex items-center justify-center gap-3">
           <button

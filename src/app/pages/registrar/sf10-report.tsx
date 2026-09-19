@@ -694,7 +694,7 @@ export function SF10Report() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleExportPdf}
+                  onClick={() => setPreviewOpen(true)}
                   disabled={!sf10Data || exporting}
                   className={`inline-flex items-center gap-1.5 ${accent.button} disabled:opacity-40 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm`}>
                   {exporting ? (
@@ -1390,14 +1390,18 @@ export function SF10Report() {
                               </td>
                               <td className="border border-gray-800 p-0">
                                 <input
-                                  type="text"
+                                  inputMode="numeric"
                                   value={area.q1}
                                   onChange={e =>
                                     updateLearningArea(
                                       idx,
                                       li,
                                       'q1',
-                                      e.target.value
+                                      e.target.value === ''
+                                        ? ''
+                                        : Math.min(100, Math.max(0,
+                                          Math.floor(Number(e.target.value) * 100) / 100)
+                                        ).toString()
                                     )
                                   }
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
@@ -1405,14 +1409,18 @@ export function SF10Report() {
                               </td>
                               <td className="border border-gray-800 p-0">
                                 <input
-                                  type="text"
+                                  inputMode="numeric"
                                   value={area.q2}
                                   onChange={e =>
                                     updateLearningArea(
                                       idx,
                                       li,
                                       'q2',
-                                      e.target.value
+                                      e.target.value === ''
+                                        ? ''
+                                        : Math.min(100, Math.max(0,
+                                          Math.floor(Number(e.target.value) * 100) / 100)
+                                        ).toString()
                                     )
                                   }
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
@@ -1420,14 +1428,18 @@ export function SF10Report() {
                               </td>
                               <td className="border border-gray-800 p-0">
                                 <input
-                                  type="text"
+                                  inputMode="numeric"
                                   value={area.q3}
                                   onChange={e =>
                                     updateLearningArea(
                                       idx,
                                       li,
                                       'q3',
-                                      e.target.value
+                                      e.target.value === ''
+                                        ? ''
+                                        : Math.min(100, Math.max(0,
+                                          Math.floor(Number(e.target.value) * 100) / 100)
+                                        ).toString()
                                     )
                                   }
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
@@ -1435,14 +1447,18 @@ export function SF10Report() {
                               </td>
                               <td className="border border-gray-800 p-0">
                                 <input
-                                  type="text"
+                                  inputMode="numeric"
                                   value={area.q4}
                                   onChange={e =>
                                     updateLearningArea(
                                       idx,
                                       li,
                                       'q4',
-                                      e.target.value
+                                      e.target.value === ''
+                                        ? ''
+                                        : Math.min(100, Math.max(0,
+                                          Math.floor(Number(e.target.value) * 100) / 100)
+                                        ).toString()
                                     )
                                   }
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"

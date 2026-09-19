@@ -125,6 +125,19 @@ Client requested that SF10 (Permanent Record) and AI/At-Risk modules be enabled 
 
 ---
 
+## Round 2 — SY Reversion Hardening (2026-09-17)
+
+Addressed remaining || 1 fallbacks that could incorrectly default to school year ID 1 when no current school year is found, preventing potential data integrity issues during school year transitions.
+
+| # | Revision | Status | Evidence |
+|---|----------|--------|----------|
+| B1a | SF9 report school year fallback | ✅ FIXED | `src/app/pages/registrar/sf9-report.tsx:349-354` — replaced `|| 1` with explicit null checking |
+| B1b | Grade Management school year fallback | ✅ FIXED | `src/app/pages/teacher/GradeManagement.tsx:175-178` — replaced `|| 1` fallbacks with null returns in try/catch blocks |
+| B1c | SF1 register school year fallback | ✅ FIXED | `src/app/pages/registrar/sf1-register.tsx:191-193` — replaced `|| 1` chain with conditional null handling |
+| B1d | SF5 report school year fallback | ✅ FIXED | `src/app/pages/registrar/sf5-report.tsx:249-251` — replaced `|| 1` chain with conditional null handling |
+| B2  | Activity log cron restart-safety | ✅ FIXED | `server/src/cron/activityLogCron.ts` — changed from 24h setInterval to hourly checks with persistence; `server/migrations/016_activity_log_cleanup_tracking.sql` — added last_activity_log_cleanup column to school_settings |
+| B3  | Returning-student subject breakdown | ✅ FIXED | `src/app/pages/teacher\EnrollmentModule.tsx:2750-2790` — rendered retGradeHistory[].subjects as table with Q1-Q4 and final columns; added empty state for no subject history |
+
 ## Suggested next batch
 
 All client revision items (Revisions 1–3) are now implemented. Remaining work:

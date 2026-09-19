@@ -1,5 +1,17 @@
-import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
-import { Printer, Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react';
+﻿import {
+  useState,
+  useEffect,
+  useMemo,
+  type Dispatch,
+  type SetStateAction
+} from 'react';
+import {
+  Printer,
+  Loader2,
+  Download,
+  FileSpreadsheet,
+  FileText
+} from 'lucide-react';
 import './sf1.css';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
@@ -80,7 +92,12 @@ const LEAF_COLUMNS: Leaf[] = [
     sub: '(Please refer to the legend on last page)',
     width: '110px',
     blue: true
-  }
+  },
+  // GRADE COLUMNS
+  { key: 'q1', title: 'Q1', width: '50px' },
+  { key: 'q2', title: 'Q2', width: '50px' },
+  { key: 'q3', title: 'Q3', width: '50px' },
+  { key: 'q4', title: 'Q4', width: '50px' }
 ];
 
 const TOTAL_ROWS = 30;
@@ -129,29 +146,29 @@ function formatDateInput(value: string | null | undefined): string {
 }
 
 /* ---------------------------------------------------------------- */
-/* Reusable inline editable cell — shared via school-form-header     */
+/* Reusable inline editable cell â€” shared via school-form-header     */
 /* ---------------------------------------------------------------- */
 
 export function SF1Register() {
   const { schoolName, schoolYearLabel, showToast, role } = useApp();
   const accent = useRoleAccent();
 
-  // ── API data ──
+  // â”€â”€ API data â”€â”€
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  // Print confirmation preview — no form goes straight to window.print().
+  // Print confirmation preview â€” no form goes straight to window.print().
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  // ── Filter selections ──
+  // â”€â”€ Filter selections â”€â”€
   const [syId, setSyId] = useState(1);
-  const [selectedGrade, setSelectedGrade] = useState("7");
-  const [selectedSection, setSelectedSection] = useState("");
+  const [selectedGrade, setSelectedGrade] = useState('7');
+  const [selectedSection, setSelectedSection] = useState('');
 
-  // ── Form state ──
+  // â”€â”€ Form state â”€â”€
   const [rows, setRows] = useState<RowData[]>(() =>
     Array.from({ length: TOTAL_ROWS }, () => ({}))
   );
@@ -173,61 +190,72 @@ export function SF1Register() {
     eosyDate: ''
   });
 
-  // ── Load data on mount ──
+  // â”€â”€ Load data on mount â”€â”€
   useEffect(() => {
     Promise.all([
-      role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
-      role === "teacher" ? sectionsApi.listMySections() : sectionsApi.list(),
+      role === 'teacher' ? studentsApi.listMyStudents() : studentsApi.list(),
+      role === 'teacher' ? sectionsApi.listMySections() : sectionsApi.list(),
       enrollmentsApi.list(),
       settingsApi.get(),
-      schoolYearsApi.list(),
-    ]).then(([studs, secs, enrs, settings, years]) => {
-      console.log('[SF1] Students:', studs.length, 'Sections:', secs.length, 'Enrollments:', enrs.length);
-      console.log('[SF1] Enrollments sample:', enrs.slice(0, 3));
-      setStudents(studs);
-      setSections(secs);
-      setEnrollments(enrs);
-      setSchoolYears(years);
-      const currentYear = years.find((y: any) => y.is_current === 1);
-      const targetSy = currentYear?.id || years[0]?.id || 1;
-      setSyId(targetSy);
-      setHeader(prev => ({
-        ...prev,
-        schoolId: settings.school_id || prev.schoolId,
-        region: settings.region || prev.region,
-        division: settings.division || prev.division,
-        district: settings.district || prev.district,
-        schoolName: settings.school_name || prev.schoolName,
-      }));
-      const active = secs.filter(s => s.is_active === 1);
-      // Default to the first section (grade-ascending) that actually has
-      // enrolled students in the selected school year, so the register never
-      // opens on an empty section.
-      const enrolledSection = enrs
-        .filter(
-          e => e.school_year_id === targetSy && e.status === 'enrolled'
-        )
-        .sort(
-          (a, b) =>
-            (a.section_grade_level ?? 99) - (b.section_grade_level ?? 99)
-        )
-        .find(e => e.section_id != null);
-      if (enrolledSection && enrolledSection.section_id != null) {
-        const sec = active.find(s => s.id === enrolledSection.section_id);
-        if (sec) {
-          setSelectedGrade(
-            String(enrolledSection.section_grade_level ?? sec.grade_level)
-          );
-          setSelectedSection(sec.name);
-          return;
+      schoolYearsApi.list()
+    ])
+      .then(([studs, secs, enrs, settings, years]) => {
+        console.log(
+          '[SF1] Students:',
+          studs.length,
+          'Sections:',
+          secs.length,
+          'Enrollments:',
+          enrs.length
+        );
+        console.log('[SF1] Enrollments sample:', enrs.slice(0, 3));
+        setStudents(studs);
+        setSections(secs);
+        setEnrollments(enrs);
+        setSchoolYears(years);
+        const currentYear = years.find((y: any) => y.is_current === 1);
+        const targetSy = currentYear
+          ? currentYear.id
+          : years[0]
+            ? years[0].id
+            : null;
+        setSyId(targetSy);
+        setHeader(prev => ({
+          ...prev,
+          schoolId: settings.school_id || prev.schoolId,
+          region: settings.region || prev.region,
+          division: settings.division || prev.division,
+          district: settings.district || prev.district,
+          schoolName: settings.school_name || prev.schoolName
+        }));
+        const active = secs.filter(s => s.is_active === 1);
+        // Default to the first section (grade-ascending) that actually has
+        // enrolled students in the selected school year, so the register never
+        // opens on an empty section.
+        const enrolledSection = enrs
+          .filter(e => e.school_year_id === targetSy && e.status === 'enrolled')
+          .sort(
+            (a, b) =>
+              (a.section_grade_level ?? 99) - (b.section_grade_level ?? 99)
+          )
+          .find(e => e.section_id != null);
+        if (enrolledSection && enrolledSection.section_id != null) {
+          const sec = active.find(s => s.id === enrolledSection.section_id);
+          if (sec) {
+            setSelectedGrade(
+              String(enrolledSection.section_grade_level ?? sec.grade_level)
+            );
+            setSelectedSection(sec.name);
+            return;
+          }
         }
-      }
-      const g7 = active.filter(s => s.grade_level === 7);
-      if (g7.length > 0) setSelectedSection(g7[0].name);
-    }).finally(() => setDataLoading(false));
+        const g7 = active.filter(s => s.grade_level === 7);
+        if (g7.length > 0) setSelectedSection(g7[0].name);
+      })
+      .finally(() => setDataLoading(false));
   }, []);
 
-  // ── Sync school name & year (selected school year takes precedence) ──
+  // â”€â”€ Sync school name & year (selected school year takes precedence) â”€â”€
   useEffect(() => {
     setHeader(prev => ({
       ...prev,
@@ -235,49 +263,70 @@ export function SF1Register() {
       schoolYear:
         schoolYears.find(y => y.id === syId)?.sy_label ||
         schoolYearLabel ||
-        prev.schoolYear,
+        prev.schoolYear
     }));
   }, [schoolName, schoolYearLabel, schoolYears, syId]);
 
-  // ── Sync grade/section to header ──
+  // â”€â”€ Sync grade/section to header â”€â”€
   useEffect(() => {
-    setHeader(prev => ({ ...prev, gradeLevel: selectedGrade, section: selectedSection }));
+    setHeader(prev => ({
+      ...prev,
+      gradeLevel: selectedGrade,
+      section: selectedSection
+    }));
   }, [selectedGrade, selectedSection]);
 
-  // ── Sections for current grade ──
+  // â”€â”€ Sections for current grade â”€â”€
   const gradeSections = useMemo(
-    () => sections.filter(s => s.grade_level === parseInt(selectedGrade) && s.is_active === 1),
+    () =>
+      sections.filter(
+        s => s.grade_level === parseInt(selectedGrade) && s.is_active === 1
+      ),
     [sections, selectedGrade]
   );
 
-  // ── Reset section selection when grade changes ──
+  // â”€â”€ Reset section selection when grade changes â”€â”€
   useEffect(() => {
-    if (selectedSection && !gradeSections.some(s => s.name === selectedSection)) {
+    if (
+      selectedSection &&
+      !gradeSections.some(s => s.name === selectedSection)
+    ) {
       setSelectedSection(gradeSections.length > 0 ? gradeSections[0].name : '');
     } else if (!selectedSection && gradeSections.length > 0) {
       setSelectedSection(gradeSections[0].name);
     }
   }, [selectedGrade, gradeSections, selectedSection]);
 
-  // ── Populate rows when section changes ──
+  // â”€â”€ Populate rows when section changes â”€â”€
   useEffect(() => {
     if (!selectedSection || !enrollments.length || !students.length) return;
     const section = sections.find(
-      s => s.name === selectedSection && s.grade_level === parseInt(selectedGrade)
+      s =>
+        s.name === selectedSection && s.grade_level === parseInt(selectedGrade)
     );
     if (!section) {
-      console.log('[SF1] No section found for', selectedSection, 'grade', selectedGrade);
+      console.log(
+        '[SF1] No section found for',
+        selectedSection,
+        'grade',
+        selectedGrade
+      );
       setRegisteredCounts([]);
       return;
     }
     console.log('[SF1] Found section:', section.id, section.name);
     const matchingEnrs = enrollments.filter(
-      e => e.school_year_id === syId &&
+      e =>
+        e.school_year_id === syId &&
         e.section_grade_level === parseInt(selectedGrade) &&
         e.section_id === section.id &&
         e.status === 'enrolled'
     );
-    console.log('[SF1] Matching enrollments:', matchingEnrs.length, matchingEnrs.slice(0, 2));
+    console.log(
+      '[SF1] Matching enrollments:',
+      matchingEnrs.length,
+      matchingEnrs.slice(0, 2)
+    );
     const enrolled = matchingEnrs
       .map(e => students.find(s => s.id === e.student_id))
       .filter(Boolean) as StudentRow[];
@@ -307,18 +356,30 @@ export function SF1Register() {
       mothertongue: '',
       ip: '',
       religion: '',
-      addr_house: '', addr_barangay: '', addr_city: '', addr_province: '',
-      father: '', mother: '',
+      addr_house: '',
+      addr_barangay: '',
+      addr_city: '',
+      addr_province: '',
+      father: '',
+      mother: '',
       guardian_name: s.guardian || '',
       guardian_rel: '',
       contact: s.contact || '',
-      remarks: '',
+      remarks: ''
     }));
     while (newRows.length < TOTAL_ROWS) newRows.push({});
     setRows(newRows);
-  }, [selectedSection, selectedGrade, syId, enrollments, students, sections, schoolYears]);
+  }, [
+    selectedSection,
+    selectedGrade,
+    syId,
+    enrollments,
+    students,
+    sections,
+    schoolYears
+  ]);
 
-  // ── Cell / header helpers ──
+  // â”€â”€ Cell / header helpers â”€â”€
   const setCell = (rowIndex: number, key: string, val: string) => {
     setRows(prev => {
       const next = [...prev];
@@ -326,10 +387,24 @@ export function SF1Register() {
       return next;
     });
   };
+  const sanitizeGradeInput = (value: string): number | '' => {
+    if (value === '') {
+      return '';
+    }
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) {
+      return 0;
+    }
+    // Truncate to 2 decimal places
+    const truncated = Math.floor(parsed * 100) / 100;
+    // Clamp to 0-100 range
+    const clamped = Math.min(100, Math.max(0, truncated));
+    return clamped;
+  };
   const setH = (key: keyof typeof header, val: string) =>
     setHeader(prev => ({ ...prev, [key]: val }));
 
-  // ── Loading ──
+  // â”€â”€ Loading â”€â”€
   if (dataLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-gray-400 text-sm">
@@ -339,15 +414,15 @@ export function SF1Register() {
     );
   }
 
-  // ── PDF Export ──
+  // â”€â”€ PDF Export â”€â”€
   const handleExportPdf = async () => {
     if (exporting) return;
     setExporting(true);
     const options = {
       elementId: 'sf1-print-area',
-      filename: `SF1_Register_Grade${selectedGrade}${selectedSection ? '_'+selectedSection : ''}`,
+      filename: `SF1_Register_Grade${selectedGrade}${selectedSection ? '_' + selectedSection : ''}`,
       orientation: 'landscape' as const,
-      format: 'letter' as const,
+      format: 'letter' as const
     };
     try {
       // Primary path: render server-side in Chrome so the PDF matches the
@@ -355,10 +430,10 @@ export function SF1Register() {
       // the zoom that fits all columns), then auto-download.
       await downloadRenderedPdf(options);
     } catch {
-      // Server render unavailable — fall back to the client-side pdfmake export.
+      // Server render unavailable â€” fall back to the client-side pdfmake export.
       try {
         await exportToPdf(options);
-        showToast('info', 'Server render unavailable — used local fallback.');
+        showToast('info', 'Server render unavailable â€” used local fallback.');
       } catch {
         showToast('error', 'Failed to export PDF. Please try again.');
       }
@@ -371,30 +446,43 @@ export function SF1Register() {
 
   return (
     <div className="space-y-5 pb-10">
-      {/* ── Header Card ── */}
+      {/* â”€â”€ Header Card â”€â”€ */}
       <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
         <div className="p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
+              <div
+                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accent.tile} shadow-lg ${accent.tileShadow} flex items-center justify-center flex-shrink-0`}>
                 <FileSpreadsheet size={22} className="text-white" />
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
-                  School Form 1 (SF1) — School Register
+                  School Form 1 (SF1) â€” School Register
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Select school year, grade &amp; section to auto-populate, or fill manually.
+                  Select school year, grade &amp; section to auto-populate, or
+                  fill manually.
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleExportPdf} disabled={exporting} className={`${accent.button} text-white shadow-sm`}>
-                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                {exporting ? 'Generating…' : 'PDF'}
+              <Button
+                size="sm"
+                onClick={() => setPreviewOpen(true)}
+                disabled={exporting}
+                className={`${accent.button} text-white shadow-sm`}>
+                {exporting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                {exporting ? 'Generatingâ€¦' : 'PDF'}
               </Button>
-              <Button size="sm" onClick={() => setPreviewOpen(true)} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
+              <Button
+                size="sm"
+                onClick={() => setPreviewOpen(true)}
+                className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm">
                 <Printer className="size-4" /> Print
               </Button>
             </div>
@@ -404,7 +492,7 @@ export function SF1Register() {
 
       <FormPrintPreview
         open={previewOpen}
-        title="SF1 — School Register"
+        title="SF1 â€” School Register"
         elementId="sf1-print-area"
         onClose={() => setPreviewOpen(false)}
         onExportPdf={handleExportPdf}
@@ -418,31 +506,63 @@ export function SF1Register() {
         <div className="p-5 sm:p-6">
           <div className="flex flex-wrap items-end gap-4">
             <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">School Year</label>
-              <select value={syId} onChange={e => setSyId(parseInt(e.target.value))}
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
+                School Year
+              </label>
+              <select
+                value={syId}
+                onChange={e => setSyId(parseInt(e.target.value))}
                 className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
-                {schoolYears.length === 0 && <option value="">Loading years...</option>}
-                {schoolYears.map(y => <option key={y.id} value={y.id}>{y.sy_label}{y.is_current === 1 ? ' (Current)' : ''}</option>)}
+                {schoolYears.length === 0 && (
+                  <option value="">Loading years...</option>
+                )}
+                {schoolYears.map(y => (
+                  <option key={y.id} value={y.id}>
+                    {y.sy_label}
+                    {y.is_current === 1 ? ' (Current)' : ''}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Grade Level</label>
-              <select value={selectedGrade} onChange={e => setSelectedGrade(e.target.value)}
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
+                Grade Level
+              </label>
+              <select
+                value={selectedGrade}
+                onChange={e => setSelectedGrade(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
-                {[7, 8, 9, 10, 11, 12].map(g => <option key={g} value={g}>Grade {g}</option>)}
+                {[7, 8, 9, 10, 11, 12].map(g => (
+                  <option key={g} value={g}>
+                    Grade {g}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">Section</label>
-              <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.06em]">
+                Section
+              </label>
+              <select
+                value={selectedSection}
+                onChange={e => setSelectedSection(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
-                {gradeSections.length === 0 && <option value="">No sections</option>}
-                {gradeSections.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                {gradeSections.length === 0 && (
+                  <option value="">No sections</option>
+                )}
+                {gradeSections.map(s => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400 pb-1">
               <FileText size={14} className={accent.text} />
-              <span>{filledCount} student{filledCount !== 1 ? 's' : ''} loaded &middot; {rows.length} total rows</span>
+              <span>
+                {filledCount} student{filledCount !== 1 ? 's' : ''} loaded
+                &middot; {rows.length} total rows
+              </span>
             </div>
           </div>
         </div>
@@ -450,152 +570,160 @@ export function SF1Register() {
 
       {/* Sheet */}
       <DocumentViewer>
-        <div id="sf1-print-area" className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
-        <div className="sf1-page" style={{ minWidth: '1340px' }}>
-          {/* ---------- Title block ---------- */}
-          <SchoolFormTitleBlock
-            title="School Form 1 (SF 1) School Register"
-            subtitle="(This replaces Form 1, Master List & STS Form 2-Family Background and Profile)"
-          />
+        <div
+          id="sf1-print-area"
+          className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
+          <div className="sf1-page" style={{ minWidth: '1340px' }}>
+            {/* ---------- Title block ---------- */}
+            <SchoolFormTitleBlock
+              title="School Form 1 (SF 1) School Register"
+              subtitle="(This replaces Form 1, Master List & STS Form 2-Family Background and Profile)"
+            />
 
-          {/* ---------- Header fields ---------- */}
-          <SchoolFormHeader header={header} onChange={setH} />
+            {/* ---------- Header fields ---------- */}
+            <SchoolFormHeader header={header} onChange={setH} />
 
-          {/* ---------- Register table ---------- */}
-          <table className="w-full table-fixed border-collapse text-[10px]">
-            <colgroup>
-              {LEAF_COLUMNS.map(c => (
-                <col key={c.key} style={{ width: c.width }} />
-              ))}
-            </colgroup>
-            <thead>
-              {/* Group header row */}
-              <tr>
-                <th
-                  rowSpan={2}
-                  className="border border-black bg-white px-1 py-1 align-middle font-bold">
-                  LRN
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  NAME
-                  <div className="font-normal text-red-700">
-                    (Last Name, First Name, Middle Name)
-                  </div>
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  Sex<div className="font-normal">(M/F)</div>
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  BIRTH DATE<div className="font-normal">(mm/dd/ yyyy)</div>
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  AGE as of<div className="font-normal">1st Friday June</div>
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  MOTHER TONGUE
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  IP<div className="font-normal">(Ethnic Group)</div>
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  RELIGION
-                </th>
-                <th
-                  colSpan={4}
-                  className="border border-black px-1 py-1 font-bold">
-                  ADDRESS
-                </th>
-                <th
-                  colSpan={2}
-                  className="border border-black px-1 py-1 font-bold">
-                  PARENTS
-                </th>
-                <th
-                  colSpan={2}
-                  className="border border-black px-1 py-1 font-bold">
-                  GUARDIAN<div className="font-normal">(If not Parent)</div>
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  Contact Number of Parent or Guardian
-                </th>
-                <th
-                  rowSpan={2}
-                  className="border border-black px-1 py-1 align-middle font-bold">
-                  REMARKS
-                  <div className="font-normal text-red-700">
-                    (Please refer to the legend on last page)
-                  </div>
-                </th>
-              </tr>
-              {/* Sub header row for grouped columns */}
-              <tr className="text-blue-800">
-                <th className="border border-black px-1 py-1 font-semibold">
-                  House #/ Street/ Sitio/ Purok
-                </th>
-                <th className="border border-black px-1 py-1 font-semibold">
-                  Barangay
-                </th>
-                <th className="border border-black px-1 py-1 font-semibold">
-                  Municipality/ City
-                </th>
-                <th className="border border-black px-1 py-1 font-semibold">
-                  Province
-                </th>
-                <th className="border border-black px-1 py-1 font-semibold">
-                  Father's Name (Last Name, First Name, Middle Name)
-                </th>
-                <th className="border border-black px-1 py-1 font-semibold">
-                  Mother's Maiden Name (Last Name, First Name, Middle Name)
-                </th>
-                <th className="border border-black px-1 py-1 font-semibold">
-                  Name
-                </th>
-                <th className="border border-black px-1 py-1 font-semibold">
-                  Relation-ship
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, r) => (
-                <tr key={r}>
-                  {LEAF_COLUMNS.map(c => (
-                    <td key={c.key} className="border border-black p-0">
-                      <input
-                        value={row[c.key] ?? ''}
-                        onChange={e => setCell(r, c.key, e.target.value)}
-                        className="sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50"
-                      />
-                    </td>
-                  ))}
+            {/* ---------- Register table ---------- */}
+            <table className="w-full table-fixed border-collapse text-[10px]">
+              <colgroup>
+                {LEAF_COLUMNS.map(c => (
+                  <col key={c.key} style={{ width: c.width }} />
+                ))}
+              </colgroup>
+              <thead>
+                {/* Group header row */}
+                <tr>
+                  <th
+                    rowSpan={2}
+                    className="border border-black bg-white px-1 py-1 align-middle font-bold">
+                    LRN
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    NAME
+                    <div className="font-normal text-red-700">
+                      (Last Name, First Name, Middle Name)
+                    </div>
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    Sex<div className="font-normal">(M/F)</div>
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    BIRTH DATE<div className="font-normal">(mm/dd/ yyyy)</div>
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    AGE as of<div className="font-normal">1st Friday June</div>
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    MOTHER TONGUE
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    IP<div className="font-normal">(Ethnic Group)</div>
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    RELIGION
+                  </th>
+                  <th
+                    colSpan={4}
+                    className="border border-black px-1 py-1 font-bold">
+                    ADDRESS
+                  </th>
+                  <th
+                    colSpan={2}
+                    className="border border-black px-1 py-1 font-bold">
+                    PARENTS
+                  </th>
+                  <th
+                    colSpan={2}
+                    className="border border-black px-1 py-1 font-bold">
+                    GUARDIAN<div className="font-normal">(If not Parent)</div>
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    Contact Number of Parent or Guardian
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="border border-black px-1 py-1 align-middle font-bold">
+                    REMARKS
+                    <div className="font-normal text-red-700">
+                      (Please refer to the legend on last page)
+                    </div>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                {/* Sub header row for grouped columns */}
+                <tr className="text-blue-800">
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    House #/ Street/ Sitio/ Purok
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    Barangay
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    Municipality/ City
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    Province
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    Father's Name (Last Name, First Name, Middle Name)
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    Mother's Maiden Name (Last Name, First Name, Middle Name)
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    Name
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    Relation-ship
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, r) => (
+                  <tr key={r}>
+                    {LEAF_COLUMNS.map(c => (
+                      <td key={c.key} className="border border-black p-0">
+                        <input
+                          value={row[c.key] ?? ''}
+                          onChange={e =>
+                            setCell(
+                              r,
+                              c.key,
+                              sanitizeGradeInput(e.target.value)
+                            )
+                          }
+                          className="sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          {/* ---------- Legend + summary + signatures footer ---------- */}
-          <SF1Footer
-            registeredCounts={registeredCounts}
-            setRegisteredCounts={setRegisteredCounts}
-            signatureDates={signatureDates}
-            setSignatureDates={setSignatureDates}
-          />
-        </div>
+            {/* ---------- Legend + summary + signatures footer ---------- */}
+            <SF1Footer
+              registeredCounts={registeredCounts}
+              setRegisteredCounts={setRegisteredCounts}
+              signatureDates={signatureDates}
+              setSignatureDates={setSignatureDates}
+            />
+          </div>
         </div>
       </DocumentViewer>
     </div>

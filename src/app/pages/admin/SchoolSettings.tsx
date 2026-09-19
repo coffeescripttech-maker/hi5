@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
+
 import {
   Settings, Calendar, Layers, Save,
   AlertTriangle, Info, Lock, Unlock, ChevronDown,
@@ -19,8 +21,7 @@ function LegalDocFields({
   title,
   description,
   value,
-  onChange,
-}: {
+  onChange}: {
   title: string;
   description: string;
   value: LegalContentDoc;
@@ -141,8 +142,7 @@ export function SchoolSettings() {
   const [legalDocs, setLegalDocs] = useState<Record<"terms" | "privacy" | "conditions", LegalContentDoc>>({
     terms: { intro: "", sections: [] },
     privacy: { intro: "", sections: [] },
-    conditions: { intro: "", sections: [] },
-  });
+    conditions: { intro: "", sections: [] }});
   const [showLegalEditor, setShowLegalEditor] = useState(false);
 
   useEffect(() => {
@@ -166,8 +166,7 @@ export function SchoolSettings() {
       setLegalDocs({
         terms: parseLegalDoc(settings.terms_of_service_text),
         privacy: parseLegalDoc(settings.privacy_policy_text),
-        conditions: parseLegalDoc(settings.conditions_text),
-      });
+        conditions: parseLegalDoc(settings.conditions_text)});
       const current = sys.find(sy => sy.is_current === 1);
       if (current) {
         setSchoolYear(current.sy_label);
@@ -201,8 +200,7 @@ export function SchoolSettings() {
         region: region.trim(),
         division: division.trim(),
         principal_name: principalName.trim(),
-        registrar_name: registrarName.trim(),
-      });
+        registrar_name: registrarName.trim()});
       // Update local state from the server response so it reflects the persisted values
       setSchoolName(updated.school_name);
       setSchoolId(updated.school_id);
@@ -226,13 +224,11 @@ export function SchoolSettings() {
       const updated = await settingsApi.update({
         terms_of_service_text: serializeLegalDoc(legalDocs.terms),
         privacy_policy_text: serializeLegalDoc(legalDocs.privacy),
-        conditions_text: serializeLegalDoc(legalDocs.conditions),
-      });
+        conditions_text: serializeLegalDoc(legalDocs.conditions)});
       setLegalDocs({
         terms: parseLegalDoc(updated.terms_of_service_text),
         privacy: parseLegalDoc(updated.privacy_policy_text),
-        conditions: parseLegalDoc(updated.conditions_text),
-      });
+        conditions: parseLegalDoc(updated.conditions_text)});
       showToast("success", "Legal documents saved. The login screen will show the new text.");
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to save legal documents");
@@ -251,12 +247,9 @@ export function SchoolSettings() {
       const sys = await schoolYearsApi.list();
       const current = sys.find(sy => sy.is_current === 1);
       if (current) {
-        const updated = await schoolYearsApi.update(current.id, {
-          sy_label: schoolYear || undefined,
-          enrollment_open: enrollmentStatus === "open" ? 1 : 0,
+        const updated = await schoolYearsApi.update(current.id, {          enrollment_open: enrollmentStatus === "open" ? 1 : 0,
           enrollment_start_date: enrollmentOpen || undefined,
-          enrollment_end_date: enrollmentClose || undefined,
-        });
+          enrollment_end_date: enrollmentClose || undefined});
         // Refresh local state from server response
         setSchoolYear(updated.sy_label);
         setEnrollmentOpen(updated.enrollment_start_date || "");
@@ -282,8 +275,7 @@ export function SchoolSettings() {
     try {
       const updated = await settingsApi.update({
         grade_deadline_enabled: gradeDeadlineEnabled,
-        grade_edit_deadline: gradeDeadlineEnabled && gradeEditDeadline ? gradeEditDeadline : null,
-      });
+        grade_edit_deadline: gradeDeadlineEnabled && gradeEditDeadline ? gradeEditDeadline : null});
       setGradeDeadlineEnabled(updated.grade_deadline_enabled === 1);
       setGradeEditDeadline(updated.grade_edit_deadline ? updated.grade_edit_deadline.split("T")[0] : "");
       showToast("success", "Grade encoding deadline saved successfully.");
@@ -301,8 +293,7 @@ export function SchoolSettings() {
       const updated = await settingsApi.updateThresholds({
         thresholds: thresholds
           .filter(t => !lockedTypes.includes(t.section_type))
-          .map(t => ({ id: t.id, min_average: t.min_average, max_average: t.max_average })),
-      });
+          .map(t => ({ id: t.id, min_average: t.min_average, max_average: t.max_average }))});
       setThresholds(updated);
       showToast("success", "Auto-sectioning thresholds saved successfully.");
     } catch (err: any) {
@@ -376,28 +367,28 @@ export function SchoolSettings() {
         </div>
         <div className="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">School Name</label>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5" aria-required="true">School Name <span className="text-red-600">*</span></label>
             <div className="relative">
               <Building2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={schoolName} onChange={e => setSchoolName(e.target.value)} className={inputClass} placeholder="e.g. Datu Paglas Memorial NHS" />
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">School ID (DepEd)</label>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5" aria-required="true">School ID (DepEd) <span className="text-red-600">*</span></label>
             <div className="relative">
               <Hash size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={schoolId} onChange={e => setSchoolId(e.target.value)} className={inputClass} placeholder="e.g. 305123" />
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Region</label>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5" aria-required="true">Region <span className="text-red-600">*</span></label>
             <div className="relative">
               <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={region} onChange={e => setRegion(e.target.value)} className={inputClass} placeholder="e.g. Region XII" />
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Division</label>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5" aria-required="true">Division <span className="text-red-600">*</span></label>
             <div className="relative">
               <Globe size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={division} onChange={e => setDivision(e.target.value)} className={inputClass} placeholder="e.g. Maguindanao Division" />

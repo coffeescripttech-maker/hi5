@@ -2769,6 +2769,66 @@ export function EnrollmentModule() {
                             {y.section_name && (
                               <p className="text-[11px] text-gray-400 mt-0.5">Section: {y.section_name}</p>
                             )}
+
+                            {/* Subjects Table */}
+                            {y.subjects && y.subjects.length > 0 ? (
+                              <div className="overflow-x-auto mt-2">
+                                <table className="w-full text-xs border-collapse">
+                                  <thead>
+                                    <tr className="bg-emerald-50">
+                                      <th className="px-2 py-1 text-left text-[10px] font-semibold text-gray-600">
+                                        Subject
+                                      </th>
+                                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                                        Q1
+                                      </th>
+                                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                                        Q2
+                                      </th>
+                                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                                        Q3
+                                      </th>
+                                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                                        Q4
+                                      </th>
+                                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                                        Final
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {y.subjects.map((subject, idx) => (
+                                      <tr key={subject.subject_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/50'}>
+                                        <td className="px-2 py-1 text-left text-[10px]">
+                                          {subject.subject_name}
+                                        </td>
+                                        <td className="px-2 py-1 text-center text-[10px]">
+                                          {subject.q1 !== null ? subject.q1 : '—'}
+                                        </td>
+                                        <td className="px-2 py-1 text-center text-[10px]">
+                                          {subject.q2 !== null ? subject.q2 : '—'}
+                                        </td>
+                                        <td className="px-2 py-1 text-center text-[10px]">
+                                          {subject.q3 !== null ? subject.q3 : '—'}
+                                        </td>
+                                        <td className="px-2 py-1 text-center text-[10px]">
+                                          {subject.q4 !== null ? subject.q4 : '—'}
+                                        </td>
+                                        <td className="px-2 py-1 text-center text-[10px] font-semibold">
+                                          {subject.final_average !== null ?
+                                            `${subject.final_average}` :
+                                            '—'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-gray-500 italic text-center mt-2">
+                                No subject grades available for this year
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>

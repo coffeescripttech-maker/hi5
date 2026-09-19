@@ -640,7 +640,7 @@ export function Login() {
             <span className="text-emerald-300 text-xs font-medium">
               {schoolInfo
                 ? `School Year ${schoolInfo.current_sy_label}${schoolInfo.enrollment_open ? " · Active" : " · Enrollment Closed"}`
-                : "School Year 2025–2026 · Active"}
+                : "School Year -- · Active"}
             </span>
           </div>
           <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
@@ -729,7 +729,7 @@ export function Login() {
           }}>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-emerald-300 text-[11px] font-medium whitespace-nowrap">
-            {schoolInfo ? `SY ${schoolInfo.current_sy_label}` : "SY 2025–26"}
+            {schoolInfo ? `SY ${schoolInfo.current_sy_label}` : "SY --"}
           </span>
         </div>
       </div>

@@ -5,7 +5,7 @@
  * for accents — breadcrumb highlight, focus rings and the notification badge.
  * Left: mobile hamburger + desktop collapse toggle + breadcrumb/title.
  * Center: global search trigger (⌘K hint) on desktop.
- * Right: mobile search icon, quick actions, notifications, theme toggle,
+ * Right: mobile search icon, notifications, theme toggle,
  * profile dropdown.
  */
 import React, { useState } from 'react';
@@ -22,7 +22,6 @@ import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import type { NavGroup } from '../../navigation';
 import type { SidebarState } from './Sidebar';
-import { QuickActions } from './QuickActions';
 import { NotificationsDropdown } from './NotificationsDropdown';
 import { ProfileDropdown } from './ProfileDropdown';
 import { SearchCommand } from './SearchCommand';
@@ -131,7 +130,6 @@ export function TopBar({
             <Search size={20} />
           </button>
 
-          <QuickActions navGroups={navGroups} />
 
           <NotificationsDropdown />
 

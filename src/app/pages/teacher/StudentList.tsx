@@ -1,25 +1,55 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router";
-import { Search, Eye, Users, GraduationCap, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronFirst, ChevronLast, SlidersHorizontal, X } from "lucide-react";
-import { studentsApi, StudentRow } from "../../services/students";
-import { atRiskApi, StudentRiskTrend } from "../../services/atRisk";
-import { schoolYearsApi } from "../../services/schoolYears";
-import { useApp } from "../../context/AppContext";
-import { PageContainer } from "../../components/PageContainer";
-import { HybridTable } from "../../components/HybridTable";
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router';
+import {
+  Search,
+  Eye,
+  Users,
+  GraduationCap,
+  ChevronRight,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ChevronLeft,
+  ChevronFirst,
+  ChevronLast,
+  SlidersHorizontal,
+  X
+} from 'lucide-react';
+import { studentsApi, StudentRow } from '../../services/students';
+import { atRiskApi, StudentRiskTrend } from '../../services/atRisk';
+import { schoolYearsApi } from '../../services/schoolYears';
+import { useApp } from '../../context/AppContext';
+import { PageContainer } from '../../components/PageContainer';
+import { HybridTable } from '../../components/HybridTable';
 
 const GRADE_LEVELS = [7, 8, 9, 10, 11, 12];
 
 /** Color-coded risk chips (mirrors the At-Risk detection pages). */
 const RISK_BADGE: Record<string, { cls: string; label: string }> = {
-  at_risk: { cls: "bg-red-50 text-red-700 border-red-200/70", label: "At-Risk" },
-  needs_monitoring: { cls: "bg-amber-50 text-amber-700 border-amber-200/70", label: "Needs Monitoring" },
-  on_track: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200/70", label: "On Track" },
-  no_data: { cls: "bg-gray-50 text-gray-500 border-gray-200/70", label: "No Data" },
+  at_risk: {
+    cls: 'bg-red-50 text-red-700 border-red-200/70',
+    label: 'At-Risk'
+  },
+  needs_monitoring: {
+    cls: 'bg-amber-50 text-amber-700 border-amber-200/70',
+    label: 'Needs Monitoring'
+  },
+  on_track: {
+    cls: 'bg-emerald-50 text-emerald-700 border-emerald-200/70',
+    label: 'On Track'
+  },
+  no_data: {
+    cls: 'bg-gray-50 text-gray-500 border-gray-200/70',
+    label: 'No Data'
+  }
 };
 
-type SortKey = "name" | "lrn" | "grade_level" | "sex" | "status";
-interface SortConfig { key: SortKey; dir: "asc" | "desc" }
+type SortKey = 'name' | 'lrn' | 'grade_level' | 'sex' | 'status';
+interface SortConfig {
+  key: SortKey;
+  dir: 'asc' | 'desc';
+}
 
 export function StudentList() {
   const navigate = useNavigate();
@@ -27,31 +57,47 @@ export function StudentList() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [graduatedStudents, setGraduatedStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   // Filters
-  const [filterGrade, setFilterGrade] = useState<number | "all">("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterSex, setFilterSex] = useState<string>("all");
+  const [filterGrade, setFilterGrade] = useState<number | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterSex, setFilterSex] = useState<string>('all');
 
   // Sort
-  const [sort, setSort] = useState<SortConfig>({ key: "name", dir: "asc" });
+  const [sort, setSort] = useState<SortConfig>({ key: 'name', dir: 'asc' });
 
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   // Predictive risk (linear regression) keyed by student DB id.
-  const [riskMap, setRiskMap] = useState<Map<number, StudentRiskTrend>>(new Map());
+  const [riskMap, setRiskMap] = useState<Map<number, StudentRiskTrend>>(
+    new Map()
+  );
 
-  const STATUSES = ["all", "awaiting_section", "enrolled", "pending", "dropped", "transferred", "graduated"];
+  const STATUSES = [
+    'all',
+    'awaiting_section',
+    'enrolled',
+    'pending',
+    'dropped',
+    'transferred',
+    'graduated'
+  ];
 
   useEffect(() => {
-    studentsApi.listMyStudents()
+    studentsApi
+      .listMyStudents()
       .then(setStudents)
-      .catch(err => showToast("error", "Failed to load students: " + (err.detail?.error || err.message)))
+      .catch(err =>
+        showToast(
+          'error',
+          'Failed to load students: ' + (err.detail?.error || err.message)
+        )
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -59,24 +105,34 @@ export function StudentList() {
   // 'enrolled' enrollments). When the "Graduated" filter is active, fetch the
   // current school year's graduates separately so the filter shows real data.
   useEffect(() => {
-    if (filterStatus !== "graduated") return;
+    if (filterStatus !== 'graduated') return;
     let cancelled = false;
-    studentsApi.listMyStudents({ status: "graduated" })
-      .then(res => { if (!cancelled) setGraduatedStudents(res); })
-      .catch(() => { /* graduates are optional — empty table is acceptable */ });
-    return () => { cancelled = true; };
+    studentsApi
+      .listMyStudents({ status: 'graduated' })
+      .then(res => {
+        if (!cancelled) setGraduatedStudents(res);
+      })
+      .catch(() => {
+        /* graduates are optional — empty table is acceptable */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [filterStatus]);
 
   // Load the linear-regression risk classification for the current school year.
   useEffect(() => {
-    schoolYearsApi.current()
+    schoolYearsApi
+      .current()
       .then(sy => atRiskApi.trends({ school_year_id: sy.id }))
       .then(res => {
         const map = new Map<number, StudentRiskTrend>();
         res.students.forEach(t => map.set(t.student_id, t));
         setRiskMap(map);
       })
-      .catch(() => { /* risk indicators are optional — ignore failures */ });
+      .catch(() => {
+        /* risk indicators are optional — ignore failures */
+      });
   }, []);
 
   // Risk counts for THIS teacher's roster (not the whole school).
@@ -85,8 +141,8 @@ export function StudentList() {
     for (const s of students) {
       const t = riskMap.get(s.id);
       if (!t || t.risk_level === null) counts.no_data++;
-      else if (t.risk_level === "at_risk") counts.at_risk++;
-      else if (t.risk_level === "needs_monitoring") counts.needs_monitoring++;
+      else if (t.risk_level === 'at_risk') counts.at_risk++;
+      else if (t.risk_level === 'needs_monitoring') counts.needs_monitoring++;
       else counts.on_track++;
     }
     return counts;
@@ -97,74 +153,110 @@ export function StudentList() {
       if (searchRef.current && !searchRef.current.contains(e.target as Node))
         setShowSuggestions(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   // Reset page when filters/search change
-  useEffect(() => { setPage(1); }, [search, filterGrade, filterStatus, filterSex]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterGrade, filterStatus, filterSex]);
 
   // ── Filter, search, sort ──────────────────────────────────
   const processed = useMemo(() => {
-    let data = filterStatus === "graduated" ? [...graduatedStudents] : [...students];
+    let data =
+      filterStatus === 'graduated' ? [...graduatedStudents] : [...students];
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      data = data.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        s.lrn.includes(q) ||
-        s.student_id.toLowerCase().includes(q)
+      data = data.filter(
+        s =>
+          s.name.toLowerCase().includes(q) ||
+          s.lrn.includes(q) ||
+          s.student_id.toLowerCase().includes(q)
       );
     }
 
-    if (filterGrade !== "all") data = data.filter(s => s.grade_level === filterGrade);
-    if (filterStatus === "awaiting_section") {
-      data = data.filter(s => s.status === "enrolled" && s.section_id == null);
-    } else if (filterStatus !== "all") {
+    if (filterGrade !== 'all')
+      data = data.filter(s => s.grade_level === filterGrade);
+    if (filterStatus === 'awaiting_section') {
+      data = data.filter(s => s.status === 'enrolled' && s.section_id == null);
+    } else if (filterStatus !== 'all') {
       data = data.filter(s => s.status === filterStatus);
     }
-    if (filterSex !== "all") data = data.filter(s => s.sex === filterSex);
+    if (filterSex !== 'all') data = data.filter(s => s.sex === filterSex);
 
     data.sort((a, b) => {
       let cmp = 0;
       switch (sort.key) {
-        case "name": cmp = a.name.localeCompare(b.name); break;
-        case "lrn": cmp = a.lrn.localeCompare(b.lrn); break;
-        case "grade_level": cmp = a.grade_level - b.grade_level; break;
-        case "sex": cmp = a.sex.localeCompare(b.sex); break;
-        case "status": cmp = a.status.localeCompare(b.status); break;
+        case 'name':
+          cmp = a.name.localeCompare(b.name);
+          break;
+        case 'lrn':
+          cmp = a.lrn.localeCompare(b.lrn);
+          break;
+        case 'grade_level':
+          cmp = a.grade_level - b.grade_level;
+          break;
+        case 'sex':
+          cmp = a.sex.localeCompare(b.sex);
+          break;
+        case 'status':
+          cmp = a.status.localeCompare(b.status);
+          break;
       }
-      return sort.dir === "desc" ? -cmp : cmp;
+      return sort.dir === 'desc' ? -cmp : cmp;
     });
 
     return data;
-  }, [students, graduatedStudents, search, filterGrade, filterStatus, filterSex, sort]);
+  }, [
+    students,
+    graduatedStudents,
+    search,
+    filterGrade,
+    filterStatus,
+    filterSex,
+    sort
+  ]);
 
-  const suggestions = search.trim().length >= 1
-    ? students.filter(s =>
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.lrn.includes(search) ||
-        s.student_id.toLowerCase().includes(search.toLowerCase())
-      ).slice(0, 6)
-    : [];
+  const suggestions =
+    search.trim().length >= 1
+      ? students
+          .filter(
+            s =>
+              s.name.toLowerCase().includes(search.toLowerCase()) ||
+              s.lrn.includes(search) ||
+              s.student_id.toLowerCase().includes(search.toLowerCase())
+          )
+          .slice(0, 6)
+      : [];
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(processed.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const paginated = processed.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const paginated = processed.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize
+  );
 
   const toggleSort = (key: SortKey) => {
-    setSort(prev => prev.key === key
-      ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-      : { key, dir: "asc" }
+    setSort(prev =>
+      prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
     );
   };
 
   const SortIcon = ({ colKey }: { colKey: SortKey }) => {
-    if (sort.key !== colKey) return <ArrowUpDown size={11} className="text-gray-300 ml-1 flex-shrink-0" />;
-    return sort.dir === "asc"
-      ? <ArrowUp size={11} className="text-emerald-600 ml-1 flex-shrink-0" />
-      : <ArrowDown size={11} className="text-emerald-600 ml-1 flex-shrink-0" />;
+    if (sort.key !== colKey)
+      return (
+        <ArrowUpDown size={11} className="text-gray-300 ml-1 flex-shrink-0" />
+      );
+    return sort.dir === 'asc' ? (
+      <ArrowUp size={11} className="text-emerald-600 ml-1 flex-shrink-0" />
+    ) : (
+      <ArrowDown size={11} className="text-emerald-600 ml-1 flex-shrink-0" />
+    );
   };
 
   const filterChip = (label: string, active: boolean, onClick: () => void) => (
@@ -173,10 +265,9 @@ export function StudentList() {
       onClick={onClick}
       className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-150 border ${
         active
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
-          : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"
-      }`}
-    >
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm'
+          : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
+      }`}>
       {label}
     </button>
   );
@@ -192,13 +283,25 @@ export function StudentList() {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-900">My Students</h2>
-            <p className="text-gray-500 text-sm truncate">Students you enrolled or those in your assigned sections</p>
+            <p className="text-gray-500 text-sm truncate">
+              Students you enrolled or those in your assigned sections
+            </p>
           </div>
           <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100">
             <GraduationCap size={14} className="text-emerald-500" />
-            <span className="font-semibold text-gray-600">{students.length}</span> total
+            <span className="font-semibold text-gray-600">
+              {students.length}
+            </span>{' '}
+            total
             <span className="text-gray-300">|</span>
-            <span className="text-amber-600 font-medium">{students.filter(s => s.section_id == null && s.status === "enrolled").length}</span> await section
+            <span className="text-amber-600 font-medium">
+              {
+                students.filter(
+                  s => s.section_id == null && s.status === 'enrolled'
+                ).length
+              }
+            </span>{' '}
+            await section
           </div>
         </div>
       </div>
@@ -206,21 +309,49 @@ export function StudentList() {
       {/* Predictive risk summary */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center gap-2 mb-3">
-          <h3 className="text-sm font-semibold text-gray-800">Predictive Risk</h3>
+          <h3 className="text-sm font-semibold text-gray-800">
+            Predictive Risk
+          </h3>
           <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-full">
             Linear Regression
           </span>
-          <span className="ml-auto text-[11px] text-gray-400 hidden sm:inline">Based on quarterly grade trends</span>
+          <span className="ml-auto text-[11px] text-gray-400 hidden sm:inline">
+            Based on quarterly grade trends
+          </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "On Track", count: riskSummary.on_track, bar: "bg-emerald-500", text: "text-emerald-700" },
-            { label: "Needs Monitoring", count: riskSummary.needs_monitoring, bar: "bg-amber-500", text: "text-amber-700" },
-            { label: "At-Risk", count: riskSummary.at_risk, bar: "bg-red-500", text: "text-red-700" },
-            { label: "No Data", count: riskSummary.no_data, bar: "bg-gray-300", text: "text-gray-600" },
+            {
+              label: 'On Track',
+              count: riskSummary.on_track,
+              bar: 'bg-emerald-500',
+              text: 'text-emerald-700'
+            },
+            {
+              label: 'Needs Monitoring',
+              count: riskSummary.needs_monitoring,
+              bar: 'bg-amber-500',
+              text: 'text-amber-700'
+            },
+            {
+              label: 'At-Risk',
+              count: riskSummary.at_risk,
+              bar: 'bg-red-500',
+              text: 'text-red-700'
+            },
+            {
+              label: 'No Data',
+              count: riskSummary.no_data,
+              bar: 'bg-gray-300',
+              text: 'text-gray-600'
+            }
           ].map(c => (
-            <div key={c.label} className="rounded-xl border border-gray-100 bg-gray-50/40 p-3.5">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{c.label}</p>
+            <div
+              key={c.label}
+              className="rounded-xl border border-gray-100 bg-gray-50/40 p-3.5">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+                {c.label}
+              </p>
               <p className={`text-2xl font-bold ${c.text}`}>{c.count}</p>
               <div className="h-1 rounded-full bg-gray-200 mt-2 overflow-hidden">
                 <div className={`h-full w-full rounded-full ${c.bar}`} />
@@ -241,14 +372,24 @@ export function StudentList() {
             </label>
             <div className="relative">
               <input
-                type="text" value={search}
-                onChange={e => { setSearch(e.target.value); setShowSuggestions(e.target.value.length >= 1); }}
-                onFocus={() => { if (search.length >= 1) setShowSuggestions(true); }}
+                type="text"
+                value={search}
+                onChange={e => {
+                  setSearch(e.target.value);
+                  setShowSuggestions(e.target.value.length >= 1);
+                }}
+                onFocus={() => {
+                  if (search.length >= 1) setShowSuggestions(true);
+                }}
                 placeholder="Search by name, LRN, or Student ID..."
                 className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:border-emerald-400 focus:ring-emerald-100 transition-all bg-white/75"
               />
               {search && (
-                <button onClick={() => { setSearch(""); setShowSuggestions(false); }}
+                <button
+                  onClick={() => {
+                    setSearch('');
+                    setShowSuggestions(false);
+                  }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
                   <X size={16} />
                 </button>
@@ -257,19 +398,30 @@ export function StudentList() {
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 z-50 overflow-hidden">
                 {suggestions.map(s => (
-                  <button key={s.id} type="button"
-                    onClick={() => { setSearch(s.name); setShowSuggestions(false); }}
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setSearch(s.name);
+                      setShowSuggestions(false);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 transition text-left border-b border-gray-50 last:border-0">
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0 shadow-sm">
                       {s.name.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {s.name}
+                      </p>
                       <p className="text-xs text-gray-400">
-                        <span className="font-mono">{s.lrn}</span> · Grade {s.grade_level} · {s.sex === "male" ? "Male" : "Female"}
+                        <span className="font-mono">{s.lrn}</span> · Grade{' '}
+                        {s.grade_level} · {s.sex === 'male' ? 'Male' : 'Female'}
                       </p>
                     </div>
-                    <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
+                    <ChevronRight
+                      size={14}
+                      className="text-gray-300 flex-shrink-0"
+                    />
                   </button>
                 ))}
               </div>
@@ -281,13 +433,20 @@ export function StudentList() {
         <div className="border-t border-gray-100 bg-gray-50/40 px-5 sm:px-6 py-4">
           <div className="flex items-center gap-2 mb-3">
             <SlidersHorizontal size={13} className="text-gray-400" />
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.04em]">Filter Students</span>
-            {(filterGrade !== "all" || filterStatus !== "all" || filterSex !== "all") && (
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.04em]">
+              Filter Students
+            </span>
+            {(filterGrade !== 'all' ||
+              filterStatus !== 'all' ||
+              filterSex !== 'all') && (
               <span className="ml-auto">
                 <button
-                  onClick={() => { setFilterGrade("all"); setFilterStatus("all"); setFilterSex("all"); }}
-                  className="text-[11px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
-                >
+                  onClick={() => {
+                    setFilterGrade('all');
+                    setFilterStatus('all');
+                    setFilterSex('all');
+                  }}
+                  className="text-[11px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition flex items-center gap-1">
                   <X size={12} /> Clear all
                 </button>
               </span>
@@ -296,26 +455,51 @@ export function StudentList() {
           <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
             {/* Grade */}
             <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Grade</p>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                Grade
+              </p>
               <div className="flex flex-wrap gap-1.5">
-                {GRADE_LEVELS.map(g => filterChip(`Grd ${g}`, filterGrade === g, () => setFilterGrade(filterGrade === g ? "all" : g)))}
+                {GRADE_LEVELS.map(g =>
+                  filterChip(`Grd ${g}`, filterGrade === g, () =>
+                    setFilterGrade(filterGrade === g ? 'all' : g)
+                  )
+                )}
               </div>
             </div>
             {/* Status */}
             <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Status</p>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                Status
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {STATUSES.map(st => {
-                  const label = st === "all" ? "All" : st === "awaiting_section" ? "Awaiting Section" : st.charAt(0).toUpperCase() + st.slice(1);
-                  return filterChip(label, filterStatus === st, () => setFilterStatus(filterStatus === st ? "all" : st));
+                  const label =
+                    st === 'all'
+                      ? 'All'
+                      : st === 'awaiting_section'
+                        ? 'Awaiting Section'
+                        : st.charAt(0).toUpperCase() + st.slice(1);
+                  return filterChip(label, filterStatus === st, () =>
+                    setFilterStatus(filterStatus === st ? 'all' : st)
+                  );
                 })}
               </div>
             </div>
             {/* Sex */}
             <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Sex</p>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                Sex
+              </p>
               <div className="flex flex-wrap gap-1.5">
-                {["all", "male", "female"].map(sex => filterChip(sex === "all" ? "All" : sex.charAt(0).toUpperCase() + sex.slice(1), filterSex === sex, () => setFilterSex(filterSex === sex ? "all" : sex)))}
+                {['all', 'male', 'female'].map(sex =>
+                  filterChip(
+                    sex === 'all'
+                      ? 'All'
+                      : sex.charAt(0).toUpperCase() + sex.slice(1),
+                    filterSex === sex,
+                    () => setFilterSex(filterSex === sex ? 'all' : sex)
+                  )
+                )}
               </div>
             </div>
           </div>
@@ -326,12 +510,28 @@ export function StudentList() {
       {loading ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg
+              className="animate-spin w-5 h-5 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
           </div>
-          <p className="text-gray-400 text-sm font-medium">Loading students...</p>
+          <p className="text-gray-400 text-sm font-medium">
+            Loading students...
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -339,19 +539,29 @@ export function StudentList() {
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-gray-900">Student Records</h3>
               <span className="bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-emerald-100">
-                {processed.length} student{processed.length !== 1 ? "s" : ""}
+                {processed.length} student{processed.length !== 1 ? 's' : ''}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              {search && <span className="text-xs text-gray-400">{processed.length} of {students.length} found</span>}
+              {search && (
+                <span className="text-xs text-gray-400">
+                  {processed.length} of {students.length} found
+                </span>
+              )}
               <div className="flex items-center gap-1.5 text-xs text-gray-400">
                 <span>Show</span>
                 <select
                   value={pageSize}
-                  onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-                  className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-200 bg-white"
-                >
-                  {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  onChange={e => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-200 bg-white">
+                  {[5, 10, 20, 50].map(n => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -361,8 +571,12 @@ export function StudentList() {
               <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
                 <Users size={28} className="text-gray-300" />
               </div>
-              <p className="text-gray-500 text-sm font-semibold">No students found</p>
-              <p className="text-gray-400 text-xs mt-1">Try adjusting your search or filters</p>
+              <p className="text-gray-500 text-sm font-semibold">
+                No students found
+              </p>
+              <p className="text-gray-400 text-xs mt-1">
+                Try adjusting your search or filters
+              </p>
             </div>
           ) : (
             <>
@@ -370,147 +584,251 @@ export function StudentList() {
                 desktop={
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[700px]">
-                  <thead className="bg-gray-50/80">
-                    <tr>
-                      {[
-                        { key: "name" as SortKey, label: "Student" },
-                        { key: "lrn" as SortKey, label: "LRN" },
-                        { key: "grade_level" as SortKey, label: "Grade Level" },
-                        { key: "sex" as SortKey, label: "Sex" },
-                        { key: "status" as SortKey, label: "Status" },
-                      ].map(col => (
-                        <th key={col.key} className="px-6 py-3.5 text-left">
-                          <button
-                            onClick={() => toggleSort(col.key)}
-                            className="flex items-center text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] hover:text-gray-700 transition-colors"
-                          >
-                            {col.label}
-                            <SortIcon colKey={col.key} />
-                          </button>
-                        </th>
-                      ))}
-                      <th className="px-6 py-3.5 text-left">
-                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Risk Status</span>
-                      </th>
-                      <th className="px-6 py-3.5 text-left">
-                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Section</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {paginated.map((s, idx) => {
-                      const studentId = s.student_id || `STU-${String(s.id).padStart(3, "0")}`;
-                      const statusBadge: Record<string, { bg: string; label: string }> = {
-                        enrolled: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Enrolled" },
-                        pending: { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Pending" },
-                        dropped: { bg: "bg-red-50 text-red-600 border-red-200/50", label: "Dropped" },
-                        transferred: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Transferred" },
-                        graduated: { bg: "bg-slate-100 text-slate-700 border-slate-300/50", label: "Archived / Graduate" },
-                      };
-                      const hasSection = s.section_id != null;
-                      // Show "Awaiting Section" instead of "Enrolled" when student has no section yet
-                      const isEnrolledPending = s.status === "enrolled" && !hasSection;
-                      const badgeInfo = isEnrolledPending
-                        ? { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Awaiting Section" }
-                        : statusBadge[s.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", label: s.status };
-                      const riskTrend = riskMap.get(s.id);
-                      const riskKey = riskTrend?.risk_level ?? "no_data";
-                      const riskInfo = RISK_BADGE[riskKey];
-                      return (
-                        <tr key={s.id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/50 transition-colors duration-150`}>
-                          <td className="px-6 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0 shadow-sm">
-                                {s.name.charAt(0)}
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-900">{s.name}</p>
-                                <p className="text-xs text-gray-400 font-mono">{studentId}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3.5"><span className="font-mono text-xs text-gray-500">{s.lrn}</span></td>
-                          <td className="px-6 py-3.5"><span className="text-sm text-gray-700 font-medium">Grade {s.grade_level}</span></td>
-                          <td className="px-6 py-3.5"><span className="text-sm text-gray-600 capitalize">{s.sex}</span></td>
-                          <td className="px-6 py-3.5">
-                            <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${badgeInfo.bg}`}>{badgeInfo.label}</span>
-                          </td>
-                          <td className="px-6 py-3.5">
-                            <span
-                              title={riskTrend
-                                ? `Current avg: ${riskTrend.current_average ?? "—"} · Projected: ${riskTrend.projected ?? "—"} · Trend: ${riskTrend.trend}`
-                                : "No grades encoded yet"}
-                              className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${riskInfo.cls}`}>
-                              {riskInfo.label}
+                      <thead className="bg-gray-50/80">
+                        <tr>
+                          {[
+                            { key: 'name' as SortKey, label: 'Student' },
+                            { key: 'lrn' as SortKey, label: 'LRN' },
+                            {
+                              key: 'grade_level' as SortKey,
+                              label: 'Grade Level'
+                            },
+                            { key: 'sex' as SortKey, label: 'Sex' },
+                            { key: 'status' as SortKey, label: 'Status' }
+                          ].map(col => (
+                            <th key={col.key} className="px-6 py-3.5 text-left">
+                              <button
+                                onClick={() => toggleSort(col.key)}
+                                className="flex items-center text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em] hover:text-gray-700 transition-colors">
+                                {col.label}
+                                <SortIcon colKey={col.key} />
+                              </button>
+                            </th>
+                          ))}
+                          <th className="px-6 py-3.5 text-left">
+                            <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                              Risk Status
                             </span>
-                          </td>
-                          <td className="px-6 py-3.5">
-                            {hasSection ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">
-                                {s.section_name}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                Pending Section
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-3.5">
-                            <button
-                              onClick={() => navigate(`/student/${s.id}`)}
-                              className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-3 py-1.5 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-all font-medium"
-                            >
-                              <Eye size={13} /> View Profile
-                            </button>
-                          </td>
+                          </th>
+                          <th className="px-6 py-3.5 text-left">
+                            <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                              Section
+                            </span>
+                          </th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {paginated.map((s, idx) => {
+                          const studentId =
+                            s.student_id ||
+                            `STU-${String(s.id).padStart(3, '0')}`;
+                          const statusBadge: Record<
+                            string,
+                            { bg: string; label: string }
+                          > = {
+                            enrolled: {
+                              bg: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
+                              label: 'Enrolled'
+                            },
+                            pending: {
+                              bg: 'bg-amber-50 text-amber-700 border-amber-200/50',
+                              label: 'Pending'
+                            },
+                            dropped: {
+                              bg: 'bg-red-50 text-red-600 border-red-200/50',
+                              label: 'Dropped'
+                            },
+                            transferred: {
+                              bg: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
+                              label: 'Transferred'
+                            },
+                            graduated: {
+                              bg: 'bg-slate-100 text-slate-700 border-slate-300/50',
+                              label: 'Archived / Graduate'
+                            }
+                          };
+                          const hasSection = s.section_id != null;
+                          // Show "Awaiting Section" instead of "Enrolled" when student has no section yet
+                          const isEnrolledPending =
+                            s.status === 'enrolled' && !hasSection;
+                          const badgeInfo = isEnrolledPending
+                            ? {
+                                bg: 'bg-amber-50 text-amber-700 border-amber-200/50',
+                                label: 'Awaiting Section'
+                              }
+                            : statusBadge[s.status] || {
+                                bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
+                                label: s.status
+                              };
+                          const riskTrend = riskMap.get(s.id);
+                          const riskKey = riskTrend?.risk_level ?? 'no_data';
+                          const riskInfo = RISK_BADGE[riskKey];
+                          return (
+                            <tr
+                              key={s.id}
+                              className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-emerald-50/50 transition-colors duration-150`}>
+                              <td className="px-6 py-3.5">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0 shadow-sm">
+                                    {s.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-900">
+                                      {s.name}
+                                    </p>
+                                    <p className="text-xs text-gray-400 font-mono">
+                                      {studentId}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-3.5">
+                                <span className="font-mono text-xs text-gray-500">
+                                  {s.lrn}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3.5">
+                                <span className="text-sm text-gray-700 font-medium">
+                                  Grade {s.grade_level}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3.5">
+                                <span className="text-sm text-gray-600 capitalize">
+                                  {s.sex}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3.5">
+                                <span
+                                  className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${badgeInfo.bg}`}>
+                                  {badgeInfo.label}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3.5">
+                                <span
+                                  title={
+                                    riskTrend
+                                      ? `Current avg: ${riskTrend.current_average ?? '—'} · Projected: ${riskTrend.projected ?? '—'} · Trend: ${riskTrend.trend}`
+                                      : 'No grades encoded yet'
+                                  }
+                                  className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${riskInfo.cls}`}>
+                                  {riskInfo.label}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3.5">
+                                {s.status === 'graduated' ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded-lg">
+                                    Graduated
+                                  </span>
+                                ) : hasSection ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">
+                                    {s.section_name}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                    Pending Section
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-3.5">
+                                <button
+                                  onClick={() => navigate(`/student/${s.id}`)}
+                                  className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-3 py-1.5 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-all font-medium">
+                                  <Eye size={13} /> View Profile
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 }
                 mobile={
                   <ul className="divide-y divide-gray-50">
                     {paginated.map(s => {
-                      const studentId = s.student_id || `STU-${String(s.id).padStart(3, "0")}`;
-                      const statusBadge: Record<string, { bg: string; label: string }> = {
-                        enrolled: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Enrolled" },
-                        pending: { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Pending" },
-                        dropped: { bg: "bg-red-50 text-red-600 border-red-200/50", label: "Dropped" },
-                        transferred: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Transferred" },
-                        graduated: { bg: "bg-slate-100 text-slate-700 border-slate-300/50", label: "Archived / Graduate" },
+                      const studentId =
+                        s.student_id || `STU-${String(s.id).padStart(3, '0')}`;
+                      const statusBadge: Record<
+                        string,
+                        { bg: string; label: string }
+                      > = {
+                        enrolled: {
+                          bg: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
+                          label: 'Enrolled'
+                        },
+                        pending: {
+                          bg: 'bg-amber-50 text-amber-700 border-amber-200/50',
+                          label: 'Pending'
+                        },
+                        dropped: {
+                          bg: 'bg-red-50 text-red-600 border-red-200/50',
+                          label: 'Dropped'
+                        },
+                        transferred: {
+                          bg: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
+                          label: 'Transferred'
+                        },
+                        graduated: {
+                          bg: 'bg-slate-100 text-slate-700 border-slate-300/50',
+                          label: 'Archived / Graduate'
+                        }
                       };
                       const hasSection = s.section_id != null;
-                      const isEnrolledPending = s.status === "enrolled" && !hasSection;
+                      const isEnrolledPending =
+                        s.status === 'enrolled' && !hasSection;
                       const badgeInfo = isEnrolledPending
-                        ? { bg: "bg-amber-50 text-amber-700 border-amber-200/50", label: "Awaiting Section" }
-                        : statusBadge[s.status] || { bg: "bg-gray-50 text-gray-500 border-gray-200/50", label: s.status };
+                        ? {
+                            bg: 'bg-amber-50 text-amber-700 border-amber-200/50',
+                            label: 'Awaiting Section'
+                          }
+                        : statusBadge[s.status] || {
+                            bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
+                            label: s.status
+                          };
                       const riskTrend = riskMap.get(s.id);
-                      const riskKey = riskTrend?.risk_level ?? "no_data";
+                      const riskKey = riskTrend?.risk_level ?? 'no_data';
                       const riskInfo = RISK_BADGE[riskKey];
                       return (
                         <li key={s.id}>
                           <button
                             onClick={() => navigate(`/student/${s.id}`)}
-                            className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-emerald-50/40 active:bg-emerald-50/70"
-                          >
+                            className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-emerald-50/40 active:bg-emerald-50/70">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 text-sm font-bold flex-shrink-0 shadow-sm">
                               {s.name.charAt(0)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-semibold text-gray-900 truncate">{s.name}</p>
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border flex-shrink-0 ${badgeInfo.bg}`}>{badgeInfo.label}</span>
+                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                  {s.name}
+                                </p>
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border flex-shrink-0 ${badgeInfo.bg}`}>
+                                  {badgeInfo.label}
+                                </span>
                               </div>
-                              <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">{studentId} · LRN {s.lrn}</p>
+                              <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">
+                                {studentId} · LRN {s.lrn}
+                              </p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                                <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">Grade {s.grade_level}</span>
-                                <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md capitalize">{s.sex}</span>
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${riskInfo.cls}`}>{riskInfo.label}</span>
-                                {hasSection ? (
-                                  <span className="text-[11px] font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md truncate">{s.section_name}</span>
+                                <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">
+                                  Grade {s.grade_level}
+                                </span>
+                                <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md capitalize">
+                                  {s.sex}
+                                </span>
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${riskInfo.cls}`}>
+                                  {riskInfo.label}
+                                </span>
+                                {s.status === 'graduated' ? (
+                                  <span className="text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                                    Graduated
+                                  </span>
+                                ) : hasSection ? (
+                                  <span className="text-[11px] font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md truncate">
+                                    {s.section_name}
+                                  </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -519,7 +837,10 @@ export function StudentList() {
                                 )}
                               </div>
                             </div>
-                            <ChevronRight size={16} className="text-gray-300 flex-shrink-0 mt-1" />
+                            <ChevronRight
+                              size={16}
+                              className="text-gray-300 flex-shrink-0 mt-1"
+                            />
                           </button>
                         </li>
                       );
@@ -531,39 +852,61 @@ export function StudentList() {
               {/* Pagination */}
               <div className="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <p className="text-xs text-gray-400">
-                  Showing <span className="font-medium text-gray-600">{(safePage - 1) * pageSize + 1}</span>–
-                  <span className="font-medium text-gray-600">{Math.min(safePage * pageSize, processed.length)}</span> of{' '}
-                  <span className="font-medium text-gray-600">{processed.length}</span>
+                  Showing{' '}
+                  <span className="font-medium text-gray-600">
+                    {(safePage - 1) * pageSize + 1}
+                  </span>
+                  –
+                  <span className="font-medium text-gray-600">
+                    {Math.min(safePage * pageSize, processed.length)}
+                  </span>{' '}
+                  of{' '}
+                  <span className="font-medium text-gray-600">
+                    {processed.length}
+                  </span>
                 </p>
                 <div className="flex flex-wrap items-center gap-1">
-                  <button onClick={() => setPage(1)} disabled={safePage === 1}
+                  <button
+                    onClick={() => setPage(1)}
+                    disabled={safePage === 1}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                     <ChevronFirst size={14} />
                   </button>
-                  <button onClick={() => setPage(safePage - 1)} disabled={safePage === 1}
+                  <button
+                    onClick={() => setPage(safePage - 1)}
+                    disabled={safePage === 1}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                     <ChevronLeft size={14} />
                   </button>
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const start = Math.max(1, Math.min(safePage - 2, totalPages - 4));
+                    const start = Math.max(
+                      1,
+                      Math.min(safePage - 2, totalPages - 4)
+                    );
                     const n = start + i;
                     if (n > totalPages) return null;
                     return (
-                      <button key={n} onClick={() => setPage(n)}
+                      <button
+                        key={n}
+                        onClick={() => setPage(n)}
                         className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition ${
                           n === safePage
-                            ? "bg-emerald-500 text-white shadow-sm"
-                            : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                            ? 'bg-emerald-500 text-white shadow-sm'
+                            : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
                         }`}>
                         {n}
                       </button>
                     );
                   })}
-                  <button onClick={() => setPage(safePage + 1)} disabled={safePage === totalPages}
+                  <button
+                    onClick={() => setPage(safePage + 1)}
+                    disabled={safePage === totalPages}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                     <ChevronRight size={14} />
                   </button>
-                  <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
+                  <button
+                    onClick={() => setPage(totalPages)}
+                    disabled={safePage === totalPages}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                     <ChevronLast size={14} />
                   </button>

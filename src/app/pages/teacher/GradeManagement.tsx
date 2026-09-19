@@ -174,8 +174,8 @@ export function GradeManagement() {
           const { schoolYearsApi } = await import("../../services/schoolYears");
           const years = await schoolYearsApi.list();
           const current = years.find(y => y.is_current === 1);
-          return current?.id || 1;
-        } catch { return 1; }
+          return current ? current.id : null;
+        } catch { return null; }
       })(),
     ]).then(([studs, subs, assigned, sy]) => {
       setStudents(studs);

@@ -98,10 +98,11 @@ export function SchoolForms() {
   const { showToast, role, schoolYearLabel } = useApp();
   const accent = useRoleAccent();
   // Live school-year label for anything printed on official forms.
-  const activeSY = schoolYearLabel || "2025–2026";
+  const activeSY = schoolYearLabel ?? "--";
   const prevSY = (() => {
+    if (activeSY === "--") return "--";
     const start = parseInt(activeSY.split(/[\-–]/)[0]);
-    return !Number.isNaN(start) ? `${start - 1}` + "–" + `${start}` : "2024–2025";
+    return !Number.isNaN(start) ? `${start - 1}` + "–" + `${start}` : "--";
   })();
   const { formCode } = useParams<{ formCode?: string }>();
   const userLabel = role === 'teacher' ? 'Class Adviser' : role === 'admin' ? 'Admin' : 'Registrar';
