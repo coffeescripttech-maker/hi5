@@ -3,6 +3,125 @@ import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
+
+import { generateRulesPlan, RuleScope } from "../services/sectioningRules";
+
+/**
+ * POST /api/sectioning/rules/generate
+ * Body: { school_year_id, scope?: 'regular'|'special'|'carryover'|'all',
+ *         grade_level?, program? }
+ *
+ * Runs the auto-sectioning rules engine and returns a *preview* plan:
+ * proposals (with eligibility outcomes + reasons), flagged transfers, and
+ * per-section gender balance. Nothing is written to the database ? the
+ * assignment is finalized separately via confirm-assignments. Re-invoking
+ * this endpoint regenerates the plan ("regenerate"); manual overrides happen
+ * on the frontend before confirming.
+ */
+export async function generateRules(req: Request, res: Response): Promise<void> {
+  try {
+    const { school_year_id, scope, grade_level, program } = req.body;
+
+    if (!school_year_id) {
+      res.status(400).json({ error: "school_year_id is required." });
+      return;
+    }
+
+    const plan = await generateRulesPlan({
+      schoolYearId: school_year_id,
+      scope: (scope as RuleScope) || "all",
+      gradeLevel: grade_level !== undefined ? parseInt(String(grade_level), 10) : undefined,
+      program: program || undefined,
+    });
+
+    await logActivity(
+      req.user!.userId,
+      `Auto-sectioning: generated ${plan.summary.total} proposals (${plan.summary.flagged} flagged, ${plan.summary.unassigned} unassigned)`,
+      "enrollments",
+      null
+    );
+
+    res.json(plan);
+  } catch (error) {
+    console.error("Generate rules error:", error);
+    res.status(500).json({ error: "Failed to generate auto-sectioning proposals." });
+  }
+}
+
+/**
+ * PUT /api/sectioning/eligibility
+ * Body: { enrollment_id, entrance_exam_grade?, entrance_exam_passed?, interview_passed? }
+ *
+ * Records STE/SPFL admission evidence (entrance examination + interview)
+ * that the rules engine uses for eligibility. NULL admission fields mean
+ * "not recorded" and are treated as not passed.
+ */
+export async function updateEligibility(req: Request, res: Response): Promise<void> {
+  try {
+    const { enrollment_id, entrance_exam_grade, entrance_exam_passed, interview_passed } = req.body;
+
+    if (!enrollment_id) {
+      res.status(400).json({ error: "enrollment_id is required." });
+      return;
+    }
+
+    const fields: string[] = [];
+    const params: any[] = [];
+    if (entrance_exam_grade !== undefined) {
+      fields.push("entrance_exam_grade = ?");
+      params.push(entrance_exam_grade === null ? null : parseFloat(entrance_exam_grade));
+    }
+    if (entrance_exam_passed !== undefined) {
+      fields.push("entrance_exam_passed = ?");
+      params.push(entrance_exam_passed ? 1 : 0);
+    }
+    if (interview_passed !== undefined) {
+      fields.push("interview_passed = ?");
+      params.push(interview_passed ? 1 : 0);
+    }
+
+    if (fields.length === 0) {
+      res.status(400).json({ error: "No eligibility fields to update." });
+      return;
+    }
+
+    const existing = await query<RowDataPacket[]>(
+      "SELECT id FROM enrollments WHERE id = ?",
+      [enrollment_id]
+    );
+    if (existing.length === 0) {
+      res.status(404).json({ error: "Enrollment not found." });
+      return;
+    }
+
+    params.push(enrollment_id);
+    await query<ResultSetHeader>(
+      `UPDATE enrollments SET ${fields.join(", ")} WHERE id = ?`,
+      params
+    );
+
+    const row = await query<RowDataPacket[]>(
+      `SELECT id, student_id, section_id, program, entrance_exam_grade,
+              entrance_exam_passed, interview_passed
+       FROM enrollments WHERE id = ?`,
+      [enrollment_id]
+    );
+
+    await logActivity(
+      req.user!.userId,
+      `Updated admission eligibility for enrollment #${enrollment_id}`,
+      "enrollments",
+      enrollment_id
+    );
+
+    res.json(row[0]);
+  } catch (error) {
+    console.error("Update eligibility error:", error);
+    res.status(500).json({ error: "Failed to update admission eligibility." });
+  }
+}
+
+
 /**
  * Compute canonical General Averages for a set of students.
  *
@@ -169,6 +288,7 @@ export async function getPendingQueue(req: Request, res: Response): Promise<void
 
     let sql = `
       SELECT e.id AS enrollment_id, e.student_id, e.program, e.enrollment_date, e.created_at AS queued_at,
+             e.entrance_exam_grade, e.entrance_exam_passed, e.interview_passed,
              s.id, s.student_id AS student_display_id, s.lrn, s.name, s.grade_level, s.sex,
              u.name AS enrolled_by_name
       FROM enrollments e
@@ -317,6 +437,16 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
             continue;
           }
 
+          // Manual override / transfer between sections — free the slot in the
+          // old section before filling the new one.
+          const prevSectionId = enrollCheck[0].section_id;
+          if (prevSectionId && prevSectionId !== section_id) {
+            await query<ResultSetHeader>(
+              "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
+              [prevSectionId]
+            );
+          }
+
           await query<ResultSetHeader>(
             "UPDATE enrollments SET section_id = ?, assigned_at = NOW(), assigned_by = ? WHERE id = ?",
             [section_id, assignedBy, enrollment_id]
@@ -324,10 +454,17 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
         } else {
           // Case 2: No enrollment — create one
           const existingEnroll = await query<RowDataPacket[]>(
-            "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
+            "SELECT id, section_id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
             [student_id, school_year_id]
           );
           if (existingEnroll.length > 0) {
+            // Manual override / transfer between sections — free the old slot.
+            if (existingEnroll[0].section_id && existingEnroll[0].section_id !== section_id) {
+              await query<ResultSetHeader>(
+                "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
+                [existingEnroll[0].section_id]
+              );
+            }
             // Update existing
             await query<ResultSetHeader>(
               "UPDATE enrollments SET section_id = ?, assigned_at = NOW(), assigned_by = ?, status = 'enrolled' WHERE id = ?",

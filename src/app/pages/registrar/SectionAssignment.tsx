@@ -9,7 +9,10 @@ import {
   sectioningApi,
   PendingQueueStudent,
   SectioningSection,
-  CarryOverProposal
+  RulesPlan,
+  RulesProposal,
+  BalanceRow,
+  GenerateRulesPayload,
 } from "../../services/sectioning";
 
 /* ──────────────────────────────────────────
@@ -34,6 +37,10 @@ interface PreviewAssignment {
   current_section_name: string | null;
   general_average: number | null;
   classifications: string[];
+  target_program?: string;
+  flagged?: boolean;
+  reason?: string;
+  eligibility?: { eligible: boolean; reasons: string[] };
 }
 
 /* ──────────────────────────────────────────
@@ -74,8 +81,6 @@ export function SectionAssignment() {
   const [error, setError] = useState<string | null>(null);
 
   // ── Carry-over state ──
-  const [carryOverProposals, setCarryOverProposals] = useState<CarryOverProposal[]>([]);
-  const [carryOverSections, setCarryOverSections] = useState<SectioningSection[]>([]);
   const [carryOverGrade, setCarryOverGrade] = useState(12);
   const [carryOverTouched, setCarryOverTouched] = useState(false);
 
@@ -90,6 +95,15 @@ export function SectionAssignment() {
 
   // ── Preview assignments (built client-side before confirm) ──
   const [preview, setPreview] = useState<PreviewAssignment[]>([]);
+
+  // ── Rules engine plan (drives the Random / Placement / Carry-Over tabs) ──
+  const [rulesPlan, setRulesPlan] = useState<RulesPlan | null>(null);
+  // Per-enrollment admission evidence (exam / interview) so the review UI can
+  // record results on the spot and re-run eligibility.
+  const [admissions, setAdmissions] = useState<
+    Record<number, { exam: boolean | null; interview: boolean | null }>
+  >({});
+  const [savingEligibility, setSavingEligibility] = useState(false);
 
   // ── Tabs config ──
   const TABS: { key: WorkflowTab; label: string; icon: React.ElementType; desc: string }[] = [
@@ -111,6 +125,14 @@ export function SectionAssignment() {
       setQueue(data.queue);
       setSections(data.sections);
       setSchoolYear(data.school_year);
+      const map: Record<number, { exam: boolean | null; interview: boolean | null }> = {};
+      for (const q of data.queue) {
+        map[q.enrollment_id] = {
+          exam: q.entrance_exam_passed === 1 ? true : q.entrance_exam_passed === 0 ? false : null,
+          interview: q.interview_passed === 1 ? true : q.interview_passed === 0 ? false : null,
+        };
+      }
+      setAdmissions(map);
     } catch (err: any) {
       setError(err.detail?.error || err.message || "Failed to load pending queue.");
     } finally {
@@ -136,215 +158,94 @@ export function SectionAssignment() {
     [sections]
   );
 
-  /* ── Build preview: Random Distribution ── */
-  const generateRandomPreview = () => {
-    setGenerating(true);
-    // Filter JHS regular students
-    const candidates = queue.filter(
-      s => s.grade_level >= 7 && s.grade_level <= 10 && s.program === "regular"
-    );
-    if (candidates.length === 0) {
-      setGenerating(false);
-      setCommitMsg("No eligible students for random distribution.");
-      return;
-    }
-
-    // Build section pools per grade level
-    const previewList: PreviewAssignment[] = [];
-    const sectionsByGrade = new Map<number, SectioningSection[]>();
-    availableSections
-      .filter(s => s.grade_level >= 7 && s.grade_level <= 10)
-      .forEach(s => {
-        const list = sectionsByGrade.get(s.grade_level) || [];
-        list.push(s);
-        sectionsByGrade.set(s.grade_level, list);
-      });
-
-    // Sort students by GA descending within each grade
-    const sorted = [...candidates].sort(
-      (a, b) => (b.general_average ?? 0) - (a.general_average ?? 0)
-    );
-
-    // Track running counts per section (initial + newly assigned)
-    const runningCounts = new Map<number, number>();
-
-    // Round-robin across sections per grade, respecting capacity
-    for (const student of sorted) {
-      const gradeSections = sectionsByGrade.get(student.grade_level) || [];
-
-      // Filter to sections that still have room
-      const openSections = gradeSections.filter(s => {
-        const assigned = runningCounts.get(s.id) ?? 0;
-        return s.current_count + assigned < s.capacity;
-      });
-
-      if (openSections.length === 0) {
-        previewList.push({
-          student_id: student.student_id,
-          enrollment_id: student.enrollment_id,
-          name: student.name,
-          lrn: student.lrn,
-          student_display_id: student.student_display_id,
-          grade_level: student.grade_level,
-          program: student.program,
-          current_section_id: null,
-          current_section_name: null,
-          general_average: student.general_average,
-          classifications: student.classifications,
+  /* ── Rules engine: run the backend auto-sectioning rules for a scope ── */
+  const runRulesEngine = useCallback(
+    async (scope: GenerateRulesPayload["scope"], gradeLevel?: number, program?: string) => {
+      if (!schoolYear) return;
+      setGenerating(true);
+      setCommitMsg(null);
+      setCommitResults(null);
+      try {
+        const plan = await sectioningApi.generateRules({
+          school_year_id: schoolYear.id,
+          scope,
+          grade_level: gradeLevel,
+          program,
         });
-        continue;
-      }
-
-      // Pick the section with fewest total students (initial + assigned)
-      openSections.sort((a, b) => {
-        const ca = a.current_count + (runningCounts.get(a.id) ?? 0);
-        const cb = b.current_count + (runningCounts.get(b.id) ?? 0);
-        return ca - cb;
-      });
-
-      const target = openSections[0];
-      runningCounts.set(target.id, (runningCounts.get(target.id) ?? 0) + 1);
-
-      previewList.push({
-        student_id: student.student_id,
-        enrollment_id: student.enrollment_id,
-        name: student.name,
-        lrn: student.lrn,
-        student_display_id: student.student_display_id,
-        grade_level: student.grade_level,
-        program: student.program,
-        current_section_id: target.id,
-        current_section_name: target.name,
-        general_average: student.general_average,
-        classifications: student.classifications,
-      });
-    }
-
-    setPreview(previewList);
-    setGenerating(false);
-  };
-
-  /* ── Placement Assistance Preview (STE/SPFL) with capacity tracking ── */
-  const generatePlacementPreview = () => {
-    setGenerating(true);
-    const candidates = queue.filter(
-      s => s.program === "ste" || s.program === "spfl"
-    );
-
-    if (candidates.length === 0) {
-      setGenerating(false);
-      setCommitMsg("No STE or SPFL students in the pending queue.");
-      return;
-    }
-
-    const previewList: PreviewAssignment[] = [];
-    const runningCounts = new Map<number, number>();
-
-    const hasRoom = (s: SectioningSection) => {
-      const assigned = runningCounts.get(s.id) ?? 0;
-      return s.current_count + assigned < s.capacity;
-    };
-
-    for (const student of candidates) {
-      let matchedSection = sections.find(
-        s =>
-          s.grade_level === student.grade_level &&
-          s.is_active === 1 &&
-          hasRoom(s) &&
-          (student.classifications.some(c =>
-            s.section_type.toLowerCase().includes(c.toLowerCase())
-          ) || s.name.toLowerCase().includes(student.program))
-      );
-      // Fallback: any open section for the grade
-      if (!matchedSection) {
-        matchedSection = sections.find(
-          s => s.grade_level === student.grade_level && s.is_active === 1 && hasRoom(s)
+        setRulesPlan(plan);
+        // Map engine proposals into the reviewable preview rows.
+        setPreview(
+          plan.proposals.map((p: RulesProposal) => ({
+            student_id: p.student_id,
+            enrollment_id: p.enrollment_id,
+            name: p.name,
+            lrn: p.lrn,
+            student_display_id: p.student_display_id,
+            grade_level: p.grade_level,
+            program: p.program,
+            current_section_id: p.proposed_section_id,
+            current_section_name: p.proposed_section_name,
+            general_average: p.general_average,
+            classifications: p.classification_tags,
+            target_program: p.target_program,
+            flagged: p.flagged,
+            reason: p.reason,
+            eligibility: p.eligibility,
+          }))
         );
+        if (plan.proposals.length === 0) {
+          setCommitMsg("The rules engine found no students to assign in this view.");
+        }
+      } catch (err: any) {
+        setCommitMsg(err.detail?.error || err.message || "Failed to run auto-sectioning.");
+      } finally {
+        setGenerating(false);
       }
+    },
+    [schoolYear]
+  );
 
-      if (matchedSection) {
-        runningCounts.set(matchedSection.id, (runningCounts.get(matchedSection.id) ?? 0) + 1);
-      }
+  /* ── Random Distribution (JHS Regular) — 50/50 gender balance ── */
+  const generateRandomPreview = () => runRulesEngine("regular");
 
-      previewList.push({
-        student_id: student.student_id,
-        enrollment_id: student.enrollment_id,
-        name: student.name,
-        lrn: student.lrn,
-        student_display_id: student.student_display_id,
-        grade_level: student.grade_level,
-        program: student.program,
-        current_section_id: matchedSection?.id ?? null,
-        current_section_name: matchedSection?.name ?? null,
-        general_average: student.general_average,
-        classifications: student.classifications,
+  /* ── Placement Assistance (STE / SPFL) — eligibility-driven ── */
+  const generatePlacementPreview = () => runRulesEngine("special");
+
+  /* ── Carry-Over (returning students) — previous section carried forward ── */
+  const loadCarryOverPreview = useCallback(
+    () => runRulesEngine("carryover", carryOverGrade),
+    [runRulesEngine, carryOverGrade]
+  );
+
+  /* ── Record admission evidence for an STE/SPFL applicant then regenerate ── */
+  const toggleAdmission = async (
+    enrollmentId: number,
+    field: "exam" | "interview",
+    value: boolean | null
+  ) => {
+    setSavingEligibility(true);
+    try {
+      await sectioningApi.updateEligibility({
+        enrollment_id: enrollmentId,
+        ...(field === "exam"
+          ? { entrance_exam_passed: value ?? false }
+          : { interview_passed: value ?? false }),
       });
+      setAdmissions(prev => ({
+        ...prev,
+        [enrollmentId]: { ...(prev[enrollmentId] || {}), [field]: value },
+      }));
+      // Re-run eligibility so the proposal reflects the new admission result.
+      if (activeTab === "placement") await runRulesEngine("special");
+    } catch (err: any) {
+      setCommitMsg(err.detail?.error || err.message || "Failed to update admission result.");
+    } finally {
+      setSavingEligibility(false);
     }
-
-    setPreview(previewList);
-    setGenerating(false);
   };
 
-  /* ── Carry-Over Preview with capacity tracking ── */
-  const loadCarryOverPreview = useCallback(async () => {
-    setGenerating(true);
-    try {
-      const data = await sectioningApi.getCarryOverPreview(carryOverGrade);
-      const proposals = data?.proposals ?? [];
-      const currentSections = data?.current_sections ?? [];
-      setCarryOverProposals(proposals);
-      setCarryOverSections(currentSections);
 
-      // Track capacity per section across proposals
-      const runningCounts = new Map<number, number>();
-      const currentSectionsMap = new Map(currentSections.map((s: any) => [s.id, s]));
-
-      // Build preview list from proposals, checking capacity
-      const previewList: PreviewAssignment[] = proposals.map((p: CarryOverProposal) => {
-        const queueStudent = queue.find(q => q.student_id === p.student_id);
-        let effectiveSectionId = p.proposed_section_id;
-        let effectiveSectionName = p.proposed_section_name;
-
-        if (effectiveSectionId != null) {
-          const sec = currentSectionsMap.get(effectiveSectionId);
-          const assigned = runningCounts.get(effectiveSectionId) ?? 0;
-          if (sec && sec.current_count + assigned >= sec.capacity) {
-            // Section full — try to find another open section for this grade
-            const alt = currentSections.find(
-              (s: any) => s.grade_level === carryOverGrade && s.current_count + (runningCounts.get(s.id) ?? 0) < s.capacity
-            );
-            effectiveSectionId = alt?.id ?? null;
-            effectiveSectionName = alt?.name ?? null;
-            if (alt) runningCounts.set(alt.id, (runningCounts.get(alt.id) ?? 0) + 1);
-          } else {
-            runningCounts.set(effectiveSectionId, assigned + 1);
-          }
-        }
-
-        return {
-          student_id: p.student_id,
-          enrollment_id: queueStudent?.enrollment_id,
-          name: p.student_name,
-          lrn: p.lrn,
-          student_display_id: p.student_display_id,
-          grade_level: carryOverGrade,
-          program: queueStudent?.program || "regular",
-          current_section_id: effectiveSectionId,
-          current_section_name: effectiveSectionName,
-          general_average: queueStudent?.general_average ?? null,
-          classifications: queueStudent?.classifications || [],
-        };
-      });
-
-      setPreview(previewList);
-    } catch (err: any) {
-      setCommitMsg(err.detail?.error || err.message || "Failed to load carry-over preview.");
-    } finally {
-      setGenerating(false);
-    }
-  }, [carryOverGrade, queue]);
-
-  /* ── Assign section for a single preview item (manual) ── */
+  /* ── Manual section picker target ── */
   const assignSection = (studentId: number, sectionId: number) => {
     setPreview(prev =>
       prev.map(p =>
@@ -384,6 +285,7 @@ export function SectionAssignment() {
       setCommitMsg(result.message);
       // Refresh queue after confirm
       await loadQueue();
+      setRulesPlan(null);
     } catch (err: any) {
       setCommitMsg(err.detail?.error || err.message || "Failed to confirm assignments.");
     } finally {
@@ -403,6 +305,7 @@ export function SectionAssignment() {
     }
   };
 
+  /* ── Manual: list ALS-SHS / Open HS candidates for the registrar to pick ── */
   const generateManualPreview = () => {
     setGenerating(true);
     const candidates = queue.filter(
@@ -709,7 +612,7 @@ export function SectionAssignment() {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setPreview([]); setCommitMsg(null); setCommitResults(null); }}
+                onClick={() => { setActiveTab(tab.key); setPreview([]); setRulesPlan(null); setCommitMsg(null); setCommitResults(null); }}
                 className={clsx(
                   "flex items-center gap-2 px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
                   active
@@ -799,6 +702,70 @@ export function SectionAssignment() {
                 </div>
               </div>
 
+              {/* ── Rules engine summary (Random / Placement / Carry-Over) ── */}
+              {rulesPlan && rulesPlan.summary.balance.sections.length > 0 && (
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {/* Gender balance per section */}
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-indigo-500 mb-3">
+                      Gender Balance
+                    </p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {rulesPlan.summary.balance.sections.map((row: BalanceRow) => (
+                        <div key={`${row.grade_level}-${row.section_name}`} className="flex items-center gap-2 text-xs">
+                          <span className="w-14 text-gray-500 font-medium shrink-0">
+                            G{row.grade_level}
+                          </span>
+                          <span className="w-32 text-gray-700 font-medium truncate shrink-0">
+                            {row.section_name}
+                          </span>
+                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 font-semibold">
+                            ♂ {row.male}
+                          </span>
+                          <span className="text-pink-700 bg-pink-50 border border-pink-100 rounded px-1.5 py-0.5 font-semibold">
+                            ♀ {row.female}
+                          </span>
+                          <span className="text-gray-400">
+                            ({row.total}/{row.capacity})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Eligibility / transfer summary */}
+                  <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-purple-500 mb-3">
+                      Eligibility Summary
+                    </p>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Eligible / proposed for special programs</span>
+                        <span className="font-semibold text-purple-700">
+                          {rulesPlan.summary.by_program.ste + rulesPlan.summary.by_program.spfl}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 pl-4">STE</span>
+                        <span className="font-semibold text-purple-700">{rulesPlan.summary.by_program.ste}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 pl-4">SPFL</span>
+                        <span className="font-semibold text-purple-700">{rulesPlan.summary.by_program.spfl}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Proposed / kept in Regular</span>
+                        <span className="font-semibold text-gray-700">{rulesPlan.summary.by_program.regular}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-amber-600">Flagged for review (transfers)</span>
+                        <span className="font-semibold text-amber-700">{preview.filter(p => p.flagged).length}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="overflow-x-auto border border-gray-100 rounded-xl">
                 <table className="w-full">
                   <thead>
@@ -807,8 +774,11 @@ export function SectionAssignment() {
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Student</th>
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Grade</th>
-                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program</th>
+                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program / Notes</th>
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">GA</th>
+                      {activeTab === "placement" && (
+                        <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Entrance Exam / Interview</th>
+                      )}
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
                         {activeTab === "manual" ? "Assign Section" : "Section"}
                       </th>
@@ -836,7 +806,14 @@ export function SectionAssignment() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-xs text-gray-500 font-medium">{PROGRAM_LABELS[student.program] || student.program}</span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs text-gray-500 font-medium">{PROGRAM_LABELS[student.program] || student.program}</span>
+                            {student.target_program && student.target_program !== student.program && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                → {PROGRAM_LABELS[student.target_program] || student.target_program}
+                              </span>
+                            )}
+                          </div>
                           {student.classifications.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {student.classifications.map((c, ci) => (
@@ -844,6 +821,17 @@ export function SectionAssignment() {
                                   {c}
                                 </span>
                               ))}
+                            </div>
+                          )}
+                          {student.flagged && (
+                            <div className="mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px]">
+                              <AlertTriangle size={12} className="shrink-0" />
+                              <span>{student.reason || "Flagged for review"}</span>
+                            </div>
+                          )}
+                          {!student.flagged && student.eligibility && !student.eligibility.eligible && (
+                            <div className="mt-1.5 px-2 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 text-[11px]">
+                              {student.eligibility.reasons.join("; ")}
                             </div>
                           )}
                         </td>
@@ -857,6 +845,50 @@ export function SectionAssignment() {
                             {student.general_average != null ? student.general_average.toFixed(2) : "—"}
                           </span>
                         </td>
+                        {activeTab === "placement" && (
+                          <td className="px-4 py-3">
+                            {(() => {
+                              const rec = admissions[student.enrollment_id || 0] || {};
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    disabled={savingEligibility}
+                                    onClick={() => toggleAdmission(student.enrollment_id!, "exam", rec.exam === true ? null : true)}
+                                    title="Entrance exam passed?"
+                                    className={clsx(
+                                      "px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
+                                      rec.exam === true
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : rec.exam === false
+                                          ? "bg-red-50 text-red-600 border-red-200"
+                                          : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    Exam {rec.exam === null ? "?" : rec.exam ? "✓" : "✕"}
+                                  </button>
+                                  <button
+                                    disabled={savingEligibility}
+                                    onClick={() => toggleAdmission(student.enrollment_id!, "interview", rec.interview === true ? null : true)}
+                                    title="Interview passed?"
+                                    className={clsx(
+                                      "px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
+                                      rec.interview === true
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : rec.interview === false
+                                          ? "bg-red-50 text-red-600 border-red-200"
+                                          : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    Interview {rec.interview === null ? "?" : rec.interview ? "✓" : "✕"}
+                                  </button>
+                                  <span className="text-[10px] text-gray-300" title="Click a badge to record the result, then the preview regenerates automatically.">
+                                    ?
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </td>
+                        )}
                         <td className="px-4 py-3">
                           {activeTab === "manual" ? (
                             <SectionPicker student={student} currentSectionId={student.current_section_id} />
