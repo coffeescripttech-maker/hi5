@@ -5,6 +5,7 @@ import {
   getPendingStudents,
   getPendingQueue,
   confirmAssignments,
+  undoAssignments,
   getCarryOverPreview,
   runAutoSectioning,
   generateRules,
@@ -22,6 +23,7 @@ router.post("/assign", authorize("admin", "teacher"), runAutoSectioning);
 // New: Pending Section Queue (enrolled but section_id IS NULL)
 router.get("/pending-queue", authorize("admin", "registrar"), getPendingQueue);
 router.post("/confirm-assignments", authorize("admin", "registrar"), confirmAssignments);
+router.post("/undo", authorize("admin", "registrar"), undoAssignments);
 router.get("/carry-over-preview", authorize("admin", "registrar"), getCarryOverPreview);
 
 // Auto-sectioning rules engine

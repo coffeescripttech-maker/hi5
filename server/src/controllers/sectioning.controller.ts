@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+import { randomUUID } from "crypto";
 
 
 import { generateRulesPlan, RuleScope } from "../services/sectioningRules";
@@ -380,6 +381,7 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
     }
 
     const assignedBy = req.user!.userId;
+    const batchId = randomUUID();
     const results: Array<{
       student_id: number;
       enrollment_id?: number;
@@ -426,6 +428,9 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
           continue;
         }
 
+        let assignEnrollmentId: number | null = null;
+        let prevSectionId: number | null = null;
+
         if (enrollment_id) {
           // Case 1: Existing enrollment — update section_id
           const enrollCheck = await query<RowDataPacket[]>(
@@ -437,9 +442,9 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
             continue;
           }
 
+          prevSectionId = enrollCheck[0].section_id;
           // Manual override / transfer between sections — free the slot in the
           // old section before filling the new one.
-          const prevSectionId = enrollCheck[0].section_id;
           if (prevSectionId && prevSectionId !== section_id) {
             await query<ResultSetHeader>(
               "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
@@ -451,6 +456,7 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
             "UPDATE enrollments SET section_id = ?, assigned_at = NOW(), assigned_by = ? WHERE id = ?",
             [section_id, assignedBy, enrollment_id]
           );
+          assignEnrollmentId = enrollment_id;
         } else {
           // Case 2: No enrollment — create one
           const existingEnroll = await query<RowDataPacket[]>(
@@ -458,11 +464,12 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
             [student_id, school_year_id]
           );
           if (existingEnroll.length > 0) {
+            prevSectionId = existingEnroll[0].section_id;
             // Manual override / transfer between sections — free the old slot.
-            if (existingEnroll[0].section_id && existingEnroll[0].section_id !== section_id) {
+            if (prevSectionId && prevSectionId !== section_id) {
               await query<ResultSetHeader>(
                 "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
-                [existingEnroll[0].section_id]
+                [prevSectionId]
               );
             }
             // Update existing
@@ -470,13 +477,15 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
               "UPDATE enrollments SET section_id = ?, assigned_at = NOW(), assigned_by = ?, status = 'enrolled' WHERE id = ?",
               [section_id, assignedBy, existingEnroll[0].id]
             );
+            assignEnrollmentId = existingEnroll[0].id;
           } else {
             // Create new
-            await query<ResultSetHeader>(
+            const ins = await query<ResultSetHeader>(
               `INSERT INTO enrollments (student_id, section_id, school_year_id, program, enrollment_date, enrolled_by)
                VALUES (?, ?, ?, 'regular', CURDATE(), ?)`,
               [student_id, section_id, school_year_id, assignedBy]
             );
+            assignEnrollmentId = ins.insertId;
           }
         }
 
@@ -491,6 +500,15 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
           "UPDATE students SET status = 'enrolled' WHERE id = ?",
           [student_id]
         );
+
+        // Record the "before" state so the batch can be undone later.
+        if (assignEnrollmentId != null) {
+          await query<ResultSetHeader>(
+            `INSERT INTO sectioning_history (batch_id, school_year_id, enrollment_id, student_id, prev_section_id, target_section_id, assigned_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [batchId, school_year_id, assignEnrollmentId, student_id, prevSectionId, section_id, assignedBy]
+          );
+        }
 
         results.push({
           student_id,
@@ -523,6 +541,7 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
 
     res.json({
       message: `Assignments complete. ${succeeded}/${assignments.length} assigned successfully.`,
+      batch_id: batchId,
       succeeded,
       total: assignments.length,
       results,
@@ -530,6 +549,148 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
   } catch (error) {
     console.error("Confirm assignments error:", error);
     res.status(500).json({ error: "Failed to confirm assignments." });
+  }
+}
+
+/**
+ * POST /api/sectioning/undo
+ * Body: { batch_id }
+ *
+ * Reverts the given assignment batch (recorded in sectioning_history when it
+ * was confirmed): restores each enrollment's previous section_id (NULL returns
+ * the student to the pending queue), fixes both sections' current_count and
+ * clears assigned_at/assigned_by. Only the most recent un-undone batch for the
+ * school year can be undone, and rows whose section has since been changed
+ * (e.g. re-assigned elsewhere) are skipped with a warning.
+ */
+export async function undoAssignments(req: Request, res: Response): Promise<void> {
+  try {
+    const { batch_id } = req.body;
+
+    if (!batch_id) {
+      res.status(400).json({ error: "batch_id is required." });
+      return;
+    }
+
+    const rows = await query<RowDataPacket[]>(
+      `SELECT id, school_year_id, enrollment_id, student_id, prev_section_id, target_section_id
+       FROM sectioning_history
+       WHERE batch_id = ? AND status = 'done'`,
+      [batch_id]
+    );
+    if (rows.length === 0) {
+      res.status(404).json({ error: "No undoable assignment batch found with that id (already undone or unknown)." });
+      return;
+    }
+
+    const schoolYearId = rows[0].school_year_id;
+    const batchMaxId = Math.max(...rows.map((r: any) => r.id));
+
+    // Only the most recent un-undone batch may be undone (LIFO safety).
+    const newer = await query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS c
+       FROM sectioning_history
+       WHERE school_year_id = ? AND status = 'done' AND id > ?`,
+      [schoolYearId, batchMaxId]
+    );
+    if (Number(newer[0].c) > 0) {
+      res.status(409).json({
+        error: "A newer assignment batch exists for this school year. Undo the latest batch first.",
+      });
+      return;
+    }
+
+    const undoingBy = req.user!.userId;
+    const reverts: Array<{
+      enrollment_id: number;
+      student_id: number;
+      prev_section_id: number | null;
+      section_name: string | null;
+      ok: boolean;
+      error?: string;
+    }> = [];
+
+    for (const row of rows as any[]) {
+      try {
+        const enroll = await query<RowDataPacket[]>(
+          "SELECT section_id FROM enrollments WHERE id = ?",
+          [row.enrollment_id]
+        );
+        // Only revert if the enrollment is still in the section we assigned it to.
+        if (enroll.length === 0 || enroll[0].section_id !== row.target_section_id) {
+          reverts.push({
+            enrollment_id: row.enrollment_id,
+            student_id: row.student_id,
+            prev_section_id: row.prev_section_id,
+            section_name: null,
+            ok: false,
+            error: "Enrollment is no longer in the assigned section — skipped.",
+          });
+          continue;
+        }
+
+        // Free the slot in the target section.
+        await query<ResultSetHeader>(
+          "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
+          [row.target_section_id]
+        );
+        // Restore the previous section's spot if there was one.
+        if (row.prev_section_id != null) {
+          await query<ResultSetHeader>(
+            "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
+            [row.prev_section_id]
+          );
+        }
+        // Back to pending (NULL) or the previous section.
+        await query<ResultSetHeader>(
+          "UPDATE enrollments SET section_id = ?, assigned_at = NULL, assigned_by = NULL WHERE id = ?",
+          [row.prev_section_id, row.enrollment_id]
+        );
+        // Mark history row as undone so this batch can't be reverted twice.
+        await query<ResultSetHeader>(
+          "UPDATE sectioning_history SET status = 'undone', undone_at = NOW() WHERE id = ?",
+          [row.id]
+        );
+
+        const prevName = row.prev_section_id
+          ? (await query<RowDataPacket[]>("SELECT name FROM sections WHERE id = ?", [row.prev_section_id]))[0]?.name
+          : null;
+        reverts.push({
+          enrollment_id: row.enrollment_id,
+          student_id: row.student_id,
+          prev_section_id: row.prev_section_id,
+          section_name: prevName || null,
+          ok: true,
+        });
+      } catch (err: any) {
+        reverts.push({
+          enrollment_id: row.enrollment_id,
+          student_id: row.student_id,
+          prev_section_id: row.prev_section_id,
+          section_name: null,
+          ok: false,
+          error: err.message,
+        });
+      }
+    }
+
+    const succeeded = reverts.filter(r => r.ok).length;
+    await logActivity(
+      undoingBy,
+      `Undid section assignment batch: ${succeeded}/${rows.length} students reverted`,
+      "enrollments",
+      null
+    );
+
+    res.json({
+      message: `Undo complete. ${succeeded}/${rows.length} students returned to their previous section.`,
+      succeeded,
+      total: rows.length,
+      results: reverts,
+    });
+  } catch (error) {
+    console.error("Undo assignments error:", error);
+    res.status(500).json({ error: "Failed to undo assignments." });
   }
 }
 

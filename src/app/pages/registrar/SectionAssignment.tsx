@@ -2,9 +2,12 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
   RefreshCw, Check, AlertTriangle, Loader2, Users,
   X, Shuffle, Sparkles, ArrowRight, UserPlus, BookOpen,
-  GraduationCap, Layers, Filter, BarChart3, SlidersHorizontal
+  GraduationCap, Layers, Filter, BarChart3, SlidersHorizontal,
+  Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown,
+  RotateCcw
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { ModalShell } from "../../components/ModalShell";
 import {
   sectioningApi,
   PendingQueueStudent,
@@ -68,6 +71,165 @@ function clsx(...classes: (string | false | null | undefined)[]) {
 }
 
 /* ──────────────────────────────────────────
+   Client-side browsing controls (search → sort → paginate)
+   ────────────────────────────────────────── */
+type SortDir = "asc" | "desc";
+
+function useDataBrowser<T>(
+  rows: T[],
+  opts: { searchKeys?: (keyof T)[]; pageSize?: number } = {}
+) {
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<keyof T | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(opts.pageSize ?? 25);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, sortKey, sortDir]);
+
+  const filtered = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    const keys = opts.searchKeys ?? [];
+    return rows.filter(r =>
+      keys.some(k => {
+        const v = (r as any)[k];
+        return v != null && String(v).toLowerCase().includes(q);
+      })
+    );
+  }, [rows, search, opts.searchKeys]);
+
+  const sorted = React.useMemo(() => {
+    if (!sortKey) return filtered;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = (a as any)[sortKey];
+      const bv = (b as any)[sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1; // nulls sink to the bottom either direction
+      if (bv == null) return -1;
+      const cmp =
+        typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av).localeCompare(String(bv));
+      return cmp * dir;
+    });
+  }, [filtered, sortKey, sortDir]);
+
+  const total = sorted.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(page, 1), pageCount);
+  const startIndex = (safePage - 1) * pageSize;
+  const slice = React.useMemo(
+    () => sorted.slice(startIndex, startIndex + pageSize),
+    [sorted, startIndex, pageSize]
+  );
+
+  const toggleSort = (key: keyof T) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  return {
+    search, setSearch,
+    sortKey, sortDir, toggleSort,
+    page: safePage, setPage, pageCount, pageSize, setPageSize,
+    slice, total, startIndex, filtered,
+  };
+}
+
+function SortHeader<T>({
+  label,
+  sortKey,
+  active,
+  dir,
+  onToggle,
+}: {
+  label: string;
+  sortKey: keyof T;
+  active: boolean;
+  dir: SortDir;
+  onToggle: (key: keyof T) => void;
+}) {
+  return (
+    <th className="text-left px-4 py-3">
+      <button
+        type="button"
+        onClick={() => onToggle(sortKey)}
+        title={`Sort by ${label}`}
+        className={clsx(
+          "inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors",
+          active ? "text-indigo-600" : "text-gray-500 hover:text-gray-700"
+        )}
+      >
+        {label}
+        {active ? (
+          dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />
+        ) : (
+          <ArrowUpDown size={11} className="text-gray-300" />
+        )}
+      </button>
+    </th>
+  );
+}
+
+function Pager({
+  page, pageCount, total, pageSize, setPage, setPageSize,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  pageSize: number;
+  setPage: (n: number) => void;
+  setPageSize: (n: number) => void;
+}) {
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return (
+    <div className="flex items-center justify-between flex-wrap gap-3 pt-3">
+      <span className="text-[11px] text-gray-400">
+        Showing <strong className="text-gray-600">{start}–{end}</strong> of{" "}
+        <strong className="text-gray-600">{total}</strong>
+      </span>
+      <div className="flex items-center gap-2">
+        <select
+          value={pageSize}
+          onChange={e => setPageSize(parseInt(e.target.value))}
+          className="text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+        >
+          {[10, 25, 50, 100].map(n => (
+            <option key={n} value={n}>{n} / page</option>
+          ))}
+        </select>
+        <button
+          onClick={() => setPage(page - 1)}
+          disabled={page <= 1}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed"
+        >
+          <ChevronLeft size={12} /> Prev
+        </button>
+        <span className="text-[11px] text-gray-500 font-medium tabular-nums">
+          Page {page} / {pageCount}
+        </span>
+        <button
+          onClick={() => setPage(page + 1)}
+          disabled={page >= pageCount}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed"
+        >
+          Next <ChevronRight size={12} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────
    Main Component
    ────────────────────────────────────────── */
 export function SectionAssignment() {
@@ -95,6 +257,58 @@ export function SectionAssignment() {
 
   // ── Preview assignments (built client-side before confirm) ──
   const [preview, setPreview] = useState<PreviewAssignment[]>([]);
+
+  // ── Client-side browsing (search / sort / paginate) ──
+  const queueBrowser = useDataBrowser<PendingQueueStudent>(queue, {
+    searchKeys: ["name", "lrn", "student_display_id"],
+    pageSize: 10,
+  });
+  const [flagFilter, setFlagFilter] = useState<"all" | "flagged" | "unflagged">("all");
+  const previewRows = React.useMemo(
+    () =>
+      flagFilter === "all"
+        ? preview
+        : preview.filter(p => (flagFilter === "flagged" ? p.flagged : !p.flagged)),
+    [preview, flagFilter]
+  );
+  const previewBrowser = useDataBrowser<PreviewAssignment>(previewRows, {
+    searchKeys: ["name", "lrn", "student_display_id"],
+    pageSize: 10,
+  });
+
+  // ── Selection + undo of the last confirmed batch ──
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [lastBatch, setLastBatch] = useState<string | null>(null);
+  const [undoCount, setUndoCount] = useState(0);
+  const [undoing, setUndoing] = useState(false);
+  const [confirmUndoOpen, setConfirmUndoOpen] = useState(false);
+
+  const selectedCount = preview.filter(p => selected.has(p.student_id)).length;
+  const selectedWithSection = preview.filter(p => selected.has(p.student_id) && p.current_section_id != null);
+  const selectedSkipped = preview.filter(p => selected.has(p.student_id) && p.current_section_id == null);
+  const filteredSelectedCount = previewBrowser.filtered.filter(p => selected.has(p.student_id)).length;
+  const allFilteredSelected =
+    previewBrowser.filtered.length > 0 && filteredSelectedCount === previewBrowser.filtered.length;
+  const someFilteredSelected = filteredSelectedCount > 0 && !allFilteredSelected;
+
+  const toggleSelect = (studentId: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      previewBrowser.filtered.forEach(p =>
+        allFilteredSelected ? next.delete(p.student_id) : next.add(p.student_id)
+      );
+      return next;
+    });
+  };
 
   // ── Rules engine plan (drives the Random / Placement / Carry-Over tabs) ──
   const [rulesPlan, setRulesPlan] = useState<RulesPlan | null>(null);
@@ -260,11 +474,17 @@ export function SectionAssignment() {
     );
   };
 
-  /* ── Confirm all assignments ── */
+  /* ── Confirm selected assignments ── */
   const handleConfirm = async () => {
-    const toAssign = preview.filter(p => p.current_section_id != null);
+    const toAssign = selectedWithSection;
     if (toAssign.length === 0) {
-      setCommitMsg("No assignments to confirm — assign sections first.");
+      if (selectedCount === 0) {
+        setCommitMsg("Select at least one student (checkbox) to confirm their assignment — or use the header checkbox to select everyone in the list.");
+      } else if (selectedSkipped.length > 0) {
+        setCommitMsg(`${selectedSkipped.length} selected student(s) have no available section and were skipped.`);
+      } else {
+        setCommitMsg("Nothing to confirm.");
+      }
       return;
     }
     if (!schoolYear) return;
@@ -283,6 +503,11 @@ export function SectionAssignment() {
       });
       setCommitResults(result.results);
       setCommitMsg(result.message);
+      if (result.batch_id) {
+        setLastBatch(result.batch_id);
+        setUndoCount(result.succeeded);
+      }
+      setSelected(new Set());
       // Refresh queue after confirm
       await loadQueue();
       setRulesPlan(null);
@@ -293,10 +518,35 @@ export function SectionAssignment() {
     }
   };
 
+  /* ── Undo the last assignment batch ── */
+  const handleUndo = async () => {
+    if (!lastBatch) return;
+    setConfirmUndoOpen(false);
+    setUndoing(true);
+    setCommitMsg(null);
+    setCommitResults(null);
+    try {
+      const result = await sectioningApi.undoAssignments(lastBatch);
+      setCommitResults(result.results);
+      setCommitMsg(result.message);
+      setLastBatch(null);
+      setUndoCount(0);
+      setSelected(new Set());
+      setPreview([]);
+      setRulesPlan(null);
+      await loadQueue();
+    } catch (err: any) {
+      setCommitMsg(err.detail?.error || err.message || "Failed to undo assignments.");
+    } finally {
+      setUndoing(false);
+    }
+  };
+
   /* ── Generate callback depending on active tab ── */
   const handleGenerate = () => {
     setCommitMsg(null);
     setCommitResults(null);
+    setSelected(new Set());
     switch (activeTab) {
       case "random": generateRandomPreview(); break;
       case "placement": generatePlacementPreview(); break;
@@ -485,6 +735,15 @@ export function SectionAssignment() {
 
         {/* Filters — always visible */}
         <div className="flex flex-wrap gap-3 items-center mb-4">
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+            <input
+              value={queueBrowser.search}
+              onChange={e => queueBrowser.setSearch(e.target.value)}
+              placeholder="Search name, LRN..."
+              className="pl-7 pr-3 py-1.5 w-48 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            />
+          </div>
           <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold uppercase tracking-[0.04em]">
             <SlidersHorizontal size={12} />
             Filters
@@ -534,24 +793,25 @@ export function SectionAssignment() {
             </p>
           </div>
         ) : !loading ? (
+          <>
           <div className="overflow-x-auto border border-gray-100 rounded-xl">
             <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50/80">
                     <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">#</th>
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Student</th>
+                    <SortHeader label="Student" sortKey="name" active={queueBrowser.sortKey === "name"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
                     <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Grade</th>
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program</th>
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">GA</th>
+                    <SortHeader label="Grade" sortKey="grade_level" active={queueBrowser.sortKey === "grade_level"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
+                    <SortHeader label="Program" sortKey="program" active={queueBrowser.sortKey === "program"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
+                    <SortHeader label="GA" sortKey="general_average" active={queueBrowser.sortKey === "general_average"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
                     <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Enrolled By</th>
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Date</th>
+                    <SortHeader label="Date" sortKey="enrollment_date" active={queueBrowser.sortKey === "enrollment_date"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {queue.map((s, idx) => (
-                    <tr key={s.enrollment_id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
-                      <td className="px-4 py-3 text-gray-400 text-xs">{idx + 1}</td>
+                  {queueBrowser.slice.map((s, i) => (
+                    <tr key={s.enrollment_id} className={`${(queueBrowser.startIndex + i) % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                      <td className="px-4 py-3 text-gray-400 text-xs">{queueBrowser.startIndex + i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
@@ -598,6 +858,22 @@ export function SectionAssignment() {
                 </tbody>
               </table>
             </div>
+            {queueBrowser.total === 0 && (
+              <p className="text-xs text-gray-400 text-center py-4">
+                No students match your search.
+              </p>
+            )}
+            {queueBrowser.total > 0 && (
+              <Pager
+                page={queueBrowser.page}
+                pageCount={queueBrowser.pageCount}
+                total={queueBrowser.total}
+                pageSize={queueBrowser.pageSize}
+                setPage={queueBrowser.setPage}
+                setPageSize={queueBrowser.setPageSize}
+              />
+            )}
+          </>
         ) : null}
         </div>
       </div>
@@ -612,7 +888,7 @@ export function SectionAssignment() {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setPreview([]); setRulesPlan(null); setCommitMsg(null); setCommitResults(null); }}
+                onClick={() => { setActiveTab(tab.key); setPreview([]); setRulesPlan(null); setCommitMsg(null); setCommitResults(null); setSelected(new Set()); setLastBatch(null); setUndoCount(0); }}
                 className={clsx(
                   "flex items-center gap-2 px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
                   active
@@ -679,7 +955,7 @@ export function SectionAssignment() {
           {/* ── Preview Table ── */}
           {preview.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-gray-900">
                     Preview Assignments
@@ -688,17 +964,47 @@ export function SectionAssignment() {
                     {preview.length} student{preview.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-xs">
-                  {preview.filter(p => p.current_section_id != null).length > 0 && (
-                    <span className="text-emerald-600 font-medium flex items-center gap-1">
-                      <Check size={12} /> {preview.filter(p => p.current_section_id != null).length} assigned
-                    </span>
-                  )}
-                  {preview.filter(p => p.current_section_id == null).length > 0 && (
-                    <span className="text-amber-600 font-medium flex items-center gap-1">
-                      <AlertTriangle size={12} /> {preview.filter(p => p.current_section_id == null).length} unassigned
-                    </span>
-                  )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <input
+                      value={previewBrowser.search}
+                      onChange={e => previewBrowser.setSearch(e.target.value)}
+                      placeholder="Search name, LRN..."
+                      className="pl-7 pr-3 py-1.5 w-44 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    />
+                  </div>
+                  {(["all", "flagged", "unflagged"] as const).map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFlagFilter(f)}
+                      className={clsx(
+                        "px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                        flagFilter === f
+                          ? f === "flagged"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : f === "unflagged"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                          : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
+                      )}
+                    >
+                      {f === "all" ? "All" : f === "flagged" ? "Flagged" : "Unflagged"}
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-3 text-xs">
+                    {preview.filter(p => p.current_section_id != null).length > 0 && (
+                      <span className="text-emerald-600 font-medium flex items-center gap-1">
+                        <Check size={12} /> {preview.filter(p => p.current_section_id != null).length} assigned
+                      </span>
+                    )}
+                    {preview.filter(p => p.current_section_id == null).length > 0 && (
+                      <span className="text-amber-600 font-medium flex items-center gap-1">
+                        <AlertTriangle size={12} /> {preview.filter(p => p.current_section_id == null).length} unassigned
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -770,12 +1076,21 @@ export function SectionAssignment() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50/80">
+                      <th className="px-4 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          ref={el => { if (el) el.indeterminate = someFilteredSelected; }}
+                          onChange={toggleSelectAll}
+                          className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
+                        />
+                      </th>
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">#</th>
-                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Student</th>
+                      <SortHeader label="Student" sortKey="name" active={previewBrowser.sortKey === "name"} dir={previewBrowser.sortDir} onToggle={previewBrowser.toggleSort} />
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
-                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Grade</th>
+                      <SortHeader label="Grade" sortKey="grade_level" active={previewBrowser.sortKey === "grade_level"} dir={previewBrowser.sortDir} onToggle={previewBrowser.toggleSort} />
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program / Notes</th>
-                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">GA</th>
+                      <SortHeader label="GA" sortKey="general_average" active={previewBrowser.sortKey === "general_average"} dir={previewBrowser.sortDir} onToggle={previewBrowser.toggleSort} />
                       {activeTab === "placement" && (
                         <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Entrance Exam / Interview</th>
                       )}
@@ -785,9 +1100,17 @@ export function SectionAssignment() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {preview.map((student, idx) => (
-                      <tr key={student.student_id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
-                        <td className="px-4 py-3 text-gray-400 text-xs">{idx + 1}</td>
+                    {previewBrowser.slice.map((student, i) => (
+                      <tr key={student.student_id} className={`${(previewBrowser.startIndex + i) % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(student.student_id)}
+                            onChange={() => toggleSelect(student.student_id)}
+                            className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 text-xs">{previewBrowser.startIndex + i + 1}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
@@ -914,11 +1237,27 @@ export function SectionAssignment() {
                 </table>
               </div>
 
+              {/* Preview pagination */}
+              {previewBrowser.total > 0 ? (
+                <Pager
+                  page={previewBrowser.page}
+                  pageCount={previewBrowser.pageCount}
+                  total={previewBrowser.total}
+                  pageSize={previewBrowser.pageSize}
+                  setPage={previewBrowser.setPage}
+                  setPageSize={previewBrowser.setPageSize}
+                />
+              ) : (
+                <p className="text-xs text-gray-400 text-center pt-1">
+                  No proposals match your search or filter.
+                </p>
+              )}
+
               {/* Confirm button */}
               <div className="flex justify-end pt-2">
                 <button
                   onClick={handleConfirm}
-                  disabled={committing || preview.filter(p => p.current_section_id != null).length === 0}
+                  disabled={committing || selectedWithSection.length === 0}
                   className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
                 >
                   {committing ? (
@@ -926,9 +1265,27 @@ export function SectionAssignment() {
                   ) : (
                     <Check size={16} />
                   )}
-                  Confirm {preview.filter(p => p.current_section_id != null).length} Assignment{preview.filter(p => p.current_section_id != null).length !== 1 ? "s" : ""}
+                  Confirm {selectedWithSection.length} Assignment{selectedWithSection.length !== 1 ? "s" : ""}
                 </button>
               </div>
+
+              {selectedCount > 0 && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-xs text-indigo-700">
+                  <span>
+                    <strong>{selectedWithSection.length}</strong> ready to confirm
+                    {selectedSkipped.length > 0 && (
+                      <span className="text-amber-600"> • {selectedSkipped.length} skipped (no section available)</span>
+                    )}
+                    {" "}of <strong>{selectedCount}</strong> selected
+                  </span>
+                  <button
+                    onClick={() => setSelected(new Set())}
+                    className="font-medium text-indigo-600 hover:text-indigo-800 underline underline-offset-2"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -968,7 +1325,13 @@ export function SectionAssignment() {
                       {commitResults.map((r: any, i: number) => (
                         <li key={i} className={`flex items-center gap-1.5 ${r.ok ? "text-emerald-600" : "text-red-600"}`}>
                           {r.ok ? <Check size={12} /> : <X size={12} />}
-                          {r.name}: {r.ok ? `Assigned to ${r.section_name}` : `Failed — ${r.error}`}
+                          {r.ok
+                            ? r.section_id != null
+                              ? `${r.name || "Student"}: Assigned to ${r.section_name}`
+                              : r.prev_section_id != null
+                                ? `Returned to ${r.section_name ?? "previous section"}`
+                                : "Returned to pending queue (unassigned)"
+                            : `${r.name || "Enrollment"}: Failed — ${r.error}`}
                         </li>
                       ))}
                     </ul>
@@ -977,6 +1340,57 @@ export function SectionAssignment() {
               </div>
             </div>
           )}
+
+          {/* ── Undo last batch ── */}
+          {lastBatch && (
+            <div className="mt-4 p-4 rounded-xl border border-red-100 bg-red-50/40 text-red-700 text-sm flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">Assignments committed — you can undo this batch if it was a mistake.</p>
+                <p className="text-[11px] text-red-400 mt-0.5">Only the most recent batch can be undone; enrollments return to their previous section.</p>
+              </div>
+              <button
+                onClick={() => setConfirmUndoOpen(true)}
+                disabled={undoing}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-red-100 hover:bg-red-200 text-red-700 transition-colors disabled:opacity-50"
+              >
+                {undoing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                Undo last assignment{undoCount > 0 ? ` (${undoCount})` : ""}
+              </button>
+            </div>
+          )}
+
+          {/* ── Undo confirmation modal ── */}
+          <ModalShell
+            open={confirmUndoOpen}
+            onClose={() => setConfirmUndoOpen(false)}
+            title="Undo last assignment batch?"
+            description="Their enrollment returns to their previous section (or back to pending if they had none)."
+            maxWidth="max-w-sm"
+          >
+            <p className="text-sm text-gray-600">
+              This reverts the most recently confirmed assignment
+              {undoCount !== 1 ? "s" : ""} ({undoCount} student{undoCount !== 1 ? "s" : ""})
+              {undoCount !== 1 ? " were" : " was"} committed. You can re-assign them afterwards, but only this
+              latest batch can be undone.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setConfirmUndoOpen(false)}
+                disabled={undoing}
+                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUndo}
+                disabled={undoing}
+                className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-50"
+              >
+                {undoing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                Undo
+              </button>
+            </div>
+          </ModalShell>
 
           {/* ── Empty state when no preview generated ── */}
           {preview.length === 0 && !commitMsg && !generating && (

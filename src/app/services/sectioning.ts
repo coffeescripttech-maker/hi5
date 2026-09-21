@@ -40,6 +40,7 @@ export interface AssignPayload {
 
 export interface AssignResult {
   message: string;
+  batch_id?: string;
   succeeded: number;
   total: number;
   results: Array<{
@@ -47,6 +48,20 @@ export interface AssignResult {
     name: string;
     section_id: number;
     section_name: string;
+    ok: boolean;
+    error?: string;
+  }>;
+}
+
+export interface UndoResult {
+  message: string;
+  succeeded: number;
+  total: number;
+  results: Array<{
+    enrollment_id: number;
+    student_id: number;
+    prev_section_id: number | null;
+    section_name: string | null;
     ok: boolean;
     error?: string;
   }>;
@@ -181,6 +196,10 @@ export const sectioningApi = {
   /** Confirm and commit section assignments */
   confirmAssignments: (data: ConfirmAssignPayload) =>
     api.post<AssignResult>("/sectioning/confirm-assignments", data),
+
+  /** Undo the most recent assignment batch (returns enrollments to their previous section) */
+  undoAssignments: (batchId: string) =>
+    api.post<UndoResult>("/sectioning/undo", { batch_id: batchId }),
 
   /** Preview carry-over assignments (Grade 11→12) */
   getCarryOverPreview: (gradeLevel?: number) =>
