@@ -4,9 +4,10 @@ import {
   Users, Layers, TrendingUp, FileText, ArrowUpRight, GraduationCap,
   BarChart3, Activity, BookOpen, School, UserCheck, HeartHandshake
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { enrollmentsApi, EnrollmentRow, DashboardStats } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
+import { gradesApi, GradeDistribution } from "../../services/grades";
 import { useApp } from "../../context/AppContext";
 import { StudentRiskOverview } from "../../components/StudentRiskOverview";
 import { PageContainer } from "../../components/PageContainer";
@@ -45,6 +46,9 @@ export function RegistrarDashboard() {
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  // School-wide grade performance (current SY) for the analytics charts.
+  // Optional: if it fails (no grades yet), the chart simply shows a hint.
+  const [distribution, setDistribution] = useState<GradeDistribution | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -58,6 +62,21 @@ export function RegistrarDashboard() {
     }).catch(err => {
       showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
     }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { schoolYearsApi } = await import("../../services/schoolYears");
+        const years = await schoolYearsApi.list();
+        const current = years.find(y => y.is_current === 1);
+        if (!current) return;
+        const dist = await gradesApi.getDistribution({ school_year_id: current.id });
+        if (!cancelled) setDistribution(dist);
+      } catch { /* grade analytics are optional */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const gradeLevels = [7, 8, 9, 10, 11, 12];
@@ -88,6 +107,28 @@ export function RegistrarDashboard() {
     value: c.count,
     color: CLASSIF_COLORS[c.classification] || "#9ca3af",
   }));
+
+  // Enrollment trend: enrolled students per school year, chronological.
+  const trendData = Array.from(
+    enrollments.reduce((map, e) => {
+      if (e.status === "enrolled") map.set(e.sy_label, (map.get(e.sy_label) || 0) + 1);
+      return map;
+    }, new Map<string, number>())
+  )
+    .map(([sy, students]) => ({ sy, students }))
+    .sort((a, b) => a.sy.localeCompare(b.sy));
+
+  // School-wide grade distribution: sum subject buckets per range.
+  const distData = distribution
+    ? ["90-100", "85-89", "80-84", "75-79", "<75"].map(range => {
+        const color = distribution.subjects[0]?.buckets.find(b => b.range === range)?.color || "#6366f1";
+        return {
+          range,
+          count: distribution.subjects.reduce((sum, s) => sum + (s.buckets.find(b => b.range === range)?.count || 0), 0),
+          color,
+        };
+      })
+    : [];
 
   if (loading) {
     return (
@@ -268,6 +309,72 @@ export function RegistrarDashboard() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* ── ANALYTICS ROW: trend + grade distribution ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <TrendingUp size={14} className="text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-900 tracking-[-0.01em]">Enrollment Trend</h3>
+          </div>
+          {trendData.length > 1 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="sy" tick={{ fontSize: 10, fill: "#9ca3af" }} />
+                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "11px" }}
+                  formatter={(v: number) => [`${v} students`, "Enrolled"]}
+                />
+                <Line type="monotone" dataKey="students" stroke="#6366f1" strokeWidth={3} dot={{ fill: "#6366f1", r: 4 }} name="Enrolled" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[240px] flex flex-col items-center justify-center text-gray-400">
+              <TrendingUp size={28} className="mb-2 opacity-40" />
+              <p className="text-sm font-medium">Trend needs multiple school years</p>
+              <p className="text-xs mt-1">Enrolled: {trendData[0]?.students ?? 0} in {trendData[0]?.sy ?? "—"}</p>
+            </div>
+          )}
+        </div>
+
+        {distribution && distData.some(d => d.count > 0) ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 shadow-sm flex items-center justify-center flex-shrink-0">
+                <BarChart3 size={14} className="text-white" />
+              </div>
+              <h3 className="font-semibold text-gray-900 tracking-[-0.01em]">Grade Distribution (School-wide)</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={distData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="range" tick={{ fontSize: 10, fill: "#9ca3af" }} />
+                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "11px" }}
+                  formatter={(v: number) => [`${v} grades`, "Count"]}
+                />
+                <Bar dataKey="count" name="Grades" radius={[4, 4, 0, 0]}>
+                  {distData.map((d, idx) => (
+                    <Cell key={idx} fill={d.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="h-[240px] flex flex-col items-center justify-center text-gray-400">
+              <BarChart3 size={24} className="mb-2 opacity-40" />
+              <p className="text-sm font-medium">Grade analytics appear once grades are encoded for the current school year</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── STUDENT RISK OVERVIEW ── */}

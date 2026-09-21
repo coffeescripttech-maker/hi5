@@ -23,6 +23,9 @@ import { SF1Register } from './sf1-register';
 import { SF5Report } from './sf5-report';
 import { SF9Report } from './sf9-report';
 import { SF10Report } from './sf10-report';
+import { FormPrintPreview } from '../../components/FormPrintPreview';
+import { downloadRenderedPdf } from '../../services/pdfRender';
+import { exportToPdf } from '../../services/pdfExport';
 
 // --- Form Definitions ---
 interface SchoolForm {
@@ -124,6 +127,32 @@ export function SchoolForms() {
   );
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  // ─── PDF Export (via the shared preview) ───
+  const handleExportPdf = async () => {
+    if (exporting || !currentForm) return;
+    setExporting(true);
+    const options = {
+      elementId: 'sf-print-area',
+      filename: `SchoolForm_${currentForm.code}_${activeSY}`,
+      orientation: 'landscape' as const,
+      format: 'letter' as const
+    };
+    try {
+      await downloadRenderedPdf(options);
+    } catch {
+      try {
+        await exportToPdf(options);
+        showToast('info', 'Server render unavailable — used local fallback.');
+      } catch {
+        showToast('error', 'PDF export failed.');
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // API data
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -1205,16 +1234,27 @@ export function SchoolForms() {
                 </button>
                 <button
                   className={`flex items-center gap-2 flex-1 ${accent.button} text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0`}
-                  onClick={() => window.print()}>
+                  onClick={() => setPreviewOpen(true)}>
                   <Printer size={14} /> Print Form
                 </button>
                 <button
                   className="flex items-center gap-2 flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0"
-                  onClick={() => window.print()}>
+                  onClick={() => setPreviewOpen(true)}>
                   <Download size={14} /> Export PDF
                 </button>
               </div>
             )}
+
+            <FormPrintPreview
+              open={previewOpen}
+              title={`${currentForm.code} — ${currentForm.title}`}
+              elementId="sf-print-area"
+              onClose={() => setPreviewOpen(false)}
+              onExportPdf={handleExportPdf}
+              exporting={exporting}
+              orientation="landscape"
+              format="letter"
+            />
           </div>
         </div>
       )}

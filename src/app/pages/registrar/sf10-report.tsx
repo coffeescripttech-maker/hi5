@@ -1467,13 +1467,18 @@ export function SF10Report() {
                               <td className="border border-gray-800 p-0">
                                 <input
                                   type="text"
+                                  inputMode="numeric"
                                   value={area.finalRating}
                                   onChange={e =>
                                     updateLearningArea(
                                       idx,
                                       li,
                                       'finalRating',
-                                      e.target.value
+                                      e.target.value === ''
+                                        ? ''
+                                        : Math.min(100, Math.max(0,
+                                          Math.floor(Number(e.target.value) * 100) / 100)
+                                        ).toString()
                                     )
                                   }
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] font-bold outline-none focus:bg-amber-50"

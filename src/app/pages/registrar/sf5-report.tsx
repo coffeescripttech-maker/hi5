@@ -519,12 +519,26 @@ export function SF5Report() {
   ]);
 
   // â”€â”€ Cell helper â”€â”€
-  const setCell = (rowIndex: number, key: string, val: string) => {
+  const setCell = (rowIndex: number, key: string, val: string | number | '') => {
     setRows(prev => {
       const next = [...prev];
       next[rowIndex] = { ...next[rowIndex], [key]: val };
       return next;
     });
+  };
+  const sanitizeGradeInput = (value: string): number | '' => {
+    if (value === '') {
+      return '';
+    }
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) {
+      return 0;
+    }
+    // Truncate to 2 decimal places
+    const truncated = Math.floor(parsed * 100) / 100;
+    // Clamp to 0-100 range
+    const clamped = Math.min(100, Math.max(0, truncated));
+    return clamped;
   };
   const setH = (key: keyof typeof header, val: string) =>
     setHeader(prev => ({ ...prev, [key]: val }));

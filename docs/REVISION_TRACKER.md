@@ -1,6 +1,6 @@
 # Client Revision Tracker — HI5PORTALF
 
-Source: `docs/revision1.txt` (client's list). Status audited against the codebase on **2026-09-14** (branch `main`, commits up to `7f57cb0`) and **live-verified** against the running app (API on :3001, frontend on :5173) the same day.
+Source: `docs/revision1.txt` (client's list). Status audited against the codebase on **2026-09-14** (branch `main`, commits up to `7f57cb0`) and **live-verified** against the running app (API on :3001, frontend on :5173) the same day. **Re-audited against current source on 2026-09-21 (see "Round 3" below).**
 
 Legend: ✅ **FIXED** (implemented + verified in code and/or live) · 🔍 **VERIFY** (implemented — visual/functional check still pending) · ❌ **NOT STARTED**
 
@@ -145,3 +145,56 @@ All client revision items (Revisions 1–3) are now implemented. Remaining work:
 1. **Visual verification pass** — open the app in a browser, confirm SF5/SF9 PDF border quality (#7/#8), LIS PDF look (#3), and SY set-current persistence across restart (#13) to convert the final 4 🔍 into ✅
 2. **SchoolForms.tsx hardcoded SY** — lines 332/410/411/511/637/809/830/1062 still contain hardcoded "2025–2026" (not fallbacks) — should use AppContext `schoolYearLabel` like the sidebar does
 3. **Demo prep** — client-laptop deployment runbook (see prior session)
+
+---
+
+## Round 3 — Full code re-audit (2026-09-21)
+
+Re-audited every Revision-1 item marked **Not Fixed / Needs Improvement / Not tested**, the four pending 🔍 VERIFY items from Round 2, and the tracker's own noted leftovers, against the current source (`server/src` + `src/app`). Legend carries over: ✅ FIXED · ⚠️ PARTIAL · 🔍 VERIFY (implemented, visual/live check pending) · ❌ OPEN.
+
+### Previously 🔍 VERIFY → re-checked
+
+| Item | Status (09-21) | Evidence |
+|------|----------------|----------|
+| 3 · LIS PDF official look | ✅ FIXED | `src/app/services/lisPdf.ts` — full DepEd letterhead (both logos), bordered table + repeating page header, Registrar/Principal signature block, A4 landscape, rendered via the same server `/api/pdf/render` pipeline as the SF forms (not a raw dump) |
+| 13 · SY persists across restart | 🔍 VERIFY (code confirmed) | `schoolYears.controller.ts:33` reads `is_current = 1` live; every grading/enrollment/sectioning/report controller now resolves the active SY at request time; frontend stores no SY id (`AppContext.tsx:162`). Remaining: one live “set current → restart server → still active” smoke test |
+| 7 / 8 · SF5 + SF9 PDF border quality | 🔍 VERIFY (unchanged) | Same puppeteer pipeline with `@page`/print CSS; a visual check of a rendered PDF is still pending |
+
+### Revision-1 “Not Fixed” items — re-audited
+
+| Item | Status | Evidence |
+|------|--------|----------|
+| Hours per Week “03.03.03.03” | ✅ FIXED | `src/app/utils/hours.ts` → “3 hrs/day · 4 days/wk (12 hrs/wk)”; used in `SubjectManagement.tsx` and `SubjectView.tsx` |
+| SY reversion bug | ✅ FIXED (code) | see #13 — no stale `\|\| 1` fallbacks remain |
+| Activity-log automated deletion | ✅ FIXED | `server/src/cron/activityLogCron.ts` — hourly, 90-day retention, restart-safe |
+| Redundant Admin logout | ✅ FIXED | exactly 1 logout: `ProfileDropdown.tsx:96`; sidebar footer + TopBar have none |
+| Redundant search bars | ✅ FIXED | single global ⌘K palette; per-page inputs serve distinct purposes |
+| Teacher grade subject restriction | ✅ FIXED | `grades.controller.ts:73-94` `teacherGradeBlockReason` (subject + advisory-section guard → 403); UI disables non-assigned inputs (`GradeManagement.tsx:711`) |
+| Grade editing deadline → Registrar | ✅ FIXED | deadline gate `grades.controller.ts:57-66,79-81`; teacher routes to Registrar correction flow (`corrections.controller.ts`, Registrar-only review) |
+| Returning student → previous grades preview | ✅ FIXED | `EnrollmentModule.tsx` — grade-history panel rendered before enrollment can be confirmed (per-SY subject Q1–Q4 tables) |
+| LIS Excel format | ✅ FIXED (2026-09-21) | `lis.controller.ts` `sendXlsx` rewritten with **exceljs**: merged navy title banner, school-year sub-banner, bold/centered/colored header row with frozen pane, thin borders + zebra striping, autofilter (`xlsx`/SheetJS removed for exports) |
+| Principal document export | ✅ FIXED | `PrincipalExportCenter.tsx` — SF1 PDF, SF5 PDF, consolidated reports, grade-distribution data |
+| Principal dashboard graphs | ✅ FIXED | enrollment trend, grade distribution, at-risk, gender/program pies present |
+| Registrar dashboard graphs | ✅ FIXED (2026-09-21) | added **Enrollment Trend** (LineChart, per-SY) + **Grade Distribution (School-wide)** (BarChart via `gradesApi.getDistribution`) to `RegistrarDashboard.tsx` |
+| School Form preview-first | ✅ FIXED (2026-09-21) | SF1/SF5/SF9/SF10 editors gate print/PDF behind `FormPrintPreview`; `SchoolForms.tsx` Print/Export buttons now open the shared preview instead of `window.print()` |
+| Edit button in preview | ✅ FIXED | `FormPrintPreview.tsx:135` “Edit” → returns to fillable form |
+| Preview non-editable + numeric-only inputs | ✅ FIXED (2026-09-21) | preview read-only (inputs replaced with spans); `sf5-report.tsx` now defines the `sanitizeGradeInput` helper (0–100, 2-dp clamp) it already called; SF10 **Final Rating** now clamped the same as Q1–Q4 |
+| Quick Actions (LSO) | ✅ FIXED | no “Quick Actions” section in any dashboard |
+
+### Newly found (not in the client list, surfaced by this audit) — all closed 2026-09-21
+
+| Item | Status | Evidence |
+|------|--------|----------|
+| SF5 grade-cell validation ReferenceError | ✅ FIXED | `sf5-report.tsx` — `sanitizeGradeInput` helper added (0–100, 2-dp clamp, same as SF1), used by every SF5 grade cell |
+| SF10 Final Rating unvalidated | ✅ FIXED | `sf10-report.tsx` — Final Rating input now `inputMode="numeric"` with the same 0–100 / 2-dp clamp as Q1–Q4 |
+| `SchoolForms.tsx` hardcoded “2025–2026” | ✅ FIXED (already in source) | all form headers read `activeSY` from `AppContext.schoolYearLabel` (lines 339/417/518/644/816/837/1069); no hardcoded year string remains |
+| SchoolForms preview bypass | ✅ FIXED | Print Form / Export PDF buttons now open `FormPrintPreview` (`elementId="sf-print-area"`); Export PDF uses the server-rendered pipeline with a client fallback |
+
+### Status summary (2026-09-21)
+
+- ✅ **FIXED:** all 39 tracked items stay fixed **plus** the freshly closed opens — LIS PDF look, hours/week display, teacher grade restriction + deadline, returning-grade preview, principal export + graphs, LIS Excel styled workbook, SchoolForms preview gate, SF5/SF9 numeric validation, registrar dashboard trend + grade-distribution charts.
+- ⚠️ **PARTIAL:** none remaining from the audit.
+- 🔍 **VERIFY:** SY restart smoke test (#13), SF5/SF9 PDF border visual check (#7/#8) — both implemented, need a human eyeball on the running app.
+- ❌ **OPEN:** none.
+
+> Client-facing step-by-step test steps for every item above live in **`docs/VERIFICATION_CHEATSHEET.md`**.

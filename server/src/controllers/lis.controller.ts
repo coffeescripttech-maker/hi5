@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 /**
  * Escape a value for CSV output.
@@ -308,52 +308,94 @@ function datasetToCsv(ds: LisDataset): string {
 }
 
 /**
- * Send a dataset as a real Excel (.xlsx) workbook:
- *  - merged title + school-year banner rows
- *  - auto-sized columns (fixes truncated columns & LRN scientific notation —
- *    all values are written as text/typed cells, not dumped CSV)
+ * Send a dataset as a styled Excel (.xlsx) workbook:
+ *  - merged navy title + school-year banner rows
+ *  - bold, centered, colored header row with frozen pane
+ *  - thin borders everywhere + zebra striping on body rows
+ *  - auto-sized columns (text/LRN-safe, no scientific notation)
  *  - autofilter on the header row
  */
-function sendXlsx(res: Response, filename: string, ds: LisDataset): void {
-  const aoa: (string | number)[][] = [
-    [ds.title],
-    [`Department of Education · School Year ${ds.sy_label}`],
-    [],
-    ds.columns,
-    ...ds.rows,
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+async function sendXlsx(res: Response, filename: string, ds: LisDataset): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("LIS Export", {
+    views: [{ state: "frozen", ySplit: 4 }],
+  });
+
+  const lastCol = (ExcelJS as any).utils.getExcelLetter(ds.columns.length);
+
+  // Row 1 — merged title (navy fill, white bold text).
+  ws.mergeCells(`A1:${lastCol}1`);
+  const titleCell = ws.getCell("A1");
+  titleCell.value = ds.title;
+  titleCell.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+  titleCell.alignment = { horizontal: "center", vertical: "middle" };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+  ws.getRow(1).height = 28;
+
+  // Row 2 — school-year banner (light blue fill).
+  ws.mergeCells(`A2:${lastCol}2`);
+  const subCell = ws.getCell("A2");
+  subCell.value = `Department of Education · School Year ${ds.sy_label}`;
+  subCell.font = { bold: true, size: 11, color: { argb: "FF1F2937" } };
+  subCell.alignment = { horizontal: "center", vertical: "middle" };
+  subCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } };
+  ws.getRow(2).height = 22;
+
+  // Row 4 — header row (indigo fill, white bold, centered, wrapped).
+  const headerRow = ws.getRow(4);
+  ds.columns.forEach((c, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = c;
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46A5" } };
+  });
+  headerRow.height = 24;
+
+  // Body rows (5+) — thin borders, zebra striping.
+  ds.rows.forEach((row, r) => {
+    const excelRow = ws.getRow(5 + r);
+    row.forEach((v, i) => {
+      const cell = excelRow.getCell(i + 1);
+      cell.value = v;
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFD1D5DB" } },
+        bottom: { style: "thin", color: { argb: "FFD1D5DB" } },
+        left: { style: "thin", color: { argb: "FFD1D5DB" } },
+        right: { style: "thin", color: { argb: "FFD1D5DB" } },
+      };
+      if (r % 2 === 1) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5FF" } };
+      }
+      cell.alignment = { vertical: "middle", wrapText: true };
+    });
+  });
 
   // Content-based column widths, clamped for readability.
-  ws["!cols"] = ds.columns.map((_, i) => {
-    let max = String(ds.columns[i]).length;
+  ds.columns.forEach((c, i) => {
+    const w = ws.getColumn(i + 1);
+    let max = String(c).length;
     for (const r of ds.rows) {
       const v = r[i];
       if (v !== null && v !== undefined && String(v).length > max) max = String(v).length;
     }
-    return { wch: Math.min(Math.max(max + 2, 10), 45) };
+    w.width = Math.min(Math.max(max + 2, 10), 45);
   });
 
-  const lastCol = XLSX.utils.encode_col(ds.columns.length - 1);
-  ws["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: ds.columns.length - 1 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: ds.columns.length - 1 } },
-  ];
-  // Header is 1-based row 4 (title, subtitle, spacer, header).
   if (ds.rows.length > 0) {
-    ws["!autofilter"] = { ref: `A4:${lastCol}${4 + ds.rows.length}` };
+    ws.autoFilter = {
+      from: { row: 4, column: 1 },
+      to: { row: 4 + ds.rows.length, column: ds.columns.length },
+    };
   }
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "LIS Export");
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
-
+  const buf = await wb.xlsx.writeBuffer();
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   );
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  res.send(buf);
+  res.send(Buffer.from(buf));
 }
 
 /** Shared handler body for the three .xlsx endpoints. */
@@ -367,7 +409,7 @@ async function handleXlsx(
   try {
     const ds = await fetcher(req);
     if (!ds) { res.status(400).json({ error: "No school year found." }); return; }
-    sendXlsx(res, `${baseName}-${ds.sy_label}.xlsx`, ds);
+    await sendXlsx(res, `${baseName}-${ds.sy_label}.xlsx`, ds);
   } catch (error) {
     console.error(`${errorLabel} XLSX error:`, error);
     res.status(500).json({ error: `Failed to generate ${errorLabel} Excel file.` });
