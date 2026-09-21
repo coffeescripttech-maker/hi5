@@ -13,11 +13,15 @@ export interface ActivityLogRow {
   created_at: string;
 }
 
-function buildQuery(params?: { page?: number; limit?: number }): string {
-  if (!params) return "";
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined);
-  if (entries.length === 0) return "";
-  return "?" + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+export interface LogsQuery {
+  page?: number;
+  limit?: number;
+  user_id?: number;
+  entity_type?: string;
+  action?: string;
+  search?: string;
+  sort_by?: "created_at" | "user_name" | "entity_type" | "action";
+  order?: "asc" | "desc";
 }
 
 export interface ActivityLogPage {
@@ -32,9 +36,9 @@ export interface ActivityLogPage {
 
 export const logsApi = {
   // Unwraps .data for summary feeds (dashboard keeps its own limit).
-  list: (params?: { page?: number; limit?: number }) =>
-    api.get<ActivityLogPage>(`/logs${buildQuery(params)}`).then(r => r.data),
+  list: (params?: LogsQuery) =>
+    api.get<ActivityLogPage>("/logs", params).then(r => r.data),
   // Returns the full payload so the logs page can render pagination controls.
-  listPage: (params?: { page?: number; limit?: number }) =>
-    api.get<ActivityLogPage>(`/logs${buildQuery(params)}`).then(r => r),
+  listPage: (params?: LogsQuery) =>
+    api.get<ActivityLogPage>("/logs", params).then(r => r),
 };

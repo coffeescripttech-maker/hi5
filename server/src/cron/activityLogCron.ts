@@ -1,35 +1,45 @@
 /**
  * Activity Log Cleanup Cron — Periodically deletes old activity_logs entries
  *
- * Retention: logs older than ACTIVITY_LOG_RETENTION_DAYS (default 90) are removed.
- * This runs hourly via setInterval but only performs cleanup if 24 hours have passed
- * since the last cleanup, making it restart-safe.
+ * Reads its configuration from the school_settings singleton (row id=1),
+ * so the admin UI can control cleanup without restarting the server:
+ *   activity_log_cleanup_enabled — 1 = cleanup runs, 0 = paused
+ *   activity_log_retention_days  — how many days of history to keep
+ *   last_activity_log_cleanup    — when the last cleanup round ran
  *
- * Keeps the activity_logs table from growing unbounded while preserving
- * the most recent 90 days of audit history.
+ * Runs hourly via setInterval but only performs cleanup if 24 hours have
+ * passed since the last cleanup, making it restart-safe.
  */
 
 import pool from "../config/database";
 import { ResultSetHeader, RowDataPacket } from "mysql2";
 
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Check every hour
-const ACTIVITY_LOG_RETENTION_DAYS = 90;
+const DEFAULT_RETENTION_DAYS = 90;
 const CLEANUP_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
-async function getLastCleanupTime(): Promise<Date | null> {
+async function getCleanupConfig(): Promise<{ enabled: boolean; retentionDays: number; lastCleanup: Date | null }> {
   try {
     const rows = await pool.query<RowDataPacket[]>(
-      `SELECT last_activity_log_cleanup FROM school_settings WHERE id = 1`
+      `SELECT last_activity_log_cleanup, activity_log_cleanup_enabled, activity_log_retention_days
+       FROM school_settings WHERE id = 1`
     );
     const row = (rows[0] as RowDataPacket[])[0];
-    return row?.last_activity_log_cleanup
-      ? new Date(row.last_activity_log_cleanup)
-      : null;
+    if (!row) return { enabled: true, retentionDays: DEFAULT_RETENTION_DAYS, lastCleanup: null };
+    return {
+      enabled: row.activity_log_cleanup_enabled !== 0,
+      retentionDays: Number.isFinite(parseInt(row.activity_log_retention_days, 10))
+        ? parseInt(row.activity_log_retention_days, 10)
+        : DEFAULT_RETENTION_DAYS,
+      lastCleanup: row.last_activity_log_cleanup
+        ? new Date(row.last_activity_log_cleanup)
+        : null,
+    };
   } catch (err) {
-    console.error("[ActivityLogCron] Error reading last cleanup time:", err);
-    return null;
+    console.error("[ActivityLogCron] Error reading cleanup config:", err);
+    return { enabled: true, retentionDays: DEFAULT_RETENTION_DAYS, lastCleanup: null };
   }
 }
 
@@ -45,10 +55,15 @@ async function updateLastCleanupTime(): Promise<void> {
 
 async function cleanupActivityLogs(): Promise<void> {
   try {
-    // Check if enough time has passed since last cleanup
-    const lastCleanup = await getLastCleanupTime();
-    const now = new Date();
+    const { enabled, retentionDays, lastCleanup } = await getCleanupConfig();
 
+    if (!enabled) {
+      console.log("[ActivityLogCron] Cleanup paused via settings — skipping run");
+      return;
+    }
+
+    // Check if enough time has passed since the last cleanup
+    const now = new Date();
     if (lastCleanup && (now.getTime() - lastCleanup.getTime()) < CLEANUP_THRESHOLD_MS) {
       // Less than 24 hours since last cleanup, skip
       return;
@@ -57,12 +72,12 @@ async function cleanupActivityLogs(): Promise<void> {
     const [result] = await pool.query<ResultSetHeader>(
       `DELETE FROM activity_logs
        WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)`,
-      [ACTIVITY_LOG_RETENTION_DAYS]
+      [retentionDays]
     );
 
     if (result?.affectedRows > 0) {
       console.log(
-        `[ActivityLogCron] Deleted ${result.affectedRows} activity log(s) older than ${ACTIVITY_LOG_RETENTION_DAYS} days`
+        `[ActivityLogCron] Deleted ${result.affectedRows} activity log(s) older than ${retentionDays} days`
       );
 
       // Update the last cleanup timestamp

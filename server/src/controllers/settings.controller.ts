@@ -235,3 +235,71 @@ export async function updateBackupSettings(req: Request, res: Response): Promise
     res.status(500).json({ error: "Failed to update backup settings." });
   }
 }
+
+/* ─────────────── Activity Log Retention Settings ─────────────── */
+
+/**
+ * GET /api/settings/log-retention — Get activity log cleanup configuration
+ */
+export async function getLogRetentionSettings(_req: Request, res: Response): Promise<void> {
+  try {
+    const settings = await query<RowDataPacket[]>(
+      `SELECT last_activity_log_cleanup, activity_log_cleanup_enabled, activity_log_retention_days
+       FROM school_settings WHERE id = 1`
+    );
+
+    if (settings.length === 0) {
+      res.status(404).json({ error: "School settings not found." });
+      return;
+    }
+
+    res.json(settings[0]);
+  } catch (error) {
+    console.error("Get log retention settings error:", error);
+    res.status(500).json({ error: "Failed to fetch log retention settings." });
+  }
+}
+
+/**
+ * PUT /api/settings/log-retention — Update activity log cleanup configuration
+ */
+export async function updateLogRetentionSettings(req: Request, res: Response): Promise<void> {
+  try {
+    const { activity_log_cleanup_enabled, activity_log_retention_days } = req.body;
+
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    if (activity_log_cleanup_enabled !== undefined) {
+      fields.push("activity_log_cleanup_enabled = ?");
+      params.push(activity_log_cleanup_enabled ? 1 : 0);
+    }
+    if (activity_log_retention_days !== undefined) {
+      const days = parseInt(activity_log_retention_days as string, 10);
+      if (!Number.isFinite(days) || days < 7 || days > 3650) {
+        res.status(400).json({ error: "Retention days must be between 7 and 3650." });
+        return;
+      }
+      fields.push("activity_log_retention_days = ?");
+      params.push(days);
+    }
+
+    if (fields.length === 0) {
+      res.status(400).json({ error: "No fields to update." });
+      return;
+    }
+
+    await query<ResultSetHeader>(`UPDATE school_settings SET ${fields.join(", ")} WHERE id = 1`, params);
+    await logActivity(req.user!.userId, "Updated activity log retention settings", "settings", 1);
+
+    const updated = await query<RowDataPacket[]>(
+      `SELECT last_activity_log_cleanup, activity_log_cleanup_enabled, activity_log_retention_days
+       FROM school_settings WHERE id = 1`
+    );
+
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Update log retention settings error:", error);
+    res.status(500).json({ error: "Failed to update log retention settings." });
+  }
+}

@@ -1,5 +1,15 @@
 import React from "react";
-import { Activity, Clock, ChevronDown, ChevronUp, SearchX } from "lucide-react";
+import {
+  Activity,
+  Clock,
+  Search,
+  SearchX,
+  SlidersHorizontal,
+  ToggleLeft,
+  ToggleRight,
+  History,
+  CheckCircle,
+} from "lucide-react";
 import {
   Pagination,
   PaginationContent,
@@ -7,8 +17,11 @@ import {
   PaginationLink,
   PaginationPrevious,
   PaginationNext,
+  PaginationEllipsis,
 } from "../../components/ui/pagination";
 import { logsApi, ActivityLogRow } from "../../services/logs";
+import { settingsApi, ActivityLogRetentionSettings } from "../../services/settings";
+import { useApp } from "../../context/AppContext";
 import { HybridTable } from "../../components/HybridTable";
 
 /** Map backend entity_type → readable label + badge styling. */
@@ -42,29 +55,60 @@ function categoryMeta(entityType: string | null): { label: string; badge: string
   return { label: entityType || "System", badge: "bg-gray-50 text-gray-600 border-gray-200" };
 }
 
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "created_at:desc", label: "Newest first" },
+  { value: "created_at:asc", label: "Oldest first" },
+  { value: "user_name:asc", label: "User (A–Z)" },
+  { value: "entity_type:asc", label: "Category (A–Z)" },
+  { value: "action:asc", label: "Action (A–Z)" },
+];
+
+const PAGE_SIZES = [10, 25, 50];
+
 export function ActivityLogs() {
+  const { showToast } = useApp();
   const [logs, setLogs] = React.useState<ActivityLogRow[]>([]);
   const [pagination, setPagination] = React.useState({
     page: 1,
-    limit: 6,
+    limit: 10,
     total: 0,
     totalPages: 1,
   });
   const [page, setPage] = React.useState(1);
-  const [expanded, setExpanded] = React.useState(false);
+  const [pageSize, setPageSize] = React.useState(10);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Collapsed shows the newest 6 (fast page load); Expand raises to 50 and
-  // reveals the pagination controls below.
-  const limit = expanded ? 50 : 6;
+  // Filters
+  const [search, setSearch] = React.useState("");
+  const [category, setCategory] = React.useState("");
+  const [sort, setSort] = React.useState("created_at:desc");
+
+  // Log retention / cleanup settings
+  const [retentionLoading, setRetentionLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [retentionEnabled, setRetentionEnabled] = React.useState(true);
+  const [retentionDays, setRetentionDays] = React.useState(90);
+  const [lastCleanup, setLastCleanup] = React.useState<string | null>(null);
+
+  const [sortBy, order] = React.useMemo(() => {
+    const [sb, o] = sort.split(":");
+    return [sb as "created_at" | "user_name" | "entity_type" | "action", (o || "desc") as "asc" | "desc"];
+  }, [sort]);
 
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     logsApi
-      .listPage({ page, limit })
+      .listPage({
+        page,
+        limit: pageSize,
+        search: search.trim() || undefined,
+        entity_type: category || undefined,
+        sort_by: sortBy,
+        order,
+      })
       .then(res => {
         if (cancelled) return;
         setLogs(res.data);
@@ -80,12 +124,51 @@ export function ActivityLogs() {
     return () => {
       cancelled = true;
     };
-  }, [page, limit]);
+  }, [page, pageSize, search, category, sortBy, order]);
 
-  const toggleExpanded = () => {
+  // Load retention settings on mount
+  React.useEffect(() => {
+    let cancelled = false;
+    settingsApi
+      .getLogRetention()
+      .then((s: ActivityLogRetentionSettings) => {
+        if (cancelled) return;
+        setRetentionEnabled(s.activity_log_cleanup_enabled === 1);
+        setRetentionDays(s.activity_log_retention_days);
+        setLastCleanup(s.last_activity_log_cleanup);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setRetentionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Reset to page 1 whenever a filter changes
+  const changeFilter = (updater: () => void) => {
+    updater();
     setPage(1);
-    setExpanded(v => !v);
   };
+
+  const handleSaveRetention = async () => {
+    setSaving(true);
+    try {
+      const updated = await settingsApi.updateLogRetention({
+        activity_log_cleanup_enabled: retentionEnabled ? 1 : 0,
+        activity_log_retention_days: retentionDays,
+      });
+      setLastCleanup(updated.last_activity_log_cleanup);
+      showToast("success", "Activity log retention settings saved.");
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Failed to save retention settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hasActiveFilters = search.trim() !== "" || category !== "";
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
@@ -99,6 +182,69 @@ export function ActivityLogs() {
           <div>
             <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">System Activity Logs</h2>
             <p className="text-gray-500 text-sm">Full audit trail of all user actions in the system</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={e => changeFilter(() => setSearch(e.target.value))}
+              placeholder="Search by user or action..."
+              className="w-full border border-gray-300 rounded-xl pl-9 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            {search && (
+              <button
+                onClick={() => changeFilter(() => setSearch(""))}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={14} className="text-gray-400" />
+            <select
+              value={category}
+              onChange={e => changeFilter(() => setCategory(e.target.value))}
+              className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="">All categories</option>
+              {Object.entries(CATEGORY_META)
+                .sort(([, a], [, b]) => a.label.localeCompare(b.label))
+                .map(([key, meta]) => (
+                  <option key={key} value={key}>
+                    {meta.label}
+                  </option>
+                ))}
+            </select>
+            <select
+              value={sort}
+              onChange={e => changeFilter(() => setSort(e.target.value))}
+              className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              {SORT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {hasActiveFilters && (
+              <button
+                onClick={() => changeFilter(() => {
+                  setSearch("");
+                  setCategory("");
+                  setSort("created_at:desc");
+                })}
+                className="text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-2.5 hover:bg-blue-100 transition-colors"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -121,23 +267,32 @@ export function ActivityLogs() {
           </div>
         ) : (
           <>
-            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-3">
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-3 flex-wrap">
               <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                <Clock size={12} /> Showing {logs.length}
-                {expanded ? " of " : " latest of "}
-                {pagination.total} entries
+                <Clock size={12} /> Showing{" "}
+                {pagination.total === 0
+                  ? "no entries"
+                  : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, pagination.total)} of ${pagination.total}`}{" "}
+                entries
               </p>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500">
                   Total: <strong>{pagination.total}</strong>
                 </span>
-                <button
-                  onClick={toggleExpanded}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-100"
-                >
-                  {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                  {expanded ? "Show less" : "Show more"}
-                </button>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                  Per page
+                  <select
+                    value={pageSize}
+                    onChange={e => changeFilter(() => setPageSize(Number(e.target.value)))}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    {PAGE_SIZES.map(s => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
             <HybridTable
@@ -158,7 +313,7 @@ export function ActivityLogs() {
                         <tr>
                           <td colSpan={4} className="px-5 py-14 text-center text-gray-400 text-sm">
                             <SearchX size={22} className="mx-auto mb-2 text-gray-300" />
-                            No logs found.
+                            No logs match your filters.
                           </td>
                         </tr>
                       ) : logs.map((log, idx) => {
@@ -193,7 +348,7 @@ export function ActivityLogs() {
                 logs.length === 0 ? (
                   <div className="px-5 py-14 text-center text-gray-400 text-sm">
                     <SearchX size={22} className="mx-auto mb-2 text-gray-300" />
-                    No logs found.
+                    No logs match your filters.
                   </div>
                 ) : (
                   <ul className="divide-y divide-gray-50">
@@ -223,7 +378,7 @@ export function ActivityLogs() {
                 )
               }
             />
-            {expanded && pagination.totalPages > 1 && (
+            {pagination.totalPages > 1 && (
               <Pagination className="py-3">
                 <PaginationContent>
                   <PaginationItem>
@@ -233,23 +388,20 @@ export function ActivityLogs() {
                         e.preventDefault();
                         setPage(p => Math.max(1, p - 1));
                       }}
-                      {...(page === 1
-                        ? { className: "pointer-events-none opacity-40" }
-                        : {})}
+                      {...(page === 1 ? { className: "pointer-events-none opacity-40" } : {})}
                     />
                   </PaginationItem>
                   {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-                    .filter(
-                      n =>
-                        n === 1 ||
-                        n === pagination.totalPages ||
-                        Math.abs(n - page) <= 1
-                    )
+                    .filter(n => n === 1 || n === pagination.totalPages || Math.abs(n - page) <= 1)
+                    .reduce<number[]>((acc, n) => {
+                      if (!acc.includes(n)) acc.push(n);
+                      return acc;
+                    }, [])
                     .map((n, i, arr) => (
                       <React.Fragment key={n}>
                         {i > 0 && n - arr[i - 1] > 1 && (
                           <PaginationItem>
-                            <span className="px-1 text-gray-400">…</span>
+                            <PaginationEllipsis />
                           </PaginationItem>
                         )}
                         <PaginationItem>
@@ -273,9 +425,7 @@ export function ActivityLogs() {
                         e.preventDefault();
                         setPage(p => Math.min(pagination.totalPages, p + 1));
                       }}
-                      {...(page === pagination.totalPages
-                        ? { className: "pointer-events-none opacity-40" }
-                        : {})}
+                      {...(page === pagination.totalPages ? { className: "pointer-events-none opacity-40" } : {})}
                     />
                   </PaginationItem>
                 </PaginationContent>
@@ -283,6 +433,80 @@ export function ActivityLogs() {
             )}
           </>
         )}
+      </div>
+
+      {/* Log Retention & Cleanup */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <History size={18} className="text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-800">Log Retention &amp; Cleanup</h3>
+              <p className="text-xs text-gray-500">Automatically delete activity logs older than a set period.</p>
+            </div>
+          </div>
+          {!retentionLoading && (
+            <button
+              onClick={() => setRetentionEnabled(e => !e)}
+              className={`flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium transition self-start ${
+                retentionEnabled ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+              }`}
+            >
+              {retentionEnabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+              {retentionEnabled ? "Enabled" : "Disabled"}
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Keep logs for</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={7}
+                max={3650}
+                value={retentionDays}
+                disabled={!retentionEnabled}
+                onChange={e => setRetentionDays(Math.max(7, Math.min(3650, Number(e.target.value) || 7)))}
+                className="w-28 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-400"
+              />
+              <span className="text-sm text-gray-600">days</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">Logs older than this are permanently deleted, typically within 24 hours after the grace period expires. Min 7 days.</p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status</label>
+            {retentionEnabled ? (
+              <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-sm text-green-700 font-medium">Automatic cleanup is active</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5">
+                <span className="w-2 h-2 rounded-full bg-gray-400" />
+                <span className="text-sm text-gray-500 font-medium">Automatic cleanup is paused</span>
+              </div>
+            )}
+            {lastCleanup && (
+              <p className="text-xs text-gray-400 mt-1.5">
+                Last cleaned: {new Date(lastCleanup).toLocaleString("en-PH")}
+              </p>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={handleSaveRetention}
+          disabled={saving}
+          className="mt-4 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50"
+        >
+          {saving ? (
+            <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
+          ) : (
+            <><CheckCircle size={14} /> Save Settings</>
+          )}
+        </button>
       </div>
     </div>
   );

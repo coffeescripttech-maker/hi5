@@ -62,6 +62,12 @@ export interface BackupSettings {
   backup_enabled: number;
 }
 
+export interface ActivityLogRetentionSettings {
+  last_activity_log_cleanup: string | null;
+  activity_log_cleanup_enabled: number;
+  activity_log_retention_days: number;
+}
+
 /** Public (unauthenticated) school info for the login screen. */
 export interface SchoolInfo {
   school_name: string;
@@ -101,4 +107,7 @@ export const settingsApi = {
   getBackupSettings: () => api.get<BackupSettings>("/settings/backup"),
   updateBackupSettings: (data: Partial<BackupSettings>) =>
     api.put<BackupSettings>("/settings/backup", data),
+  getLogRetention: () => api.get<ActivityLogRetentionSettings>("/settings/log-retention"),
+  updateLogRetention: (data: Partial<Pick<ActivityLogRetentionSettings, "activity_log_cleanup_enabled" | "activity_log_retention_days">>) =>
+    api.put<ActivityLogRetentionSettings>("/settings/log-retention", data),
 };
