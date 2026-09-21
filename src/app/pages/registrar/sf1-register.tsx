@@ -146,7 +146,7 @@ function formatDateInput(value: string | null | undefined): string {
 }
 
 /* ---------------------------------------------------------------- */
-/* Reusable inline editable cell â€” shared via school-form-header     */
+/* Reusable inline editable cell shared via school-form-header     */
 /* ---------------------------------------------------------------- */
 
 export function SF1Register() {
@@ -160,7 +160,7 @@ export function SF1Register() {
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  // Print confirmation preview â€” no form goes straight to window.print().
+  // Print confirmation preview no form goes straight to window.print().
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // â”€â”€ Filter selections â”€â”€
@@ -430,10 +430,10 @@ export function SF1Register() {
       // the zoom that fits all columns), then auto-download.
       await downloadRenderedPdf(options);
     } catch {
-      // Server render unavailable â€” fall back to the client-side pdfmake export.
+      // Server render unavailable fall back to the client-side pdfmake export.
       try {
         await exportToPdf(options);
-        showToast('info', 'Server render unavailable â€” used local fallback.');
+        showToast('info', 'Server render unavailable used local fallback.');
       } catch {
         showToast('error', 'Failed to export PDF. Please try again.');
       }
@@ -458,7 +458,7 @@ export function SF1Register() {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
-                  School Form 1 (SF1) â€” School Register
+                  School Form 1 (SF1) School Register
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">
                   Select school year, grade &amp; section to auto-populate, or
@@ -492,7 +492,7 @@ export function SF1Register() {
 
       <FormPrintPreview
         open={previewOpen}
-        title="SF1 â€” School Register"
+        title="SF1 School Register"
         elementId="sf1-print-area"
         onClose={() => setPreviewOpen(false)}
         onExportPdf={handleExportPdf}
