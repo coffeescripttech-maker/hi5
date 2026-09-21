@@ -22,7 +22,8 @@ import {
   GraduationCap,
   X,
   UserMinus,
-  Lock
+  Lock,
+  Loader2
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -703,6 +704,9 @@ export function EnrollmentModule() {
 
   // Drop/Transfer state
   const [dropStep, setDropStep] = useState<DropStep>(1);
+  // Creates a visible processing state on the Confirm buttons so users know
+  // the submission is in progress (prevents double-clicks + confusion).
+  const [submitting, setSubmitting] = useState(false);
   const [dropSearch, setDropSearch] = useState('');
   const [dropFound, setDropFound] = useState<StudentRow | null>(null);
   const [dropNotFound, setDropNotFound] = useState(false);
@@ -1081,6 +1085,7 @@ export function EnrollmentModule() {
   };
 
   const handleConfirmNewEnrollment = async () => {
+    if (submitting) return;
     if (!newGrade) return;
     // Per-category validation: documents required for the student's
     // classifications must be checked off before the student can be enrolled.
@@ -1094,6 +1099,7 @@ export function EnrollmentModule() {
       );
       return;
     }
+    setSubmitting(true);
     try {
       const fullName = [newData.firstName, newData.middleName, newData.lastName]
         .filter(Boolean)
@@ -1151,16 +1157,23 @@ export function EnrollmentModule() {
           /* skip if classification fails — not critical */
         }
       }
+      showToast(
+        'success',
+        `${fullName} enrolled successfully — placed in the Pending Section Queue. The Registrar will assign their section.`
+      );
       setEnrolledNew(true);
     } catch (err: any) {
       showToast(
         'error',
         err.detail?.error || err.message || 'Failed to enroll student'
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleConfirmReturning = async () => {
+    if (submitting) return;
     if (!foundStudent || !retGrade) return;
     // Graduated students are soft-archived and cannot be re-enrolled.
     if (foundStudent.status === "graduated") {
@@ -1188,6 +1201,7 @@ export function EnrollmentModule() {
       );
       return;
     }
+    setSubmitting(true);
     try {
       // Promote student to new grade level first
       await studentsApi.update(foundStudent.id, {
@@ -1208,17 +1222,25 @@ export function EnrollmentModule() {
         interview_passed: admission.interview_passed
       });
       setEnrolledSectionName('Pending Section');
+      showToast(
+        'success',
+        `${foundStudent.name} re-enrolled successfully — placed in the Pending Section Queue.`
+      );
       setEnrolledRet(true);
     } catch (err: any) {
       showToast(
         'error',
         err.detail?.error || err.message || 'Failed to re-enroll student'
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleConfirmDrop = async () => {
+    if (submitting) return;
     if (!dropFound) return;
+    setSubmitting(true);
     try {
       const isTransferIn = dropReason.includes('Transfer In');
       const isTransfer = dropReason.includes('Transfer');
@@ -1259,6 +1281,8 @@ export function EnrollmentModule() {
         'error',
         err.detail?.error || err.message || 'Failed to process drop/transfer'
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -2577,8 +2601,14 @@ export function EnrollmentModule() {
           ) : (
             <button
               onClick={handleConfirmNewEnrollment}
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 flex items-center justify-center gap-2">
-              <CheckCircle size={16} /> Confirm Enrollment
+              disabled={submitting}
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              {submitting ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <CheckCircle size={16} />
+              )}
+              {submitting ? 'Submitting…' : 'Confirm Enrollment'}
             </button>
           )}
         </div>
@@ -3312,8 +3342,14 @@ export function EnrollmentModule() {
           ) : (
             <button
               onClick={handleConfirmReturning}
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 flex items-center justify-center gap-2">
-              <CheckCircle size={16} /> Confirm Re-Enrollment
+              disabled={submitting}
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              {submitting ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <CheckCircle size={16} />
+              )}
+              {submitting ? 'Submitting…' : 'Confirm Re-Enrollment'}
             </button>
           )}
         </div>
@@ -3765,8 +3801,14 @@ export function EnrollmentModule() {
           ) : (
             <button
               onClick={handleConfirmDrop}
-              className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-red-200 hover:shadow-lg hover:shadow-red-300 flex items-center justify-center gap-2">
-              <CheckCircle size={16} /> Confirm {actionLabel}
+              disabled={submitting}
+              className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-red-200 hover:shadow-lg hover:shadow-red-300 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              {submitting ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <CheckCircle size={16} />
+              )}
+              {submitting ? 'Submitting…' : `Confirm ${actionLabel}`}
             </button>
           )}
         </div>
