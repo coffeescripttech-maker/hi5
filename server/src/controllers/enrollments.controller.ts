@@ -152,14 +152,16 @@ export async function getEnrollmentById(req: Request, res: Response): Promise<vo
 
 /**
  * POST /api/enrollments — Create enrollment
- * Body: { student_id, section_id?, school_year_id, enrollment_date, program?, strand_track_id?, remarks?, requirements? }
+ * Body: { student_id, section_id?, school_year_id, enrollment_date, program?, strand_track_id?, remarks?, requirements?, entrance_exam_grade?, entrance_exam_passed?, interview_passed? }
  *
- * When section_id is omitted/null, the enrollment goes into the Pending Section Queue
- * and the Registrar assigns a section later via the section assignment workflow.
+ * When section_id is omitted/null, the enrollment goes into the Pending Section
+ * Queue and the Registrar assigns a section later via the section assignment
+ * workflow. entrance_exam_grade/entrance_exam_passed/interview_passed record
+ * STE/SPFL admission evidence used by the auto-sectioning eligibility rules.
  */
 export async function createEnrollment(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, section_id, school_year_id, enrollment_date, program, strand_track_id, remarks, requirements } = req.body;
+    const { student_id, section_id, school_year_id, enrollment_date, program, strand_track_id, remarks, requirements, entrance_exam_grade, entrance_exam_passed, interview_passed } = req.body;
 
     if (!student_id || !school_year_id || !enrollment_date) {
       res.status(400).json({ error: "Missing required fields: student_id, school_year_id, enrollment_date." });
@@ -237,9 +239,23 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
     const enrolled_by = req.user!.userId;
 
     const result = await query<ResultSetHeader>(
-      `INSERT INTO enrollments (student_id, section_id, school_year_id, program, strand_track_id, enrollment_date, enrolled_by, remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [student_id, section_id || null, school_year_id, program || "regular", strand_track_id || null, enrollment_date, enrolled_by, remarks || null]
+      `INSERT INTO enrollments (student_id, section_id, school_year_id, program, strand_track_id, enrollment_date, enrolled_by, remarks, entrance_exam_grade, entrance_exam_passed, interview_passed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        student_id,
+        section_id || null,
+        school_year_id,
+        program || "regular",
+        strand_track_id || null,
+        enrollment_date,
+        enrolled_by,
+        remarks || null,
+        entrance_exam_grade === undefined || entrance_exam_grade === null || entrance_exam_grade === ""
+          ? null
+          : parseFloat(entrance_exam_grade),
+        entrance_exam_passed == null ? null : entrance_exam_passed ? 1 : 0,
+        interview_passed == null ? null : interview_passed ? 1 : 0
+      ]
     );
 
     // Insert requirements checklist if provided

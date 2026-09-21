@@ -66,6 +66,7 @@ interface CohortStudent {
   classifications: string[];
   general_average: number | null;
   subject_finals: Record<string, number>;
+  has_grades: boolean;
   min_subject_grade: number | null;
   min_subject_name: string | null;
   science: number | null;
@@ -310,6 +311,7 @@ async function loadCohort(schoolYearId: number): Promise<CohortStudent[]> {
       ...r,
       general_average: avgMap.get(r.student_id) ?? null,
       subject_finals: finals,
+      has_grades: Object.keys(finals).length > 0,
       min_subject_grade: minGrade,
       min_subject_name: minSubject,
       science: pickGrade(finals, SUBJECT_MATCHERS.science),
@@ -375,32 +377,40 @@ function evalEntranceEligibility(
   const reasons: string[] = [];
   const ga = student.general_average;
 
-  pushReason(reasons, ga !== null, ga === null ? "No general average on record" : "");
-  if (ga !== null) {
-    pushReason(reasons, ga >= PASS_MARK, `GWA ${ga.toFixed(2)} below ${PASS_MARK}`);
-    if (bandMin !== null) {
-      pushReason(reasons, ga >= bandMin, `GWA ${ga.toFixed(2)} below the ${bandMin} program band`);
+  // Lenient path: applicants with no grades on record yet (e.g. incoming Grade 7
+  // entrants) are admitted on exam + interview alone. Academic-standing checks
+  // apply only once grade records exist — otherwise fresh enrollees would always
+  // be pushed to Regular just because teachers haven't keyed grades yet.
+  if (!student.has_grades) {
+    // academic-standing checks skipped
+  } else {
+    pushReason(reasons, ga !== null, ga === null ? "No general average on record" : "");
+    if (ga !== null) {
+      pushReason(reasons, ga >= PASS_MARK, `GWA ${ga.toFixed(2)} below ${PASS_MARK}`);
+      if (bandMin !== null) {
+        pushReason(reasons, ga >= bandMin, `GWA ${ga.toFixed(2)} below the ${bandMin} program band`);
+      }
     }
-  }
 
-  pushReason(
-    reasons,
-    student.min_subject_grade === null,
-    student.min_subject_grade === null ? "No subject grades on record" : ""
-  );
-  if (student.min_subject_grade !== null) {
     pushReason(
       reasons,
-      student.min_subject_grade >= PASS_MARK,
-      `Grade in ${student.min_subject_name} (${student.min_subject_grade}) below ${PASS_MARK}`
+      student.min_subject_grade !== null,
+      student.min_subject_grade === null ? "No subject grades on record" : ""
     );
-  }
+    if (student.min_subject_grade !== null) {
+      pushReason(
+        reasons,
+        student.min_subject_grade >= PASS_MARK,
+        `Grade in ${student.min_subject_name} (${student.min_subject_grade}) below ${PASS_MARK}`
+      );
+    }
 
-  for (const { key, label } of requiredSubjects) {
-    const grade = student[key];
-    pushReason(reasons, grade !== null, `${label} grade not on record`);
-    if (grade !== null) {
-      pushReason(reasons, grade >= PASS_MARK, `${label} grade (${grade}) below ${PASS_MARK}`);
+    for (const { key, label } of requiredSubjects) {
+      const grade = student[key];
+      pushReason(reasons, grade !== null, `${label} grade not on record`);
+      if (grade !== null) {
+        pushReason(reasons, grade >= PASS_MARK, `${label} grade (${grade}) below ${PASS_MARK}`);
+      }
     }
   }
 
@@ -597,24 +607,10 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
       student.program === "ste" || student.program === "spfl";
 
     if (student.current_section_id === null) {
-      // NEW / unassigned student.
-      if (applicantSpecial) {
-        const myType = student.program as "ste" | "spfl";
-        const band = bandFor(myType, student.grade_level);
-        eligibility =
-          myType === "ste"
-            ? evalEntranceEligibility(student, [{ key: "science", label: "Science" }, { key: "math", label: "Mathematics" }], band)
-            : evalEntranceEligibility(student, [{ key: "english", label: "English" }, { key: "filipino", label: "Filipino" }], band);
-        if (eligibility.eligible) {
-          target = myType;
-          reason = `${myType.toUpperCase()} applicant met eligibility requirements`;
-        } else {
-          target = "regular";
-          flagged = true;
-          reason = `${myType.toUpperCase()} eligibility not met — regular section: ${eligibility.reasons.join("; ")}`;
-        }
-      } else if (student.prev_section_id !== null && student.prev_section_type) {
-        // RETURNING student — carry over the previous section where applicable.
+      // RETURNING student — carry over the previous section first (per client
+      // rules), judged by continuing-eligibility when it was STE/SPFL. Only
+      // students with no prior section are treated as new applicants.
+      if (student.prev_section_id !== null && student.prev_section_type) {
         const prevType = student.prev_section_type;
         kind = "carryover";
         if (isSpecialSectionType(prevType)) {
@@ -633,6 +629,22 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
         } else {
           target = "regular";
           reason = `Carried over from ${student.prev_section_name}`;
+        }
+      } else if (applicantSpecial) {
+        // NEW STE/SPFL applicant — entrance eligibility (exam + interview).
+        const myType = student.program as "ste" | "spfl";
+        const band = bandFor(myType, student.grade_level);
+        eligibility =
+          myType === "ste"
+            ? evalEntranceEligibility(student, [{ key: "science", label: "Science" }, { key: "math", label: "Mathematics" }], band)
+            : evalEntranceEligibility(student, [{ key: "english", label: "English" }, { key: "filipino", label: "Filipino" }], band);
+        if (eligibility.eligible) {
+          target = myType;
+          reason = `${myType.toUpperCase()} applicant met eligibility requirements`;
+        } else {
+          target = "regular";
+          flagged = true;
+          reason = `${myType.toUpperCase()} eligibility not met — regular section: ${eligibility.reasons.join("; ")}`;
         }
       } else {
         // NEW enrollee into Regular/Streamline.

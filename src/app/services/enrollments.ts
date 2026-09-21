@@ -39,6 +39,10 @@ export interface CreateEnrollmentPayload {
   program?: string;
   strand_track_id?: number;
   remarks?: string;
+  /** STE/SPFL admission evidence — consumed by the auto-sectioning eligibility engine */
+  entrance_exam_grade?: number | null;
+  entrance_exam_passed?: boolean | null;
+  interview_passed?: boolean | null;
   requirements?: {
     requirement_key: string;
     label: string;

@@ -165,6 +165,156 @@ const REQUIREMENTS_LIST = [
   { key: 'lrn_verification', label: 'LRN Verification Slip' }
 ];
 
+// ── STE/SPFL admission evidence ──────────────────────────────────────────
+// Recorded at enrollment time (entrance exam + interview) and consumed by
+// the registrar's auto-sectioning eligibility engine. Only relevant for
+// STE/SPFL programs; null means "not yet assessed".
+export interface AdmissionState {
+  entrance_exam_passed: boolean | null;
+  entrance_exam_grade: string;
+  interview_passed: boolean | null;
+}
+
+const EMPTY_ADMISSION: AdmissionState = {
+  entrance_exam_passed: null,
+  entrance_exam_grade: '',
+  interview_passed: null
+};
+
+function AdmissionAssessment({
+  program,
+  value,
+  onChange
+}: {
+  program: string;
+  value: AdmissionState;
+  onChange: (next: AdmissionState) => void;
+}) {
+  if (program !== 'ste' && program !== 'spfl') return null;
+
+  return (
+    <div>
+      <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
+        Admission Assessment ({program.toUpperCase()})
+      </label>
+      <p className="text-xs text-gray-400 mb-3">
+        Required for the registrar's auto-sectioning. Leave "Not recorded" if
+        the student has not taken the test / interview yet.
+      </p>
+
+      {/* Entrance exam */}
+      <div className="flex flex-wrap items-center gap-3 mb-3">
+        <span className="text-xs font-medium text-gray-600 w-28">
+          Entrance Exam
+        </span>
+        <div className="flex items-center gap-2">
+          {['Passed', 'Failed'].map(opt => {
+            const active =
+              value.entrance_exam_passed === (opt === 'Passed');
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() =>
+                  onChange({
+                    ...value,
+                    entrance_exam_passed:
+                      value.entrance_exam_passed === (opt === 'Passed')
+                        ? null
+                        : opt === 'Passed'
+                      })
+                }
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
+                  active
+                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 bg-gray-50/50 text-gray-500 hover:border-gray-300'
+                }`}>
+                {opt}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() =>
+              onChange({ ...value, entrance_exam_passed: null })
+            }
+            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
+              value.entrance_exam_passed === null
+                ? 'border-gray-300 bg-white text-gray-600'
+                : 'border-dashed border-gray-200 text-gray-400 hover:border-gray-300'
+            }`}>
+            Not recorded
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step="0.01"
+            placeholder="Score (optional)"
+            value={value.entrance_exam_grade}
+            onChange={e => {
+              const raw = e.target.value;
+              onChange({
+                ...value,
+                entrance_exam_grade: raw === '' ? '' : String(Math.max(0, Math.min(100, parseFloat(raw) || 0)))
+              });
+            }}
+            className="w-32 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400"
+          />
+          <span className="text-[11px] text-gray-400">/ 100</span>
+        </div>
+      </div>
+
+      {/* Interview */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-medium text-gray-600 w-28">
+          Interview
+        </span>
+        <div className="flex items-center gap-2">
+          {['Passed', 'Failed'].map(opt => {
+            const active = value.interview_passed === (opt === 'Passed');
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() =>
+                  onChange({
+                    ...value,
+                    interview_passed:
+                      value.interview_passed === (opt === 'Passed')
+                        ? null
+                        : opt === 'Passed'
+                  })
+                }
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
+                  active
+                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 bg-gray-50/50 text-gray-500 hover:border-gray-300'
+                }`}>
+                {opt}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() =>
+              onChange({ ...value, interview_passed: null })
+            }
+            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
+              value.interview_passed === null
+                ? 'border-gray-300 bg-white text-gray-600'
+                : 'border-dashed border-gray-200 text-gray-400 hover:border-gray-300'
+            }`}>
+            Not recorded
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Requirements that MUST be submitted per student classification. Keys must
 // reference REQUIREMENTS_LIST keys. Classifications without an entry
 // (e.g. Non-Reader, Regular) only need the base list above.
@@ -537,6 +687,7 @@ export function EnrollmentModule() {
     lrn_verification: false
   });
   const [gradeFile, setGradeFile] = useState<File | null>(null);
+  const [admission, setAdmission] = useState<AdmissionState>({ ...EMPTY_ADMISSION });
 
   // Returning student state
   const [retStep, setRetStep] = useState<RetStep>(1);
@@ -878,6 +1029,7 @@ export function EnrollmentModule() {
     setProgram('regular');
     setSelectedStrandTrackId(null);
     setStrandTracks([]);
+    setAdmission({ ...EMPTY_ADMISSION });
     setRequirements({
       psa_birth_cert: false,
       previous_grade_card: false,
@@ -967,6 +1119,11 @@ export function EnrollmentModule() {
         enrollment_date: new Date().toISOString().split('T')[0],
         program: program,
         strand_track_id: selectedStrandTrackId || undefined,
+        entrance_exam_grade: admission.entrance_exam_grade
+          ? parseFloat(admission.entrance_exam_grade)
+          : null,
+        entrance_exam_passed: admission.entrance_exam_passed,
+        interview_passed: admission.interview_passed,
         requirements: REQUIREMENTS_LIST.map(r => ({
           requirement_key: r.key,
           label: r.label,
@@ -1043,7 +1200,12 @@ export function EnrollmentModule() {
         school_year_id: selectedSYId,
         enrollment_date: new Date().toISOString().split('T')[0],
         program: program,
-        strand_track_id: selectedStrandTrackId || undefined
+        strand_track_id: selectedStrandTrackId || undefined,
+        entrance_exam_grade: admission.entrance_exam_grade
+          ? parseFloat(admission.entrance_exam_grade)
+          : null,
+        entrance_exam_passed: admission.entrance_exam_passed,
+        interview_passed: admission.interview_passed
       });
       setEnrolledSectionName('Pending Section');
       setEnrolledRet(true);
@@ -2090,6 +2252,13 @@ export function EnrollmentModule() {
                 </div>
               </div>
 
+              {/* Admission assessment for STE/SPFL applicants */}
+              <AdmissionAssessment
+                program={program}
+                value={admission}
+                onChange={setAdmission}
+              />
+
               {/* Strand/Track selector — shown when tracks are available for the selected grade */}
               {strandTracks.length > 0 && (
                 <div>
@@ -3025,6 +3194,13 @@ export function EnrollmentModule() {
                   })}
                 </div>
               </div>
+
+              {/* Admission assessment for STE/SPFL applicants */}
+              <AdmissionAssessment
+                program={program}
+                value={admission}
+                onChange={setAdmission}
+              />
 
               {/* Strand/Track selector for returning student */}
               {strandTracks.length > 0 && (
