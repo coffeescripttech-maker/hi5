@@ -219,7 +219,7 @@ export function SF1Register() {
           : years[0]
             ? years[0].id
             : null;
-        setSyId(targetSy);
+        setSyId(targetSy ?? 1);
         setHeader(prev => ({
           ...prev,
           schoolId: settings.school_id || prev.schoolId,
@@ -387,19 +387,19 @@ export function SF1Register() {
       return next;
     });
   };
-  const sanitizeGradeInput = (value: string): number | '' => {
+  const sanitizeGradeInput = (value: string): string => {
     if (value === '') {
       return '';
     }
     const parsed = parseFloat(value);
     if (isNaN(parsed)) {
-      return 0;
+      return '0';
     }
     // Truncate to 2 decimal places
     const truncated = Math.floor(parsed * 100) / 100;
     // Clamp to 0-100 range
     const clamped = Math.min(100, Math.max(0, truncated));
-    return clamped;
+    return clamped.toString();
   };
   const setH = (key: keyof typeof header, val: string) =>
     setHeader(prev => ({ ...prev, [key]: val }));

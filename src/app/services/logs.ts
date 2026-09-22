@@ -13,7 +13,7 @@ export interface ActivityLogRow {
   created_at: string;
 }
 
-export interface LogsQuery {
+export type LogsQuery = {
   page?: number;
   limit?: number;
   user_id?: number;
@@ -22,7 +22,7 @@ export interface LogsQuery {
   search?: string;
   sort_by?: "created_at" | "user_name" | "entity_type" | "action";
   order?: "asc" | "desc";
-}
+};
 
 export interface ActivityLogPage {
   data: ActivityLogRow[];

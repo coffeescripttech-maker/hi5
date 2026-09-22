@@ -353,7 +353,7 @@ export function SF9Report() {
           const currentYear = years.find((y: any) => y.is_current === 1);
           targetSyId = currentYear ? currentYear.id : null;
         }
-        setSyId(targetSyId);
+        setSyId(targetSyId ?? 1);
 
         // Check for pre-selected student from query params
         if (preselectedStudentId) {
@@ -1278,99 +1278,19 @@ export function SF9Report() {
                           </td>
                           <td
                             className="border border-black px-1 py-0.5 text-center">
-                            <input
-                              inputMode="numeric"
-                              value={row.q1 !== null ? String(row.q1) : ''}
-                              onChange={e =>
-                                setSubjectRow((rowIdx) => {
-                                  const newRows = [...subjectRows];
-                                  if (e.target.value === '') {
-                                    newRows[rowIdx].q1 = '';
-                                  } else {
-                                    const num = Number(e.target.value);
-                                    newRows[rowIdx].q1 =
-                                      row.q1 !== null
-                                        ? Math.min(100, Math.max(0,
-                                          Math.floor(num * 100) / 100))
-                                        : '';
-                                  }
-                                  return newRows;
-                                })
-                              }
-                              className="sf1-input h-5 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50"
-                            />
+                            {row.q1 !== null ? row.q1.toFixed(2) : '—'}
                           </td>
                           <td
                             className="border border-black px-1 py-0.5 text-center">
-                            <input
-                              inputMode="numeric"
-                              value={row.q2 !== null ? String(row.q2) : ''}
-                              onChange={e =>
-                                setSubjectRow((rowIdx) => {
-                                  const newRows = [...subjectRows];
-                                  if (e.target.value === '') {
-                                    newRows[rowIdx].q2 = '';
-                                  } else {
-                                    const num = Number(e.target.value);
-                                    newRows[rowIdx].q2 =
-                                      row.q2 !== null
-                                        ? Math.min(100, Math.max(0,
-                                          Math.floor(num * 100) / 100))
-                                        : '';
-                                  }
-                                  return newRows;
-                                })
-                              }
-                              className="sf1-input h-5 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50"
-                            />
+                            {row.q2 !== null ? row.q2.toFixed(2) : '—'}
                           </td>
                           <td
                             className="border border-black px-1 py-0.5 text-center">
-                            <input
-                              inputMode="numeric"
-                              value={row.q3 !== null ? String(row.q3) : ''}
-                              onChange={e =>
-                                setSubjectRow((rowIdx) => {
-                                  const newRows = [...subjectRows];
-                                  if (e.target.value === '') {
-                                    newRows[rowIdx].q3 = '';
-                                  } else {
-                                    const num = Number(e.target.value);
-                                    newRows[rowIdx].q3 =
-                                      row.q3 !== null
-                                        ? Math.min(100, Math.max(0,
-                                          Math.floor(num * 100) / 100))
-                                        : '';
-                                  }
-                                  return newRows;
-                                })
-                              }
-                              className="sf1-input h-5 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50"
-                            />
+                            {row.q3 !== null ? row.q3.toFixed(2) : '—'}
                           </td>
                           <td
                             className="border border-black px-1 py-0.5 text-center">
-                            <input
-                              inputMode="numeric"
-                              value={row.q4 !== null ? String(row.q4) : ''}
-                              onChange={e =>
-                                setSubjectRow((rowIdx) => {
-                                  const newRows = [...subjectRows];
-                                  if (e.target.value === '') {
-                                    newRows[rowIdx].q4 = '';
-                                  } else {
-                                    const num = Number(e.target.value);
-                                    newRows[rowIdx].q4 =
-                                      row.q4 !== null
-                                        ? Math.min(100, Math.max(0,
-                                          Math.floor(num * 100) / 100))
-                                        : '';
-                                  }
-                                  return newRows;
-                                })
-                              }
-                              className="sf1-input h-5 w-full bg-transparent text-center text-[9px] outline-none focus:bg-amber-50"
-                            />
+                            {row.q4 !== null ? row.q4.toFixed(2) : '—'}
                           </td>
                           <td
                             className={`border border-black px-1 py-0.5 text-center font-bold ${row.final !== null && row.final >= 75 ? '' : 'text-red-700'}`}>

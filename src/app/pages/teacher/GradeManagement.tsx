@@ -181,7 +181,7 @@ export function GradeManagement() {
       setStudents(studs);
       setSubjects(subs);
       setAssignedSubjectIds(new Set(assigned.map(s => s.id)));
-      setSchoolYearId(sy);
+      setSchoolYearId(sy ?? 1);
       // If opened from a student profile (?student_id=...), pre-select that student
       const params = new URLSearchParams(window.location.search);
       const preselectedId = params.get("student_id");
