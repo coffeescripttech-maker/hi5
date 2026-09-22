@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { query } from "../config/database";
+import { query, getConnection } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -211,21 +211,44 @@ export async function updateSubject(req: Request, res: Response): Promise<void> 
  * DELETE /api/subjects/:id — Delete subject
  */
 export async function deleteSubject(req: Request, res: Response): Promise<void> {
+  const id = req.params.id as string;
+  let conn;
   try {
-    const id = req.params.id as string;
     const existing = await query<RowDataPacket[]>("SELECT id, name FROM subjects WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "Subject not found." });
       return;
     }
 
-    await query<ResultSetHeader>("DELETE FROM subjects WHERE id = ?", [id]);
+    conn = await getConnection();
+    await conn.beginTransaction();
+
+    // Teacher assignments must never block deletion — they are removed first.
+    await conn.execute("DELETE FROM teacher_subject_assignments WHERE subject_id = ?", [id]);
+
+    try {
+      await conn.execute("DELETE FROM subjects WHERE id = ?", [id]);
+    } catch (err: any) {
+      await conn.rollback();
+      if (err?.code === "ER_ROW_IS_REFERENCED_2" || err?.code === "ER_ROW_IS_REFERENCED") {
+        res.status(409).json({
+          error: `Subject "${existing[0].name}" cannot be deleted because it is still referenced by historical records (grades, schedules, or documents). Deactivate it instead.`
+        });
+        return;
+      }
+      throw err;
+    }
+
+    await conn.commit();
     await logActivity(req.user!.userId, `Deleted subject "${existing[0].name}"`, "subjects", id);
 
     res.json({ message: "Subject deleted successfully." });
   } catch (error) {
+    if (conn) { try { await conn.rollback(); } catch { /* ignore */ } }
     console.error("Delete subject error:", error);
     res.status(500).json({ error: "Failed to delete subject." });
+  } finally {
+    if (conn) conn.release();
   }
 }
 

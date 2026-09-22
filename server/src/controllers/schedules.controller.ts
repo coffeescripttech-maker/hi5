@@ -59,6 +59,27 @@ function summarise(r: any): ScheduleConflict["existing"] {
 }
 
 /**
+ * Recompute room availability after a schedule change so Room Management
+ * stays in sync with the Scheduling module. Manual statuses (Maintenance /
+ * Inactive) are preserved — only 'Occupied' and 'Available' are touched.
+ */
+async function syncRoomStatus(conn: any, roomIds: Array<number | null | undefined>): Promise<void> {
+  const ids = [...new Set(roomIds.filter((r): r is number => typeof r === "number" && r > 0))];
+  for (const roomId of ids) {
+    const [rows] = await conn.execute(
+      "SELECT COUNT(*) AS cnt FROM schedules WHERE room_id = ?",
+      [roomId]
+    );
+    const count = (rows as RowDataPacket[])[0]?.cnt || 0;
+    if (count > 0) {
+      await conn.execute("UPDATE rooms SET status = 'Occupied' WHERE id = ?", [roomId]);
+    } else {
+      await conn.execute("UPDATE rooms SET status = 'Available' WHERE id = ? AND status = 'Occupied'", [roomId]);
+    }
+  }
+}
+
+/**
  * Overlap detection — returns existing schedules overlapping the proposed
  * (day, start, end) for the same room, teacher, or section within a school year,
  * excluding the optional excludeScheduleId.
@@ -245,6 +266,12 @@ export async function createSchedule(req: Request, res: Response): Promise<void>
     if (subject.length === 0) { res.status(404).json({ error: "Subject not found." }); return; }
     if (schoolYear.length === 0) { res.status(404).json({ error: "School year not found." }); return; }
 
+    // Verify the chosen room exists so the schedule is properly linked to it.
+    if (room_id) {
+      const room = await query<RowDataPacket[]>("SELECT id FROM rooms WHERE id = ?", [room_id]);
+      if (room.length === 0) { res.status(400).json({ error: "Room not found." }); return; }
+    }
+
     const conn = await getConnection();
     try {
       await conn.beginTransaction();
@@ -271,6 +298,9 @@ export async function createSchedule(req: Request, res: Response): Promise<void>
       await logActivity(req.user!.userId,
         `Created schedule: ${subject[0].name} - ${section[0].name} (${DAY_NAMES[day_of_week - 1]} ${start_time.slice(0, 5)})`,
         "schedules", scheduleId);
+
+      // Keep Room Management in sync: the room is now Occupied.
+      await syncRoomStatus(conn, [room_id ?? null]);
 
       await conn.commit();
       const created = await query<ScheduleWithNames[]>(`${SELECT_WITH_NAMES} WHERE sc.id = ?`, [scheduleId]);
@@ -382,6 +412,10 @@ export async function updateSchedule(req: Request, res: Response): Promise<void>
       );
 
             await logActivity(req.user!.userId, `Updated schedule ID ${id}`, "schedules", Number(id));
+
+      // Keep Room Management in sync (old and new rooms, if changed).
+      await syncRoomStatus(conn, [old.room_id, eff.room_id]);
+
       await conn.commit();
 
       const updated = await query<ScheduleWithNames[]>(`${SELECT_WITH_NAMES} WHERE sc.id = ?`, [id]);
@@ -418,7 +452,7 @@ export async function deleteSchedule(req: Request, res: Response): Promise<void>
     const { id } = req.params;
 
     const existing = await query<RowDataPacket[]>(
-      `SELECT sc.id, sub.name AS subject_name, sec.name AS section_name
+      `SELECT sc.id, sc.room_id, sub.name AS subject_name, sec.name AS section_name
        FROM schedules sc
        JOIN subjects sub ON sc.subject_id = sub.id
        JOIN sections sec ON sc.section_id = sec.id
@@ -432,6 +466,14 @@ export async function deleteSchedule(req: Request, res: Response): Promise<void>
     }
 
     await query<ResultSetHeader>("DELETE FROM schedules WHERE id = ?", [id]);
+
+    // Keep Room Management in sync: the room is freed up again.
+    const conn = await getConnection();
+    try {
+      await syncRoomStatus(conn, [existing[0].room_id]);
+    } finally {
+      conn.release();
+    }
 
     await logActivity(req.user!.userId,
       `Deleted schedule: ${existing[0].subject_name} - ${existing[0].section_name}`,

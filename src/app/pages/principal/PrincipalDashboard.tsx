@@ -209,12 +209,13 @@ export function PrincipalDashboard() {
           </div>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={programData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+              <Pie data={programData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                label={(e: any) => `${e.name}: ${e.value}`}>
                 {programData.map((_entry, idx) => (
                   <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(v: any, n: any) => [`${v} students`, n]} />
             </PieChart>
           </ResponsiveContainer>
         </div>

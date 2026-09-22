@@ -137,7 +137,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 export async function updateUser(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const { password, username, name, email, role, phone, address, profile_photo_url, employee_id, designation, date_hired, end_of_contract } = req.body;
+    const { password, username, name, email, role, status, phone, address, profile_photo_url, employee_id, designation, date_hired, end_of_contract } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM users WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -183,6 +183,13 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     }
     if (phone !== undefined) { fields.push("phone = ?"); params.push(phone); }
     if (address !== undefined) { fields.push("address = ?"); params.push(address); }
+    if (status !== undefined) {
+      if (!["active", "idle", "inactive"].includes(status)) {
+        res.status(400).json({ error: "Invalid status. Must be active, idle, or inactive." });
+        return;
+      }
+      fields.push("status = ?"); params.push(status);
+    }
     if (profile_photo_url !== undefined) { fields.push("profile_photo_url = ?"); params.push(profile_photo_url); }
     if (employee_id !== undefined) { fields.push("employee_id = ?"); params.push(employee_id); }
     if (designation !== undefined) { fields.push("designation = ?"); params.push(designation); }

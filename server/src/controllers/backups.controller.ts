@@ -60,7 +60,7 @@ export async function createBackup(req: Request, res: Response): Promise<void> {
       const pass = process.env.DB_PASSWORD || "";
 
       // Use mysqldump via pipe to avoid password prompt
-      const cmd = `"${process.env.MYSQLDUMP_PATH || 'mysqldump'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --routines --triggers --single-transaction ${dbName} > "${filePath}"`;
+      const cmd = `"${process.env.MYSQLDUMP_PATH || 'mysqldump'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --routines --triggers --single-transaction --default-character-set=utf8mb4 ${dbName} > "${filePath}"`;
 
       await execPromise(cmd, { timeout: 60000 });
 
@@ -157,7 +157,7 @@ export async function restoreBackup(req: Request, res: Response): Promise<void> 
     const pass = process.env.DB_PASSWORD || "";
     const dbName = process.env.DB_NAME || "hi5_portal";
 
-    const cmd = `"${process.env.MYSQL_PATH || 'mysql'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} ${dbName} < "${filePath}"`;
+    const cmd = `"${process.env.MYSQL_PATH || 'mysql'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --default-character-set=utf8mb4 ${dbName} < "${filePath}"`;
 
     await execPromise(cmd, { timeout: 300000 }); // 5 min timeout for large restores
 
@@ -167,5 +167,46 @@ export async function restoreBackup(req: Request, res: Response): Promise<void> 
   } catch (error: any) {
     console.error("Restore backup error:", error);
     res.status(500).json({ error: `Restore failed: ${error.message || "Unknown error"}` });
+  }
+}
+
+/**
+ * GET /api/backups/:id/download — Download a successful backup .sql file
+ */
+export async function downloadBackup(req: Request, res: Response): Promise<void> {
+  try {
+    const backupId = parseInt(req.params.id as string);
+    if (isNaN(backupId)) {
+      res.status(400).json({ error: "Invalid backup ID." });
+      return;
+    }
+
+    const backups = await query<RowDataPacket[]>(
+      "SELECT * FROM backups WHERE id = ?",
+      [backupId]
+    );
+    if (backups.length === 0) {
+      res.status(404).json({ error: "Backup not found." });
+      return;
+    }
+
+    const backup = backups[0];
+    if (backup.status !== "success") {
+      res.status(400).json({ error: "Only successful backups can be downloaded." });
+      return;
+    }
+
+    const filePath = path.resolve(backup.file_path as string);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: `Backup file not found at: ${filePath}` });
+      return;
+    }
+
+    const fileName = path.basename(filePath);
+    await logActivity(req.user!.userId, `Downloaded database backup: ${fileName}`, "backups", backupId);
+    res.download(filePath, fileName);
+  } catch (error) {
+    console.error("Download backup error:", error);
+    res.status(500).json({ error: "Failed to download backup." });
   }
 }

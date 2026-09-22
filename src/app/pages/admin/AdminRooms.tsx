@@ -24,9 +24,11 @@ const STATUSES = [
   { value: "Available", label: "Available", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { value: "Maintenance", label: "Maintenance", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { value: "Inactive", label: "Inactive", color: "bg-red-100 text-red-700 border-red-200" },
+  { value: "Occupied", label: "Occupied", color: "bg-blue-100 text-blue-700 border-blue-200" },
 ];
 
-const STATUS_OPTIONS = ["Available", "Maintenance", "Inactive"];
+const MANUAL_STATUSES = STATUSES.filter((s) => s.value !== "Occupied");
+const STATUS_OPTIONS = ["Available", "Maintenance", "Inactive", "Occupied"];
 const emptyForm: CreateRoomPayload = { name: "", building: "", floor: "", capacity: undefined, room_type: "Classroom", status: "Available" };
 
 function statusColor(status: string) {
@@ -266,8 +268,9 @@ export function AdminRooms() {
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Status</label>
                   <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value as CreateRoomPayload["status"] }))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
-                    {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    {MANUAL_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
+                  <p className="text-[11px] text-gray-400 mt-1.5">"Occupied" is set automatically when a class is scheduled in a room.</p>
                 </div>
               </div>
               <div>

@@ -4,6 +4,21 @@ import { RowDataPacket } from "mysql2";
 import ExcelJS from "exceljs";
 
 /**
+ * Convert a 1-based column index to an Excel column letter (A, B, ..., Z, AA, AB, ...).
+ * ExcelJS.utils.getExcelLetter is not exported by the installed exceljs 4.x build,
+ * so we provide our own equivalent here.
+ */
+function excelColumnLetter(col: number): string {
+  let label = "";
+  while (col > 0) {
+    const rem = (col - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    col = Math.floor((col - 1) / 26);
+  }
+  return label;
+}
+
+/**
  * Escape a value for CSV output.
  * Handles commas, quotes, and newlines by wrapping in double quotes and escaping internal quotes.
  */
@@ -321,7 +336,7 @@ async function sendXlsx(res: Response, filename: string, ds: LisDataset): Promis
     views: [{ state: "frozen", ySplit: 4 }],
   });
 
-  const lastCol = (ExcelJS as any).utils.getExcelLetter(ds.columns.length);
+  const lastCol = excelColumnLetter(ds.columns.length);
 
   // Row 1 — merged title (navy fill, white bold text).
   ws.mergeCells(`A1:${lastCol}1`);

@@ -33,7 +33,7 @@ export function AdminProfile() {
     status: "active", lastLogin: null as string | null, createdAt: null as string | null,
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [draft, setDraft] = useState({ name: form.name, email: form.email, phone: form.phone, address: form.address });
+  const [draft, setDraft] = useState({ name: form.name, email: form.email, phone: form.phone, address: form.address, employeeId: "", designation: "", dateHired: "" });
   const [totalUsers, setTotalUsers] = useState(0);
   const [activeUsers, setActiveUsers] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -52,7 +52,7 @@ export function AdminProfile() {
         designation: me.designation || "",
         dateHired: me.date_hired || "",
       }));
-      setDraft({ name: me.name || "", email: me.email || "", phone: me.phone || "", address: me.address || "" });
+      setDraft({ name: me.name || "", email: me.email || "", phone: me.phone || "", address: me.address || "", employeeId: me.employee_id || "", designation: me.designation || "", dateHired: me.date_hired || "" });
       setAccount({
         username: me.username,
         role: me.role,
@@ -78,6 +78,9 @@ export function AdminProfile() {
         email: draft.email,
         phone: draft.phone || undefined,
         address: draft.address || undefined,
+        employee_id: draft.employeeId || undefined,
+        designation: draft.designation || undefined,
+        date_hired: draft.dateHired || undefined,
       });
       setForm(prev => ({ ...prev, ...draft }));
       setEditing(false);
@@ -88,7 +91,7 @@ export function AdminProfile() {
   };
 
   const handleCancel = () => {
-    setDraft({ name: form.name, email: form.email, phone: form.phone, address: form.address });
+    setDraft({ name: form.name, email: form.email, phone: form.phone, address: form.address, employeeId: form.employeeId, designation: form.designation, dateHired: form.dateHired });
     setEditing(false);
   };
 

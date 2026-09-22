@@ -243,6 +243,7 @@ export interface UserProfile {
   employee_id: string | null;
   designation: string | null;
   date_hired: string | null;
+  end_of_contract: string | null;
   last_login: string | null;
   created_at: string | null;
 }
@@ -250,7 +251,7 @@ export interface UserProfile {
 export const authApi = {
   login: (data: LoginPayload) => api.post<LoginResponse>("/auth/login", data),
   me: () => api.get<UserProfile>("/auth/me"),
-  updateMe: (data: { name?: string; email?: string; phone?: string; address?: string; profile_photo_url?: string }) =>
+  updateMe: (data: { name?: string; email?: string; phone?: string; address?: string; profile_photo_url?: string; employee_id?: string; designation?: string; date_hired?: string; end_of_contract?: string }) =>
     api.put<UserProfile>("/auth/me", data),
   changePassword: (data: { current_password: string; new_password: string }) =>
     api.put<{ message: string }>("/auth/change-password", data),

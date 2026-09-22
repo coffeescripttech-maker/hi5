@@ -9,6 +9,7 @@
  * profile dropdown.
  */
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   ChevronRight,
   Menu,
@@ -43,9 +44,10 @@ export function TopBar({
   onCycleSidebar,
   onOpenMobile
 }: TopBarProps) {
-  const { darkMode, toggleDarkMode } = useApp();
+  const { darkMode, toggleDarkMode, role } = useApp();
   const accent = useRoleAccent();
   const [searchOpen, setSearchOpen] = useState(false);
+  const navigate = useNavigate();
 
   const isHidden = sidebarState === 'hidden';
   const isIcons = sidebarState === 'icons';
@@ -94,7 +96,10 @@ export function TopBar({
           <nav
             aria-label="Breadcrumb"
             className="hidden items-center gap-1.5 text-[11px] font-medium text-gray-400 sm:flex dark:text-slate-500">
-            <span className="truncate">Home</span>
+            <button
+              onClick={() => navigate(`/${role}`)}
+              aria-label="Go to dashboard"
+              className="truncate transition-colors hover:text-gray-600 dark:hover:text-slate-300">Home</button>
             <ChevronRight size={11} className="flex-shrink-0" />
             <span className="truncate" style={{ color: accent.chartHex }}>
               {breadcrumbLabel}

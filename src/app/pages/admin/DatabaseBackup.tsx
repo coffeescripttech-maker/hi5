@@ -331,7 +331,7 @@ export function DatabaseBackup() {
                           <div className="flex items-center gap-2">
                             {b.status === "success" && (
                               <>
-                                <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                <button onClick={() => backupsApi.download(b.id)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                                   <Download size={11} /> Download
                                 </button>
                                 <button onClick={() => setConfirmRestore(b.id)}
@@ -379,7 +379,7 @@ export function DatabaseBackup() {
                       </div>
                       {b.status === "success" && (
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1">
+                          <button onClick={() => backupsApi.download(b.id)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1">
                             <Download size={11} /> Download
                           </button>
                           <button onClick={() => setConfirmRestore(b.id)}

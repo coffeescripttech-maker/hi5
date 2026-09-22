@@ -199,7 +199,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
 export async function updateMe(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const { name, email, phone, address, profile_photo_url } = req.body;
+    const { name, email, phone, address, profile_photo_url, employee_id, designation, date_hired, end_of_contract } = req.body;
 
     const fields: string[] = [];
     const params: any[] = [];
@@ -209,6 +209,10 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
     if (phone !== undefined) { fields.push("phone = ?"); params.push(phone); }
     if (address !== undefined) { fields.push("address = ?"); params.push(address); }
     if (profile_photo_url !== undefined) { fields.push("profile_photo_url = ?"); params.push(profile_photo_url); }
+    if (employee_id !== undefined) { fields.push("employee_id = ?"); params.push(employee_id || null); }
+    if (designation !== undefined) { fields.push("designation = ?"); params.push(designation || null); }
+    if (date_hired !== undefined) { fields.push("date_hired = ?"); params.push(date_hired || null); }
+    if (end_of_contract !== undefined) { fields.push("end_of_contract = ?"); params.push(end_of_contract || null); }
 
     if (fields.length === 0) {
       res.status(400).json({ error: "No fields to update." });
@@ -223,7 +227,7 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
 
     const updated = await query<UserRow[]>(
       `SELECT id, username, name, email, role, status, phone, address, profile_photo_url,
-              employee_id, designation, date_hired, last_login, created_at
+              employee_id, designation, date_hired, end_of_contract, last_login, created_at
        FROM users WHERE id = ?`,
       [userId]
     );
@@ -247,6 +251,7 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
       employee_id: u.employee_id,
       designation: u.designation,
       date_hired: u.date_hired,
+      end_of_contract: u.end_of_contract,
       last_login: u.last_login,
       created_at: u.created_at,
     });

@@ -118,6 +118,15 @@ function serializeLegalDoc(doc: LegalContentDoc): string | null {
     : null;
 }
 
+/** Normalize a date value for a <input type="date"> (yyyy-mm-dd), tolerating ISO timestamps. */
+function toDateInput(v: string | null | undefined): string {
+  if (!v) return "";
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(v);
+  if (m) return m[1];
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
 export function SchoolSettings() {
   const { showToast, refreshSchoolInfo } = useApp();
   const [thresholds, setThresholds] = useState<SectionTypeThreshold[]>([]);
@@ -170,8 +179,8 @@ export function SchoolSettings() {
       const current = sys.find(sy => sy.is_current === 1);
       if (current) {
         setSchoolYear(current.sy_label);
-        setEnrollmentOpen(current.enrollment_start_date || "");
-        setEnrollmentClose(current.enrollment_end_date || "");
+        setEnrollmentOpen(toDateInput(current.enrollment_start_date));
+        setEnrollmentClose(toDateInput(current.enrollment_end_date));
         setEnrollmentStatus(current.enrollment_open === 1 ? "open" : "closed");
       }
     }).catch(err => {
@@ -186,6 +195,8 @@ export function SchoolSettings() {
       { value: schoolId.trim(), label: "School ID" },
       { value: region.trim(), label: "Region" },
       { value: division.trim(), label: "Division" },
+      { value: principalName.trim(), label: "Principal Name" },
+      { value: registrarName.trim(), label: "Registrar Name" },
     ];
     const missing = requiredFields.filter(f => !f.value).map(f => f.label);
     if (missing.length > 0) {
@@ -395,14 +406,14 @@ export function SchoolSettings() {
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">School Principal</label>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5" aria-required="true">School Principal <span className="text-red-600">*</span></label>
             <div className="relative">
               <UserCheck size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={principalName} onChange={e => setPrincipalName(e.target.value)} className={inputClass} placeholder="e.g. Dr. Rosario B. Villanueva" />
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Registrar</label>
+            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5" aria-required="true">Registrar <span className="text-red-600">*</span></label>
             <div className="relative">
               <FileText size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={registrarName} onChange={e => setRegistrarName(e.target.value)} className={inputClass} placeholder="e.g. Ms. Carla Reyes" />
@@ -528,12 +539,12 @@ export function SchoolSettings() {
             <div className="flex gap-3 items-center flex-wrap">
               <div className="relative">
                 <CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input type="text" value={schoolYear} onChange={e => setSchoolYear(e.target.value)}
-                  className={`${inputClass} w-44`} placeholder="e.g. 2025-2026 or 2026" />
+                <input type="text" value={schoolYear} readOnly
+                  className={`${inputClass} w-44 bg-gray-50 text-gray-500 cursor-not-allowed`} />
               </div>
               <span className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-200">Currently Active</span>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1.5 ml-1">Accepts a school-year range ("2025-2026") or a single calendar year ("2026").</p>
+            <p className="text-[11px] text-gray-400 mt-1.5 ml-1">The active school year is set automatically when a school year is activated and cannot be changed here.</p>
           </div>
 
           <div className="border-t border-gray-100 pt-5">

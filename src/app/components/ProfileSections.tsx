@@ -333,6 +333,9 @@ const DEFAULT_INFO_FIELDS: InfoField[] = [
   { label: "Email Address", key: "email", icon: Mail },
   { label: "Phone Number", key: "phone", icon: Phone },
   { label: "Address", key: "address", icon: MapPin, full: true },
+  { label: "Employee ID", key: "employeeId", icon: BadgeCheck },
+  { label: "Designation", key: "designation", icon: Briefcase },
+  { label: "Date Hired", key: "dateHired", icon: Calendar },
 ];
 
 export function EditableInfoCard({

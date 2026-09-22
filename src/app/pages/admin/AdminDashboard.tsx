@@ -121,7 +121,7 @@ export function AdminDashboard() {
     {
       label: 'Total Enrolled',
       value: totalStudents.toString(),
-      sub: `Across all grade levels`,
+      sub: 'Across all grades in the current school year',
       icon: Users,
       tile: 'from-blue-400 to-blue-600',
       tileShadow: 'shadow-blue-200/60',
@@ -138,12 +138,13 @@ export function AdminDashboard() {
       tileShadow: 'shadow-violet-200/60',
       bar: 'from-violet-400 via-violet-500 to-violet-400',
       valueCls: 'text-violet-600',
+      dot: 'bg-emerald-500',
       change: 'Active'
     },
     {
       label: 'Active Teachers',
       value: totalTeachers.toString(),
-      sub: 'Fetched from users',
+      sub: 'Teachers with active accounts',
       icon: BookOpen,
       tile: 'from-emerald-400 to-emerald-600',
       tileShadow: 'shadow-emerald-200/60',
@@ -154,7 +155,7 @@ export function AdminDashboard() {
     {
       label: 'System Users',
       value: totalUsers.toString(),
-      sub: 'All roles',
+      sub: 'All roles registered',
       icon: UserCheck,
       tile: 'from-amber-400 to-amber-600',
       tileShadow: 'shadow-amber-200/60',
@@ -213,7 +214,7 @@ export function AdminDashboard() {
               <p className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${card.valueCls}`}>{card.value}</p>
               <p className="relative text-xs text-gray-400 mt-2 truncate">{card.sub}</p>
               <div className="relative flex items-center gap-1.5 mt-2.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${card.valueCls}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${card.dot ?? card.valueCls}`} />
                 <span className="text-[11px] font-semibold text-gray-400">{card.change}</span>
               </div>
             </div>

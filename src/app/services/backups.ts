@@ -19,4 +19,10 @@ export const backupsApi = {
   list: () => api.get<BackupRow[]>("/backups"),
   create: () => api.post<BackupRow>("/backups"),
   restore: (id: number) => api.post<{ message: string; backup_id: number }>(`/backups/${id}/restore`),
+  download: (id: number) => {
+    // Direct download via window.open (browser download; token passed as query).
+    const token = localStorage.getItem("hi5_portal_token");
+    const base = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+    window.open(`${base}/backups/${id}/download?token=${token}`, "_blank");
+  },
 };

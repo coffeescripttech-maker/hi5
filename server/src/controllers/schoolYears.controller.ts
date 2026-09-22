@@ -12,7 +12,7 @@ export async function listSchoolYears(
 ): Promise<void> {
   try {
     const years = await query<RowDataPacket[]>(
-      'SELECT * FROM school_years ORDER BY sy_label DESC'
+      'SELECT * FROM school_years ORDER BY CAST(SUBSTRING_INDEX(sy_label, "-", 1) AS UNSIGNED) DESC, CAST(SUBSTRING_INDEX(sy_label, "-", -1) AS UNSIGNED) DESC'
     );
     res.json(years);
   } catch (error) {
