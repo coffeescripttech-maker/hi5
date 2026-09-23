@@ -23,6 +23,7 @@ Both builds pass: `npx tsc --noEmit` (server) and `npm run build` (root).
 | 10 | AdminDashboard — stat card wording + green dot on Total Sections | `src/app/pages/admin/AdminDashboard.tsx` |
 | 11 | PrincipalDashboard — pie shows `Name: value` + tooltip `X students` | `src/app/pages/principal/PrincipalDashboard.tsx` |
 | 12 | AdminRooms — `Occupied` status displayed & filterable (not selectable in form) | `src/app/pages/admin/AdminRooms.tsx` |
+| 13 | Backup resilience — `mysqldump` CLI can't auth to Railway MySQL (`caching_sha2_password`); falls back to a logical dump via the app's mysql2 connection; restore does the same. Manual AND scheduled backups now work | `server/src/utils/dbBackup.ts`, `backups.controller.ts`, `backupCron.ts` |
 
 ### Pending — live testing
 

@@ -16,6 +16,7 @@ import { exec } from "child_process";
 import path from "path";
 import fs from "fs";
 import util from "util";
+import { createLogicalBackupFile } from "../utils/dbBackup";
 
 const execPromise = util.promisify(exec);
 const BACKUP_DIR = path.resolve(__dirname, process.env.BACKUP_DIR || "../../backups");
@@ -106,9 +107,18 @@ async function performBackup(): Promise<void> {
     const user = process.env.DB_USER || "root";
     const pass = process.env.DB_PASSWORD || "";
 
-    const cmd = `"${process.env.MYSQLDUMP_PATH || 'mysqldump'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --routines --triggers --single-transaction ${dbName} > "${filePath}"`;
+    const cmd = `"${process.env.MYSQLDUMP_PATH || 'mysqldump'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --routines --triggers --single-transaction --default-character-set=utf8mb4 ${dbName} > "${filePath}"`;
 
-    await execPromise(cmd, { timeout: 60000 });
+    try {
+      await execPromise(cmd, { timeout: 60000 });
+    } catch (cliErr: any) {
+      // Managed MySQL (Railway) uses caching_sha2_password, which the local
+      // mysqldump client cannot load. Fall back to a logical dump through the
+      // app's own mysql2 connection.
+      console.warn("[BackupCron] mysqldump unavailable; falling back to logical dump:", cliErr.message);
+      if (fs.existsSync(filePath)) fs.rmSync(filePath);
+      await createLogicalBackupFile(filePath, dbName);
+    }
 
     const stats = fs.statSync(filePath);
 

@@ -7,6 +7,8 @@ import { exec } from "child_process";
 import path from "path";
 import fs from "fs";
 import util from "util";
+import mysql from "mysql2/promise";
+import { createLogicalBackupFile } from "../utils/dbBackup";
 
 const execPromise = util.promisify(exec);
 const BACKUP_DIR = path.resolve(__dirname, process.env.BACKUP_DIR || "../../backups");
@@ -62,7 +64,16 @@ export async function createBackup(req: Request, res: Response): Promise<void> {
       // Use mysqldump via pipe to avoid password prompt
       const cmd = `"${process.env.MYSQLDUMP_PATH || 'mysqldump'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --routines --triggers --single-transaction --default-character-set=utf8mb4 ${dbName} > "${filePath}"`;
 
-      await execPromise(cmd, { timeout: 60000 });
+      try {
+        await execPromise(cmd, { timeout: 60000 });
+      } catch (cliErr: any) {
+        // Managed MySQL (Railway) uses caching_sha2_password, which the local
+        // XAMPP/MariaDB mysqldump cannot authenticate with. Fall back to a
+        // logical dump through the app's own mysql2 connection.
+        console.warn("mysqldump unavailable; falling back to logical dump:", cliErr.message);
+        if (fs.existsSync(filePath)) fs.rmSync(filePath);
+        await createLogicalBackupFile(filePath, dbName);
+      }
 
       // Get file stats
       const stats = fs.statSync(filePath);
@@ -156,6 +167,33 @@ export async function restoreBackup(req: Request, res: Response): Promise<void> 
     const user = process.env.DB_USER || "root";
     const pass = process.env.DB_PASSWORD || "";
     const dbName = process.env.DB_NAME || "hi5_portal";
+
+    const raw = fs.readFileSync(filePath, "utf8");
+
+    // Logical dumps (our fallback backups) are plain multi-statement SQL and
+    // restore fine through the driver — which also handles the
+    // caching_sha2_password auth that the local mysql CLI cannot.
+    if (!/DELIMITER/i.test(raw)) {
+      const conn = await mysql.createConnection({
+        host,
+        port: parseInt(port, 10),
+        user,
+        password: pass,
+        database: dbName,
+        multipleStatements: true,
+        ssl: process.env.DB_SSL === "require" ? { rejectUnauthorized: false } : undefined,
+        connectTimeout: 10_000,
+      });
+      try {
+        await conn.query(raw);
+      } finally {
+        await conn.end();
+      }
+
+      await logActivity(req.user!.userId, `Database restored from backup #${backupId}`, "backups", backupId);
+      res.json({ message: "Database restored successfully.", backup_id: backupId });
+      return;
+    }
 
     const cmd = `"${process.env.MYSQL_PATH || 'mysql'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --default-character-set=utf8mb4 ${dbName} < "${filePath}"`;
 
