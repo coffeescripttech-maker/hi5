@@ -351,16 +351,17 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     }
 
     const user = users[0];
-    const code = crypto.randomInt(100000, 999999).toString();
+    // 256-bit random token — emailed as a one-time reset link (fits VARCHAR(64)).
+    const resetToken = crypto.randomBytes(32).toString("hex");
 
     const isProd = process.env.NODE_ENV === "production";
 
-    // Persist code + expiry (verified by POST /api/auth/reset-password).
+    // Persist token + expiry (verified by POST /api/auth/reset-password).
     await query<ResultSetHeader>(
       `UPDATE users
        SET password_reset_token = ?, password_reset_expires = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
        WHERE id = ?`,
-      [code, user.id]
+      [resetToken, user.id]
     );
 
     await logActivity(
@@ -370,13 +371,17 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
       null
     );
 
-    // Production: the code must be delivered to the user's inbox.
+    // One-time link the user opens to set a new password.
+    const baseUrl = (process.env.APP_URL || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+    const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+
+    // Production: the link must be delivered to the user's inbox.
     if (isMailConfigured()) {
       try {
-        await sendPasswordResetEmail(user.email, code);
+        await sendPasswordResetEmail(user.email, resetLink);
       } catch (err) {
         console.error("[forgot-password] SMTP send failed:", err);
-        // Don't leave a usable-but-undelivered code sitting on the account.
+        // Don't leave a usable-but-undelivered token sitting on the account.
         await query<ResultSetHeader>(
           `UPDATE users
            SET password_reset_token = NULL, password_reset_expires = NULL
@@ -388,17 +393,17 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
         });
         return;
       }
-      // The code goes to the inbox — never in the response, in any
+      // The link goes to the inbox — never in the response, in any
       // mode, so local testing exercises the same flow as production.
       res.json({
         message:
-          "Password reset code sent to your email. Check your inbox (including spam) within 15 minutes.",
+          "Password reset link sent to your email. Check your inbox (including spam) within 15 minutes.",
       });
       return;
     }
 
     if (isProd) {
-      // No email provider configured — never leak the code on a public server.
+      // No email provider configured — never leak the reset link on a public server.
       await query<ResultSetHeader>(
         `UPDATE users
          SET password_reset_token = NULL, password_reset_expires = NULL
@@ -412,11 +417,11 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Development fallback (no SMTP): return the code so the login page can
+    // Development fallback (no SMTP): return the link so the login page can
     // show it for testing.
     res.json({
-      message: "Password reset code generated.",
-      reset_code: code,
+      message: "Password reset link generated.",
+      reset_link: resetLink,
       reset_expires: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     });
   } catch (error) {
@@ -427,14 +432,14 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
 
 /**
  * POST /api/auth/reset-password
- * Body: { email, code, new_password }
+ * Body: { token, new_password }
  */
 export async function resetPassword(req: Request, res: Response): Promise<void> {
   try {
-    const { email, code, new_password } = req.body;
+    const { token, new_password } = req.body;
 
-    if (!email || !code || !new_password) {
-      res.status(400).json({ error: "Email, reset code, and new password are required." });
+    if (!token || !new_password) {
+      res.status(400).json({ error: "Reset token and new password are required." });
       return;
     }
 
@@ -443,15 +448,15 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Validate code + expiry
+    // Validate token + expiry (256-bit token acts as the bearer credential)
     const users = await query<RowDataPacket[]>(
       `SELECT id, name FROM users
-       WHERE email = ? AND password_reset_token = ? AND password_reset_expires > NOW()`,
-      [email, code]
+       WHERE password_reset_token = ? AND password_reset_expires > NOW()`,
+      [token]
     );
 
     if (users.length === 0) {
-      res.status(400).json({ error: "Invalid or expired reset code. Please request a new one." });
+      res.status(400).json({ error: "Invalid or expired reset link. Please request a new one." });
       return;
     }
 
@@ -468,7 +473,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
 
     await logActivity(
       user.id,
-      `Reset password for account "${email}"`,
+      "Reset password via emailed link",
       "auth",
       null
     );

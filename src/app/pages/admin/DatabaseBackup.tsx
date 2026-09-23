@@ -59,30 +59,31 @@ export function DatabaseBackup() {
     setBacking(true);
     setDone(false);
     setProgress(0);
+    // Simulate progress while the API processes
+    const interval = setInterval(() => {
+      setProgress(p => {
+        if (p >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return p + 10;
+      });
+    }, 300);
     try {
-      // Simulate progress while the API processes
-      const interval = setInterval(() => {
-        setProgress(p => {
-          if (p >= 90) {
-            clearInterval(interval);
-            return 90;
-          }
-          return p + 10;
-        });
-      }, 300);
-
       await backupsApi.create();
       clearInterval(interval);
       setProgress(100);
-      setBacking(false);
       setDone(true);
       showToast("success", "Backup completed successfully.");
 
       // Refresh backup list
       backupsApi.list().then(setBackups).catch(() => {});
     } catch (err: any) {
-      setBacking(false);
+      clearInterval(interval);
+      setProgress(0);
       showToast("error", err.detail?.error || err.message || "Backup failed");
+    } finally {
+      setBacking(false);
     }
   };
 
@@ -331,7 +332,7 @@ export function DatabaseBackup() {
                           <div className="flex items-center gap-2">
                             {b.status === "success" && (
                               <>
-                                <button onClick={() => backupsApi.download(b.id)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                <button onClick={() => backupsApi.download(b.id).catch(err => showToast("error", err.message || "Download failed"))} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                                   <Download size={11} /> Download
                                 </button>
                                 <button onClick={() => setConfirmRestore(b.id)}
@@ -379,7 +380,7 @@ export function DatabaseBackup() {
                       </div>
                       {b.status === "success" && (
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button onClick={() => backupsApi.download(b.id)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1">
+                          <button onClick={() => backupsApi.download(b.id).catch(err => showToast("error", err.message || "Download failed"))} className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1">
                             <Download size={11} /> Download
                           </button>
                           <button onClick={() => setConfirmRestore(b.id)}

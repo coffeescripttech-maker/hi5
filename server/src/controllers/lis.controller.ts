@@ -154,15 +154,6 @@ async function fetchGradesExport(req: Request): Promise<LisDataset | null> {
 
   const { clause, params } = buildFilters(req, sy.id);
 
-  // Get all subjects for the queried grade levels
-  const subjects = await query<RowDataPacket[]>(
-    `SELECT DISTINCT sub.id, sub.name
-     FROM subjects sub
-     WHERE sub.is_active = 1
-     ORDER BY sub.name`
-  );
-
-  // Get students with their grades
   const gradeData = await query<RowDataPacket[]>(
     `SELECT s.id, s.lrn, s.name, s.grade_level,
             sec.name AS section_name,
@@ -176,9 +167,50 @@ async function fetchGradesExport(req: Request): Promise<LisDataset | null> {
     params
   );
 
+  // Restrict the subject list to the grade level(s) actually present in the
+  // filtered roster — the subjects table keeps one entry per (name, grade_level),
+  // so without this the summary pivots every grade level's subjects (up to 6×).
+  const levels = [...new Set((gradeData as any[]).map(r => r.grade_level).filter((g: any) => g != null))] as number[];
+  const subjects = levels.length > 0
+    ? await query<RowDataPacket[]>(
+        `SELECT DISTINCT sub.id, sub.name
+         FROM subjects sub
+         WHERE sub.is_active = 1 AND sub.grade_level IN (${levels.map(() => "?").join(",")})
+         ORDER BY sub.name`,
+        levels
+      )
+    : [];
+
   // Pivot data: student_id → { subject_id → { quarter → grade } }
   const subjectMap = new Map<number, { id: number; name: string }>();
   subjects.forEach((sub: any) => subjectMap.set(sub.id, { id: sub.id, name: sub.name }));
+
+  // Subjects that actually received grades in scope this school year. If any
+  // grades exist, prefer exactly those subjects — otherwise the summary repays
+  // the same learner list across pages of leading-empty columns. When grades
+  // reference subjects whose ids sit outside the students' grade levels (legacy
+  // seed data), keep those too so real grades are never hidden.
+  const usedSubjectIds = new Set<number>();
+  (gradeData as any[]).forEach((row) => {
+    if (row.subject_id && row.grade !== null && row.grade !== undefined) usedSubjectIds.add(row.subject_id);
+  });
+  if (usedSubjectIds.size > 0) {
+    const keptInScope = [...subjectMap.keys()].filter((id) => usedSubjectIds.has(id));
+    if (keptInScope.length > 0) {
+      for (const id of [...subjectMap.keys()]) {
+        if (!usedSubjectIds.has(id)) subjectMap.delete(id);
+      }
+    } else {
+      const extra = await query<RowDataPacket[]>(
+        `SELECT DISTINCT sub.id, sub.name FROM subjects sub
+         WHERE sub.is_active = 1 AND sub.id IN (${[...usedSubjectIds].map(() => "?").join(",")})
+         ORDER BY sub.name`,
+        [...usedSubjectIds]
+      );
+      subjectMap.clear();
+      (extra as any[]).forEach((sub: any) => subjectMap.set(sub.id, { id: sub.id, name: sub.name }));
+    }
+  }
 
   const studentGrades = new Map<number, Map<number, any>>();
   const studentInfo = new Map<number, any>();

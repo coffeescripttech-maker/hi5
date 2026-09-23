@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { BookOpen, Plus, Trash2, CheckCircle, X, AlertTriangle, Edit2, Filter, Clock, Layers, Sparkles, GraduationCap, FlaskConical, Globe, Users } from "lucide-react";
+import { BookOpen, Plus, Trash2, CheckCircle, X, AlertTriangle, Edit2, Filter, Clock, Layers, Sparkles, GraduationCap, FlaskConical, Globe, Users, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { subjectsApi, SubjectRow, CreateSubjectPayload, UpdateSubjectPayload, BulkSubjectItem, TeacherAssignmentRow } from "../../services/subjects";
 import { usersApi, UserRow } from "../../services/users";
@@ -141,6 +141,9 @@ export function SubjectManagement() {
   const [teachers, setTeachers] = useState<UserRow[]>([]);
   const [assignSubject, setAssignSubject] = useState<SubjectRow | null>(null);
   const [togglingTeacherId, setTogglingTeacherId] = useState<number | null>(null);
+  const [expandSubjectId, setExpandSubjectId] = useState<number | null>(null);
+
+  const rowAssignments = (subjectId: number) => assignments.filter(a => a.subject_id === subjectId);
 
   const fetchAssignments = () => {
     subjectsApi.teacherAssignments()
@@ -290,6 +293,8 @@ export function SubjectManagement() {
     try {
       await subjectsApi.delete(id);
       setSubjects(prev => prev.filter(s => s.id !== id));
+      setAssignments(prev => prev.filter(a => a.subject_id !== id));
+      setExpandSubjectId(prev => (prev === id ? null : prev));
       setDeleteId(null);
       showToast("success", "Subject deleted.");
     } catch (err: any) {
@@ -423,7 +428,7 @@ export function SubjectManagement() {
                             {[
                               { label: "Subject Name", key: "name" },
                               { label: "Type", key: "type" },
-                              { label: "Assigned Teachers", key: "teachers" },
+                              { label: "Assigned Teacher", key: "teachers" },
                               { label: "Hrs/Week", key: "hours" },
                               { label: "Actions", key: "actions" },
                             ].map(col => (
@@ -446,24 +451,46 @@ export function SubjectManagement() {
                               </td>
                               <td className="px-5 py-3.5 text-center text-sm text-gray-600 whitespace-nowrap">{formatHoursPerWeek(s.hours_per_week)}</td>
                               <td className="px-5 py-3.5">
-                                {assignments.filter(a => a.subject_id === s.id).length === 0 ? (
-                                  <button onClick={() => openAssign(s)}
-                                    className="text-[11px] font-semibold text-gray-400 hover:text-blue-600 transition flex items-center gap-1.5">
-                                    <Users size={12} /> Assign teacher
-                                  </button>
-                                ) : (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {assignments.filter(a => a.subject_id === s.id).map(a => (
-                                      <span key={a.teacher_id} className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg">
-                                        {a.teacher_name}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+                                {(() => {
+                                  const rowAssigned = rowAssignments(s.id);
+                                  return (
+                                    <div>
+                                      <button
+                                        onClick={() => setExpandSubjectId(prev => (prev === s.id ? null : s.id))}
+                                        aria-expanded={expandSubjectId === s.id}
+                                        title="Show the currently assigned teacher"
+                                        className="group inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 px-2 py-1 rounded-lg transition-all">
+                                        <Users size={12} className="text-gray-400 group-hover:text-indigo-500" />
+                                        Assigned Teacher
+                                        {rowAssigned.length > 0 && (
+                                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1 rounded-md flex-shrink-0">
+                                            {rowAssigned.length}
+                                          </span>
+                                        )}
+                                        <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${expandSubjectId === s.id ? "rotate-180" : ""}`} />
+                                      </button>
+                                      {expandSubjectId === s.id && (
+                                        <div className="mt-2">
+                                          {rowAssigned.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {rowAssigned.map(a => (
+                                                <span key={a.teacher_id} className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg">
+                                                  {a.teacher_name}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <span className="text-[11px] text-gray-400 italic">No teacher assigned yet</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="px-5 py-3.5 text-center">
                                 <div className="flex items-center justify-center gap-1">
-                                  <button onClick={() => openAssign(s)} title="Assign Teachers"
+                                  <button onClick={() => openAssign(s)} title="Assign Teacher"
                                     className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
                                     <Users size={14} />
                                   </button>
@@ -498,12 +525,43 @@ export function SubjectManagement() {
                                   <Clock size={11} /> {formatHoursPerWeek(s.hours_per_week)}
                                 </span>
                               </div>
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {assignments.filter(a => a.subject_id === s.id).map(a => (
-                                  <span key={a.teacher_id} className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg">
-                                    {a.teacher_name}
-                                  </span>
-                                ))}
+                              <div className="mt-2">
+                                {(() => {
+                                  const rowAssigned = rowAssignments(s.id);
+                                  return (
+                                    <div>
+                                      <button
+                                        onClick={() => setExpandSubjectId(prev => (prev === s.id ? null : s.id))}
+                                        aria-expanded={expandSubjectId === s.id}
+                                        title="Show the currently assigned teacher"
+                                        className="group inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 px-2 py-1 rounded-lg transition-all touch-target">
+                                        <Users size={12} className="text-gray-400 group-hover:text-indigo-500" />
+                                        Assigned Teacher
+                                        {rowAssigned.length > 0 && (
+                                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1 rounded-md flex-shrink-0">
+                                            {rowAssigned.length}
+                                          </span>
+                                        )}
+                                        <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${expandSubjectId === s.id ? "rotate-180" : ""}`} />
+                                      </button>
+                                      {expandSubjectId === s.id && (
+                                        <div className="mt-1.5">
+                                          {rowAssigned.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {rowAssigned.map(a => (
+                                                <span key={a.teacher_id} className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg">
+                                                  {a.teacher_name}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <span className="text-[11px] text-gray-400 italic">No teacher assigned yet</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">

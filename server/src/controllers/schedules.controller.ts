@@ -72,7 +72,12 @@ async function syncRoomStatus(conn: any, roomIds: Array<number | null | undefine
     );
     const count = (rows as RowDataPacket[])[0]?.cnt || 0;
     if (count > 0) {
-      await conn.execute("UPDATE rooms SET status = 'Occupied' WHERE id = ?", [roomId]);
+      // Only promote from 'Available' — a manually set 'Maintenance' or
+      // 'Inactive' status is left alone.
+      await conn.execute(
+        "UPDATE rooms SET status = 'Occupied' WHERE id = ? AND status = 'Available'",
+        [roomId]
+      );
     } else {
       await conn.execute("UPDATE rooms SET status = 'Available' WHERE id = ? AND status = 'Occupied'", [roomId]);
     }
@@ -81,9 +86,12 @@ async function syncRoomStatus(conn: any, roomIds: Array<number | null | undefine
 
 /**
  * Overlap detection — returns existing schedules overlapping the proposed
- * (day, start, end) for the same room, teacher, or section within a school year,
- * excluding the optional excludeScheduleId.
+ * (day, start, end) for the same room, teacher, OR section within a school
+ * year, excluding the optional excludeScheduleId.
  * Overlap condition: A.start < B.end AND A.end > B.start (same day + same SY).
+ * The shared-dimension filter is an OR (not AND): a teacher double-booking
+ * across two rooms must still be caught, and a room double-booking across
+ * two teachers must still be caught.
  */
 export async function findConflicts(
   conn: any,
@@ -106,12 +114,16 @@ export async function findConflicts(
     "sc.school_year_id = ?", "sc.day_of_week = ?",
     "sc.start_time < ?", "sc.end_time > ?",
   ];
-  if (room_id) { ands.push("sc.room_id = ?"); params.push(room_id); }
-  if (teacher_id) { ands.push("sc.teacher_id = ?"); params.push(teacher_id); }
-  if (section_id) { ands.push("sc.section_id = ?"); params.push(section_id); }
+  // Match on ANY shared dimension — otherwise a teacher already booked in a
+  // different room (or the room booked by another teacher) slips through.
+  const ors: string[] = [];
+  if (room_id) { ors.push("sc.room_id = ?"); params.push(room_id); }
+  if (teacher_id) { ors.push("sc.teacher_id = ?"); params.push(teacher_id); }
+  if (section_id) { ors.push("sc.section_id = ?"); params.push(section_id); }
+  if (ors.length === 0) return [];
   if (excludeScheduleId) { ands.push("sc.id <> ?"); params.push(excludeScheduleId); }
 
-  const sql = `${SELECT_WITH_NAMES} WHERE ${ands.join(" AND ")} ORDER BY sc.start_time ASC`;
+  const sql = `${SELECT_WITH_NAMES} WHERE ${ands.join(" AND ")} AND (${ors.join(" OR ")}) ORDER BY sc.start_time ASC`;
   const [rows] = (await conn.execute(sql, params)) as [RowDataPacket[], unknown];
   const conflicts: ScheduleConflict[] = [];
   for (const r of rows) {

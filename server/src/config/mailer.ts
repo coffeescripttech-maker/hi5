@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 
 /**
- * Gmail SMTP transport for transactional email (password reset codes).
+ * Gmail SMTP transport for transactional email (password reset links).
  *
  * Requires a Gmail account with 2-Step Verification enabled and an App
  * Password (Google Account -> Security -> App passwords). NEVER use the raw
@@ -64,12 +64,12 @@ function getTransport(): Transporter {
 }
 
 /**
- * Email a 6-digit password-reset code. Throws with a descriptive error if
+ * Email a one-time password-reset link. Throws with a descriptive error if
  * the SMTP server rejects the message (caller decides how to respond).
  */
 export async function sendPasswordResetEmail(
   to: string,
-  code: string,
+  resetLink: string,
   expiresMinutes = 15
 ): Promise<void> {
   const transporter = getTransport();
@@ -77,12 +77,13 @@ export async function sendPasswordResetEmail(
   await transporter.sendMail({
     from: `"${cfg.fromName}" <${cfg.user}>`,
     to,
-    subject: "Your HI5 Portal password reset code",
+    subject: "Reset your HI5 Portal password",
     text: [
       "You requested a password reset for your HI5 Portal account.",
       "",
-      `Your reset code is: ${code}`,
-      `It expires in ${expiresMinutes} minutes.`,
+      `Open this link to choose a new password: ${resetLink}`,
+      "",
+      `The link expires in ${expiresMinutes} minutes.`,
       "",
       "If you did not request this, you can safely ignore this email.",
       "- HI5 Portal",
@@ -99,12 +100,17 @@ export async function sendPasswordResetEmail(
         <p style="margin:0 0 12px;color:#374151;font-size:14px;line-height:1.5;">
           You requested a password reset for your account.
         </p>
-        <div style="text-align:center;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px;margin:12px 0;">
-          <div style="color:#065f46;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Your reset code</div>
-          <div style="font-family:monospace;font-size:28px;font-weight:bold;letter-spacing:8px;color:#047857;">${code}</div>
+        <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.5;">
+          Click the button below to choose a new password:
+        </p>
+        <div style="text-align:center;margin:12px 0;">
+          <a href="${resetLink}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 24px;border-radius:10px;">Reset your password</a>
         </div>
+        <p style="margin:0 0 12px;color:#6b7280;font-size:12px;line-height:1.5;word-break:break-all;">
+          Or copy this link: ${resetLink}
+        </p>
         <p style="margin:0 0 12px;color:#374151;font-size:14px;line-height:1.5;">
-          Enter this code on the login page. It expires in ${expiresMinutes} minutes.
+          The link expires in ${expiresMinutes} minutes.
         </p>
         <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5;">
           If you did not request this, you can safely ignore this email.

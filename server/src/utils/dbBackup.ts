@@ -9,7 +9,20 @@
  * driver (or the mysql CLI).
  */
 import fs from "fs";
+import path from "path";
 import { getConnection } from "../config/database";
+
+/**
+ * Where backup .sql files are written. Resolves to <project-root>/backups no
+ * matter whether the server runs from src/ (tsx) or dist/ (compiled), and
+ * independent of `__dirname`, so paths stay stable across deployments.
+ */
+export const BACKUP_DIR = path.resolve(process.cwd(), process.env.BACKUP_DIR || "backups");
+
+// Ensure the backup directory exists.
+if (!fs.existsSync(BACKUP_DIR)) {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+}
 
 /** Escape a single value as a MySQL string/number literal for a dump file. */
 function sqlLiteral(value: any): string {
@@ -38,6 +51,10 @@ export async function generateLogicalDump(conn: any, dbName: string): Promise<st
   lines.push("");
   lines.push("/*!40101 SET NAMES utf8mb4 */;");
   lines.push("SET FOREIGN_KEY_CHECKS=0;");
+  // Relax the session sql_mode so a stray value that does not exactly match an
+  // ENUM (e.g. '' in student_classifications) degrades to a warning instead of
+  // aborting the whole restore under strict sql_mode.
+  lines.push("SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='';");
   lines.push(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
   lines.push(`USE \`${dbName}\`;`);
   lines.push("");
@@ -54,6 +71,7 @@ export async function generateLogicalDump(conn: any, dbName: string): Promise<st
     const stmt = create[0]?.["Create Table"];
     if (typeof stmt === "string") {
       tablesToDump.push(t);
+      lines.push(`DROP TABLE IF EXISTS \`${t}\`;`);
       lines.push(stmt + ";");
       lines.push("");
     } else {
@@ -71,6 +89,7 @@ export async function generateLogicalDump(conn: any, dbName: string): Promise<st
   }
 
   lines.push("");
+  lines.push("SET SQL_MODE=@OLD_SQL_MODE;");
   lines.push("SET FOREIGN_KEY_CHECKS=1;");
   return lines.join("\n");
 }

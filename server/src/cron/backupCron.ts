@@ -12,20 +12,11 @@
 
 import pool from "../config/database";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
-import { exec } from "child_process";
 import path from "path";
 import fs from "fs";
-import util from "util";
-import { createLogicalBackupFile } from "../utils/dbBackup";
+import { createLogicalBackupFile, BACKUP_DIR } from "../utils/dbBackup";
 
-const execPromise = util.promisify(exec);
-const BACKUP_DIR = path.resolve(__dirname, process.env.BACKUP_DIR || "../../backups");
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // Check every hour
-
-// Ensure backup directory exists
-if (!fs.existsSync(BACKUP_DIR)) {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
-}
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
@@ -101,24 +92,11 @@ async function performBackup(): Promise<void> {
     const filename = `auto-backup-${dbName}-${timestamp}.sql`;
     const filePath = path.join(BACKUP_DIR, filename);
 
-    // Build mysqldump command
-    const host = process.env.DB_HOST || "localhost";
-    const port = process.env.DB_PORT || "3306";
-    const user = process.env.DB_USER || "root";
-    const pass = process.env.DB_PASSWORD || "";
-
-    const cmd = `"${process.env.MYSQLDUMP_PATH || 'mysqldump'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --routines --triggers --single-transaction --default-character-set=utf8mb4 ${dbName} > "${filePath}"`;
-
-    try {
-      await execPromise(cmd, { timeout: 60000 });
-    } catch (cliErr: any) {
-      // Managed MySQL (Railway) uses caching_sha2_password, which the local
-      // mysqldump client cannot load. Fall back to a logical dump through the
-      // app's own mysql2 connection.
-      console.warn("[BackupCron] mysqldump unavailable; falling back to logical dump:", cliErr.message);
-      if (fs.existsSync(filePath)) fs.rmSync(filePath);
-      await createLogicalBackupFile(filePath, dbName);
-    }
+    // Managed MySQL (Railway) authenticates with caching_sha2_password,
+    // which the local mysqldump client cannot load — always use the logical
+    // dump through the app's own mysql2 connection instead (covers full
+    // schema + data; this app has no views/triggers/routines).
+    await createLogicalBackupFile(filePath, dbName);
 
     const stats = fs.statSync(filePath);
 

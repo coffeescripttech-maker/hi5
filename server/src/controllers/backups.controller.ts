@@ -8,15 +8,9 @@ import path from "path";
 import fs from "fs";
 import util from "util";
 import mysql from "mysql2/promise";
-import { createLogicalBackupFile } from "../utils/dbBackup";
+import { createLogicalBackupFile, BACKUP_DIR } from "../utils/dbBackup";
 
 const execPromise = util.promisify(exec);
-const BACKUP_DIR = path.resolve(__dirname, process.env.BACKUP_DIR || "../../backups");
-
-// Ensure backup directory exists
-if (!fs.existsSync(BACKUP_DIR)) {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
-}
 
 /**
  * GET /api/backups — List backups
@@ -55,25 +49,13 @@ export async function createBackup(req: Request, res: Response): Promise<void> {
     const backupId = result.insertId;
 
     try {
-      // Build mysqldump command
-      const host = process.env.DB_HOST || "localhost";
-      const port = process.env.DB_PORT || "3306";
-      const user = process.env.DB_USER || "root";
-      const pass = process.env.DB_PASSWORD || "";
-
-      // Use mysqldump via pipe to avoid password prompt
-      const cmd = `"${process.env.MYSQLDUMP_PATH || 'mysqldump'}" -h ${host} -P ${port} -u ${user} ${pass ? `-p"${pass}"` : ""} --routines --triggers --single-transaction --default-character-set=utf8mb4 ${dbName} > "${filePath}"`;
-
-      try {
-        await execPromise(cmd, { timeout: 60000 });
-      } catch (cliErr: any) {
-        // Managed MySQL (Railway) uses caching_sha2_password, which the local
-        // XAMPP/MariaDB mysqldump cannot authenticate with. Fall back to a
-        // logical dump through the app's own mysql2 connection.
-        console.warn("mysqldump unavailable; falling back to logical dump:", cliErr.message);
-        if (fs.existsSync(filePath)) fs.rmSync(filePath);
-        await createLogicalBackupFile(filePath, dbName);
-      }
+      // Managed MySQL (Railway) authenticates with caching_sha2_password,
+      // which the local XAMPP/MariaDB mysqldump client cannot load — so it
+      // always failed and leaked auth errors into the console/logs. The
+      // app's own mysql2 driver implements the plugin in JS, so we always
+      // generate the logical dump directly instead. It covers the full
+      // schema + data (this app has no views/triggers/routines to lose).
+      await createLogicalBackupFile(filePath, dbName);
 
       // Get file stats
       const stats = fs.statSync(filePath);

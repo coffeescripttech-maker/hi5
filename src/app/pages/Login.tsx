@@ -59,23 +59,6 @@ const forgotSchema = z.object({
     .min(1, 'Email address is required')
     .email('Enter a valid email address (e.g. you@school.edu.ph)')
 });
-
-const resetSchema = z
-  .object({
-    code: z
-      .string()
-      .trim()
-      .min(1, 'Reset code is required')
-      .regex(/^\d{6}$/, 'Reset code must be the 6-digit code shown to you'),
-    new_password: z
-      .string()
-      .min(6, 'New password must be at least 6 characters'),
-    confirm: z.string().min(1, 'Please confirm your new password')
-  })
-  .refine(data => data.new_password === data.confirm, {
-    message: 'Passwords do not match',
-    path: ['confirm']
-  });
 /* ── End Validation Schemas ─────────────────────────── */
 
 /** Quick demo accounts available in the development seed */
@@ -121,7 +104,7 @@ const DEMO_ACCOUNTS: {
   }
 ];
 
-type Screen = 'login' | 'forgot' | 'forgot-reset' | 'forgot-sent';
+type Screen = 'login' | 'forgot' | 'forgot-sent';
 
 const ANIM_STYLE = `
 @keyframes hi5FadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
@@ -144,7 +127,7 @@ const LEGAL_CONTENT: Record<
   terms: {
     title: 'Terms of Service',
     intro:
-      'By accessing and using the Hi5 Portal of Don Servillano Platon Memorial National High School (DSPMNHS), you accept these terms in full.',
+      'The Hi5 Portal is the Student Information System of Don Servillano Platon Memorial National High School (DSPMNHS). By accessing and using the portal you accept these Terms of Service, together with the Privacy Policy and Conditions of Use.',
     sections: [
       {
         heading: '1. Authorized Use',
@@ -155,50 +138,62 @@ const LEGAL_CONTENT: Record<
         body: 'You are responsible for all activity performed under your account. Keep your password confidential and notify the ICT Coordinator immediately if you suspect unauthorized use.'
       },
       {
-        heading: '3. Acceptable Use',
-        body: 'You agree to use the system only for legitimate school operations such as enrollment, records management, grade encoding, and reporting. Attempting to access data outside your assigned role or tampering with records is strictly prohibited.'
+        heading: '3. Purpose of the System',
+        body: 'The system is provided to manage enrollment, academic records, grade encoding, class schedules, school form generation (SF1, SF5, SF9, SF10), and reporting to the Department of Education (DepEd).'
       },
       {
-        heading: '4. Availability',
-        body: "While the school strives for continuous availability, the system may be temporarily unavailable due to maintenance, backups, or events beyond the school's control."
+        heading: '4. Acceptable Use',
+        body: 'Use the system only for legitimate school operations. Attempting to access data outside your assigned role, tampering with records, or extracting personal data for personal use is strictly prohibited.'
       },
       {
-        heading: '5. Changes to Terms',
-        body: 'DSPMNHS may update these terms from time to time. Continued use of the portal after changes are posted constitutes acceptance of the revised terms.'
+        heading: '5. Monitoring and Logging',
+        body: 'All significant actions performed in the portal are logged with the user, timestamp, and relevant record for accountability and security purposes. By using the system you consent to this monitoring.'
+      },
+      {
+        heading: '6. Availability',
+        body: "While the school strives for continuous availability, the system may be temporarily unavailable due to maintenance, scheduled backups, or events beyond the school's control."
+      },
+      {
+        heading: '7. Changes to Terms',
+        body: 'DSPMNHS may update these Terms from time to time. Continued use after changes are posted constitutes acceptance of the revised Terms.'
       }
     ]
   },
   privacy: {
     title: 'Privacy Policy',
     intro:
-      'The Hi5 Portal processes personal data in compliance with the Data Privacy Act of 2012 (Republic Act No. 10173) and its Implementing Rules and Regulations.',
+      'The Hi5 Portal processes personal data in compliance with the Data Privacy Act of 2012 (Republic Act No. 10173) and its Implementing Rules and Regulations. This policy explains what personal data is collected, where it is collected and stored, how it is used and protected, and the rights of data subjects.',
     sections: [
       {
-        heading: '1. Data Collected',
-        body: 'The system collects and processes student personal information (name, LRN, birthdate, sex, address, guardian details, academic records) and employee information (name, email, role, employment details) strictly for educational purposes.'
+        heading: '1. Information We Collect',
+        body: 'Student personal information (full name, LRN, birthdate, sex, address, guardian details, health and 4Ps information where applicable) and academic records (enrollment history, grades, school forms). Employee information (name, email, role, employee ID, designation, date hired) and system usage data (login timestamps, audit records).'
       },
       {
-        heading: '2. Purpose of Processing',
-        body: 'Personal data is processed for enrollment management, academic record-keeping, school form generation (SF1, SF5, SF9, SF10), reporting to the Department of Education, and the academic welfare of learners.'
+        heading: '2. Where Data Is Collected and Stored',
+        body: "Data is entered into the portal by authorized school personnel through official enrollment and encoding workflows. It is stored in the school's centralized database on secured, access-controlled infrastructure with scheduled encrypted backups. Printed and exported records must be secured in school facilities."
       },
       {
-        heading: '3. Data Security',
-        body: 'The school applies role-based access control, encrypted authentication, audit logging, and regular database backups to protect personal data against unauthorized access, alteration, or disclosure.'
+        heading: '3. How Your Data Is Used',
+        body: 'Personal data is processed for enrollment management, academic record-keeping, grade encoding and reporting, generation of school forms (SF1, SF5, SF9, SF10), reporting to the Department of Education, and the academic welfare of learners.'
       },
       {
-        heading: '4. Data Retention',
-        body: 'Records are retained in accordance with DepEd retention policies. Data no longer necessary for its purpose is disposed of securely following NPC guidelines.'
+        heading: '4. Data Security',
+        body: 'The school applies role-based access control (RBAC), least-privilege permissions, encrypted authentication (bcrypt password hashing and JWT sessions), full audit logging, upload restrictions, and scheduled encrypted database backups to protect personal data against unauthorized access, alteration, or disclosure.'
       },
       {
-        heading: '5. Rights of Data Subjects',
-        body: "Under RA 10173, data subjects have the right to access, correct, and request processing restrictions on their personal data. Inquiries may be directed to the school's designated Data Protection Officer."
+        heading: '5. Data Retention',
+        body: 'Records are retained in accordance with DepEd retention policies. Data no longer necessary for its purpose is disposed of securely following National Privacy Commission (NPC) guidelines.'
+      },
+      {
+        heading: '6. Rights of Data Subjects',
+        body: "Under RA 10173, data subjects have the right to access, correct, object to, and request processing restrictions on their personal data. Inquiries may be directed to the school's designated Data Protection Officer."
       }
     ]
   },
   conditions: {
     title: 'Conditions of Use',
     intro:
-      'The following conditions govern day-to-day use of the Hi5 Portal by all school personnel.',
+      'The following conditions govern day-to-day use of the Hi5 Portal by all school personnel and authorized users.',
     sections: [
       {
         heading: '1. Role-Based Access',
@@ -206,15 +201,15 @@ const LEGAL_CONTENT: Record<
       },
       {
         heading: '2. Accuracy of Records',
-        body: 'Users encoding grades, enrollment data, or documents must verify their accuracy before submission. Corrections after submission must follow the official grade correction workflow.'
+        body: 'Users encoding grades, enrollment data, or documents must verify their accuracy before submission. Corrections after submission must follow the official grade correction and records workflow.'
       },
       {
         heading: '3. Confidentiality',
-        body: "Student records viewed within the portal are confidential. Exported files and printed school forms must be handled and stored in accordance with the school's data privacy policy."
+        body: "Student records viewed within the portal are confidential. Exported files and printed school forms must be handled, stored, and disposed of in accordance with the school's data privacy policy."
       },
       {
-        heading: '4. Audit & Monitoring',
-        body: 'All significant actions within the portal are logged for accountability. By using the system you consent to this logging for legitimate school purposes.'
+        heading: '4. Audit and Monitoring',
+        body: 'All significant actions within the portal are logged for accountability and security. By using the system you consent to this logging for legitimate school purposes.'
       },
       {
         heading: '5. Termination of Access',
@@ -318,21 +313,13 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
-  const [resetCode, setResetCode] = useState(''); // the code returned by the API
-  const [forgotCode, setForgotCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetLink, setResetLink] = useState(''); // dev-mode reset link returned by the API
   // Per-field validation errors
   const [fieldErrors, setFieldErrors] = useState<{
     username?: string;
     password?: string;
   }>({});
   const [forgotError, setForgotError] = useState('');
-  const [resetErrors, setResetErrors] = useState<{
-    code?: string;
-    new_password?: string;
-    confirm?: string;
-  }>({});
   const [countdown, setCountdown] = useState(0);
   // Terms & Conditions gate — login stays disabled until the user agrees
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -533,51 +520,12 @@ export function Login() {
     setForgotLoading(true);
     try {
       const res = await authApi.forgotPassword({ email: forgotEmail.trim() });
-      setResetCode(res.reset_code || '');
-      setScreen('forgot-reset');
-    } catch (err: unknown) {
-      setForgotError(
-        err instanceof ApiError
-          ? err.detail.error || 'Failed to send reset code. Please try again.'
-          : 'Unable to connect to the server. Please check your connection and try again.'
-      );
-    }
-    setForgotLoading(false);
-  };
-
-  const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = resetSchema.safeParse({
-      code: forgotCode,
-      new_password: newPassword,
-      confirm: confirmPassword
-    });
-    if (!result.success) {
-      const errs: { code?: string; new_password?: string; confirm?: string } =
-        {};
-      result.error.issues.forEach(i => {
-        const path = i.path[0];
-        if (path === 'code' || path === 'new_password' || path === 'confirm') {
-          if (!errs[path]) errs[path] = i.message;
-        }
-      });
-      setResetErrors(errs);
-      return;
-    }
-    setResetErrors({});
-    setForgotError('');
-    setForgotLoading(true);
-    try {
-      await authApi.resetPassword({
-        email: forgotEmail.trim(),
-        code: forgotCode.trim(),
-        new_password: newPassword
-      });
+      setResetLink(res.reset_link || '');
       setScreen('forgot-sent');
     } catch (err: unknown) {
       setForgotError(
         err instanceof ApiError
-          ? err.detail.error || 'Failed to reset password. Please try again.'
+          ? err.detail.error || 'Failed to send reset link. Please try again.'
           : 'Unable to connect to the server. Please check your connection and try again.'
       );
     }
@@ -739,7 +687,6 @@ export function Login() {
   // ── FORGOT PASSWORD ──
   if (
     screen === 'forgot' ||
-    screen === 'forgot-reset' ||
     screen === 'forgot-sent'
   ) {
     return (
@@ -755,12 +702,8 @@ export function Login() {
                   setScreen('login');
                   setError('');
                   setForgotEmail('');
-                  setForgotCode('');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                  setResetCode('');
+                  setResetLink('');
                   setForgotError('');
-                  setResetErrors({});
                 }}
                 className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm mb-6 transition">
                 <ArrowLeft size={15} /> Back to Login
@@ -777,8 +720,8 @@ export function Login() {
                       Forgot Password?
                     </h2>
                     <p className="text-gray-500 text-sm mt-1">
-                      Enter your school email address and we'll give you a
-                      password reset code.
+                      Enter your school email address and we'll email you a
+                      password reset link.
                     </p>
                   </div>
                   <form onSubmit={handleForgot} className="space-y-4">
@@ -844,245 +787,60 @@ export function Login() {
                           Requesting...
                         </>
                       ) : (
-                        'Send Reset Code'
+                        'Send Reset Link'
                       )}
                     </button>
                   </form>
                 </>
               )}
 
-              {/* STEP 2 — enter reset code + new password */}
-              {screen === 'forgot-reset' && (
-                <>
-                  <div className="mb-8">
-                    <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
-                      <Lock size={22} className="text-indigo-600" />
-                    </div>
-                    <h2 className="text-2xl font-extrabold text-gray-800">
-                      Create New Password
-                    </h2>
-                    <p className="text-gray-500 text-sm mt-1">
-                      We found an account for{' '}
-                      <span className="font-semibold text-gray-700">
-                        {forgotEmail}
-                      </span>
-                      . Enter the reset code below to continue.
-                    </p>
-                  </div>
-
-                  {/* Dev-mode code display — only rendered when the API returns reset_code (dev build, SMTP unconfigured) */}
-                  {resetCode && (
-                    <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
-                      <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                        <Mail size={12} /> Your Reset Code
-                      </p>
-                      <p className="font-mono text-2xl font-extrabold tracking-[0.3em] text-amber-800 text-center py-1 select-all">
-                        {resetCode}
-                      </p>
-                      <p className="text-[11px] text-amber-600 mt-1.5">
-                        Valid for 15 minutes. (Development build — shown here because email is not configured.)
-                      </p>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleReset} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
-                        6-Digit Reset Code
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={forgotCode}
-                        onChange={e => {
-                          setForgotCode(e.target.value.replace(/\D/g, ''));
-                          if (resetErrors.code)
-                            setResetErrors(prev => ({ ...prev, code: '' }));
-                        }}
-                        onBlur={() => {
-                          const r =
-                            resetSchema.shape.code.safeParse(forgotCode);
-                          setResetErrors(prev => ({
-                            ...prev,
-                            code: r.success
-                              ? ''
-                              : r.error.issues[0]?.message || ''
-                          }));
-                        }}
-                        className={`w-full px-4 py-3 rounded-xl text-sm text-center tracking-[0.3em] font-mono focus:outline-none focus:ring-2 bg-white transition shadow-sm ${
-                          resetErrors.code
-                            ? 'border border-red-300 focus:ring-red-300 focus:border-red-400'
-                            : 'border border-gray-200 focus:ring-indigo-400 focus:border-indigo-400'
-                        }`}
-                        placeholder="000000"
-                        required
-                        autoComplete="one-time-code"
-                      />
-                      {resetErrors.code && (
-                        <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
-                          <AlertCircle size={12} className="flex-shrink-0" />
-                          {resetErrors.code}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
-                        New Password
-                      </label>
-                      <div className="relative">
-                        <Lock
-                          size={15}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                        />
-                        <input
-                          type="password"
-                          value={newPassword}
-                          onChange={e => {
-                            setNewPassword(e.target.value);
-                            if (resetErrors.new_password)
-                              setResetErrors(prev => ({
-                                ...prev,
-                                new_password: ''
-                              }));
-                          }}
-                          onBlur={() => {
-                            const r =
-                              resetSchema.shape.new_password.safeParse(
-                                newPassword
-                              );
-                            setResetErrors(prev => ({
-                              ...prev,
-                              new_password: r.success
-                                ? ''
-                                : r.error.issues[0]?.message || ''
-                            }));
-                          }}
-                          className={`w-full pl-9 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white transition shadow-sm ${
-                            resetErrors.new_password
-                              ? 'border border-red-300 focus:ring-red-300 focus:border-red-400'
-                              : 'border border-gray-200 focus:ring-indigo-400 focus:border-indigo-400'
-                          }`}
-                          placeholder="At least 6 characters"
-                          required
-                          autoComplete="new-password"
-                        />
-                      </div>
-                      {resetErrors.new_password && (
-                        <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
-                          <AlertCircle size={12} className="flex-shrink-0" />
-                          {resetErrors.new_password}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
-                        Confirm New Password
-                      </label>
-                      <div className="relative">
-                        <Lock
-                          size={15}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                        />
-                        <input
-                          type="password"
-                          value={confirmPassword}
-                          onChange={e => {
-                            setConfirmPassword(e.target.value);
-                            if (resetErrors.confirm)
-                              setResetErrors(prev => ({
-                                ...prev,
-                                confirm: ''
-                              }));
-                          }}
-                          onBlur={() => {
-                            const r =
-                              resetSchema.shape.confirm.safeParse(
-                                confirmPassword
-                              );
-                            setResetErrors(prev => ({
-                              ...prev,
-                              confirm: r.success
-                                ? ''
-                                : r.error.issues[0]?.message || ''
-                            }));
-                          }}
-                          className={`w-full pl-9 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white transition shadow-sm ${
-                            resetErrors.confirm
-                              ? 'border border-red-300 focus:ring-red-300 focus:border-red-400'
-                              : 'border border-gray-200 focus:ring-indigo-400 focus:border-indigo-400'
-                          }`}
-                          placeholder="Re-enter your new password"
-                          required
-                          autoComplete="new-password"
-                        />
-                      </div>
-                      {resetErrors.confirm && (
-                        <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
-                          <AlertCircle size={12} className="flex-shrink-0" />
-                          {resetErrors.confirm}
-                        </p>
-                      )}
-                    </div>
-                    {forgotError && (
-                      <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-red-700 bg-red-50 border border-red-200">
-                        <AlertCircle size={14} className="flex-shrink-0" />
-                        {forgotError}
-                      </div>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={forgotLoading}
-                      className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all duration-200 hover:brightness-105 active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
-                      style={{
-                        background:
-                          'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
-                        boxShadow: '0 4px 20px rgba(5,150,105,0.3)'
-                      }}>
-                      {forgotLoading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Resetting...
-                        </>
-                      ) : (
-                        <>
-                          <Lock size={15} /> Reset Password
-                        </>
-                      )}
-                    </button>
-                  </form>
-                </>
-              )}
-
-              {/* STEP 3 — success */}
+              {/* STEP 2 — check your email (reset link sent) */}
               {screen === 'forgot-sent' && (
                 <div className="text-center">
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle size={30} className="text-emerald-600" />
                   </div>
                   <h2 className="text-2xl font-extrabold text-gray-800 mb-2">
-                    Password Reset!
+                    Check your email
                   </h2>
                   <p className="text-gray-500 text-sm mb-1">
-                    Your password has been changed successfully for:
+                    We've emailed a password reset link to:
                   </p>
-                  <p className="text-emerald-600 font-semibold text-sm mb-6">
+                  <p className="text-emerald-600 font-semibold text-sm">
                     {forgotEmail}
                   </p>
-                  <p className="text-gray-400 text-xs mb-6">
-                    You can now sign in with your new password.
+                  <p className="text-gray-400 text-xs mt-4 leading-relaxed">
+                    The link expires in 15 minutes and can only be used once.
+                    If it doesn't arrive, check your spam folder or request a
+                    new link.
                   </p>
+
+                  {/* Dev-mode link display — only rendered when the API returns reset_link (dev build, SMTP unconfigured) */}
+                  {resetLink && (
+                    <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <Mail size={12} /> Development Reset Link
+                      </p>
+                      <a
+                        href={resetLink}
+                        className="font-mono text-sm font-extrabold text-amber-800 text-center block py-1 select-all break-all">
+                        {resetLink}
+                      </a>
+                      <p className="text-[11px] text-amber-600 mt-1.5">
+                        Email is not configured in this build — the link is
+                        shown here for testing.
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     onClick={() => {
                       setScreen('login');
                       setForgotEmail('');
-                      setForgotCode('');
-                      setNewPassword('');
-                      setConfirmPassword('');
-                      setResetCode('');
+                      setResetLink('');
                       setError('');
                     }}
-                    className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+                    className="mt-6 w-full py-3 rounded-xl font-semibold text-sm text-white transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
                     style={{
                       background:
                         'linear-gradient(135deg, #059669 0%, #0d9488 100%)'

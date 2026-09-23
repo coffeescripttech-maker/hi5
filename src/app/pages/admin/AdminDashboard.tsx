@@ -5,14 +5,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Users,
-  BookOpen,
+  GraduationCap,
   Layers,
   UserCheck,
   BarChart2,
-  Activity,
   History,
   Clock,
-  School
+  School,
+  ArrowRight
 } from 'lucide-react';
 import {
   BarChart,
@@ -37,6 +37,7 @@ export function AdminDashboard() {
   const [totalSections, setTotalSections] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalTeachers, setTotalTeachers] = useState(0);
+  const [totalInactiveTeachers, setTotalInactiveTeachers] = useState(0);
   const [totalCapacity, setTotalCapacity] = useState(0);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   // Chart data (populated from API where possible)
@@ -84,7 +85,13 @@ export function AdminDashboard() {
         .then(users => {
           if (cancelled) return;
           setTotalUsers(users.length);
-          setTotalTeachers(users.filter(u => u.role === 'teacher').length);
+          const teacherAccounts = users.filter(u => u.role === 'teacher');
+          setTotalTeachers(
+            teacherAccounts.filter(u => u.status === 'active').length
+          );
+          setTotalInactiveTeachers(
+            teacherAccounts.filter(u => u.status !== 'active').length
+          );
         })
         .catch(() => {}),
       logsApi
@@ -121,13 +128,12 @@ export function AdminDashboard() {
     {
       label: 'Total Enrolled',
       value: totalStudents.toString(),
-      sub: 'Across all grades in the current school year',
+      sub: 'Across all grades in the current school year.',
       icon: Users,
       tile: 'from-blue-400 to-blue-600',
       tileShadow: 'shadow-blue-200/60',
       bar: 'from-blue-400 via-blue-500 to-blue-400',
-      valueCls: 'text-blue-600',
-      change: 'Current SY'
+      valueCls: 'text-blue-600'
     },
     {
       label: 'Total Sections',
@@ -138,30 +144,27 @@ export function AdminDashboard() {
       tileShadow: 'shadow-violet-200/60',
       bar: 'from-violet-400 via-violet-500 to-violet-400',
       valueCls: 'text-violet-600',
-      dot: 'bg-emerald-500',
-      change: 'Active'
+      dot: 'bg-emerald-500'
     },
     {
       label: 'Active Teachers',
       value: totalTeachers.toString(),
-      sub: 'Teachers with active accounts',
-      icon: BookOpen,
+      sub: 'Teachers with active login accounts.',
+      icon: GraduationCap,
       tile: 'from-emerald-400 to-emerald-600',
       tileShadow: 'shadow-emerald-200/60',
       bar: 'from-emerald-400 via-emerald-500 to-emerald-400',
-      valueCls: 'text-emerald-600',
-      change: 'Faculty'
+      valueCls: 'text-emerald-600'
     },
     {
       label: 'System Users',
       value: totalUsers.toString(),
-      sub: 'All roles registered',
+      sub: 'All Roles Registered.',
       icon: UserCheck,
       tile: 'from-amber-400 to-amber-600',
       tileShadow: 'shadow-amber-200/60',
       bar: 'from-amber-400 via-amber-500 to-amber-400',
-      valueCls: 'text-amber-600',
-      change: 'Registered'
+      valueCls: 'text-amber-600'
     }
   ];
 
@@ -176,8 +179,8 @@ export function AdminDashboard() {
               <BarChart2 size={22} className="text-white" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Admin Analytics Dashboard</h2>
-              <p className="text-gray-500 text-sm truncate">Hi5 Portal · live data from the database</p>
+              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Admin Dashboard</h2>
+              <p className="text-gray-500 text-sm truncate">Live overview · enrollment, faculty & activity</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -212,10 +215,11 @@ export function AdminDashboard() {
                 </div>
               </div>
               <p className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${card.valueCls}`}>{card.value}</p>
-              <p className="relative text-xs text-gray-400 mt-2 truncate">{card.sub}</p>
-              <div className="relative flex items-center gap-1.5 mt-2.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${card.dot ?? card.valueCls}`} />
-                <span className="text-[11px] font-semibold text-gray-400">{card.change}</span>
+              <div className="relative flex items-start gap-1.5 mt-2">
+                {card.dot && (
+                  <span className={`w-1.5 h-1.5 rounded-full ${card.dot} mt-1 flex-shrink-0`} />
+                )}
+                <p className="relative text-xs text-gray-400 leading-snug">{card.sub}</p>
               </div>
             </div>
           );
@@ -288,60 +292,38 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {/* System-wide stats placeholder */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        {/* Faculty snapshot — Active Teachers metric + icon */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col">
           <div className="flex items-center gap-2.5 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm flex items-center justify-center flex-shrink-0">
-              <Activity size={14} className="text-white" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm flex items-center justify-center flex-shrink-0">
+              <GraduationCap size={14} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-800">System Overview</h3>
-              <p className="text-gray-400 text-xs mt-0.5">
-                Key metrics at a glance
+              <h3 className="font-semibold text-gray-800">Teacher Accounts</h3>
+              <p className="text-gray-400 text-xs mt-0.5">Active vs. inactive faculty</p>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center gap-4 p-4 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-teal-50 to-white">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200 flex items-center justify-center flex-shrink-0">
+              <GraduationCap size={22} className="text-white" />
+            </div>
+            <div>
+              <p className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold leading-none text-emerald-700">
+                  {totalTeachers}
+                </span>
+                <span className="text-xs font-medium text-emerald-600">active</span>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {totalInactiveTeachers} inactive · {totalTeachers + totalInactiveTeachers} total accounts
               </p>
             </div>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl hover:bg-blue-50/90 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 shadow-md shadow-blue-200/60 flex items-center justify-center">
-                  <Users size={16} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Total Students</p>
-                  <p className="font-bold text-gray-800 text-lg">
-                    {totalStudents}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-violet-50/70 rounded-xl hover:bg-violet-50/90 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-200/60 flex items-center justify-center">
-                  <Layers size={16} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Active Sections</p>
-                  <p className="font-bold text-gray-800 text-lg">
-                    {totalSections}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-amber-50/70 rounded-xl hover:bg-amber-50/90 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 shadow-md shadow-amber-200/60 flex items-center justify-center">
-                  <UserCheck size={16} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">System Users</p>
-                  <p className="font-bold text-gray-800 text-lg">
-                    {totalUsers}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <button
+            onClick={() => navigate('/admin/users')}
+            className="mt-4 w-full border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-1.5 touch-target">
+            Manage Faculty <ArrowRight size={14} />
+          </button>
         </div>
       </div>
 

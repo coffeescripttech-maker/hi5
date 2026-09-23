@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
+import { ResetPassword } from "./pages/ResetPassword";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { UserManagement } from "./pages/admin/UserManagement";
 import { SchoolSettings } from "./pages/admin/SchoolSettings";
@@ -59,6 +60,7 @@ import { AdminRooms } from "./pages/admin/AdminRooms";
 
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
+  { path: "/reset-password", Component: ResetPassword },
   {
     path: "/admin", Component: Layout,
     children: [

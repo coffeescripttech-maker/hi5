@@ -1,0 +1,56 @@
+1. Authentication & Security
+Forgot Password: Implement a secure “Forgot Password” feature that automatically sends a password recovery link to the user’s registered Gmail address.
+Terms of Use & Data Privacy: Add a Terms and Conditions / Data Privacy notice explaining how and where user data is collected, stored, and used.
+2. User & Role Management
+Principal User Edit Fix: Fix the Add User edit functionality specifically for the Principal role.
+Profile Editability: Make personal information fields across all user profiles fully editable while enforcing all required fields.
+3. School Settings & Configuration
+Required Admin Fields: Make the Registrar and Principal fields mandatory under School Settings.
+Read-Only School Year: Make the active school year display read-only.
+Enrollment Period Bug: Fix the issue where entering enrollment dates causes the dates to disappear and revert to the mm/dd/yy display.
+Academic Year Ordering: Display school years in proper chronological order.
+Workflow Suggestion: Move Enrollment Opens and Enrollment Closes to Academic Management and remove the redundant School Year Configuration from General Settings. (Suggestion only)
+4. Dashboard & Navigation
+Home Button: Make the Home button in the navigation clickable and redirect users to the Dashboard.
+Admin Dashboard UI: Clean up dashboard text and information displays and add an icon beside Active Teachers.
+
+Dashboard text requirements:
+
+TOTAL ENROLLED: “Across all grades in the Current School Year.”
+TOTAL SECTIONS: Add an active status icon/green dot.
+ACTIVE TEACHERS: Replace the current wording with a clearer term that users can easily understand.
+SYSTEM USERS: “All Roles Registered.”
+Activity Logs: Fix the scrolling issue when opening and viewing activity logs.
+5. Subject & Academic Management
+Subject Deletion: Fix the error preventing deletion of subjects that have an assigned teacher.
+Assigned Teacher Display: Change the non-interactive label from “Assign Teacher” to “Assigned Teacher.”
+Clicking Assigned Teacher should display the currently assigned teacher.
+Keep the separate Assign Teacher action button for assigning/changing the teacher.
+6. School Forms (SF) & Database Management
+Automated SF Fields: Automatically populate the Principal and Teacher fields based on the credentials of the user generating the School Form.
+SF Edit Bug: Fix the issue where existing values are reset to 0 when editing an SF form.
+Database Backup: Fix the non-functional database download/backup feature.
+Database Restore: Fix the database restore functionality.
+7. Room Management & Scheduling
+Room-Schedule Synchronization:
+When a teacher is scheduled in a specific room, the room should automatically display as Occupied.
+Selecting a room during schedule creation should properly link the room to the schedule.
+Room availability/status should remain synchronized with the Scheduling module.
+Previous Unfixed Revisions
+Module	Issue	Status
+Admin Role	Hours per Week Display: Currently displays confusing values such as 03.03.03.03. Should display something like 3 hrs/day, 4 days a week or use a proper table.	❌ Not Fixed
+Calendar	School Year Reversion: System reverts to a previous school year instead of maintaining the active school year.	❌ Not Fixed
+LIS	Excel Download: Clicking Download Excel produces a Fail to generate error.	❌ Not Fixed
+Principal	Graph Count: Hovering/clicking the bar graph displays incorrect repeated values such as 1010101 or 10202020101. Fix the displayed count.	❌ Not Fixed
+Grade Upload	Template Download: Grade Upload template cannot be downloaded.	❌ Not Fixed
+Recommended Testing Workflow
+
+For each revision, use this status flow:
+
+Pending → In Development → Fixed → For Client Testing → Passed → Closed
+
+For every item marked Fixed, the client should be given a simple verification procedure:
+
+Steps to Test → Expected Result → Actual Result → Status → Remarks
+
+This makes it clear to the client which revisions are already fixed and exactly how they can verify each one, rather than simply marking an item as completed.

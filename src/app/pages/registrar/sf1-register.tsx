@@ -21,6 +21,7 @@ import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { settingsApi } from '../../services/settings';
+import { authApi } from '../../services/api';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
@@ -103,6 +104,9 @@ const LEAF_COLUMNS: Leaf[] = [
 const TOTAL_ROWS = 30;
 
 type RowData = Record<string, string>;
+
+/** Only these columns are numeric grades; the rest are free-format text. */
+const NUMERIC_CELLS = new Set(['q1', 'q2', 'q3', 'q4']);
 
 /* ---------------------------------------------------------------- */
 /* Helpers                                                          */
@@ -189,6 +193,10 @@ export function SF1Register() {
     bosyDate: '',
     eosyDate: ''
   });
+  // Auto-populated signature names: Prepared by = the user generating the
+  // form; Certified Correct = school head from school settings. Both stay
+  // editable so the user can correct them before printing.
+  const [signers, setSigners] = useState({ prepared: '', certified: '' });
 
   // â”€â”€ Load data on mount â”€â”€
   useEffect(() => {
@@ -228,6 +236,12 @@ export function SF1Register() {
           district: settings.district || prev.district,
           schoolName: settings.school_name || prev.schoolName
         }));
+        // School head (principal) for the signature block; the "Prepared by"
+        // name is the account generating the form.
+        setSigners(prev => ({
+          ...prev,
+          certified: prev.certified || settings.principal_name || ''
+        }));
         const active = secs.filter(s => s.is_active === 1);
         // Default to the first section (grade-ascending) that actually has
         // enrolled students in the selected school year, so the register never
@@ -253,6 +267,16 @@ export function SF1Register() {
         if (g7.length > 0) setSelectedSection(g7[0].name);
       })
       .finally(() => setDataLoading(false));
+  }, []);
+
+  // Prefill the "Prepared by" signature with the signing account's name.
+  useEffect(() => {
+    authApi
+      .me()
+      .then(me =>
+        setSigners(prev => ({ ...prev, prepared: prev.prepared || me.name || '' }))
+      )
+      .catch(() => {});
   }, []);
 
   // â”€â”€ Sync school name & year (selected school year takes precedence) â”€â”€
@@ -393,7 +417,7 @@ export function SF1Register() {
     }
     const parsed = parseFloat(value);
     if (isNaN(parsed)) {
-      return '0';
+      return '';
     }
     // Truncate to 2 decimal places
     const truncated = Math.floor(parsed * 100) / 100;
@@ -704,7 +728,9 @@ export function SF1Register() {
                             setCell(
                               r,
                               c.key,
-                              sanitizeGradeInput(e.target.value)
+                              NUMERIC_CELLS.has(c.key)
+                                ? sanitizeGradeInput(e.target.value)
+                                : e.target.value
                             )
                           }
                           className="sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50"
@@ -722,6 +748,8 @@ export function SF1Register() {
               setRegisteredCounts={setRegisteredCounts}
               signatureDates={signatureDates}
               setSignatureDates={setSignatureDates}
+              signers={signers}
+              setSigners={setSigners}
             />
           </div>
         </div>
@@ -738,13 +766,19 @@ function SF1Footer({
   registeredCounts,
   setRegisteredCounts,
   signatureDates,
-  setSignatureDates
+  setSignatureDates,
+  signers,
+  setSigners
 }: {
   registeredCounts: string[][];
   setRegisteredCounts: Dispatch<SetStateAction<string[][]>>;
   signatureDates: { bosyDate: string; eosyDate: string };
   setSignatureDates: Dispatch<
     SetStateAction<{ bosyDate: string; eosyDate: string }>
+  >;
+  signers: { prepared: string; certified: string };
+  setSigners: Dispatch<
+    SetStateAction<{ prepared: string; certified: string }>
   >;
 }) {
   const leftLegend = [
@@ -873,10 +907,12 @@ function SF1Footer({
       <div className="mt-6 grid grid-cols-2 gap-12 text-[10px]">
         {[
           {
+            key: 'prepared',
             role: 'Prepared by:',
             caption: '(Signature of Adviser over Printed Name)'
           },
           {
+            key: 'certified',
             role: 'Certified Correct:',
             caption: '(Signature of School Head over Printed Name)'
           }
@@ -886,6 +922,13 @@ function SF1Footer({
             <input
               type="text"
               className="mt-5 w-full border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
+              value={signers[s.key as keyof typeof signers]}
+              onChange={e =>
+                setSigners(prev => ({
+                  ...prev,
+                  [s.key]: e.target.value
+                }))
+              }
               placeholder="Name"
             />
             <div className="mt-0.5 text-center">{s.caption}</div>

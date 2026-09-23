@@ -232,7 +232,7 @@ export async function deleteSubject(req: Request, res: Response): Promise<void> 
       await conn.rollback();
       if (err?.code === "ER_ROW_IS_REFERENCED_2" || err?.code === "ER_ROW_IS_REFERENCED") {
         res.status(409).json({
-          error: `Subject "${existing[0].name}" cannot be deleted because it is still referenced by historical records (grades, schedules, or documents). Deactivate it instead.`
+          error: `Subject "${existing[0].name}" cannot be deleted because it is still referenced by historical records (grades or pending grade correction requests). Deactivate it instead.`
         });
         return;
       }

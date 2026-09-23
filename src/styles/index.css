@@ -41,8 +41,11 @@
 .animate-fade-in { animation: fade-in 0.2s ease; }
 .animate-scale-in { animation: scale-in 0.2s ease; }
 
-/* Thin scrollbars for the app shell */
-.app-scroll { scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.35) transparent; }
+/* Thin scrollbars for the app shell.
+   scroll-behavior: smooth keeps wheel/keyboard scrolling fluid inside the
+   shell; overscroll containment stops long pages (e.g. Activity Logs) from
+   chaining/bouncing into the browser edge while scrolling. */
+.app-scroll { scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.35) transparent; scroll-behavior: smooth; overscroll-behavior-y: contain; }
 .app-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .app-scroll::-webkit-scrollbar-track { background: transparent; }
 .app-scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.35); border-radius: 9999px; }

@@ -18,6 +18,7 @@ import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { gradesApi, GradeRow } from '../../services/grades';
 import { settingsApi } from '../../services/settings';
+import { authApi } from '../../services/api';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
@@ -44,6 +45,9 @@ const LEAF_COLUMNS: Leaf[] = [
 const TOTAL_ROWS = 25;
 
 type RowData = Record<string, string>;
+
+/** Only this column is numeric; the rest are free-format text. */
+const NUMERIC_CELLS = new Set(['average']);
 
 const SUMMARY_STATUS = ['PROMOTED', '*Conditionally Promoted', 'RETAINED'];
 
@@ -220,6 +224,13 @@ export function SF5Report() {
   // Auto-computed counts for the two summary tables (3 cols: MALE, FEMALE, TOTAL)
   const [summaryCounts, setSummaryCounts] = useState<string[][]>([]);
   const [progressCounts, setProgressCounts] = useState<string[][]>([]);
+  // Auto-populated signature names: Prepared by = the user generating the
+  // form; Certified = school head from settings; Reviewed stays editable.
+  const [signers, setSigners] = useState({
+    prepared: '',
+    certified: '',
+    reviewed: ''
+  });
   const [header, setHeader] = useState({
     schoolId: '',
     region: 'Region VIII',
@@ -268,6 +279,12 @@ export function SF5Report() {
           district: settings.district || prev.district,
           schoolName: settings.school_name || prev.schoolName
         }));
+        // School head (principal) for the signature block; the "Prepared by"
+        // name is the account generating the form.
+        setSigners(prev => ({
+          ...prev,
+          certified: prev.certified || settings.principal_name || ''
+        }));
         const active = secs.filter(s => s.is_active === 1);
         // Default to the first section (grade-ascending) that actually has
         // enrolled students in the selected school year, so the sheet never
@@ -293,6 +310,16 @@ export function SF5Report() {
         if (g7.length > 0) setSelectedSection(g7[0].name);
       })
       .finally(() => setDataLoading(false));
+  }, []);
+
+  // Prefill the "Prepared by" signature with the signing account's name.
+  useEffect(() => {
+    authApi
+      .me()
+      .then(me =>
+        setSigners(prev => ({ ...prev, prepared: prev.prepared || me.name || '' }))
+      )
+      .catch(() => {});
   }, []);
 
   // ── Sync school name & year (selected school year takes precedence) ──
@@ -536,7 +563,7 @@ export function SF5Report() {
     }
     const parsed = parseFloat(value);
     if (isNaN(parsed)) {
-      return '0';
+      return '';
     }
     // Truncate to 2 decimal places
     const truncated = Math.floor(parsed * 100) / 100;
@@ -855,7 +882,9 @@ export function SF5Report() {
                                 setCell(
                                   r,
                                   c.key,
-                                  sanitizeGradeInput(e.target.value)
+                                  NUMERIC_CELLS.has(c.key)
+                                    ? sanitizeGradeInput(e.target.value)
+                                    : e.target.value
                                 )
                               }
                               className="sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50"
@@ -911,12 +940,21 @@ export function SF5Report() {
                 {/* Signatures */}
                 <div className="space-y-5 pt-2 text-[10px]">
                   {[
-                    { role: 'PREPARED BY:', caption: 'Class Adviser' },
                     {
+                      key: 'prepared',
+                      role: 'PREPARED BY:',
+                      caption: 'Class Adviser'
+                    },
+                    {
+                      key: 'certified',
                       role: 'CERTIFIED CORRECT & SUBMITTED:',
                       caption: 'School Head'
                     },
-                    { role: 'REVIEWED BY:', caption: 'Division Representative' }
+                    {
+                      key: 'reviewed',
+                      role: 'REVIEWED BY:',
+                      caption: 'Division Representative'
+                    }
                   ].map(s => (
                     <div key={s.role}>
                       <p className="font-semibold">{s.role}</p>
@@ -924,6 +962,13 @@ export function SF5Report() {
                         type="text"
                         className="mt-5 w-full border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
                         placeholder={s.caption}
+                        value={signers[s.key as keyof typeof signers]}
+                        onChange={e =>
+                          setSigners(prev => ({
+                            ...prev,
+                            [s.key]: e.target.value
+                          }))
+                        }
                       />
                       <div className="text-center text-[9px]">
                         (Name and Signature)

@@ -99,7 +99,9 @@ export function TopBar({
             <button
               onClick={() => navigate(`/${role}`)}
               aria-label="Go to dashboard"
-              className="truncate transition-colors hover:text-gray-600 dark:hover:text-slate-300">Home</button>
+              className="truncate transition-colors hover:text-gray-600 dark:hover:text-slate-300">
+              Home
+            </button>
             <ChevronRight size={11} className="flex-shrink-0" />
             <span className="truncate" style={{ color: accent.chartHex }}>
               {breadcrumbLabel}
@@ -111,7 +113,7 @@ export function TopBar({
         </div>
 
         {/* Center search (desktop) */}
-        <div className="mx-auto hidden w-full max-w-md flex-1 px-2 lg:block">
+        {/* <div className="mx-auto hidden w-full max-w-md flex-1 px-2 lg:block">
           <button
             onClick={() => setSearchOpen(true)}
             aria-label="Search students or pages"
@@ -124,7 +126,7 @@ export function TopBar({
               ⌘K
             </kbd>
           </button>
-        </div>
+        </div> */}
 
         {/* Right cluster */}
         <div className="ml-auto flex flex-shrink-0 items-center gap-1 md:gap-1.5">
@@ -134,7 +136,6 @@ export function TopBar({
             className={`inline-flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 lg:hidden dark:text-slate-400 dark:hover:bg-slate-800 ${ringClass}`}>
             <Search size={20} />
           </button>
-
 
           <NotificationsDropdown />
 

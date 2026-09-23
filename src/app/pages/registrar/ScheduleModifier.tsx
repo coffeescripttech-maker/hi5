@@ -28,6 +28,7 @@ import { schedulesApi, ScheduleRow } from "../../services/schedules";
 import { schoolYearsApi, SchoolYearRow } from "../../services/schoolYears";
 import { sectionsApi, SectionRow, TeacherBrief } from "../../services/sections";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
+import { roomsApi, RoomRow } from "../../services/rooms";
 import { useApp } from "../../context/AppContext";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -39,7 +40,8 @@ const EMPTY_FORM = {
   day_of_week: 1,
   start_time: "07:00",
   end_time: "08:00",
-  room: ""
+  room: "",
+  room_id: 0
 };
 
 interface Conflict {
@@ -61,6 +63,7 @@ export function ScheduleModifier() {
   const [teachers, setTeachers] = useState<TeacherBrief[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
+  const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,14 +79,16 @@ export function ScheduleModifier() {
       schoolYearsApi.list(),
       sectionsApi.listTeachers(),
       sectionsApi.list(),
-      subjectsApi.list()
+      subjectsApi.list(),
+      roomsApi.list()
     ])
-      .then(([sys, ts, secs, subs]) => {
+      .then(([sys, ts, secs, subs, rms]) => {
         if (cancelled) return;
         setSchoolYears(sys);
         setTeachers(ts);
         setSections(secs);
         setSubjects(subs);
+        setRooms(rms);
         const current = sys.find(y => y.is_current === 1);
         setSelectedSY(current?.id ?? sys[0]?.id);
       })
@@ -121,6 +126,9 @@ export function ScheduleModifier() {
   }, [selectedSY, loadSchedules]);
 
   // ── Live conflict pre-check against the current schedule list ──
+  const selectedRoom = rooms.find(r => r.id === form.room_id);
+  const formRoomName = selectedRoom?.name || form.room || "";
+
   const conflicts = useMemo<Conflict[]>(() => {
     if (!form.teacher_id || !form.section_id) return [];
     const candidate = {
@@ -150,20 +158,26 @@ export function ScheduleModifier() {
           label: `Section has another class: ${s.subject_name} · ${s.teacher_name}`
         });
       }
+      // Rooms are compared by id (the linked FK); legacy schedules without a
+      // room_id fall back to matching the free-text name.
+      const roomMatches =
+        (form.room_id > 0 && s.room_id === form.room_id) ||
+        (!s.room_id &&
+          formRoomName &&
+          s.room &&
+          s.room.toLowerCase() === formRoomName.toLowerCase());
       if (
-        form.room &&
-        s.room &&
-        s.room.toLowerCase() === form.room.toLowerCase() &&
+        roomMatches &&
         overlaps(candidate, { day: s.day_of_week, start: s.start_time, end: s.end_time })
       ) {
         result.push({
           kind: "room",
-          label: `Room ${s.room} is occupied: ${s.subject_name} · ${s.section_name}`
+          label: `Room ${s.room_name || s.room} is occupied: ${s.subject_name} · ${s.section_name}`
         });
       }
     }
     return result;
-  }, [form, schedules, editing]);
+  }, [form, schedules, editing, formRoomName]);
 
   const openCreate = () => {
     setEditing(null);
@@ -173,6 +187,14 @@ export function ScheduleModifier() {
   };
 
   const openEdit = (s: ScheduleRow) => {
+    // Link to the stored room_id, or match a legacy free-text room to a
+    // real room record by name so editing hooks it up to Room Management.
+    const matchedId =
+      s.room_id ??
+      rooms.find(
+        r => (s.room || "").toLowerCase() === r.name.toLowerCase()
+      )?.id ??
+      0;
     setEditing(s);
     setForm({
       teacher_id: s.teacher_id,
@@ -181,7 +203,8 @@ export function ScheduleModifier() {
       day_of_week: s.day_of_week,
       start_time: s.start_time.slice(0, 5),
       end_time: s.end_time.slice(0, 5),
-      room: s.room || ""
+      room: s.room || "",
+      room_id: matchedId
     });
     setFormError("");
     setShowForm(true);
@@ -217,7 +240,8 @@ export function ScheduleModifier() {
         day_of_week: form.day_of_week,
         start_time: form.start_time,
         end_time: form.end_time,
-        room: form.room || undefined
+        room: selectedRoom?.name || form.room || undefined,
+        room_id: form.room_id || undefined
       };
       if (editing) {
         await schedulesApi.update(editing.id, payload);
@@ -493,13 +517,41 @@ export function ScheduleModifier() {
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                   Room
                 </label>
-                <input
-                  type="text"
-                  value={form.room}
-                  onChange={e => setForm({ ...form, room: e.target.value })}
-                  placeholder="e.g. Rm 204"
+                <select
+                  value={form.room_id}
+                  onChange={e => {
+                    const rid = parseInt(e.target.value);
+                    const r = rooms.find(x => x.id === rid);
+                    setForm({
+                      ...form,
+                      room_id: rid,
+                      room: rid ? r?.name || "" : form.room
+                    });
+                  }}
                   className={inputClass}
-                />
+                >
+                  <option value={0}>
+                    {form.room && !form.room_id
+                      ? `No room (carry over: ${form.room})`
+                      : "No room assigned (TBA)"}
+                  </option>
+                  {rooms
+                    .filter(r => r.status !== "Inactive" || r.id === form.room_id)
+                    .map(r => (
+                      <option
+                        key={r.id}
+                        value={r.id}
+                        disabled={r.status === "Inactive" && r.id !== form.room_id}
+                      >
+                        {r.name}
+                        {r.building ? ` · ${r.building}` : ""} — {r.status}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Picks a room from Room Management — the room marks itself
+                  Occupied while it is linked to a class.
+                </p>
               </div>
 
               {/* Conflict warnings */}

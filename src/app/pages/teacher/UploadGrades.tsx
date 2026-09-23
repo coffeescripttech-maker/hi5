@@ -47,6 +47,7 @@ export function UploadGrades() {
   const [previewSearch, setPreviewSearch] = useState("");
   const [uploadedDocId, setUploadedDocId] = useState<number | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [templateBusy, setTemplateBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load teacher's sections, assigned subjects, and school years
@@ -130,14 +131,21 @@ export function UploadGrades() {
     });
   }, [previewRows, previewFilter, previewSearch]);
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     if (!hasSelection) return;
-    documentsApi.template({
-      section_id: selectedSectionId as number,
-      subject_id: selectedSubjectId as number,
-      school_year_id: selectedYearId as number,
-      quarter,
-    });
+    setTemplateBusy(true);
+    try {
+      await documentsApi.template({
+        section_id: selectedSectionId as number,
+        subject_id: selectedSubjectId as number,
+        school_year_id: selectedYearId as number,
+        quarter,
+      });
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Template download failed");
+    } finally {
+      setTemplateBusy(false);
+    }
   };
 
   const handleFileChosen = async (file: File) => {
@@ -330,12 +338,12 @@ export function UploadGrades() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-t border-gray-100 pt-4">
           <button
             onClick={handleDownloadTemplate}
-            disabled={!hasSelection}
+            disabled={!hasSelection || templateBusy}
             title={!hasSelection ? "Select section, subject, and school year first" : undefined}
             className="flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-lg text-sm font-medium transition shadow-sm"
           >
-            <Download size={16} />
-            Download Excel Template
+            {templateBusy ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
+            {templateBusy ? "Preparing…" : "Download Excel Template"}
           </button>
           <div className="text-gray-400 text-xs flex items-center gap-1">
             <Info size={12} className="shrink-0" />

@@ -92,60 +92,61 @@ export function SearchCommand({
   const canSearchStudents = query.trim().length >= 2;
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Global Search"
-      description="Search for a page or student">
-      <CommandInput
-        placeholder="Search students or pages…"
-        value={query}
-        onValueChange={setQuery}
-      />
-      <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Pages">
-          {pages.map(item => {
-            const Icon = item.icon;
-            return (
-              <CommandItem
-                key={item.key}
-                value={`${item.label} ${item.key}`}
-                onSelect={() => go(item.path)}>
-                <Icon />
-                <span>{item.label}</span>
-              </CommandItem>
-            );
-          })}
-        </CommandGroup>
-        <CommandSeparator />
-        <CommandGroup heading="Students">
-          {!canSearchStudents ? (
-            <CommandItem disabled>
-              Type at least 2 characters to search students
-            </CommandItem>
-          ) : loading ? (
-            <CommandItem disabled>Searching students…</CommandItem>
-          ) : students.length === 0 ? (
-            <CommandItem disabled>No students found.</CommandItem>
-          ) : (
-            students.slice(0, 8).map(s => (
-              <CommandItem
-                key={s.id}
-                value={`${s.name} ${s.lrn} ${s.student_id}`}
-                onSelect={() => go(`/student/${s.id}`)}>
-                <GraduationCap />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{s.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {s.lrn || s.student_id} · Gr.{s.grade_level}
-                  </span>
-                </div>
-              </CommandItem>
-            ))
-          )}
-        </CommandGroup>
-      </CommandList>
-    </CommandDialog>
+    <div></div>
+    // <CommandDialog
+    //   open={open}
+    //   onOpenChange={onOpenChange}
+    //   title="Global Search"
+    //   description="Search for a page or student">
+    //   <CommandInput
+    //     placeholder="Search students or pages…"
+    //     value={query}
+    //     onValueChange={setQuery}
+    //   />
+    //   <CommandList>
+    //     <CommandEmpty>No results found.</CommandEmpty>
+    //     <CommandGroup heading="Pages">
+    //       {pages.map(item => {
+    //         const Icon = item.icon;
+    //         return (
+    //           <CommandItem
+    //             key={item.key}
+    //             value={`${item.label} ${item.key}`}
+    //             onSelect={() => go(item.path)}>
+    //             <Icon />
+    //             <span>{item.label}</span>
+    //           </CommandItem>
+    //         );
+    //       })}
+    //     </CommandGroup>
+    //     <CommandSeparator />
+    //     <CommandGroup heading="Students">
+    //       {!canSearchStudents ? (
+    //         <CommandItem disabled>
+    //           Type at least 2 characters to search students
+    //         </CommandItem>
+    //       ) : loading ? (
+    //         <CommandItem disabled>Searching students…</CommandItem>
+    //       ) : students.length === 0 ? (
+    //         <CommandItem disabled>No students found.</CommandItem>
+    //       ) : (
+    //         students.slice(0, 8).map(s => (
+    //           <CommandItem
+    //             key={s.id}
+    //             value={`${s.name} ${s.lrn} ${s.student_id}`}
+    //             onSelect={() => go(`/student/${s.id}`)}>
+    //             <GraduationCap />
+    //             <div className="flex min-w-0 flex-col">
+    //               <span className="truncate">{s.name}</span>
+    //               <span className="text-xs text-muted-foreground">
+    //                 {s.lrn || s.student_id} · Gr.{s.grade_level}
+    //               </span>
+    //             </div>
+    //           </CommandItem>
+    //         ))
+    //       )}
+    //     </CommandGroup>
+    //   </CommandList>
+    // </CommandDialog>
   );
 }
