@@ -1,7 +1,7 @@
 /**
  * Backups API service
  */
-import { api } from "./api";
+import { api, getToken } from "./api";
 
 export interface BackupRow {
   id: number;
@@ -19,31 +19,22 @@ export const backupsApi = {
   list: () => api.get<BackupRow[]>("/backups"),
   create: () => api.post<BackupRow>("/backups"),
   restore: (id: number) => api.post<{ message: string; backup_id: number }>(`/backups/${id}/restore`),
-  download: async (id: number): Promise<void> => {
-    // Fetch as a blob (Authorization header) and trigger a save — avoids
-    // popup blockers and the blank-tab behavior of window.open.
-    const response = await api.getBlob(`/backups/${id}/download`);
-    if (!response.ok) {
-      let message = `Download failed (${response.status})`;
-      try {
-        const body = await response.json();
-        if (body?.error) message = body.error;
-      } catch {
-        /* not JSON */
-      }
-      throw new Error(message);
-    }
-    const disposition = response.headers.get("Content-Disposition") || "";
-    const match = disposition.match(/filename="?(.+?)"?$/);
-    const filename = match ? match[1] : `backup-${id}.sql`;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-  },
+  download: (id: number): void =>
+    // Same-tab anchor navigation — can't be popup-blocked, and the server
+    // returns Content-Disposition: attachment so the tab stays put and the
+    // file is saved with the server-provided name.
+    triggerNavigationDownload(`/backups/${id}/download`),
 };
+
+function triggerNavigationDownload(path: string): void {
+  const token = getToken();
+  const sp = new URLSearchParams();
+  if (token) sp.set("token", token);
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  const a = document.createElement("a");
+  a.href = `${API_BASE}${path}?${sp.toString()}`;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
