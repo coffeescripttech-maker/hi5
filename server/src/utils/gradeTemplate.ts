@@ -265,11 +265,16 @@ function buildWorksheet(
   const dataStart = 3; // row 1 = title banner, row 2 = header
   const lastRow = 2 + rows.length;
 
+  // Literal text uses t="inlineStr" + <is><t> — the standard string cell form.
+  // (t="str" is the formula-string type and makes Excel demand a repair.)
+  const textCell = (ref: string, style: number, value: string, extra = "") =>
+    `<c r="${ref}" t="inlineStr" s="${style}"${extra}><is><t>${esc(value)}</t></is></c>`;
+
   let sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <dimension ref="A1:C${lastRow}"/>
   <sheetViews>
-    <sheetView workbookViewId="0">
+    <sheetView workbookViewId="0" tabSelected="1">
       <pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>
     </sheetView>
   </sheetViews>
@@ -281,29 +286,34 @@ function buildWorksheet(
   </cols>
   <sheetData>
     <row r="1" ht="18" customHeight="1">
-      <c r="A1" t="str" s="1"><v>${esc(title)}</v></c>
+      ${textCell("A1", 1, title)}
     </row>
     <row r="2">
-      <c r="A2" t="str" s="2"><v>LRN</v></c>
-      <c r="B2" t="str" s="2"><v>Student Name</v></c>
-      <c r="C2" t="str" s="2"><v>${esc(gradeHeader)}</v></c>
+      ${textCell("A2", 2, "LRN")}
+      ${textCell("B2", 2, "Student Name")}
+      ${textCell("C2", 2, gradeHeader)}
     </row>`;
 
   rows.forEach((r, i) => {
     const row = 3 + i;
     sheetXml += `
     <row r="${row}">
-      <c r="A${row}" t="str" s="3"><v>${esc(r.lrn)}</v></c>
-      <c r="B${row}" t="str" s="4"><v>${esc(r.name)}</v></c>
+      ${textCell("A" + row, 3, r.lrn)}
+      ${textCell("B" + row, 4, r.name)}
       <c r="C${row}" s="5"/>
     </row>`;
   });
 
+  // Element order below must follow the CT_Worksheet schema sequence —
+  // sheetData → sheetProtection → … → mergeCells → … → dataValidations.
+  // Excel hard-fails (repair dialog) when these appear out of order.
   sheetXml += `
   </sheetData>
-  <mergeCells count="1"><mergeCell ref="A1:C1"/></mergeCells>`;
+  <sheetProtection sheet="1" objects="1" scenarios="1"/>`;
 
   if (rows.length > 0) {
+    sheetXml += `
+  <mergeCells count="1"><mergeCell ref="A1:C1"/></mergeCells>`;
     sheetXml += `
   <dataValidations count="1">
     <dataValidation type="whole" operator="between" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="C3:C${lastRow}">
@@ -311,12 +321,12 @@ function buildWorksheet(
       <formula2>100</formula2>
     </dataValidation>
   </dataValidations>`;
+  } else {
+    sheetXml += `
+  <mergeCells count="1"><mergeCell ref="A1:C1"/></mergeCells>`;
   }
 
-  // Worksheet protection (no password): LRN + Student Name are locked via
-  // their cell styles; only grade cells (style 5) are unlocked.
   sheetXml += `
-  <sheetProtection sheet="1" objects="1" scenarios="1"/>
 </worksheet>`;
 
   return sheetXml;

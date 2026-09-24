@@ -5,7 +5,7 @@ import {
   Settings, Calendar, Layers, Save,
   AlertTriangle, Info, Lock, Unlock, ChevronDown,
   GraduationCap, Building2, Hash, MapPin, Globe, CalendarDays,
-  UserCheck, FileText, ShieldCheck, Plus, Gauge
+  UserCheck, FileText, ShieldCheck, Plus, Gauge, Shield
 } from "lucide-react";
 import { settingsApi, SectionTypeThreshold, LegalContentDoc } from "../../services/settings";
 import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
@@ -334,10 +334,8 @@ export function SchoolSettings() {
   const handleSaveThresholds = async () => {
     setSaving(true);
     try {
-      const lockedTypes = sectionTypes.filter(t => t.is_locked).map(t => t.name);
       const updated = await settingsApi.updateThresholds({
         thresholds: thresholds
-          .filter(t => !lockedTypes.includes(t.section_type))
           .map(t => ({ id: t.id, min_average: t.min_average, max_average: t.max_average }))});
       setThresholds(updated);
       showToast("success", "Auto-sectioning thresholds saved successfully.");
@@ -774,7 +772,7 @@ export function SchoolSettings() {
           {sectionTypes.filter(t => t.is_active).sort((a, b) => a.sort_order - b.sort_order).map(sectionType => {
             const displayName = sectionType.label || sectionType.name;
             const description = `Section type with sort order ${sectionType.sort_order}`;
-            const isLocked = sectionType.is_locked === 1;
+            const isCore = sectionType.is_locked === 1;
             // Color class helpers: parse color_code or use defaults
             const colorCode = sectionType.color_code || "";
             const bgColor = colorCode ? `bg-${colorCode.split(" ")[0]?.replace("bg-", "") || "gray"}-50` : "bg-gray-50";
@@ -821,34 +819,33 @@ export function SchoolSettings() {
                   <span className={`text-sm font-bold px-3 py-1 rounded-full bg-white border ${borderColor} ${textColor}`}>
                     {t.max_average === 100 ? `${t.min_average} – 100` : `${t.min_average} – ${t.max_average}`}
                   </span>
-                  {isLocked && <span className="flex items-center gap-1 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-200"><Lock size={11} /> Fixed</span>}
+                  {isCore && <span className="flex items-center gap-1 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-200"><Lock size={11} /> Core</span>}
                   <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedSection === sectionType.name ? "rotate-180" : ""}`} />
                 </div>
               </button>
               {expandedSection === sectionType.name && (
                 <div className="px-4 pb-4 border-t border-white/60 pt-4">
-                  {isLocked ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/70 rounded-lg p-3 border border-gray-200">
-                      <Lock size={13} className="text-gray-400" />
-                      This section type is locked and cannot be customized.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Minimum Average</label>
-                        <input type="number" min={0} max={100} value={t.min_average}
-                          onChange={e => updateThreshold(t.id, "min_average", Number(e.target.value))}
-                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Maximum Average</label>
-                        <input type="number" min={0} max={100} value={t.max_average ?? ""}
-                          onChange={e => updateThreshold(t.id, "max_average", Number(e.target.value))}
-                          disabled={t.max_average === 100}
-                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white disabled:bg-gray-100 disabled:text-gray-400" />
-                      </div>
+                  {isCore && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/70 rounded-lg p-3 border border-gray-200 mb-3">
+                      <Shield size={13} className="text-gray-400" />
+                      Core section type — its threshold can still be customized to match your school's policy.
                     </div>
                   )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Minimum Average</label>
+                      <input type="number" min={0} max={100} step="0.01" value={t.min_average}
+                        onChange={e => updateThreshold(t.id, "min_average", Number(e.target.value))}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Maximum Average</label>
+                      <input type="number" min={0} max={100} step="0.01" value={t.max_average ?? ""}
+                        onChange={e => updateThreshold(t.id, "max_average", e.target.value === "" ? t.max_average ?? 100 : Number(e.target.value))}
+                        disabled={t.max_average === 100}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white disabled:bg-gray-100 disabled:text-gray-400" />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

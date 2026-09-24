@@ -162,12 +162,128 @@ export async function updateThresholds(req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Current rows (needed to know each id's grade_level + section_type and to
+    // validate the whole tiling per grade, not just the submitted subset).
+    const current = await query<RowDataPacket[]>(
+      `SELECT stc.*, st.name AS section_type, st.label FROM section_type_config stc
+       JOIN section_types st ON stc.section_type = st.name`
+    );
+
+    // Merge submitted values over the current rows.
+    const merged = current.map((r) => ({ ...r }));
+    const updateMap = new Map<number, { min_average?: number | null; max_average?: number | null }>();
+    for (const t of thresholds) {
+      if (!t.id || (t.min_average === undefined && t.max_average === undefined)) continue;
+      updateMap.set(Number(t.id), {
+        min_average: t.min_average !== undefined ? Number(t.min_average) : undefined,
+        max_average: t.max_average !== undefined ? (t.max_average === null ? null : Number(t.max_average)) : undefined,
+      });
+    }
+    for (const row of merged) {
+      const u = updateMap.get(Number(row.id));
+      if (!u) continue;
+      if (u.min_average !== undefined) row.min_average = u.min_average;
+      if (u.max_average !== undefined) row.max_average = u.max_average;
+    }
+
+    // Which rows the client actually changed (frontend resends every row, so
+    // only ids whose value differs from the stored row count as "edited").
+    const minOf = (row: any) => Number(row.min_average);
+    const maxOf = (row: any) => (row.max_average === null || row.max_average === undefined ? 100 : Number(row.max_average));
+    const rangeString = (row: any) => `${minOf(row)}–${maxOf(row) === 100 ? "100" : maxOf(row)}`;
+
+    const editedIds = new Set<number>();
+    for (const t of thresholds) {
+      const orig = current.find((c) => Number(c.id) === Number(t.id));
+      if (!orig) continue;
+      const key = Number(t.id);
+      if (t.min_average !== undefined && Number(orig.min_average) !== Number(t.min_average)) editedIds.add(key);
+      else if (t.max_average !== undefined && maxOf(orig) !== (t.max_average === null ? 100 : Number(t.max_average))) editedIds.add(key);
+    }
+
+    // Per-row sanity checks.
+    for (const row of merged) {
+      const min = minOf(row);
+      const max = maxOf(row);
+      if (!Number.isFinite(min) || min < 0 || min > 100) {
+        res.status(400).json({ error: `Threshold "${row.section_type}" (Grade ${row.grade_level}): minimum average must be between 0 and 100. Try a value like 75.` });
+        return;
+      }
+      if (!Number.isFinite(max) || max < 0 || max > 100) {
+        res.status(400).json({ error: `Threshold "${row.section_type}" (Grade ${row.grade_level}): maximum average must be between 0 and 100. Try a value like 80.` });
+        return;
+      }
+      if (min > max) {
+        res.status(400).json({ error: `Threshold "${row.section_type}" (Grade ${row.grade_level}): minimum average (${min}) cannot exceed maximum average (${max}). Set the maximum average to ${min} or higher.` });
+        return;
+      }
+    }
+
+    // Tiling check per grade level: sorted lowest→highest, each band must run
+    // straight into the next (upper.min === lower.max + 1) — that makes the
+    // effective ranges continuous with no overlap and no gap. The bottom band
+    // must start at 0 and the top band must end at 100.
+    // e.g. non_reader [0,74] · regular [75,79] · ... · ste [90,100]
+    const byGrade = new Map<number, any[]>();
+    for (const row of merged) {
+      if (!byGrade.has(row.grade_level)) byGrade.set(row.grade_level, []);
+      byGrade.get(row.grade_level)!.push(row);
+    }
+
+    // Suggest the corrected value for the band the user just edited. When only
+    // one of the two conflicting bands was changed, point at that one.
+    const adjFix = (lower: any, upper: any): string => {
+      const lowerEdited = editedIds.has(Number(lower.id));
+      const upperEdited = editedIds.has(Number(upper.id));
+      if (upperEdited && !lowerEdited) {
+        return ` Set "${upper.section_type}" to start at ${maxOf(lower) + 1}.`;
+      }
+      if (lowerEdited && !upperEdited) {
+        return ` Set "${lower.section_type}" to end at ${minOf(upper) - 1}.`;
+      }
+      return ` Start "${upper.section_type}" at ${maxOf(lower) + 1} (or end "${lower.section_type}" at ${minOf(upper) - 1}).`;
+    };
+
+    for (const [grade, tiers] of byGrade) {
+      tiers.sort((a, b) => minOf(a) - minOf(b));
+      const bottom = tiers[0];
+      const top = tiers[tiers.length - 1];
+      if (minOf(bottom) !== 0) {
+        res.status(400).json({
+          error: `Grade ${grade}: thresholds must cover the full range from 0 to 100. The lowest threshold "${bottom.section_type}" must start at 0 — set its minimum average to 0 (it is currently ${minOf(bottom)}).`,
+        });
+        return;
+      }
+      if (maxOf(top) !== 100) {
+        res.status(400).json({
+          error: `Grade ${grade}: thresholds must cover the full range from 0 to 100. The highest threshold "${top.section_type}" must end at 100 — set its maximum average to 100 (it is currently ${maxOf(top)}).`,
+        });
+        return;
+      }
+      for (let i = 0; i < tiers.length - 1; i++) {
+        const lower = tiers[i];
+        const upper = tiers[i + 1];
+        if (minOf(upper) !== maxOf(lower) + 1) {
+          if (minOf(upper) < maxOf(lower) + 1) {
+            res.status(400).json({
+              error: `Grade ${grade}: thresholds must not overlap. "${lower.section_type}" (${rangeString(lower)}) and "${upper.section_type}" (${rangeString(upper)}) overlap.${adjFix(lower, upper)}`,
+            });
+          } else {
+            res.status(400).json({
+              error: `Grade ${grade}: thresholds must cover the full range from 0 to 100. There is a gap between "${lower.section_type}" (ends at ${maxOf(lower)}) and "${upper.section_type}" (starts at ${minOf(upper)}).${adjFix(lower, upper)}`,
+            });
+          }
+          return;
+        }
+      }
+    }
+
     for (const t of thresholds) {
       if (t.id && (t.min_average !== undefined || t.max_average !== undefined)) {
         const fields: string[] = [];
         const params: any[] = [];
-        if (t.min_average !== undefined) { fields.push("min_average = ?"); params.push(t.min_average); }
-        if (t.max_average !== undefined) { fields.push("max_average = ?"); params.push(t.max_average); }
+        if (t.min_average !== undefined) { fields.push("min_average = ?"); params.push(Number(t.min_average)); }
+        if (t.max_average !== undefined) { fields.push("max_average = ?"); params.push(t.max_average === null ? null : Number(t.max_average)); }
         params.push(t.id);
         await query<ResultSetHeader>(
           `UPDATE section_type_config SET ${fields.join(", ")} WHERE id = ?`,
