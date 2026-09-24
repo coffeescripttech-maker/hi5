@@ -522,6 +522,14 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
         [remarks || "Grade 12 completed", id]
       );
 
+      // The student completed every school year they attended — flip any
+      // remaining non-completed enrollment rows too so the history reads
+      // "Completed", not "Enrolled".
+      await query<ResultSetHeader>(
+        "UPDATE enrollments SET status = 'completed', remarks = COALESCE(NULLIF(remarks, ''), 'Grade 12 completed') WHERE student_id = ? AND status <> 'completed'",
+        [enrollment.student_id]
+      );
+
       await query<ResultSetHeader>(
         "UPDATE students SET status = 'graduated', is_archived = 1, archived_at = COALESCE(archived_at, NOW()) WHERE id = ?",
         [enrollment.student_id]

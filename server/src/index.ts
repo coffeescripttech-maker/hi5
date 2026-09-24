@@ -6,6 +6,7 @@ import path from "path";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
+import dns from "node:dns";
 
 import { testConnection } from "./config/database";
 import authRoutes from "./routes/auth.routes";
@@ -46,6 +47,18 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001");
+
+// Trust the first reverse-proxy hop (the Railway/Vercel load balancer populates
+// X-Forwarded-For). Without this, express-rate-limit validation throws
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR and 500s every login / password-reset
+// request when deployed behind a proxy.
+app.set("trust proxy", 1);
+
+// Prefer IPv4 DNS resolution: hosted platforms frequently have no IPv6 egress,
+// so resolving smtp.gmail.com to an AAAA record first fails the SMTP connect
+// with ENETUNREACH (forgot-password email never sends). This forces the
+// nodemailer socket to dial the IPv4 address instead.
+dns.setDefaultResultOrder("ipv4first");
 
 // ─── Middleware ─────────────────────────────────────────────────────────────────
 

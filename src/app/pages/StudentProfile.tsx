@@ -119,7 +119,11 @@ export function StudentProfile() {
     ])
       .then(([stud, enrs, hist]) => {
         setStudent(stud);
-        setEnrollments(enrs.filter(e => e.student_id === studentId));
+        setEnrollments(
+          enrs
+            .filter(e => e.student_id === studentId)
+            .sort((a, b) => b.school_year_id - a.school_year_id)
+        );
         setGradeHistory(hist.school_years);
       })
       .catch(err => {
@@ -370,11 +374,14 @@ export function StudentProfile() {
 
               {/* Badge row */}
               <div className="flex flex-wrap gap-2 mt-4">
-                <span
-                  className={`inline-flex items-center gap-1.5 ${accent.chip} text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border shadow-xs`}>
-                  <GraduationCap size={12} /> Grade {student.grade_level}
-                </span>
-                {student.enrollment && (
+                {student.enrollment && student.status !== 'graduated' && (
+                  <span
+                    className={`inline-flex items-center gap-1.5 ${accent.chip} text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border shadow-xs`}>
+                    <GraduationCap size={12} /> Grade {student.grade_level}
+                  </span>
+                )}
+
+                {student.enrollment && student.status !== 'graduated' && (
                   <span
                     className={`inline-flex items-center gap-1.5 ${accent.chip} text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border shadow-xs`}>
                     <BookOpen size={12} /> {student.enrollment.section_name}
@@ -439,7 +446,12 @@ export function StudentProfile() {
           {
             icon: Calendar,
             label: 'Enrolled Date',
-            value: formatDate(student.enrollment?.enrollment_date)
+            value: formatDate(
+              student.status === 'graduated'
+                ? [...enrollments].find(e => e.status === 'completed')
+                    ?.enrollment_date
+                : student.enrollment?.enrollment_date
+            )
           },
           {
             icon: Activity,

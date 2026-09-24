@@ -758,6 +758,14 @@ async function completeSectionCore(
       [s.enrollment_id]
     );
 
+    // The student completed every school year they attended — flip any
+    // remaining non-completed enrollment rows too (history reads
+    // "Completed", not "Enrolled", after graduation).
+    await query<ResultSetHeader>(
+      "UPDATE enrollments SET status = 'completed', remarks = COALESCE(NULLIF(remarks, ''), 'Grade 12 completed') WHERE student_id = ? AND status <> 'completed'",
+      [s.student_id]
+    );
+
     // Update student status to graduated and soft-archive the record
     await query<ResultSetHeader>(
       "UPDATE students SET status = 'graduated', is_archived = 1, archived_at = COALESCE(archived_at, NOW()) WHERE id = ?",

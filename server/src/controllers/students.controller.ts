@@ -224,7 +224,11 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
 
     res.json({
       ...students[0],
-      enrollment: enrollments[0] || null,
+      // Graduated students no longer have a current/active section. Their
+      // completed enrollment is historical and stays available in the
+      // enrollment + section history lists, so the profile must not present
+      // a live "current enrollment" for them.
+      enrollment: students[0].status === "graduated" ? null : enrollments[0] || null,
       classifications,
     });
   } catch (error) {
