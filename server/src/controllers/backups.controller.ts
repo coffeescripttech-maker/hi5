@@ -24,14 +24,23 @@ export async function listBackups(_req: Request, res: Response): Promise<void> {
        ORDER BY b.created_at DESC`
     );
 
-    // Hide legacy/local-machine backup records. When the system was
-    // deployed, the database carried over backup rows that point at a local
-    // Windows path (e.g. C:\Users\...\server\data\backups\...). Those files
-    // do not exist on the remote server, so only keep backups whose file
-    // path lives on this machine (e.g. /data/backups/backup-....sql).
-    const filtered = backups.filter(
-      (b: RowDataPacket) => !/^[a-zA-Z]:[\\/]/.test((b.file_path || "") as string)
-    );
+    // Hide backups that cannot be used on this server:
+    //   1. Legacy/local-machine records — after deployment the database
+    //      carried backup rows pointing at a local Windows path
+    //      (e.g. C:\Users\...\server\backups\...). Those files do not exist
+    //      here, so restore/download would fail with "file not found".
+    //   2. Any row whose file is missing on this machine (e.g. a remote
+    //      /data/backups entry whose file was pruned).
+    // Only rows whose file physically exists on this server are listed.
+    const filtered = backups.filter((b: RowDataPacket) => {
+      const filePath = (b.file_path || "") as string;
+      if (/^[a-zA-Z]:[\\/]/.test(filePath)) return false;
+      try {
+        return fs.existsSync(filePath);
+      } catch {
+        return false;
+      }
+    });
 
     res.json(filtered);
   } catch (error) {
