@@ -3,6 +3,7 @@ import { getConnection, query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+import { getAcademicThresholds } from "../services/schoolConfig";
 
 /**
  * POST /api/promotions — Promote a section to the next grade level
@@ -11,7 +12,8 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
  * Algorithm:
  * 1. Fetch all enrolled students in the section
  * 2. Compute each student's general average
- * 3. Students with GA >= 75 promoted; < 75 retained
+ * 3. Students with GA >= passing mark promoted; below it retained
+ *    (passing mark is configurable in School Settings, default 75)
  * 4. Auto-assign promoted students to sections in next grade
  */
 export async function promoteSection(req: Request, res: Response): Promise<void> {
@@ -142,6 +144,8 @@ export async function previewSection(req: Request, res: Response): Promise<void>
     }
     const section = sections[0];
 
+    const { passing_grade: passingMark } = await getAcademicThresholds();
+
     const students = await query<RowDataPacket[]>(
       `SELECT e.id AS enrollment_id, e.student_id, st.name,
               COALESCE(ROUND(AVG(ss.subject_avg), 2), NULL) AS general_average,
@@ -171,7 +175,7 @@ export async function previewSection(req: Request, res: Response): Promise<void>
       const minQuarters = parseInt(s.min_quarters || "0", 10);
       const gradeComplete = subjectCount > 0 && minQuarters >= 4;
       const avg = s.general_average != null ? parseFloat(s.general_average) : NaN;
-      const isRetained = gradeComplete && !isNaN(avg) && avg < 75;
+      const isRetained = gradeComplete && !isNaN(avg) && avg < passingMark;
       return {
         student_id: s.student_id,
         name: s.name,
@@ -212,6 +216,7 @@ async function promoteSectionCore(
   opts: { enrollRetained: boolean } = { enrollRetained: false }
 ): Promise<{ promotionId: number; toGrade: number; results: any[] }> {
   const toGrade = section.grade_level + 1;
+  const { passing_grade: passingMark } = await getAcademicThresholds();
 
   // Safety guard: promoted students are enrolled into the NEXT school year. If the
   // caller ever passes the same school year (e.g. the next year does not exist), refuse —
@@ -285,7 +290,7 @@ async function promoteSectionCore(
     const gradeComplete = subjectCount > 0 && minQuarters >= 4;
     const isIncomplete = !gradeComplete;
     // Only students with complete grades are judged by their average
-    const isRetained = isIncomplete ? 0 : (avg < 75 ? 1 : 0);
+    const isRetained = isIncomplete ? 0 : (avg < passingMark ? 1 : 0);
 
     // Find target section based on average (only for complete, non-retained students)
     let targetSectionId: number | null = null;
@@ -424,8 +429,9 @@ async function promoteSectionCore(
  * POST /api/promotions/bulk-promote — Year-end bulk promotion
  * Body: { school_year_id? } (defaults to the current school year)
  *
- * Promotes every grade 7-11 section (GA >= 75 promoted, < 75 retained) and
- * marks grade 12 sections as completers. Creates/uses the next school year
+ * Promotes every grade 7-11 section (GA >= passing mark promoted, below it
+ * retained; the passing mark is configurable in School Settings, default 75)
+ * and marks grade 12 sections as completers. Creates/uses the next school year
  * for the new enrollments. Individual section failures are collected and
  * reported rather than aborting the whole run.
  */

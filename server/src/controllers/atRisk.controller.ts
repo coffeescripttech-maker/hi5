@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { classifyStudent, StudentRisk } from "../utils/linearRegression";
+import { getAcademicThresholds } from "../services/schoolConfig";
 import { getAiProvider, predictWithPython } from "../services/aiService";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -87,6 +88,8 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
     // Classification provider — 'python' uses the FastAPI/scikit-learn service
     // (with fallback to the built-in regression if it's unreachable).
     const aiProvider = getAiProvider();
+    const { passing_grade, monitor_threshold } = await getAcademicThresholds();
+    const thresholds = { passing: passing_grade, monitor: monitor_threshold };
 
     const result: any[] = [];
     for (const st of students as any[]) {
@@ -98,10 +101,10 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
           classification = await predictWithPython(st.student_id, quarters);
         } catch (error) {
           console.warn("AI service unavailable — falling back to local regression.", error);
-          classification = classifyStudent(quarters);
+          classification = classifyStudent(quarters, thresholds);
         }
       } else {
-        classification = classifyStudent(quarters);
+        classification = classifyStudent(quarters, thresholds);
       }
 
       result.push({

@@ -18,6 +18,9 @@ export interface SchoolSettingsRow {
   // Grade security settings (from migration 018)
   grade_deadline_enabled?: number;
   grade_edit_deadline?: string | null;
+  // Configurable academic thresholds (migration 035)
+  passing_grade?: number;
+  monitor_threshold?: number;
   // Legal content overrides (migration 025) — JSON strings or null
   terms_of_service_text?: string | null;
   privacy_policy_text?: string | null;
@@ -35,6 +38,9 @@ export interface UpdateSettingsPayload {
   // Grade security settings
   grade_deadline_enabled?: boolean | number;
   grade_edit_deadline?: string | null;
+  // Configurable academic thresholds (migration 035)
+  passing_grade?: number;
+  monitor_threshold?: number;
   // Legal content overrides (migration 025) — JSON strings or null
   terms_of_service_text?: string | null;
   privacy_policy_text?: string | null;

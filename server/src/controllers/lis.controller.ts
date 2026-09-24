@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
 import ExcelJS from "exceljs";
+import { getAcademicThresholds } from "../services/schoolConfig";
 
 /**
  * Convert a 1-based column index to an Excel column letter (A, B, ..., Z, AA, AB, ...).
@@ -152,6 +153,8 @@ async function fetchGradesExport(req: Request): Promise<LisDataset | null> {
   const sy = await resolveSY(req);
   if (!sy.id) return null;
 
+  const { passing_grade: passingMark } = await getAcademicThresholds();
+
   const { clause, params } = buildFilters(req, sy.id);
 
   const gradeData = await query<RowDataPacket[]>(
@@ -258,7 +261,7 @@ async function fetchGradesExport(req: Request): Promise<LisDataset | null> {
     const ga = allGrades.length > 0
       ? (allGrades.reduce((a, b) => a + b, 0) / allGrades.length).toFixed(2)
       : "";
-    const promoted = ga ? (parseFloat(ga) >= 75 ? "PROMOTED" : "RETAINED") : "";
+    const promoted = ga ? (parseFloat(ga) >= passingMark ? "PROMOTED" : "RETAINED") : "";
 
     rows.push([
       info.lrn ?? "", info.name ?? "", info.grade_level ?? "", info.section_name ?? "",

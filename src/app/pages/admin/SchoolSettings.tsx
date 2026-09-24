@@ -5,7 +5,7 @@ import {
   Settings, Calendar, Layers, Save,
   AlertTriangle, Info, Lock, Unlock, ChevronDown,
   GraduationCap, Building2, Hash, MapPin, Globe, CalendarDays,
-  UserCheck, FileText, ShieldCheck, Plus
+  UserCheck, FileText, ShieldCheck, Plus, Gauge
 } from "lucide-react";
 import { settingsApi, SectionTypeThreshold, LegalContentDoc } from "../../services/settings";
 import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
@@ -147,6 +147,9 @@ export function SchoolSettings() {
   // Grade security settings
   const [gradeDeadlineEnabled, setGradeDeadlineEnabled] = useState(false);
   const [gradeEditDeadline, setGradeEditDeadline] = useState("");
+  // Configurable academic thresholds
+  const [passingGrade, setPassingGrade] = useState(75);
+  const [monitorThreshold, setMonitorThreshold] = useState(80);
   // Legal documents shown at login (Terms / Privacy / Conditions)
   const [legalDocs, setLegalDocs] = useState<Record<"terms" | "privacy" | "conditions", LegalContentDoc>>({
     terms: { intro: "", sections: [] },
@@ -172,6 +175,8 @@ export function SchoolSettings() {
       // Grade security settings
       setGradeDeadlineEnabled(settings.grade_deadline_enabled === 1);
       setGradeEditDeadline(settings.grade_edit_deadline ? settings.grade_edit_deadline.split("T")[0] : "");
+      setPassingGrade(Number(settings.passing_grade ?? 75));
+      setMonitorThreshold(Number(settings.monitor_threshold ?? 80));
       setLegalDocs({
         terms: parseLegalDoc(settings.terms_of_service_text),
         privacy: parseLegalDoc(settings.privacy_policy_text),
@@ -293,6 +298,34 @@ export function SchoolSettings() {
       showToast("success", "Grade encoding deadline saved successfully.");
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to save grade deadline");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAcademicThresholds = async () => {
+    if (
+      !Number.isFinite(passingGrade) || passingGrade < 0 || passingGrade > 100 ||
+      !Number.isFinite(monitorThreshold) || monitorThreshold < 0 || monitorThreshold > 100
+    ) {
+      showToast("error", "Thresholds must be numbers between 0 and 100.");
+      return;
+    }
+    if (monitorThreshold < passingGrade) {
+      showToast("error", "Monitoring threshold must be equal to or higher than the passing mark.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await settingsApi.update({
+        passing_grade: passingGrade,
+        monitor_threshold: monitorThreshold,
+      });
+      setPassingGrade(Number(updated.passing_grade ?? passingGrade));
+      setMonitorThreshold(Number(updated.monitor_threshold ?? monitorThreshold));
+      showToast("success", "Academic thresholds saved successfully.");
+    } catch (err: any) {
+      showToast("error", err.detail?.error || err.message || "Failed to save academic thresholds");
     } finally {
       setSaving(false);
     }
@@ -650,6 +683,65 @@ export function SchoolSettings() {
           )}
         </div>
         {sectionFooter(handleSaveGradeDeadline, "Save Grade Deadline")}
+      </div>
+
+      {/* Academic Thresholds */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <Gauge size={16} className="text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 text-sm">Academic Thresholds</h3>
+              <p className="text-xs text-gray-400">Customize the passing mark and at-risk monitoring cutoff</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-6 space-y-4">
+          <div className="flex items-start gap-2 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+            <Info size={14} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-indigo-700">
+              These thresholds drive promotion/retention (SF5, LIS exports, bulk promotion) and the
+              at-risk model. Defaults follow DepEd standards: passing mark 75, monitoring cutoff 80.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">
+                Passing Mark
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                value={passingGrade}
+                onChange={e => setPassingGrade(Number(e.target.value))}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white"
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">Minimum average to pass and be promoted to the next grade.</p>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">
+                Monitoring Threshold
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                value={monitorThreshold}
+                onChange={e => setMonitorThreshold(Number(e.target.value))}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white"
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">Above this, a stable student is "On Track"; below it, "Needs Monitoring".</p>
+            </div>
+          </div>
+        </div>
+        {sectionFooter(handleSaveAcademicThresholds, "Save Academic Thresholds")}
       </div>
 
       {/* Auto-Sectioning Grade Thresholds */}

@@ -32,7 +32,7 @@ export async function getSettings(_req: Request, res: Response): Promise<void> {
  */
 export async function updateSettings(req: Request, res: Response): Promise<void> {
   try {
-    const { school_name, school_id, region, division, district, current_sy_id, principal_name, registrar_name, grade_deadline_enabled, grade_edit_deadline } = req.body;
+    const { school_name, school_id, region, division, district, current_sy_id, principal_name, registrar_name, grade_deadline_enabled, grade_edit_deadline, passing_grade, monitor_threshold } = req.body;
     const {
       terms_of_service_text,
       privacy_policy_text,
@@ -73,6 +73,39 @@ export async function updateSettings(req: Request, res: Response): Promise<void>
       if (conditions_text !== undefined) {
         fields.push("conditions_text = ?");
         params.push(conditions_text ? conditions_text : null);
+      }
+
+      // Configurable academic thresholds (migration 035).
+      if (passing_grade !== undefined) {
+        const passing = parseFloat(passing_grade);
+        if (!Number.isFinite(passing) || passing < 0 || passing > 100) {
+          res.status(400).json({ error: "Passing grade must be between 0 and 100." });
+          return;
+        }
+        fields.push("passing_grade = ?");
+        params.push(passing);
+      }
+      if (monitor_threshold !== undefined) {
+        const monitor = parseFloat(monitor_threshold);
+        if (!Number.isFinite(monitor) || monitor < 0 || monitor > 100) {
+          res.status(400).json({ error: "Monitoring threshold must be between 0 and 100." });
+          return;
+        }
+        fields.push("monitor_threshold = ?");
+        params.push(monitor);
+      }
+
+      // The monitoring band sits above the passing mark — keep them sane together.
+      if (passing_grade !== undefined || monitor_threshold !== undefined) {
+        const current = await query<RowDataPacket[]>(
+          `SELECT passing_grade, monitor_threshold FROM school_settings WHERE id = 1`
+        );
+        const passing = passing_grade !== undefined ? parseFloat(passing_grade) : parseFloat(current[0]?.passing_grade ?? "75");
+        const monitor = monitor_threshold !== undefined ? parseFloat(monitor_threshold) : parseFloat(current[0]?.monitor_threshold ?? "80");
+        if (monitor < passing) {
+          res.status(400).json({ error: "Monitoring threshold must be equal to or higher than the passing mark." });
+          return;
+        }
       }
 
       if (fields.length === 0) {

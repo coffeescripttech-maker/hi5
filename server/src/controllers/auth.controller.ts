@@ -400,9 +400,10 @@ export async function logout(req: Request, res: Response): Promise<void> {
  * Body: { email }
  *
  * Generates a 6-digit reset code tied to the user's account and emails it
- * via Gmail SMTP (GMAIL_USER + GMAIL_APP_PASSWORD). When no SMTP is
- * configured: dev mode echoes the code in the response for testing, and
- * production refuses rather than leaking the code over the wire.
+ * via Resend (RESEND_API_KEY) — or Gmail SMTP (GMAIL_USER + GMAIL_APP_PASSWORD)
+ * as fallback. When no provider is configured: dev mode echoes the code in
+ * the response for testing, and production refuses rather than leaking the
+ * code over the wire.
  */
 export async function forgotPassword(req: Request, res: Response): Promise<void> {
   try {

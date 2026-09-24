@@ -28,16 +28,24 @@ export interface StudentRisk {
   projected: number | null; // projected final grade (regression at quarter 4)
 }
 
-/** Passing grade (DepEd minimum). */
-const PASSING = 75;
-/** Above this, a stable/improving student is comfortably On Track. */
-const MONITOR = 80;
+/** Passing grade (DepEd minimum — configurable via School Settings). */
+export const DEFAULT_PASSING = 75;
+/** Above this, a stable/improving student is comfortably On Track (configurable via School Settings). */
+export const DEFAULT_MONITOR = 80;
 /** Per-quarter slope considered a meaningful decline. */
 const DECLINE = -1;
 /** Per-quarter slope considered a meaningful improvement. */
 const IMPROVE = 1;
 /** The final grading period used for the projected grade. */
 const FINAL_QUARTER = 4;
+
+/** Overridable academic thresholds (school-configurable). */
+export interface ClassifyConfig {
+  /** Minimum grade to pass / be promoted (default 75). */
+  passing?: number;
+  /** Above this a stable student is "On Track" (default 80). */
+  monitor?: number;
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const round2 = (v: number) => Math.round(v * 100) / 100;
@@ -72,8 +80,12 @@ export function linearRegression(points: GradePoint[]): RegressionResult {
  * missing quarters are null.
  */
 export function classifyStudent(
-  quarters: (number | null)[]
+  quarters: (number | null)[],
+  config: ClassifyConfig = {}
 ): StudentRisk {
+  const passing = config.passing ?? DEFAULT_PASSING;
+  const monitor = config.monitor ?? DEFAULT_MONITOR;
+
   const points: GradePoint[] = quarters
     .map((y, i) => ({ x: i + 1, y }))
     .filter((p): p is GradePoint => p.y !== null && !isNaN(p.y));
@@ -96,7 +108,7 @@ export function classifyStudent(
   if (points.length === 1) {
     const avg = points[0].y;
     const risk_level: RiskLevel =
-      avg < PASSING ? "at_risk" : avg < MONITOR ? "needs_monitoring" : "on_track";
+      avg < passing ? "at_risk" : avg < monitor ? "needs_monitoring" : "on_track";
     return { risk_level, trend: "stable", current_average, slope: null, projected: avg };
   }
 
@@ -104,9 +116,9 @@ export function classifyStudent(
   const projected = clamp(round2(intercept + slope * FINAL_QUARTER), 0, 100);
 
   let risk_level: RiskLevel;
-  if (current_average! < PASSING || projected < PASSING) {
+  if (current_average! < passing || projected < passing) {
     risk_level = "at_risk";
-  } else if (slope < DECLINE || projected < MONITOR) {
+  } else if (slope < DECLINE || projected < monitor) {
     risk_level = "needs_monitoring";
   } else {
     risk_level = "on_track";

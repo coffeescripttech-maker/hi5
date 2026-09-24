@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
+import { getAcademicThresholds } from "../services/schoolConfig";
 
 /**
  * GET /api/forms/sf1 — School Register (list of all enrolled students)
@@ -154,19 +155,23 @@ export async function getSF5(req: Request, res: Response): Promise<void> {
   try {
     const { school_year_id, section_id } = req.query;
 
+    const { passing_grade: passingMark } = await getAcademicThresholds();
+
     let sql = `
       SELECT s.id AS student_id, s.student_id AS student_id_display, s.lrn, s.name,
              s.grade_level, s.sex,
              sec.name AS section_name, sec.section_type,
              ROUND(AVG(g.grade), 2) AS general_average,
-             CASE WHEN ROUND(AVG(g.grade), 2) >= 75 THEN 'PROMOTED' ELSE 'RETAINED' END AS promotion_status
+             CASE WHEN ROUND(AVG(g.grade), 2) >= ? THEN 'PROMOTED' ELSE 'RETAINED' END AS promotion_status
       FROM enrollments e
       JOIN students s ON e.student_id = s.id
       JOIN sections sec ON e.section_id = sec.id
       JOIN grades g ON g.student_id = s.id AND g.school_year_id = e.school_year_id
       WHERE e.status = 'enrolled'
     `;
-    const params: any[] = [];
+    // The passing-mark placeholder is textually first in the SQL (SELECT list),
+    // so it must be the first parameter.
+    const params: any[] = [passingMark];
 
     if (school_year_id) {
       sql += " AND e.school_year_id = ?";
