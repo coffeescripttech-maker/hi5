@@ -50,10 +50,12 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Find user
+    // Find user — by username OR by their personal email (the identifier
+    // field accepts either; email comparison is case-insensitive via the
+    // column's CI collation, so "Name@School.edu.ph" matches too).
     const users = await query<UserRow[]>(
-      "SELECT id, username, password_hash, name, email, role, status, last_login FROM users WHERE username = ?",
-      [username]
+      "SELECT id, username, password_hash, name, email, role, status, last_login FROM users WHERE username = ? OR email = ?",
+      [username, username]
     );
 
     if (users.length === 0) {

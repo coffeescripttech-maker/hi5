@@ -13,7 +13,6 @@ import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
 import { exportToPdf } from "../../services/pdfExport";
 
-const SECTIONS = ["All Sections", "Star", "Gold", "Silver", "Regular", "Pending"];
 const CLASSIFICATIONS = ["All Classifications", "4Ps", "PWD", "Transferee", "Non-Reader", "Balik-aral", "Regular"];
 const GRADES = ["All Grades", "7", "8", "9", "10", "11", "12"];
 
@@ -109,6 +108,16 @@ export function EnrollmentReport() {
       color: CLASSIF_COLORS[c.classification] || "#9ca3af",
     }));
   }, [stats]);
+
+  // Sections available for the grade filter — when a grade is selected, only
+  // that grade's sections are offered; "All Grades" lists every section.
+  const availableSections = useMemo(() => {
+    const scoped =
+      filterGrade === "All Grades"
+        ? sections
+        : sections.filter(s => s.grade_level === parseInt(filterGrade));
+    return [...new Set(scoped.map(s => s.name).filter(Boolean))].sort();
+  }, [sections, filterGrade]);
 
   const filtered = useMemo(() => {
     let list = [...enrollments];
@@ -488,7 +497,22 @@ export function EnrollmentReport() {
                 <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 <select
                   value={filterGrade}
-                  onChange={e => setFilterGrade(e.target.value)}
+                  onChange={e => {
+                    const g = e.target.value;
+                    setFilterGrade(g);
+                    // When the grade changes the section list narrows to that
+                    // grade — if the previously selected section no longer
+                    // exists in it, fall back to "All Sections".
+                    setFilterSection(prev => {
+                      if (prev === "All Sections" || g === "All Grades") return prev;
+                      const exists = sections.some(
+                        s =>
+                          s.grade_level === parseInt(g) &&
+                          s.name === prev
+                      );
+                      return exists ? prev : "All Sections";
+                    });
+                  }}
                   className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white appearance-none cursor-pointer"
                 >
                   {GRADES.map(g => <option key={g}>{g}</option>)}
@@ -506,7 +530,8 @@ export function EnrollmentReport() {
                   onChange={e => setFilterSection(e.target.value)}
                   className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white appearance-none cursor-pointer"
                 >
-                  {SECTIONS.map(s => <option key={s}>{s}</option>)}
+                  <option value="All Sections">All Sections</option>
+                  {availableSections.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
             </div>

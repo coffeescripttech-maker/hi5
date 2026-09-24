@@ -23,7 +23,17 @@ export async function listBackups(_req: Request, res: Response): Promise<void> {
        LEFT JOIN users u ON b.initiated_by = u.id
        ORDER BY b.created_at DESC`
     );
-    res.json(backups);
+
+    // Hide legacy/local-machine backup records. When the system was
+    // deployed, the database carried over backup rows that point at a local
+    // Windows path (e.g. C:\Users\...\server\data\backups\...). Those files
+    // do not exist on the remote server, so only keep backups whose file
+    // path lives on this machine (e.g. /data/backups/backup-....sql).
+    const filtered = backups.filter(
+      (b: RowDataPacket) => !/^[a-zA-Z]:[\\/]/.test((b.file_path || "") as string)
+    );
+
+    res.json(filtered);
   } catch (error) {
     console.error("List backups error:", error);
     res.status(500).json({ error: "Failed to fetch backups." });

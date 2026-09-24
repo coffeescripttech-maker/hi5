@@ -369,6 +369,23 @@ async function promoteSectionCore(
       }
       // else: already enrolled in the target section — section and counts are
       // already correct, so nothing further to do.
+
+      // The student has been promoted out of their previous section — that
+      // (earlier) enrollment is no longer their current one, so tag it
+      // "completed" instead of "enrolled". Only their newest 'enrolled' row
+      // stays current.
+      await query<ResultSetHeader>(
+        `UPDATE enrollments SET status = 'completed'
+         WHERE student_id = ? AND status = 'enrolled'
+           AND school_year_id < (
+             SELECT current_sy FROM (
+               SELECT MAX(school_year_id) AS current_sy
+               FROM enrollments
+               WHERE student_id = ? AND status = 'enrolled'
+             ) t
+           )`,
+        [s.student_id, s.student_id]
+      );
     } else if (opts.enrollRetained && (isRetained || isIncomplete)) {
       // Retained or incomplete students stay in the SAME section for the next school year
       const existingEnroll = await query<RowDataPacket[]>(

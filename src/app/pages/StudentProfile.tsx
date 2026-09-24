@@ -191,6 +191,12 @@ export function StudentProfile() {
         })()
       : null;
 
+  // Section history reads newest school year first (descending), matching the
+  // enrollment records table so the most recent section is always on top.
+  const sectionHistory = [...enrollments].sort(
+    (a, b) => b.school_year_id - a.school_year_id
+  );
+
   const DetailRow = ({
     icon: Icon,
     label,
@@ -1038,7 +1044,7 @@ export function StudentProfile() {
                 </span>
               </div>
 
-              {enrollments.length === 0 ? (
+              {sectionHistory.length === 0 ? (
                 <div className="text-center py-16 bg-gray-50/50 rounded-xl border border-gray-100">
                   <div
                     className={`w-16 h-16 rounded-2xl ${accent.soft} flex items-center justify-center mx-auto mb-4`}>
@@ -1060,7 +1066,7 @@ export function StudentProfile() {
                   />
 
                   <div className="space-y-4">
-                    {enrollments.map((e, idx) => {
+                    {sectionHistory.map((e, idx) => {
                       const badge = STATUS_BADGE[e.status] || {
                         bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
                         ring: '',

@@ -283,6 +283,22 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
       [student_id]
     );
 
+    // Returning / promoted students: their previous section is no longer
+    // current, so any earlier 'enrolled' row becomes "completed"; only their
+    // newest 'enrolled' row stays the active section.
+    await query<ResultSetHeader>(
+      `UPDATE enrollments SET status = 'completed'
+       WHERE student_id = ? AND status = 'enrolled'
+         AND school_year_id < (
+           SELECT current_sy FROM (
+             SELECT MAX(school_year_id) AS current_sy
+             FROM enrollments
+             WHERE student_id = ? AND status = 'enrolled'
+           ) t
+         )`,
+      [student_id, student_id]
+    );
+
     await logActivity(
       req.user!.userId,
       sectionName !== "Pending Section"

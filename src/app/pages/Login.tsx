@@ -37,19 +37,33 @@ const ROLE_PATHS: Record<string, string> = {
 /* ── Zod Validation Schemas ─────────────────────────── */
 const MAX_LOGIN_USERNAME = 50;
 const loginSchema = z.object({
+  // Accepts either the username or the user's personal email: something
+  // containing "@" is validated as an email, anything else as a username.
   username: z
     .string()
     .trim()
-    .min(1, 'Username is required')
-    .min(3, 'Username must be at least 3 characters')
+    .min(1, 'Username or email is required')
+    .min(3, 'Must be at least 3 characters')
     .max(
       MAX_LOGIN_USERNAME,
-      `Username must be at most ${MAX_LOGIN_USERNAME} characters`
+      `Must be at most ${MAX_LOGIN_USERNAME} characters`
     )
-    .regex(
-      /^[a-zA-Z0-9_.-]+$/,
-      'Username may only contain letters, numbers, dots, dashes, and underscores'
-    ),
+    .superRefine((val, ctx) => {
+      if (val.includes('@')) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Enter a valid email address (e.g. you@school.edu.ph)'
+          });
+        }
+      } else if (!/^[a-zA-Z0-9_.-]+$/.test(val)) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'Username may only contain letters, numbers, dots, dashes, and underscores'
+        });
+      }
+    }),
   password: z.string().min(1, 'Password is required')
 });
 
@@ -888,7 +902,7 @@ export function Login() {
                 <label
                   htmlFor="login-username"
                   className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
-                  Username
+                  Username or Email
                 </label>
                 <div className="relative group">
                   <User
@@ -910,7 +924,7 @@ export function Login() {
                         ? 'border border-red-300 focus:ring-red-300 focus:border-red-400'
                         : 'border border-gray-200 focus:ring-emerald-400/70 focus:border-emerald-400'
                     }`}
-                    placeholder="Enter your username"
+                    placeholder="Enter your username or email"
                     required
                     autoComplete="username"
                     onKeyDown={e =>

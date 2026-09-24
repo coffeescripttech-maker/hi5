@@ -41,6 +41,11 @@ import { z } from 'zod';
 
 // ── Zod Validation Schemas ──────────────────────────────────────────────
 
+// Capitalize the first letter of each word in a name ("bert" → "Bert",
+// "jose mari" → "Jose Mari", "jean-paul" → "Jean-Paul").
+const capitalizeName = (value: string): string =>
+  value.replace(/\b[a-z]/g, m => m.toUpperCase());
+
 const newStudentSchema = z.object({
   firstName: z
     .string()
@@ -1935,7 +1940,7 @@ export function EnrollmentModule() {
                   <input
                     type="text"
                     value={newData.firstName}
-                    onChange={e => updateNewField('firstName', e.target.value)}
+                    onChange={e => updateNewField('firstName', capitalizeName(e.target.value))}
                     className={`w-full border ${newErrors.firstName ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:border-emerald-400 focus:ring-emerald-100'} rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75`}
                     placeholder="Maria"
                   />
@@ -1953,7 +1958,7 @@ export function EnrollmentModule() {
                   <input
                     type="text"
                     value={newData.middleName}
-                    onChange={e => updateNewField('middleName', e.target.value)}
+                    onChange={e => updateNewField('middleName', capitalizeName(e.target.value))}
                     className="w-full border border-gray-200 focus:border-emerald-400 focus:ring-emerald-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75"
                     placeholder="Cruz"
                   />
@@ -1965,7 +1970,7 @@ export function EnrollmentModule() {
                   <input
                     type="text"
                     value={newData.lastName}
-                    onChange={e => updateNewField('lastName', e.target.value)}
+                    onChange={e => updateNewField('lastName', capitalizeName(e.target.value))}
                     className={`w-full border ${newErrors.lastName ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:border-emerald-400 focus:ring-emerald-100'} rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75`}
                     placeholder="Santos"
                   />
