@@ -3,6 +3,29 @@ import { query, getConnection } from '../config/database';
 import { logActivity } from '../utils/activityLogger';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
+/** DATE columns come back as JS Dates at local midnight; serialize them back
+ *  to plain "YYYY-MM-DD" so clients can bind them directly to
+ *  <input type="date"> and display them without ISO-8601 noise. */
+function dateOnly(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Normalize a school_years row so enrollment dates are plain dates. */
+function serializeYear(row: RowDataPacket): Record<string, unknown> {
+  if (!row) return row;
+  return {
+    ...row,
+    enrollment_start_date: dateOnly(row.enrollment_start_date),
+    enrollment_end_date: dateOnly(row.enrollment_end_date),
+  };
+}
+
 /**
  * GET /api/school-years — List all school years
  */
@@ -14,7 +37,7 @@ export async function listSchoolYears(
     const years = await query<RowDataPacket[]>(
       'SELECT * FROM school_years ORDER BY CAST(SUBSTRING_INDEX(sy_label, "-", 1) AS UNSIGNED) DESC, CAST(SUBSTRING_INDEX(sy_label, "-", -1) AS UNSIGNED) DESC'
     );
-    res.json(years);
+    res.json(years.map(serializeYear));
   } catch (error) {
     console.error('List school years error:', error);
     res.status(500).json({ error: 'Failed to fetch school years.' });
@@ -36,7 +59,7 @@ export async function getCurrentSchoolYear(
       res.status(404).json({ error: 'No current school year set.' });
       return;
     }
-    res.json(years[0]);
+    res.json(serializeYear(years[0]));
   } catch (error) {
     console.error('Get current school year error:', error);
     res.status(500).json({ error: 'Failed to fetch current school year.' });
@@ -121,7 +144,7 @@ export async function createSchoolYear(
       'SELECT * FROM school_years WHERE id = ?',
       [result.insertId]
     );
-    res.status(201).json(newYear[0]);
+    res.status(201).json(serializeYear(newYear[0]));
   } catch (error) {
     console.error('Create school year error:', error);
     res.status(500).json({ error: 'Failed to create school year.' });
@@ -194,7 +217,7 @@ export async function updateSchoolYear(
       'SELECT * FROM school_years WHERE id = ?',
       [id]
     );
-    res.json(updated[0]);
+    res.json(serializeYear(updated[0]));
   } catch (error) {
     console.error('Update school year error:', error);
     res.status(500).json({ error: 'Failed to update school year.' });
@@ -249,7 +272,7 @@ export async function setCurrentSchoolYear(
       'SELECT * FROM school_years WHERE id = ?',
       [id]
     );
-    res.json(updated[0]);
+    res.json(serializeYear(updated[0]));
   } catch (error) {
     if (connection) {
       await connection.rollback();
@@ -365,8 +388,8 @@ export async function archiveSchoolYear(
 
     res.json({
       message: `School year ${current.sy_label} archived. ${next.sy_label} is now active.`,
-      archived: current,
-      next
+      archived: serializeYear(current),
+      next: serializeYear(next)
     });
   } catch (error) {
     if (connection) {

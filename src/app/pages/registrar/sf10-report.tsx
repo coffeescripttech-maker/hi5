@@ -1725,8 +1725,8 @@ export function SF10Report() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 mt-8">
-                  <div className="text-center">
+                <div className="mt-8 flex items-end gap-6">
+                  <div className="w-40 shrink-0 text-center">
                     <input
                       type="date"
                       value={cert.certDate}
@@ -1735,7 +1735,7 @@ export function SF10Report() {
                     />
                     <div className="text-[11px] font-bold">Date</div>
                   </div>
-                  <div className="text-center">
+                  <div className="min-w-0 flex-1 text-center">
                     <input
                       type="text"
                       value={cert.principalName}
@@ -1749,9 +1749,9 @@ export function SF10Report() {
                       Name of Principal/School Head over Printed Name
                     </div>
                   </div>
-                  <div className="text-center">
-                    <div className="border-2 border-dashed border-gray-400 h-12 flex items-center justify-center">
-                      <span className="text-[10px]">
+                  <div className="flex w-36 shrink-0 flex-col items-center justify-end">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-gray-700">
+                      <span className="px-1 text-center text-[8px] leading-snug">
                         (Affix School Seal here)
                       </span>
                     </div>

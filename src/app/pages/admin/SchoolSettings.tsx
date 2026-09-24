@@ -261,10 +261,11 @@ export function SchoolSettings() {
         const updated = await schoolYearsApi.update(current.id, {          enrollment_open: enrollmentStatus === "open" ? 1 : 0,
           enrollment_start_date: enrollmentOpen || undefined,
           enrollment_end_date: enrollmentClose || undefined});
-        // Refresh local state from server response
+        // Refresh local state from server response (dates come back as plain
+        // YYYY-MM-DD; toDateInput keeps them safe for <input type="date">)
         setSchoolYear(updated.sy_label);
-        setEnrollmentOpen(updated.enrollment_start_date || "");
-        setEnrollmentClose(updated.enrollment_end_date || "");
+        setEnrollmentOpen(toDateInput(updated.enrollment_start_date));
+        setEnrollmentClose(toDateInput(updated.enrollment_end_date));
         setEnrollmentStatus(updated.enrollment_open === 1 ? "open" : "closed");
         // Refresh sidebar/header school year label
         refreshSchoolInfo();

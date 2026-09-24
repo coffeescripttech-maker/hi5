@@ -59,6 +59,11 @@ function getTransport(): Transporter {
       greetingTimeout: 15_000,
       socketTimeout: 30_000,
     });
+    // Log once so deployments can verify which endpoint is being dialed
+    // (connectivity failures usually show up here before auth does).
+    console.log(
+      `[mailer] SMTP transport ready -> ${process.env.SMTP_HOST || "smtp.gmail.com"}:${port} (${port === 465 ? "implicit TLS" : "STARTTLS"})`
+    );
   }
   return transport;
 }

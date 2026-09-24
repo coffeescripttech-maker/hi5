@@ -124,7 +124,7 @@ export function RegistrarDashboard() {
         const color = distribution.subjects[0]?.buckets.find(b => b.range === range)?.color || "#6366f1";
         return {
           range,
-          count: distribution.subjects.reduce((sum, s) => sum + (s.buckets.find(b => b.range === range)?.count || 0), 0),
+          count: distribution.subjects.reduce((sum, s) => sum + (Number(s.buckets.find(b => b.range === range)?.count) || 0), 0),
           color,
         };
       })
@@ -357,7 +357,7 @@ export function RegistrarDashboard() {
                 <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "11px" }}
-                  formatter={(v: number) => [`${v} grades`, "Count"]}
+                  formatter={(v: number) => [String(v), "Students"]}
                 />
                 <Bar dataKey="count" name="Grades" radius={[4, 4, 0, 0]}>
                   {distData.map((d, idx) => (

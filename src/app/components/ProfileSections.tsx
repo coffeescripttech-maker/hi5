@@ -8,7 +8,7 @@
  * bars, icon tiles, uppercase tracking labels) with a per-role accent colour:
  * admin → blue, teacher → emerald, registrar → indigo, principal → violet.
  */
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Briefcase,
   Calendar,
@@ -338,6 +338,63 @@ const DEFAULT_INFO_FIELDS: InfoField[] = [
   { label: "Date Hired", key: "dateHired", icon: Calendar },
 ];
 
+/* ── Personal Information validation ────────────────────────────────── */
+
+/** Upper bounds that mirror the `users` table column widths. */
+const FIELD_MAX: Record<string, number> = {
+  name: 150,
+  email: 100,
+  phone: 20,
+  address: 500,
+  employeeId: 30,
+  designation: 100,
+};
+
+/** Philippine phone number: mobile (0917 123 4567 / +63 917 123 4567 /
+ *  639 917 123 4567) or landline (02-8123 4567 / 034-456 7890). Spaces,
+ *  dashes and parentheses are ignored. */
+function isValidPhPhone(raw: string): boolean {
+  let s = raw.replace(/[\s\-()]/g, "");
+  if (s.startsWith("+")) s = s.slice(1);
+  return (
+    /^09\d{9}$/.test(s) ||
+    /^639\d{9}$/.test(s) ||
+    /^0[2-9]\d{8}$/.test(s) ||
+    /^63[2-9]\d{8}$/.test(s)
+  );
+}
+
+/** Returns an error message for a field value, or null when it's valid.
+ *  Empty optional fields (phone, address, employeeId, …) are allowed. */
+function validateField(key: string, value: string): string | null {
+  const v = (value ?? "").trim();
+  const max = FIELD_MAX[key];
+  if (max && v.length > max) {
+    return `Keep this under ${max} characters.`;
+  }
+  switch (key) {
+    case "name":
+      return v ? null : "Full Name is required.";
+    case "email":
+      if (!v) return "Email is required.";
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+        ? null
+        : "Enter a valid email address.";
+    case "phone":
+      if (!v) return null;
+      return isValidPhPhone(v)
+        ? null
+        : "Enter a valid PH phone number (e.g. 0917 123 4567 or +63 917 123 4567).";
+    case "dateHired":
+      if (!v) return null;
+      return Number.isNaN(new Date(v).getTime())
+        ? "Enter a valid date."
+        : null;
+    default:
+      return null;
+  }
+}
+
 export function EditableInfoCard({
   form,
   draft,
@@ -360,6 +417,52 @@ export function EditableInfoCard({
   onCancel: () => void;
 }) {
   const accent = TONE[tone];
+  const { showToast } = useApp();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState<Set<string>>(new Set());
+
+  // Fresh slate each time the user enters edit mode (don't resurrect old errors).
+  useEffect(() => {
+    if (editing) {
+      setErrors({});
+      setDirty(new Set());
+    }
+  }, [editing]);
+
+  const handleChange = (key: string, value: string) => {
+    onChange(key, value);
+    setDirty(prev => (prev.has(key) ? prev : new Set(prev).add(key)));
+    setErrors(prev =>
+      key in prev ? { ...prev, [key]: "" } : prev
+    );
+  };
+
+  const handleBlur = (key: string) => {
+    if (!dirty.has(key)) return;
+    const err = validateField(key, draft[key] ?? "");
+    setErrors(prev =>
+      err ? { ...prev, [key]: err } : { ...prev, [key]: "" }
+    );
+  };
+
+  const handleSaveClick = () => {
+    const next: Record<string, string> = {};
+    let firstError: string | null = null;
+    for (const key of dirty) {
+      const err = validateField(key, draft[key] ?? "");
+      if (err) {
+        next[key] = err;
+        firstError = firstError || err;
+      }
+    }
+    setErrors(next);
+    if (firstError) {
+      showToast("error", firstError);
+      return;
+    }
+    onSave();
+  };
+
   return (
     <SectionCard
       icon={UserIcon}
@@ -370,7 +473,7 @@ export function EditableInfoCard({
         editing ? (
           <div className="flex gap-2">
             <button
-              onClick={onSave}
+              onClick={handleSaveClick}
               className={`text-xs ${accent.button} ${accent.hover} text-white px-3.5 py-1.5 rounded-lg font-medium shadow-sm transition`}>
               Save Changes
             </button>
@@ -391,17 +494,32 @@ export function EditableInfoCard({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {fields.map(f => {
           const Icon = f.icon;
+          const error = errors[f.key];
           return (
             <div key={f.key} className={f.full ? "sm:col-span-2" : ""}>
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">{f.label}</p>
               {editing ? (
-                <div className="relative">
-                  <Icon size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${accent.text}`} />
-                  <input
-                    value={draft[f.key] ?? ""}
-                    onChange={e => onChange(f.key, e.target.value)}
-                    className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white border border-gray-200 ${accent.ring}`}
-                  />
+                <div>
+                  <div className="relative">
+                    <Icon size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${error ? "text-red-400" : accent.text}`} />
+                    <input
+                      type={f.key === "dateHired" ? "date" : "text"}
+                      value={draft[f.key] ?? ""}
+                      maxLength={FIELD_MAX[f.key] ? FIELD_MAX[f.key] : undefined}
+                      onChange={e => handleChange(f.key, e.target.value)}
+                      onBlur={() => handleBlur(f.key)}
+                      className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white border ${
+                        error
+                          ? "border-red-300 focus:ring-red-100 focus:border-red-400"
+                          : `border-gray-200 ${accent.ring}`
+                      }`}
+                    />
+                  </div>
+                  {error && (
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1">
+                      <AlertCircle size={11} className="flex-shrink-0" />{error}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5">

@@ -697,14 +697,14 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
       const mapehAgg = {
         subject_id: -1,
         subject_name: "MAPEH",
-        total: mapehRows[0].total_students, // same students
-        bucket_90_100: Math.round(mapehRows.reduce((s: number, r: any) => s + r.bucket_90_100, 0) / mapehRows.length),
-        bucket_85_89: Math.round(mapehRows.reduce((s: number, r: any) => s + r.bucket_85_89, 0) / mapehRows.length),
-        bucket_80_84: Math.round(mapehRows.reduce((s: number, r: any) => s + r.bucket_80_84, 0) / mapehRows.length),
-        bucket_75_79: Math.round(mapehRows.reduce((s: number, r: any) => s + r.bucket_75_79, 0) / mapehRows.length),
-        bucket_below_75: Math.round(mapehRows.reduce((s: number, r: any) => s + r.bucket_below_75, 0) / mapehRows.length),
-        bucket_no_grade: Math.round(mapehRows.reduce((s: number, r: any) => s + r.bucket_no_grade, 0) / mapehRows.length),
-        mean_grade: Math.round(mapehRows.reduce((s: number, r: any) => s + parseFloat(r.mean_grade || "0"), 0) / mapehRows.length * 100) / 100,
+        total: Number(mapehRows[0].total_students), // same students
+        bucket_90_100: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_90_100), 0) / mapehRows.length),
+        bucket_85_89: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_85_89), 0) / mapehRows.length),
+        bucket_80_84: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_80_84), 0) / mapehRows.length),
+        bucket_75_79: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_75_79), 0) / mapehRows.length),
+        bucket_below_75: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_below_75), 0) / mapehRows.length),
+        bucket_no_grade: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_no_grade), 0) / mapehRows.length),
+        mean_grade: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.mean_grade || 0), 0) / mapehRows.length * 100) / 100,
       };
       subjects = [...otherRows.map(serializeSubject), mapehAgg];
     } else {
@@ -826,16 +826,20 @@ export async function getGradeSubmissionStatus(req: Request, res: Response): Pro
 }
 
 function serializeSubject(r: any) {
+  // mysql2 returns COUNT() as a number but SUM()/AVG() (DECIMAL) as strings
+  // ("110", "86.50"). Coerce to numbers here so downstream sums are numeric
+  // instead of string concatenation (0 + "110" === "0110").
+  const n = (v: any): number => (v === null || v === undefined ? 0 : Number(v));
   return {
     subject_id: r.subject_id,
     subject_name: r.subject_group,
-    total: r.total_students,
-    bucket_90_100: r.bucket_90_100,
-    bucket_85_89: r.bucket_85_89,
-    bucket_80_84: r.bucket_80_84,
-    bucket_75_79: r.bucket_75_79,
-    bucket_below_75: r.bucket_below_75,
-    bucket_no_grade: r.bucket_no_grade,
-    mean_grade: r.mean_grade,
+    total: n(r.total_students),
+    bucket_90_100: n(r.bucket_90_100),
+    bucket_85_89: n(r.bucket_85_89),
+    bucket_80_84: n(r.bucket_80_84),
+    bucket_75_79: n(r.bucket_75_79),
+    bucket_below_75: n(r.bucket_below_75),
+    bucket_no_grade: n(r.bucket_no_grade),
+    mean_grade: r.mean_grade === null || r.mean_grade === undefined ? null : Number(r.mean_grade),
   };
 }

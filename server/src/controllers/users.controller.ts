@@ -19,9 +19,22 @@ interface UserRow extends RowDataPacket {
   date_hired: string | null;
   end_of_contract: string | null;
   last_login: Date | null;
+  last_seen_at: Date | null;
+  presence: "online" | "idle" | "offline";
   created_at: Date;
   updated_at: Date;
 }
+
+// Presence thresholds (mirror the client-friendly description in the migration):
+//   online   → last_seen_at within 2 minutes
+//   idle     → last_seen_at 2–15 minutes ago
+//   offline  → older than 15 minutes or never seen
+const PRESENCE_SELECT = `
+  CASE
+    WHEN last_seen_at IS NOT NULL AND last_seen_at >= DATE_SUB(NOW(), INTERVAL 2 MINUTE) THEN 'online'
+    WHEN last_seen_at IS NOT NULL AND last_seen_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) THEN 'idle'
+    ELSE 'offline'
+  END AS presence`;
 
 /**
  * GET /api/users — List all users
@@ -30,7 +43,8 @@ export async function listUsers(_req: Request, res: Response): Promise<void> {
   try {
     const users = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, end_of_contract, last_login, created_at, updated_at
+              status, employee_id, designation, date_hired, end_of_contract, last_login, last_seen_at,
+              created_at, updated_at, ${PRESENCE_SELECT}
        FROM users ORDER BY name ASC`
     );
     res.json(users);
@@ -48,7 +62,8 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
     const users = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, end_of_contract, last_login, created_at, updated_at
+              status, employee_id, designation, date_hired, end_of_contract, last_login, last_seen_at,
+              created_at, updated_at, ${PRESENCE_SELECT}
        FROM users WHERE id = ?`,
       [id]
     );
@@ -119,7 +134,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 
     const newUser = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, end_of_contract, created_at
+              status, employee_id, designation, date_hired, end_of_contract, last_login, last_seen_at,
+              created_at, updated_at, ${PRESENCE_SELECT}
        FROM users WHERE id = ?`,
       [result.insertId]
     );
@@ -215,7 +231,8 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
     const updated = await query<UserRow[]>(
       `SELECT id, username, name, email, role, phone, address, profile_photo_url,
-              status, employee_id, designation, date_hired, end_of_contract, last_login, created_at, updated_at
+              status, employee_id, designation, date_hired, end_of_contract, last_login, last_seen_at,
+              created_at, updated_at, ${PRESENCE_SELECT}
        FROM users WHERE id = ?`,
       [id]
     );

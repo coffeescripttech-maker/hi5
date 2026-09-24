@@ -52,9 +52,18 @@ export function AcademicYearManagement() {
   const [creating, setCreating] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  // Sort school years ascending by label (2025-2026 before 2026-2027)
+  // Sort school years latest-first (2026-2027 before 2025-2026 and so on).
+  // Numeric compare matches the server's DESC ordering (safe for both
+  // school-year ranges "2026-2027" and calendar years "2026").
   const sortYears = (years: SchoolYearRow[]) =>
-    [...years].sort((a, b) => a.sy_label.localeCompare(b.sy_label));
+    [...years].sort((a, b) => {
+      const aStart = parseInt(a.sy_label.split(/[-–]/)[0]) || 0;
+      const bStart = parseInt(b.sy_label.split(/[-–]/)[0]) || 0;
+      if (aStart !== bStart) return bStart - aStart;
+      const aEnd = parseInt(a.sy_label.split(/[-–]/)[1]) || aStart;
+      const bEnd = parseInt(b.sy_label.split(/[-–]/)[1]) || bStart;
+      return bEnd - aEnd;
+    });
 
   // Derive the natural successor label — supports both "2026-2027" and "2026".
   const deriveNextLabel = (label: string): string => {

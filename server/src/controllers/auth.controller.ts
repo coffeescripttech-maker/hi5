@@ -25,6 +25,19 @@ interface UserRow extends RowDataPacket {
   created_at: Date | null;
 }
 
+/** DATE columns come back as JS Dates at local midnight; serialize them back
+ *  to the plain "YYYY-MM-DD" the client can round-trip into a DATE column
+ *  without MySQL strict-mode errors (ISO-8601 "T"/"Z" is rejected). */
+function dateOnly(value: Date | string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /**
  * POST /api/auth/login
  */
@@ -105,9 +118,9 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Success — reset attempts and update last login
+    // Success — reset attempts and update last login + presence
     await query<ResultSetHeader>(
-      "UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ?",
+      "UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW(), last_seen_at = NOW() WHERE id = ?",
       [user.id]
     );
 
@@ -181,7 +194,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
       profile_photo_url: u.profile_photo_url,
       employee_id: u.employee_id,
       designation: u.designation,
-      date_hired: u.date_hired,
+      date_hired: dateOnly(u.date_hired),
       last_login: u.last_login,
       created_at: u.created_at,
     });
@@ -204,14 +217,60 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
     const fields: string[] = [];
     const params: any[] = [];
 
-    if (name !== undefined) { fields.push("name = ?"); params.push(name); }
-    if (email !== undefined) { fields.push("email = ?"); params.push(email); }
-    if (phone !== undefined) { fields.push("phone = ?"); params.push(phone); }
-    if (address !== undefined) { fields.push("address = ?"); params.push(address); }
-    if (profile_photo_url !== undefined) { fields.push("profile_photo_url = ?"); params.push(profile_photo_url); }
+    if (name !== undefined) {
+      const v = String(name).trim();
+      if (!v) {
+        res.status(400).json({ error: "Name cannot be empty." });
+        return;
+      }
+      if (v.length > 150) {
+        res.status(400).json({ error: "Name must be 150 characters or fewer." });
+        return;
+      }
+      fields.push("name = ?"); params.push(v);
+    }
+    if (email !== undefined) {
+      const v = String(email).trim();
+      if (!v) {
+        res.status(400).json({ error: "Email cannot be empty." });
+        return;
+      }
+      if (v.length > 100) {
+        res.status(400).json({ error: "Email must be 100 characters or fewer." });
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+        res.status(400).json({ error: "Please enter a valid email address." });
+        return;
+      }
+      fields.push("email = ?"); params.push(v);
+    }
+    if (phone !== undefined && phone !== null) {
+      const v = String(phone);
+      if (v.length > 20) {
+        res.status(400).json({ error: "Phone number must be 20 characters or fewer." });
+        return;
+      }
+      fields.push("phone = ?"); params.push(v);
+    }
+    if (address !== undefined && address !== null) { fields.push("address = ?"); params.push(String(address)); }
+    if (profile_photo_url !== undefined && profile_photo_url !== null) { fields.push("profile_photo_url = ?"); params.push(String(profile_photo_url)); }
     if (employee_id !== undefined) { fields.push("employee_id = ?"); params.push(employee_id || null); }
     if (designation !== undefined) { fields.push("designation = ?"); params.push(designation || null); }
-    if (date_hired !== undefined) { fields.push("date_hired = ?"); params.push(date_hired || null); }
+    if (date_hired !== undefined) {
+      if (date_hired === null || String(date_hired).trim() === "") {
+        fields.push("date_hired = ?"); params.push(null);
+      } else {
+        const raw = String(date_hired).trim();
+        const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (!m || Number.isNaN(new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`).getTime())) {
+          res.status(400).json({ error: "Date Hired must be a valid date (YYYY-MM-DD)." });
+          return;
+        }
+        fields.push("date_hired = ?");
+        params.push(`${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`);
+      }
+    }
     if (end_of_contract !== undefined) { fields.push("end_of_contract = ?"); params.push(end_of_contract || null); }
 
     if (fields.length === 0) {
@@ -220,10 +279,18 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
     }
 
     params.push(userId);
-    await query<ResultSetHeader>(
-      `UPDATE users SET ${fields.join(", ")} WHERE id = ?`,
-      params
-    );
+    try {
+      await query<ResultSetHeader>(
+        `UPDATE users SET ${fields.join(", ")} WHERE id = ?`,
+        params
+      );
+    } catch (updateError: any) {
+      if (updateError?.code === "ER_DUP_ENTRY") {
+        res.status(409).json({ error: "That email address is already in use by another account." });
+        return;
+      }
+      throw updateError;
+    }
 
     const updated = await query<UserRow[]>(
       `SELECT id, username, name, email, role, status, phone, address, profile_photo_url,
@@ -250,7 +317,7 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
       profile_photo_url: u.profile_photo_url,
       employee_id: u.employee_id,
       designation: u.designation,
-      date_hired: u.date_hired,
+      date_hired: dateOnly(u.date_hired),
       end_of_contract: u.end_of_contract,
       last_login: u.last_login,
       created_at: u.created_at,
@@ -312,8 +379,17 @@ export async function changePassword(req: Request, res: Response): Promise<void>
 /**
  * POST /api/auth/logout
  */
-export async function logout(_req: Request, res: Response): Promise<void> {
-  // JWT is stateless — client should discard the token
+export async function logout(req: Request, res: Response): Promise<void> {
+  // JWT is stateless — client should discard the token. Clear the
+  // presence stamp so the User Management page shows Offline right away.
+  try {
+    await query<ResultSetHeader>(
+      "UPDATE users SET last_seen_at = NULL WHERE id = ?",
+      [req.user!.userId]
+    );
+  } catch (error) {
+    console.error("Logout presence clear error:", error);
+  }
   res.json({ message: "Logged out successfully." });
 }
 
@@ -371,8 +447,22 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
       null
     );
 
-    // One-time link the user opens to set a new password.
-    const baseUrl = (process.env.APP_URL || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+    // One-time link the user opens to set a new password. Build it from the
+    // origin the request actually arrived on (works for any deployment behind
+    // a TLS-terminating proxy, e.g. Railway, with no extra config); explicit
+    // APP_URL/FRONTEND_URL still win, and localhost is only the dev fallback.
+    const host = req.get("host") || "";
+    const forwardedProto = (req.headers["x-forwarded-proto"] as string) || "";
+    const requestOrigin =
+      forwardedProto && host
+        ? `${forwardedProto.split(",")[0].trim()}://${host}`
+        : "";
+    const baseUrl = (
+      requestOrigin ||
+      process.env.APP_URL ||
+      process.env.FRONTEND_URL ||
+      "http://localhost:5173"
+    ).replace(/\/+$/, "");
     const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
 
     // Production: the link must be delivered to the user's inbox.

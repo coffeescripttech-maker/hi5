@@ -7,6 +7,7 @@ import React, {
   useRef
 } from 'react';
 import { getToken, clearToken, authApi } from '../services/api';
+import { presenceApi } from '../services/presence';
 import { settingsApi } from '../services/settings';
 import { schoolYearsApi } from '../services/schoolYears';
 import { isValidPhotoUrl } from '../utils/photo';
@@ -115,6 +116,11 @@ const AppContext = createContext<AppContextType>({
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
+// Presence heartbeat: never more often than this, so a mousemove/keydown
+// storm can't hammer the DB. 45s keeps last_seen_at comfortably inside the
+// server's 2-minute "online" window.
+const HEARTBEAT_MIN_INTERVAL_MS = 45 * 1000;
+
 // Synchronously restore session from localStorage so Layout
 // never sees a null role on page reload (avoids redirect → login race).
 const _init = (() => {
@@ -150,6 +156,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [enrollmentOpen, setEnrollmentOpen] = useState(true);
   const [skipPhotoHydration, setSkipPhotoHydration] = useState(HAD_SESSION_AT_LOAD);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastHeartbeatRef = useRef(0);
 
   // ── Load school info from API so sidebar/header reflect saved values ──
   const refreshSchoolInfo = useCallback(async () => {
@@ -219,6 +226,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         .catch(() => {});
     }
   }, [role, skipPhotoHydration]);
+
+  // ── Presence heartbeat ──
+  // Stamps last_seen_at so the admin User Management page can show a live
+  // online / idle / offline status. Fires once on login/mount, then on real
+  // user activity (throttled). No background timer — a user who steps away
+  // from the computer drains to Idle and then Offline naturally, while a
+  // tab that was closed shows Offline on the next poll.
+  const sendHeartbeat = useCallback(() => {
+    if (!role || !getToken()) return;
+    const now = Date.now();
+    if (now - lastHeartbeatRef.current < HEARTBEAT_MIN_INTERVAL_MS) return;
+    lastHeartbeatRef.current = now;
+    presenceApi.heartbeat();
+  }, [role]);
+
+  useEffect(() => {
+    if (!role) return;
+    sendHeartbeat();
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    const onActivity = () => sendHeartbeat();
+    activityEvents.forEach(e => window.addEventListener(e, onActivity));
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') sendHeartbeat();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      activityEvents.forEach(e => window.removeEventListener(e, onActivity));
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [role, sendHeartbeat]);
 
   // ── Set session (role + username) ──
   const setSession = useCallback((newRole: Role, newUsername: string) => {

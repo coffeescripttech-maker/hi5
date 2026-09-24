@@ -35,6 +35,7 @@ import schedulesRoutes from "./routes/schedules.routes";
 import roomsRoutes from "./routes/rooms.routes";
 import lisRoutes from "./routes/lis.routes";
 import rbacRoutes from "./routes/rbac.routes";
+import presenceRoutes from "./routes/presence.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { startUserStatusCron } from "./cron/userStatusCron";
 import { startBackupCron } from "./cron/backupCron";
@@ -144,6 +145,7 @@ app.use("/api/schedules", schedulesRoutes);
 app.use("/api/rooms", roomsRoutes);
 app.use("/api/lis", lisRoutes);
 app.use("/api/rbac", rbacRoutes);
+app.use("/api/presence", presenceRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

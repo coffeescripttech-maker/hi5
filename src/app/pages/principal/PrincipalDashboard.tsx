@@ -98,7 +98,7 @@ export function PrincipalDashboard() {
         const color = distribution.subjects[0]?.buckets.find(b => b.range === range)?.color || "#9333ea";
         return {
           range,
-          count: distribution.subjects.reduce((sum, s) => sum + (s.buckets.find(b => b.range === range)?.count || 0), 0),
+          count: distribution.subjects.reduce((sum, s) => sum + (Number(s.buckets.find(b => b.range === range)?.count) || 0), 0),
           color,
         };
       })
@@ -263,7 +263,7 @@ export function PrincipalDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="range" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                  <Tooltip />
+                  <Tooltip formatter={(v: number) => [String(v), "Students"]} />
                   <Bar dataKey="count" name="Grades" radius={[4, 4, 0, 0]}>
                     {distData.map((d, idx) => (
                       <Cell key={idx} fill={d.color} />

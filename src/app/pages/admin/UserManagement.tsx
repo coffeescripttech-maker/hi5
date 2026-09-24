@@ -122,10 +122,45 @@ const roleBadge: Record<string, string> = {
   principal: 'bg-purple-100 text-purple-800 border-purple-200'
 };
 
-const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-green-100 text-green-700 border-green-200',
-  idle: 'bg-amber-100 text-amber-700 border-amber-200',
-  inactive: 'bg-gray-100 text-gray-500 border-gray-200'
+const PRESENCE_META: Record<
+  'online' | 'idle' | 'offline',
+  { label: string; dot: string; cls: string }
+> = {
+  online: {
+    label: 'Online',
+    dot: 'bg-emerald-500',
+    cls: 'bg-emerald-100 text-emerald-700 border-emerald-200'
+  },
+  idle: {
+    label: 'Idle',
+    dot: 'bg-amber-500',
+    cls: 'bg-amber-100 text-amber-700 border-amber-200'
+  },
+  offline: {
+    label: 'Offline',
+    dot: 'bg-gray-400',
+    cls: 'bg-gray-100 text-gray-500 border-gray-200'
+  }
+};
+
+/** Human "last active" label for a user's presence tooltip */
+const lastActiveLabel = (u: UserRow): string => {
+  if (!u.last_seen_at) return 'Never seen';
+  const d = new Date(u.last_seen_at);
+  if (Number.isNaN(d.getTime())) return 'Last seen unknown';
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'Active now';
+  if (mins < 60) return `Last active ${mins} min ago`;
+  return (
+    'Last seen ' +
+    d.toLocaleString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  );
 };
 
 export function UserManagement() {
@@ -205,8 +240,8 @@ export function UserManagement() {
       setFieldErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const fetchUsers = () => {
-    setLoading(true);
+  const fetchUsers = (initial = false) => {
+    if (initial) setLoading(true);
     usersApi
       .list()
       .then(setUsers)
@@ -219,8 +254,17 @@ export function UserManagement() {
       .finally(() => setLoading(false));
   };
 
+  // Auto-refresh every 30s so live presence (Online/Idle/Offline) stays
+  // accurate while the admin keeps the page open; also refresh on focus.
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(true);
+    const interval = setInterval(() => fetchUsers(false), 30 * 1000);
+    const onFocus = () => fetchUsers(false);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const openCreate = () => {
@@ -310,7 +354,7 @@ export function UserManagement() {
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchRole = filterRole === 'all' || u.role === filterRole;
-    const matchStatus = filterStatus === 'all' || u.status === filterStatus;
+    const matchStatus = filterStatus === 'all' || u.presence === filterStatus;
     return matchSearch && matchRole && matchStatus;
   });
 
@@ -447,10 +491,17 @@ export function UserManagement() {
             onChange={e => setFilterStatus(e.target.value)}
             className="border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
             <option value="all">All Status</option>
-            <option value="active">Active</option>
+            <option value="online">Online</option>
             <option value="idle">Idle</option>
-            <option value="inactive">Inactive</option>
+            <option value="offline">Offline</option>
           </select>
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-1 ml-1">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            Live
+          </span>
         </div>
         <span className="text-xs text-gray-400 lg:ml-auto">
           {filteredUsers.length} of {users.length} users
@@ -557,20 +608,17 @@ export function UserManagement() {
                                 </span>
                               </td>
                               <td className="px-4 py-4">
-                                {user.status !== 'active' ? (
-                                  <span
-                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${STATUS_CLASS[user.status] || 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                                {(() => {
+                                  const p = PRESENCE_META[user.presence] || PRESENCE_META.offline;
+                                  return (
                                     <span
-                                      className={`w-1.5 h-1.5 rounded-full ${user.status === 'idle' ? 'bg-amber-500' : 'bg-gray-400'}`}
-                                    />
-                                    {user.status.charAt(0).toUpperCase() +
-                                      user.status.slice(1)}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-gray-400">
-                                    —
-                                  </span>
-                                )}
+                                      title={lastActiveLabel(user)}
+                                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${p.cls}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+                                      {p.label}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="px-4 py-4">
                                 <div className="flex items-center gap-1.5 text-gray-400 text-xs">
@@ -666,20 +714,17 @@ export function UserManagement() {
                               <RoleIcon size={11} />
                               {ROLE_LABELS[user.role] || user.role}
                             </span>
-                            {user.status !== 'active' ? (
-                              <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${STATUS_CLASS[user.status] || 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                            {(() => {
+                              const p = PRESENCE_META[user.presence] || PRESENCE_META.offline;
+                              return (
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${user.status === 'idle' ? 'bg-amber-500' : 'bg-gray-400'}`}
-                                />
-                                {user.status.charAt(0).toUpperCase() +
-                                  user.status.slice(1)}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">
-                                Active
-                              </span>
-                            )}
+                                  title={lastActiveLabel(user)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${p.cls}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+                                  {p.label}
+                                </span>
+                              );
+                            })()}
                             <span className="flex items-center gap-1 text-gray-400 text-[11px]">
                               <Clock size={11} />
                               {user.last_login

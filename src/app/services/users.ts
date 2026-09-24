@@ -3,6 +3,8 @@
  */
 import { api } from "./api";
 
+export type PresenceStatus = "online" | "idle" | "offline";
+
 export interface UserRow {
   id: number;
   username: string;
@@ -18,6 +20,8 @@ export interface UserRow {
   date_hired: string | null;
   end_of_contract: string | null;
   last_login: string | null;
+  last_seen_at: string | null;
+  presence: PresenceStatus;
   created_at: string;
   updated_at: string;
 }

@@ -208,55 +208,6 @@ export function Sidebar({
       </nav>
 
       {/* Footer: user */}
-      <div className="relative flex-shrink-0 border-t border-white/10 p-3">
-        {/* Full variant (mobile drawer + 'full' desktop mode) */}
-        <div className={`space-y-1 ${isIcons ? 'md:hidden' : ''}`}>
-          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
-            <div
-              className={`flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full ${ROLE_BADGE_COLORS[roleKey]} shadow-sm`}>
-              {profilePhoto ? (
-                <img
-                  src={profilePhoto}
-                  alt="Profile"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-sm font-bold text-white">{initials}</span>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">
-                {displayName}
-              </p>
-              <p className="flex items-center gap-1 text-[11px] text-white/60">
-                <RoleIcon size={11} className="flex-shrink-0" />
-                {ROLE_LABELS[roleKey]}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Compact variant (icons desktop mode) */}
-        <div
-          className={`hidden flex-col items-center gap-2 ${
-            isIcons ? 'md:flex' : ''
-          }`}>
-          <Tooltip label={displayName}>
-            <div
-              className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ${ROLE_BADGE_COLORS[roleKey]} shadow-sm`}>
-              {profilePhoto ? (
-                <img
-                  src={profilePhoto}
-                  alt="Profile"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-sm font-bold text-white">{initials}</span>
-              )}
-            </div>
-          </Tooltip>
-        </div>
-      </div>
     </aside>
   );
 }
