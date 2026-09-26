@@ -297,7 +297,7 @@ export function ActivityLogs() {
             </div>
             <HybridTable
               desktop={
-                <div className="app-scroll overflow-x-auto overflow-y-auto max-h-[70vh]">
+                <div className="app-scroll overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50/80">
                       <tr>

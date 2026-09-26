@@ -4,7 +4,6 @@ import { Layers, Users, TrendingUp, UserPlus, BookOpen, LayoutDashboard, BarChar
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { sectionsApi, SectionRow } from "../../services/sections";
 import { studentsApi, StudentRow } from "../../services/students";
-import { authApi } from "../../services/api";
 import { useApp } from "../../context/AppContext";
 import { PageContainer } from "../../components/PageContainer";
 import { HybridTable } from "../../components/HybridTable";
@@ -16,32 +15,29 @@ export function TeacherDashboard() {
   const { showToast } = useApp();
   const [loading, setLoading] = useState(true);
   const [mySections, setMySections] = useState<SectionRow[]>([]);
-  const [students, setStudents] = useState<StudentRow[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [myStudents, setMyStudents] = useState<StudentRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      authApi.me().then(me => { if (!cancelled) setCurrentUserId(me.id); }).catch(() => {}),
-      sectionsApi.list().then(secs => { if (!cancelled) setMySections(secs); }).catch(() => {}),
-      studentsApi.list().then(studs => { if (!cancelled) setStudents(studs); }).catch(() => {}),
+      sectionsApi.listMySections().then(secs => { if (!cancelled) setMySections(secs); }).catch(() => {}),
+      studentsApi.listMyStudents().then(studs => { if (!cancelled) setMyStudents(studs); }).catch(() => {}),
     ]).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
-  // Filter sections where current user is adviser
-  const adviserSections = currentUserId
-    ? mySections.filter(s => s.adviser_id === currentUserId)
-    : [];
+  // Sections scoped to the logged-in teacher (adviser)
+  const adviserSections = mySections;
 
   const totalMyStudents = adviserSections.reduce((a, s) => a + s.current_count, 0);
   const totalMyCapacity = adviserSections.reduce((a, s) => a + s.capacity, 0);
 
-  // Compute gender distribution from actual students (across my sections' grade levels)
-  const myGradeLevels = adviserSections.map(s => s.grade_level);
-  const myStudents = students.filter(s => myGradeLevels.includes(s.grade_level));
-  const maleCount = myStudents.filter(s => s.sex === "male").length;
-  const femaleCount = myStudents.filter(s => s.sex === "female").length;
+  // Gender/grade distribution from the students who are ACTUALLY enrolled in
+  // the teacher's sections this school year (pending/queue students without a
+  // section are excluded).
+  const enrolledInSection = myStudents.filter(s => s.section_id != null);
+  const maleCount = enrolledInSection.filter(s => s.sex === "male").length;
+  const femaleCount = enrolledInSection.filter(s => s.sex === "female").length;
   const genderData = [
     { name: "Male", value: maleCount || 1, color: "#10b981" },
     { name: "Female", value: femaleCount || 1, color: "#6ee7b7" },
@@ -49,7 +45,7 @@ export function TeacherDashboard() {
 
   // Grade distribution from students (by grade_level as proxy)
   const gradeDistMap: Record<string, number> = {};
-  myStudents.forEach(s => {
+  enrolledInSection.forEach(s => {
     const key = `Gr.${s.grade_level}`;
     gradeDistMap[key] = (gradeDistMap[key] || 0) + 1;
   });

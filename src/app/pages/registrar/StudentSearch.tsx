@@ -159,7 +159,7 @@ export function StudentSearch() {
     const csv = [
       ["Student ID", "LRN", "Name", "Grade Level", "Sex", "Status"].join(","),
       ...processed.map(s =>
-        [s.student_id, s.lrn, `"${s.name}"`, s.grade_level, s.sex, s.status].join(",")
+        [s.student_id, s.lrn, `"${s.name}"`, s.status === "graduated" ? "Graduated" : s.grade_level, s.sex, s.status].join(",")
       ),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -259,9 +259,9 @@ export function StudentSearch() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
-                    <p className="text-xs text-gray-400">
-                      <span className="font-mono">{s.lrn}</span> · Grade {s.grade_level} · {s.sex === "male" ? "Male" : "Female"}
-                    </p>
+<p className="text-xs text-gray-400">
+  <span className="font-mono">{s.lrn}</span> · {s.status === "graduated" ? "Graduated" : `Grade ${s.grade_level}`} · {s.sex === "male" ? "Male" : "Female"}
+</p>
                   </div>
                   <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
                 </button>
@@ -381,7 +381,7 @@ export function StudentSearch() {
                           </div>
                         </td>
                         <td className="px-6 py-3.5"><span className="font-mono text-xs text-gray-500">{s.lrn}</span></td>
-                        <td className="px-6 py-3.5"><span className="text-sm text-gray-700 font-medium">Grade {s.grade_level}</span></td>
+                        <td className="px-6 py-3.5"><span className="text-sm text-gray-700 font-medium">{s.status === "graduated" ? "Graduated" : `Grade ${s.grade_level}`}</span></td>
                         <td className="px-6 py-3.5"><span className="text-sm text-gray-600 capitalize">{s.sex}</span></td>
                         <td className="px-6 py-3.5">
                           <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-medium border ${badgeInfo.bg}`}>

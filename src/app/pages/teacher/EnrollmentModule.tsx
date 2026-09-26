@@ -36,6 +36,7 @@ import { strandTracksApi, StrandTrackRow } from '../../services/strandTracks';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { gradesApi, GradeHistoryYear } from '../../services/grades';
+import { settingsApi } from '../../services/settings';
 import { HybridTable } from '../../components/HybridTable';
 import { z } from 'zod';
 
@@ -729,6 +730,9 @@ export function EnrollmentModule() {
   const [selectedSYId, setSelectedSYId] = useState<number>(1);
   const [currentSYLabel, setCurrentSYLabel] = useState('');
   const [enrollmentOpen, setEnrollmentOpen] = useState(true);
+  // Configurable passing grade used to flag failing marks in the returning
+  // student's previous-grade preview (default 75).
+  const [passingGrade, setPassingGrade] = useState(75);
 
   // Fetch data on mount
   useEffect(() => {
@@ -736,12 +740,14 @@ export function EnrollmentModule() {
       studentsApi.list(),
       sectionsApi.list(),
       schoolYearsApi.list(),
-      enrollmentsApi.list()
+      enrollmentsApi.list(),
+      settingsApi.get()
     ])
-      .then(([students, sections, years, enrollments]) => {
+      .then(([students, sections, years, enrollments, settings]) => {
         setAllStudents(students);
         setAllSections(sections);
         setAllEnrollments(enrollments);
+        if (settings?.passing_grade) setPassingGrade(settings.passing_grade);
         const current = years.find(y => y.is_current === 1);
         if (current) {
           setSelectedSYId(current.id);
@@ -990,6 +996,11 @@ export function EnrollmentModule() {
   const recommendedRetGrade =
     prevGradeLevel != null && prevGradeLevel < 12 ? prevGradeLevel + 1 : null;
   const completedGrade12 = prevGradeLevel === 12;
+
+  // Styles a previous-grade value red when it is below the passing grade, so
+  // the teacher can see at a glance whether a returning student had failures.
+  const failingGradeCls = (v: number | null) =>
+    v != null && v < passingGrade ? 'text-red-600 font-bold' : '';
 
   // A student can only have one enrollment per school year (DB unique key). If they
   // already have one in the school year this flow targets (the current SY), the
@@ -2952,10 +2963,16 @@ export function EnrollmentModule() {
                     </div>
                   ))}
                   {retGradeHistory.length > 0 && (
-                    <div className="pt-2 border-t border-emerald-100">
-                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2">
-                        Previous Grades &amp; Academic History
-                      </p>
+<div className="pt-2 border-t border-emerald-100">
+                        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2">
+                          Previous Grades &amp; Academic History
+                        </p>
+                        {retGradeHistory.some(y => y.subjects.some(sub => sub.final_average != null && sub.final_average < passingGrade)) && (
+                          <p className="mb-2 text-[11px] font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                            <AlertCircle size={11} className="inline mr-1 -mt-0.5" />
+                            This student has failing grade(s) in a previous school year — review before enrolling.
+                          </p>
+                        )}
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {retGradeHistory.map(y => (
                           <div key={y.school_year_id} className="bg-white border border-emerald-100 rounded-lg px-3 py-2">
@@ -2965,13 +2982,18 @@ export function EnrollmentModule() {
                               </span>
                               <span className={`text-xs font-bold ${
                                 y.general_average == null ? 'text-gray-400'
-                                  : y.general_average >= 75 ? 'text-emerald-700' : 'text-red-600'
+                                  : y.general_average >= passingGrade ? 'text-emerald-700' : 'text-red-600'
                               }`}>
                                 {y.general_average != null ? `Gen. Ave: ${y.general_average}` : 'No grades yet'}
                               </span>
                             </div>
                             {y.section_name && (
                               <p className="text-[11px] text-gray-400 mt-0.5">Section: {y.section_name}</p>
+                            )}
+                            {y.subjects.some(sub => sub.final_average != null && sub.final_average < passingGrade) && (
+                              <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded-md px-2 py-1 mt-1.5">
+                                <AlertCircle size={11} /> Has failing grade(s)
+                              </p>
                             )}
 
                             {/* Subjects Table */}
@@ -3006,19 +3028,19 @@ export function EnrollmentModule() {
                                         <td className="px-2 py-1 text-left text-[10px]">
                                           {subject.subject_name}
                                         </td>
-                                        <td className="px-2 py-1 text-center text-[10px]">
+                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q1)}`}>
                                           {subject.q1 !== null ? subject.q1 : '—'}
                                         </td>
-                                        <td className="px-2 py-1 text-center text-[10px]">
+                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q2)}`}>
                                           {subject.q2 !== null ? subject.q2 : '—'}
                                         </td>
-                                        <td className="px-2 py-1 text-center text-[10px]">
+                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q3)}`}>
                                           {subject.q3 !== null ? subject.q3 : '—'}
                                         </td>
-                                        <td className="px-2 py-1 text-center text-[10px]">
+                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q4)}`}>
                                           {subject.q4 !== null ? subject.q4 : '—'}
                                         </td>
-                                        <td className="px-2 py-1 text-center text-[10px] font-semibold">
+                                        <td className={`px-2 py-1 text-center text-[10px] font-semibold ${failingGradeCls(subject.final_average)}`}>
                                           {subject.final_average !== null ?
                                             `${subject.final_average}` :
                                             '—'}
@@ -3121,6 +3143,11 @@ export function EnrollmentModule() {
                     </p>
                   </div>
                 )}
+
+                <ReturningGradePreview
+                  history={retGradeHistory}
+                  passingGrade={passingGrade}
+                />
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {GRADE_LEVELS.map(g => {
@@ -3322,6 +3349,11 @@ export function EnrollmentModule() {
                   </div>
                 ))}
               </div>
+
+              <ReturningGradePreview
+                history={retGradeHistory}
+                passingGrade={passingGrade}
+              />
             </div>
           )}
         </div>
@@ -3822,4 +3854,136 @@ export function EnrollmentModule() {
   }
 
   return null;
+}
+
+// Reusable previous-SY grade preview shown throughout the returning enrollment
+// flow (steps 2-4) so the teacher can check for failing grades before deciding
+// on the next grade level.
+function ReturningGradePreview({
+  history,
+  passingGrade
+}: {
+  history: GradeHistoryYear[];
+  passingGrade: number;
+}) {
+  const failingCls = (v: number | null) =>
+    v != null && v < passingGrade ? 'text-red-600 font-bold' : '';
+  const hasFailing = (y: GradeHistoryYear) =>
+    y.subjects.some(
+      s => s.final_average != null && s.final_average < passingGrade
+    );
+
+  if (history.length === 0) return null;
+
+  return (
+    <div className="rounded-xl bg-emerald-50/40 border border-emerald-100 p-4">
+      <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-[0.06em] mb-2">
+        Previous Grade Reference
+      </p>
+      {history.some(hasFailing) && (
+        <p className="mb-2 text-[11px] font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+          <AlertCircle size={11} className="inline mr-1 -mt-0.5" />
+          This student has failing grade(s) in a previous school year — review
+          before enrolling.
+        </p>
+      )}
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {history.map(y => (
+          <div
+            key={y.school_year_id}
+            className="bg-white border border-emerald-100 rounded-lg px-3 py-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-semibold text-gray-700">
+                S.Y. {y.sy_label}
+                {y.grade_level != null ? ` · Grade ${y.grade_level}` : ''}
+              </span>
+              <span
+                className={`text-xs font-bold ${
+                  y.general_average == null
+                    ? 'text-gray-400'
+                    : y.general_average >= passingGrade
+                      ? 'text-emerald-700'
+                      : 'text-red-600'
+                }`}>
+                {y.general_average != null
+                  ? `Gen. Ave: ${y.general_average}`
+                  : 'No grades yet'}
+              </span>
+            </div>
+            {y.section_name && (
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Section: {y.section_name}
+              </p>
+            )}
+            {hasFailing(y) && (
+              <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded-md px-2 py-1 mt-1.5">
+                <AlertCircle size={11} /> Has failing grade(s)
+              </p>
+            )}
+
+            {y.subjects && y.subjects.length > 0 ? (
+              <div className="overflow-x-auto mt-2">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-emerald-50">
+                      <th className="px-2 py-1 text-left text-[10px] font-semibold text-gray-600">
+                        Subject
+                      </th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                        Q1
+                      </th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                        Q2
+                      </th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                        Q3
+                      </th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                        Q4
+                      </th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
+                        Final
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {y.subjects.map((subject, idx) => (
+                      <tr
+                        key={subject.subject_id}
+                        className={idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/50'}>
+                        <td className="px-2 py-1 text-left text-[10px]">
+                          {subject.subject_name}
+                        </td>
+                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q1)}`}>
+                          {subject.q1 !== null ? subject.q1 : '—'}
+                        </td>
+                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q2)}`}>
+                          {subject.q2 !== null ? subject.q2 : '—'}
+                        </td>
+                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q3)}`}>
+                          {subject.q3 !== null ? subject.q3 : '—'}
+                        </td>
+                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q4)}`}>
+                          {subject.q4 !== null ? subject.q4 : '—'}
+                        </td>
+                        <td className={`px-2 py-1 text-center text-[10px] font-semibold ${failingCls(subject.final_average)}`}>
+                          {subject.final_average !== null
+                            ? `${subject.final_average}`
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-[11px] text-gray-500 italic text-center mt-2">
+                No subject grades available for this year
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

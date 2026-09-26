@@ -94,7 +94,7 @@ export const promotionsApi = {
   preview: (params: { section_id: number; school_year_id: number }) =>
     api.get<PromotionPreview>("/promotions/preview", params),
   get: (id: number) =>
-    api.get<{ promotion: PromotionRow; students: PromotionStudentRow[] }>(
+    api.get<PromotionRow & { students: PromotionStudentRow[] }>(
       `/promotions/${id}`
     ),
   create: (data: CreatePromotionPayload) =>

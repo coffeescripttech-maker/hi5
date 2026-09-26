@@ -439,7 +439,10 @@ export function StudentProfile() {
           {
             icon: GraduationCap,
             label: 'Grade Level',
-            value: `Grade ${student.grade_level}`
+            value:
+              student.status === 'graduated'
+                ? 'Graduated'
+                : `Grade ${student.grade_level}`
           },
           {
             icon: BookOpen,
@@ -589,7 +592,11 @@ export function StudentProfile() {
                   <DetailRow
                     icon={GraduationCap}
                     label="Grade Level"
-                    value={`Grade ${student.grade_level}`}
+                    value={
+                      student.status === 'graduated'
+                        ? 'Graduated'
+                        : `Grade ${student.grade_level}`
+                    }
                     highlight
                   />
                 </div>

@@ -32,6 +32,12 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
 
     const params: any[] = [schoolYearId];
     const filters: string[] = ["e.status = 'enrolled'", "e.school_year_id = ?"];
+    // Teachers only see their own students — restrict to sections where they
+    // are the adviser. Admins, registrars, and principals see everyone.
+    if (req.user!.role === "teacher") {
+      filters.push("sec.adviser_id = ?");
+      params.push(req.user!.userId);
+    }
     if (section_id) {
       filters.push("e.section_id = ?");
       params.push(parseInt(section_id as string, 10));

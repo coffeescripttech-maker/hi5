@@ -660,7 +660,13 @@ export async function getPromotionById(req: Request, res: Response): Promise<voi
       [id]
     );
 
-    res.json({ ...promo[0], students });
+    res.json({
+      ...promo[0],
+      students: students.map((s: any) => ({
+        ...s,
+        general_average: s.general_average != null ? parseFloat(s.general_average) : null,
+      })),
+    });
   } catch (error) {
     console.error("Get promotion error:", error);
     res.status(500).json({ error: "Failed to fetch promotion." });

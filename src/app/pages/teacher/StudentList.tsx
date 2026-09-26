@@ -689,7 +689,7 @@ export function StudentList() {
                               </td>
                               <td className="px-6 py-3.5">
                                 <span className="text-sm text-gray-700 font-medium">
-                                  Grade {s.grade_level}
+                                  {s.status === 'graduated' ? 'Graduated' : `Grade ${s.grade_level}`}
                                 </span>
                               </td>
                               <td className="px-6 py-3.5">
@@ -812,7 +812,7 @@ export function StudentList() {
                               </p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                                 <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">
-                                  Grade {s.grade_level}
+                                  {s.status === 'graduated' ? 'Graduated' : `Grade ${s.grade_level}`}
                                 </span>
                                 <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md capitalize">
                                   {s.sex}
