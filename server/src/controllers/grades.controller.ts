@@ -547,7 +547,11 @@ export async function getGradeHistory(req: Request, res: Response): Promise<void
 
     const MAPEH_NAMES = ["Music", "Arts", "Physical Education", "Health"];
     const mean = (vals: (number | null)[]) => {
-      const present = vals.filter((v): v is number => v !== null && v !== undefined);
+      // MySQL returns DECIMAL columns as strings, so coerce before summing;
+      // otherwise string concatenation in reduce ("0" + "90.00") yields NaN.
+      const present = vals
+        .map(v => (typeof v === "string" ? parseFloat(v) : v))
+        .filter((v): v is number => typeof v === "number" && !isNaN(v));
       return present.length > 0
         ? Math.round((present.reduce((a, b) => a + b, 0) / present.length) * 100) / 100
         : null;

@@ -10,6 +10,7 @@ import {
   Check,
   AlertCircle,
   CheckCircle,
+  AlertTriangle,
   ArrowLeft,
   User,
   Users,
@@ -702,6 +703,7 @@ export function EnrollmentModule() {
   const [foundStudent, setFoundStudent] = useState<StudentRow | null>(null);
   const [retGradeHistory, setRetGradeHistory] = useState<GradeHistoryYear[]>([]);
   const [retGrade, setRetGrade] = useState<number | null>(null);
+  const [promoOverrideAccepted, setPromoOverrideAccepted] = useState(false);
   const [enrolledRet, setEnrolledRet] = useState(false);
   const [retErrors, setRetErrors] = useState<Record<string, string>>({});
   const [notFound, setNotFound] = useState(false);
@@ -940,17 +942,22 @@ export function EnrollmentModule() {
         // Clear any grade picked for a previously searched student so the
         // validation for the new student always starts from a clean slate.
         setRetGrade(null);
-        // Fetch the student's previous grades / academic history for review
-        setRetGradeHistory([]);
-        gradesApi.history(students[0].id)
-          .then(h => setRetGradeHistory(h.school_years || []))
-          .catch(() => { /* history display is optional */ });
+        setPromoOverrideAccepted(false);
+        loadRetGradeHistory(students[0]);
       } else {
         setNotFound(true);
       }
     } catch {
       showToast('error', 'Search failed. Please try again.');
     }
+  };
+
+  // Fetch the student's previous grades / academic history for review.
+  const loadRetGradeHistory = (student: StudentRow) => {
+    setRetGradeHistory([]);
+    gradesApi.history(student.id)
+      .then(h => setRetGradeHistory(h.school_years || []))
+      .catch(() => { /* history display is optional */ });
   };
 
   // Grade the student completed before this enrollment — shown as "Previous Grade"
@@ -1001,6 +1008,237 @@ export function EnrollmentModule() {
   // the teacher can see at a glance whether a returning student had failures.
   const failingGradeCls = (v: number | null) =>
     v != null && v < passingGrade ? 'text-red-600 font-bold' : '';
+
+  // Promotion-readiness check for a returning student — mirrors the backend's
+  // promotion rule: grades must be complete (every subject with all 4 quarters)
+  // AND the general average must be at or above the passing grade.
+  const promoCheck = (() => {
+    if (!foundStudent) return null;
+    if (retGradeHistory.length === 0)
+      return {
+        status: 'no-records' as const,
+        yearLabel: null,
+        avg: null,
+        subsTotal: null,
+        subsComplete: null,
+        gradeComplete: false,
+      };
+    const prior =
+      [...retGradeHistory]
+        .sort((a, b) => b.school_year_id - a.school_year_id)
+        .find(y => y.school_year_id < selectedSYId) ?? retGradeHistory[0];
+    const subs = prior.subjects ?? [];
+    if (subs.length === 0)
+      return {
+        status: 'no-grades' as const,
+        yearLabel: prior.sy_label,
+        avg: null,
+        subsTotal: 0,
+        subsComplete: 0,
+        gradeComplete: false,
+      };
+    const subsComplete = subs.filter(
+      s => s.q1 != null && s.q2 != null && s.q3 != null && s.q4 != null
+    ).length;
+    const gradeComplete = subsComplete === subs.length;
+    const present = subs.filter(s => s.final_average != null);
+    const avg =
+      present.length > 0
+        ? present.reduce(
+            (sum, s) => sum + parseFloat(String(s.final_average)),
+            0
+          ) / present.length
+        : null;
+    const finalAvg = avg != null ? Math.round(avg * 100) / 100 : null;
+    if (!gradeComplete)
+      return {
+        status: 'incomplete' as const,
+        yearLabel: prior.sy_label,
+        avg: finalAvg,
+        subsTotal: subs.length,
+        subsComplete,
+        gradeComplete: false,
+      };
+    if (finalAvg == null || finalAvg < passingGrade)
+      return {
+        status: 'retained' as const,
+        yearLabel: prior.sy_label,
+        avg: finalAvg,
+        subsTotal: subs.length,
+        subsComplete,
+        gradeComplete: true,
+      };
+    return {
+      status: 'promotable' as const,
+      yearLabel: prior.sy_label,
+      avg: finalAvg,
+      subsTotal: subs.length,
+      subsComplete,
+      gradeComplete: true,
+    };
+  })();
+
+  const renderPromoCheck = () => {
+    if (!promoCheck) return null;
+    const { status, yearLabel, avg, subsTotal, subsComplete } = promoCheck;
+    const show = (v: number | null) => (v != null ? v.toFixed(2) : '—');
+    const sy = yearLabel ? `S.Y. ${yearLabel}` : 'the previous school year';
+
+    const meta = {
+      promotable: {
+        icon: CheckCircle,
+        iconCls: 'bg-emerald-500 shadow-emerald-200',
+        iconColor: 'text-white',
+        titleCls: 'text-emerald-900',
+        bodyCls: 'text-emerald-700/90',
+        pillCls: 'bg-emerald-100 text-emerald-700',
+        chipCls: 'border-emerald-100 bg-white',
+        pill: 'Eligible',
+      },
+      retained: {
+        icon: AlertCircle,
+        iconCls: 'bg-red-500 shadow-red-200',
+        iconColor: 'text-white',
+        titleCls: 'text-red-900',
+        bodyCls: 'text-red-700/90',
+        pillCls: 'bg-red-100 text-red-700',
+        chipCls: 'border-red-100 bg-white',
+        pill: 'At risk of retention',
+      },
+      incomplete: {
+        icon: AlertCircle,
+        iconCls: 'bg-amber-500 shadow-amber-200',
+        iconColor: 'text-white',
+        titleCls: 'text-amber-900',
+        bodyCls: 'text-amber-700/90',
+        pillCls: 'bg-amber-100 text-amber-800',
+        chipCls: 'border-amber-100 bg-white',
+        pill: 'Action needed',
+      },
+      'no-grades': {
+        icon: AlertCircle,
+        iconCls: 'bg-gray-400 shadow-gray-200',
+        iconColor: 'text-white',
+        titleCls: 'text-gray-800',
+        bodyCls: 'text-gray-500',
+        pillCls: 'bg-gray-100 text-gray-500',
+        chipCls: 'border-gray-100 bg-white',
+        pill: 'No grades',
+      },
+      'no-records': {
+        icon: AlertCircle,
+        iconCls: 'bg-gray-400 shadow-gray-200',
+        iconColor: 'text-white',
+        titleCls: 'text-gray-800',
+        bodyCls: 'text-gray-500',
+        pillCls: 'bg-gray-100 text-gray-500',
+        chipCls: 'border-gray-100 bg-white',
+        pill: 'No records',
+      },
+    }[status];
+
+    const borderCls =
+      status === 'promotable'
+        ? 'border-emerald-200 bg-emerald-50/70'
+        : status === 'retained'
+          ? 'border-red-200 bg-red-50/70'
+          : status === 'incomplete'
+            ? 'border-amber-200 bg-amber-50/70'
+            : 'border-gray-200 bg-gray-50/70';
+
+    const heading =
+      status === 'promotable'
+        ? `Can be promoted to Grade ${prevGradeLevel != null ? prevGradeLevel + 1 : 'the next level'}`
+        : status === 'retained'
+          ? `Unlikely to be promoted — may repeat ${prevGradeLevel != null ? `Grade ${prevGradeLevel}` : 'the same grade'}`
+          : status === 'incomplete'
+            ? 'Grades are incomplete — promotion not ready'
+            : 'Cannot determine promotion status';
+
+    const detail =
+      status === 'promotable'
+        ? `All ${subsTotal} subjects have complete quarterly grades and the general average meets the passing grade. Verified against ${sy} grades.`
+        : status === 'retained'
+          ? `The general average of ${show(avg)} falls below the passing grade of ${passingGrade} in ${sy}. The student may need to repeat ${prevGradeLevel != null ? `Grade ${prevGradeLevel}` : 'the grade'}.`
+          : status === 'incomplete'
+            ? `${subsComplete} of ${subsTotal} subjects have all 4 quarterly grades for ${sy}. Complete the remaining grades before the year-end promotion decision.`
+            : status === 'no-grades'
+              ? `No grades are recorded for ${sy}. Enter grades before the year-end promotion decision can be made.`
+              : 'No previous grade records were found for this student yet. Grades must be encoded before the year-end promotion decision can be made.';
+
+    const Icon = meta.icon;
+
+    const kpis = [
+      {
+        label: 'General Average',
+        value: show(avg),
+        hint: avg != null ? `Passing grade is ${passingGrade}` : 'No average yet',
+        highlight: avg != null,
+      },
+      {
+        label: 'Passing Grade',
+        value: String(passingGrade),
+        hint: 'Set in School Settings',
+        highlight: false,
+      },
+      {
+        label: 'Subjects Graded',
+        value: subsTotal != null ? `${subsComplete}/${subsTotal}` : '—',
+        hint: 'Subjects with final grades',
+        highlight: false,
+      },
+      {
+        label: 'Quarterly Complete',
+        value: subsTotal != null && subsComplete === subsTotal ? 'Yes' : subsTotal != null ? 'No' : '—',
+        hint: 'All 4 quarters per subject',
+        highlight: false,
+      },
+    ];
+
+    return (
+      <div className={`rounded-2xl border ${borderCls} shadow-sm px-4 sm:px-5 py-4 sm:py-5 space-y-4`}>
+        <div className="flex items-start gap-3.5">
+          <div className={`w-11 h-11 rounded-xl ${meta.iconCls} shadow-lg flex items-center justify-center flex-shrink-0`}>
+            <Icon size={20} className={meta.iconColor} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className={`text-sm sm:text-[15px] font-bold ${meta.titleCls}`}>{heading}</p>
+              <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${meta.pillCls}`}>
+                {meta.pill}
+              </span>
+            </div>
+            <p className={`text-xs sm:text-[13px] mt-1 leading-relaxed ${meta.bodyCls}`}>{detail}</p>
+          </div>
+        </div>
+
+        {subsTotal != null && (
+          <>
+            <div className="h-px bg-black/5" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+              {kpis.map(k => (
+                <div key={k.label} className={`rounded-xl border ${meta.chipCls} px-3 py-2.5 min-w-0`}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    {k.label}
+                  </p>
+                  <p
+                    className={`text-lg font-extrabold leading-tight mt-0.5 truncate ${
+                      k.highlight ? meta.titleCls : 'text-gray-900'
+                    }`}>
+                    {k.value}
+                  </p>
+                  <p className="text-[10px] text-gray-400 truncate">{k.hint}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400/90">
+              Based on {sy} grades · Passing grade can be adjusted in School Settings
+            </p>
+          </>
+        )}
+      </div>
+    );
+  };
 
   // A student can only have one enrollment per school year (DB unique key). If they
   // already have one in the school year this flow targets (the current SY), the
@@ -1066,6 +1304,7 @@ export function EnrollmentModule() {
     setFoundStudent(null);
     setRetGrade(null);
     setRetGradeHistory([]);
+    setPromoOverrideAccepted(false);
     setEnrolledRet(false);
     setNotFound(false);
     setShowSuggestions(false);
@@ -2841,6 +3080,9 @@ export function EnrollmentModule() {
                             setFoundStudent(s);
                             setShowSuggestions(false);
                             setRetStep(2);
+                            setRetGrade(null);
+                            setPromoOverrideAccepted(false);
+                            loadRetGradeHistory(s);
                           }}>
                           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0 shadow-sm">
                             {s.name.charAt(0)}
@@ -3144,6 +3386,36 @@ export function EnrollmentModule() {
                   </div>
                 )}
 
+                {renderPromoCheck()}
+
+                {promoCheck && promoCheck.status !== 'promotable' && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 flex gap-3">
+                    <AlertTriangle size={19} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-bold text-amber-800">
+                        Promotion status is not eligible
+                      </p>
+                      <p className="text-xs text-amber-700/90 mt-1 leading-relaxed">
+                        This student does not currently meet the year-end promotion criteria. You can
+                        still enroll them at their discretion, but continuing requires confirming that
+                        you have reviewed this status.
+                      </p>
+                      <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={promoOverrideAccepted}
+                          onChange={e => setPromoOverrideAccepted(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 accent-amber-600"
+                        />
+                        <span className="text-xs text-amber-800 font-medium">
+                          I understand this student is not currently promotable and I confirm the
+                          enrollment should continue.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 <ReturningGradePreview
                   history={retGradeHistory}
                   passingGrade={passingGrade}
@@ -3371,7 +3643,11 @@ export function EnrollmentModule() {
               onClick={handleRetNext}
               disabled={
                 retStep === 3 &&
-                (retGrade == null || !allowedRetGrades.includes(retGrade))
+                (retGrade == null ||
+                  !allowedRetGrades.includes(retGrade) ||
+                  (promoCheck?.status != null &&
+                    promoCheck.status !== 'promotable' &&
+                    !promoOverrideAccepted))
               }
               className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               Next Step <ChevronRight size={15} />
@@ -3379,7 +3655,12 @@ export function EnrollmentModule() {
           ) : (
             <button
               onClick={handleConfirmReturning}
-              disabled={submitting}
+              disabled={
+                submitting ||
+                (promoCheck?.status != null &&
+                  promoCheck.status !== 'promotable' &&
+                  !promoOverrideAccepted)
+              }
               className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               {submitting ? (
                 <Loader2 size={16} className="animate-spin" />
