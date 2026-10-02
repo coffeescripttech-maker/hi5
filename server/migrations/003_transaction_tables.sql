@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS grades (
   subject_id INT NOT NULL,
   enrollment_id INT NOT NULL,
   school_year_id INT NOT NULL,
-  quarter TINYINT NOT NULL COMMENT '1-4',
+  quarter TINYINT NOT NULL COMMENT '1-3 (3-quarter academic calendar)',
   grade DECIMAL(5,2) NULL,
   is_locked TINYINT(1) NOT NULL DEFAULT 0,
   locked_at DATETIME NULL,

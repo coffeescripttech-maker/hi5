@@ -239,7 +239,7 @@ async function fetchGradesExport(req: Request): Promise<LisDataset | null> {
   const columns = ["LRN", "Learner Name", "Grade Level", "Section"];
   subjectMap.forEach((sub) => {
     orderedSubjects.push(sub);
-    columns.push(`${sub.name}_Q1`, `${sub.name}_Q2`, `${sub.name}_Q3`, `${sub.name}_Q4`);
+    columns.push(`${sub.name}_Q1`, `${sub.name}_Q2`, `${sub.name}_Q3`);
   });
   columns.push("General Average", "Promotion Status");
 
@@ -251,7 +251,7 @@ async function fetchGradesExport(req: Request): Promise<LisDataset | null> {
 
     orderedSubjects.forEach((sub) => {
       const qGrades = grades.get(sub.id);
-      for (let q = 1; q <= 4; q++) {
+      for (let q = 1; q <= 3; q++) {
         const g = qGrades?.[q];
         subjectGrades.push(g !== undefined ? String(g) : "");
         if (g !== undefined && g !== null) allGrades.push(Number(g));

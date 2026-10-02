@@ -65,6 +65,11 @@ export interface EnrollmentRequirementRow {
   is_submitted: number;
   submitted_at: string | null;
   notes: string | null;
+  /** Committee sighted the receipt of the submitted document (no file upload). */
+  is_verified?: number;
+  verified_at?: string | null;
+  verified_by?: number | null;
+  verification_notes?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -98,15 +103,48 @@ export interface StudentRequirement {
   label: string;
   is_submitted: boolean;
   submitted_at: string | null;
+  /** Committee sighted the receipt of the submitted document. */
+  is_verified?: boolean;
+  verified_at?: string | null;
+  verification_notes?: string | null;
+}
+
+/** Batch checklist row, carrying the enrollment each document belongs to. */
+export interface BatchRequirement extends StudentRequirement {
+  enrollment_id: number;
 }
 
 export interface StudentWithRequirements {
   student_id: number;
   student_name: string;
   display_id: string;
-  requirements: StudentRequirement[];
+  requirements: BatchRequirement[];
   submitted_count: number;
   total_count: number;
+  /** Submitted *and* committee-verified documents. */
+  verified_count?: number;
+}
+
+export interface EnrollmentFlagSection {
+  section_id: number | null;
+  section_name: string;
+  adviser_name: string | null;
+}
+
+export interface EnrollmentFlag {
+  student_id: number;
+  student_name: string;
+  lrn: string;
+  school_year_id: number;
+  sy_label: string;
+  active_count: number;
+  distinct_sections: number;
+  sections: EnrollmentFlagSection[];
+}
+
+export interface EnrollmentFlagsResponse {
+  total: number;
+  flags: EnrollmentFlag[];
 }
 
 export const enrollmentsApi = {
@@ -125,9 +163,20 @@ export const enrollmentsApi = {
     api.get<StudentWithRequirements[]>(
       `/enrollments/requirements/batch?section_id=${sectionId}${schoolYearId ? `&school_year_id=${schoolYearId}` : ''}`
     ),
+  /**
+   * Update checklist items. `is_verified` is accepted only from the Enrollment
+   * Committee and records that a receipt was sighted — no file is uploaded here.
+   */
   updateRequirements: (
     enrollmentId: number,
-    data: { requirements: { requirement_key: string; is_submitted: boolean }[] }
+    data: {
+      requirements: {
+        requirement_key: string;
+        is_submitted: boolean;
+        is_verified?: boolean;
+        verification_notes?: string | null;
+      }[];
+    }
   ) =>
     api.put<EnrollmentRequirementRow[]>(
       `/enrollments/${enrollmentId}/requirements`,
@@ -135,4 +184,6 @@ export const enrollmentsApi = {
     ),
   stats: (schoolYearId?: number) =>
     api.get<DashboardStats>(`/enrollments/stats${schoolYearId ? `?school_year_id=${schoolYearId}` : ''}`),
+  flags: (schoolYearId?: number) =>
+    api.get<EnrollmentFlagsResponse>(`/enrollments/flags${schoolYearId ? `?school_year_id=${schoolYearId}` : ''}`),
 };

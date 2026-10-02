@@ -73,10 +73,10 @@ export interface SF9Row {
   subjects: Array<{
     subject_name: string;
     subject_type: string;
+    subject_group?: string | null;
     q1: number | null;
     q2: number | null;
     q3: number | null;
-    q4: number | null;
     final_average: number | null;
   }>;
 }
@@ -84,10 +84,10 @@ export interface SF9Row {
 export interface SF10Subject {
   subject_name: string;
   subject_type: string;
+  subject_group?: string | null;
   q1: number | null;
   q2: number | null;
   q3: number | null;
-  q4: number | null;
   final_average: number | null;
 }
 

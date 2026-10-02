@@ -894,7 +894,6 @@ export function StudentProfile() {
                                         'Q1',
                                         'Q2',
                                         'Q3',
-                                        'Q4',
                                         'Final Rating',
                                         'Descriptor'
                                       ].map(h => (
@@ -918,7 +917,7 @@ export function StudentProfile() {
                                           <td className="px-4 py-3 font-semibold text-gray-800 text-sm whitespace-nowrap">
                                             {sub.subject_name}
                                           </td>
-                                          {[sub.q1, sub.q2, sub.q3, sub.q4].map(
+                                          {[sub.q1, sub.q2, sub.q3].map(
                                             (q, qi) => (
                                               <td
                                                 key={qi}
@@ -963,8 +962,8 @@ export function StudentProfile() {
                                         className={`text-[10px] font-medium mt-0.5 ${desc.color}`}>
                                         {desc.label}
                                       </p>
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1.5">
-                                        {[sub.q1, sub.q2, sub.q3, sub.q4].map(
+<div className="grid grid-cols-3 gap-2 mt-1.5">
+                                         {[sub.q1, sub.q2, sub.q3].map(
                                           (q, qi) => (
                                             <div
                                               key={qi}

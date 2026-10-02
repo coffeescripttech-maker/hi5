@@ -17,7 +17,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "fallback_dev_secret_do_not_use_in_
 export interface JwtPayload {
   userId: number;
   username: string;
-  role: "admin" | "teacher" | "registrar" | "principal";
+  role: "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
 }
 
 // Extend Express Request to include user

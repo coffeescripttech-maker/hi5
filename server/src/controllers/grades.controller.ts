@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { collapseSubjectGroups } from "../utils/subjectGroups";
 import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -142,7 +143,6 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
                 MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
                 MAX(CASE WHEN g.quarter = 2 THEN g.grade END) AS q2,
                 MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
-                MAX(CASE WHEN g.quarter = 4 THEN g.grade END) AS q4,
                 ROUND(AVG(g.grade), 2) AS final_average,
                 MAX(g.is_locked) AS is_locked
          FROM subjects s
@@ -237,8 +237,8 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    if (quarter < 1 || quarter > 4) {
-      res.status(400).json({ error: "Quarter must be between 1 and 4." });
+    if (quarter < 1 || quarter > 3) {
+      res.status(400).json({ error: "Quarter must be between 1 and 3." });
       return;
     }
 
@@ -334,7 +334,7 @@ export async function batchUpsertGrades(req: Request, res: Response): Promise<vo
       const { student_id, subject_id, school_year_id, quarter, grade } = g;
 
       if (!student_id || !subject_id || !school_year_id || !quarter) continue;
-      if (quarter < 1 || quarter > 4) continue;
+      if (quarter < 1 || quarter > 3) continue;
 
       // Get enrollment_id
       const enrolls = await query<RowDataPacket[]>(
@@ -475,31 +475,19 @@ export async function computeAverages(req: Request, res: Response): Promise<void
     }
 
     const averages = await query<SubjectAverageRow[]>(
-      `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type,
+      `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type, s.subject_group,
               ROUND(AVG(g.grade), 2) AS subject_average
        FROM subjects s
        JOIN grades g ON g.subject_id = s.id
        WHERE g.student_id = ? AND g.school_year_id = ?
-       GROUP BY s.id, s.name, s.subject_type
+       GROUP BY s.id, s.name, s.subject_type, s.subject_group
        ORDER BY s.name ASC`,
       [student_id, school_year_id]
     );
 
-    // Group MAPEH components (Music, Arts, Physical Education, Health) into one subject
-    const MAPEH_NAMES = ["Music", "Arts", "Physical Education", "Health"];
-    const mapehComponents = averages.filter((a: any) => MAPEH_NAMES.includes(a.subject_name));
-    const otherSubjects: SubjectAverageEntry[] = averages.filter(
-      (a: any) => !MAPEH_NAMES.includes(a.subject_name)
-    );
-
-    let subjectsForAverage: SubjectAverageEntry[] = otherSubjects;
-    if (mapehComponents.length > 0) {
-      const mapehAvg = mapehComponents.reduce((sum: number, a: any) => sum + parseFloat(a.subject_average || 0), 0) / mapehComponents.length;
-      subjectsForAverage = [
-        ...otherSubjects,
-        { subject_id: -1, subject_name: "MAPEH", subject_type: "core", subject_average: Math.round(mapehAvg * 100) / 100 },
-      ];
-    }
+    // Grouped learning areas (MAPEH components, TLE specializations) report — and
+    // count toward the general average — as a single subject.
+    const subjectsForAverage = collapseSubjectGroups(averages as any[]) as SubjectAverageEntry[];
 
     const generalAverage = subjectsForAverage.length > 0
       ? Math.round(subjectsForAverage.reduce((sum: number, a: any) => sum + parseFloat(a.subject_average || 0), 0) / subjectsForAverage.length * 100) / 100
@@ -545,53 +533,30 @@ export async function getGradeHistory(req: Request, res: Response): Promise<void
       [student_id]
     );
 
-    const MAPEH_NAMES = ["Music", "Arts", "Physical Education", "Health"];
-    const mean = (vals: (number | null)[]) => {
-      // MySQL returns DECIMAL columns as strings, so coerce before summing;
-      // otherwise string concatenation in reduce ("0" + "90.00") yields NaN.
-      const present = vals
-        .map(v => (typeof v === "string" ? parseFloat(v) : v))
-        .filter((v): v is number => typeof v === "number" && !isNaN(v));
-      return present.length > 0
-        ? Math.round((present.reduce((a, b) => a + b, 0) / present.length) * 100) / 100
-        : null;
-    };
-
     const schoolYears: any[] = [];
     for (const enroll of enrollments as any[]) {
       const subjects = await query<RowDataPacket[]>(
-        `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type,
+        `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type, s.subject_group,
                 MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
                 MAX(CASE WHEN g.quarter = 2 THEN g.grade END) AS q2,
                 MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
-                MAX(CASE WHEN g.quarter = 4 THEN g.grade END) AS q4,
                 ROUND(AVG(g.grade), 2) AS final_average
          FROM grades g
          JOIN subjects s ON g.subject_id = s.id
          WHERE g.student_id = ? AND g.school_year_id = ?
-         GROUP BY s.id, s.name, s.subject_type
+         GROUP BY s.id, s.name, s.subject_type, s.subject_group
          ORDER BY s.name ASC`,
         [student_id, enroll.school_year_id]
       );
 
-      // Collapse MAPEH components into one subject row
-      const mapehRows = subjects.filter((s: any) => MAPEH_NAMES.includes(s.subject_name));
-      const otherRows = subjects.filter((s: any) => !MAPEH_NAMES.includes(s.subject_name));
-
-      let collapsed = otherRows.map((s: any) => ({ ...s }));
-      if (mapehRows.length > 0) {
-        collapsed.push({
-          subject_id: -1,
-          subject_name: "MAPEH",
-          subject_type: "core",
-          q1: mean(mapehRows.map((m: any) => m.q1)),
-          q2: mean(mapehRows.map((m: any) => m.q2)),
-          q3: mean(mapehRows.map((m: any) => m.q3)),
-          q4: mean(mapehRows.map((m: any) => m.q4)),
-          final_average: mean(mapehRows.map((m: any) => m.final_average)),
-        });
-        collapsed.sort((a: any, b: any) => a.subject_name.localeCompare(b.subject_name));
-      }
+      // Collapse MAPEH components and grouped learning areas (TLE specializations)
+      // into one subject row, matching the report card.
+      const collapsed = collapseSubjectGroups(subjects as any[], [
+        "q1",
+        "q2",
+        "q3",
+        "final_average",
+      ]);
 
       const graded = collapsed.filter((s: any) => s.final_average !== null);
       const general_average = graded.length > 0
@@ -658,6 +623,16 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
 
     // Get grade distribution per subject
     // Uses the MAPEH grouping pattern: CASE WHEN name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE s.name END
+    // Grouped learning areas (subjects.subject_group, e.g. TLE specializations)
+    // are reported under their group's main subject heading.
+    const REPORT_LABEL = `CASE
+              WHEN sub.name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH'
+              WHEN sub.subject_group IS NOT NULL AND sub.name <> COALESCE(sub.subject_group,'') THEN
+                COALESCE((SELECT g2.name FROM subjects g2
+                           WHERE g2.grade_level = sub.grade_level
+                             AND (g2.name = sub.subject_group OR g2.name = 'TLE/EPP' AND sub.subject_group = 'tle')
+                           ORDER BY (g2.name = sub.subject_group) DESC LIMIT 1), sub.name)
+              ELSE sub.name END`;
     const distribution = await query<RowDataPacket[]>(
       `SELECT
          subject_group,
@@ -673,7 +648,7 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
        FROM (
          SELECT
            sub.id AS subject_id,
-           CASE WHEN sub.name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE sub.name END AS subject_group,
+           ${REPORT_LABEL} AS subject_group,
            e.student_id,
            ROUND(AVG(g.grade), 2) AS avg_grade
          FROM enrollments e
@@ -682,7 +657,7 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
          JOIN subjects sub ON g.subject_id = sub.id
          WHERE ${where}
          GROUP BY
-           CASE WHEN sub.name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE sub.name END,
+           ${REPORT_LABEL},
            sub.id,
            e.student_id
        ) student_subject_avgs
@@ -691,32 +666,54 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
       params
     );
 
-    // Aggregate MAPEH rows into one
-    const MAPEH_NAMES = ["Music", "Arts", "Physical Education", "Health"];
-    const mapehRows = distribution.filter((r: any) => MAPEH_NAMES.includes(r.subject_group));
-    const otherRows = distribution.filter((r: any) => !MAPEH_NAMES.includes(r.subject_group));
-
-    let subjects: any[] = [];
-    if (mapehRows.length > 0) {
-      const mapehAgg = {
-        subject_id: -1,
-        subject_name: "MAPEH",
-        total: Number(mapehRows[0].total_students), // same students
-        bucket_90_100: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_90_100), 0) / mapehRows.length),
-        bucket_85_89: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_85_89), 0) / mapehRows.length),
-        bucket_80_84: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_80_84), 0) / mapehRows.length),
-        bucket_75_79: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_75_79), 0) / mapehRows.length),
-        bucket_below_75: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_below_75), 0) / mapehRows.length),
-        bucket_no_grade: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.bucket_no_grade), 0) / mapehRows.length),
-        mean_grade: Math.round(mapehRows.reduce((s: number, r: any) => s + Number(r.mean_grade || 0), 0) / mapehRows.length * 100) / 100,
-      };
-      subjects = [...otherRows.map(serializeSubject), mapehAgg];
-    } else {
-      subjects = otherRows.map(serializeSubject);
+    // Aggregate any subject_group that spans several rows (MAPEH components,
+    // TLE specializations) into a single reported learning area.
+    const byGroup = new Map<string, any[]>();
+    for (const r of distribution as any[]) {
+      const key = String(r.subject_group);
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key)!.push(r);
     }
 
+    const AVG_BUCKET_FIELDS = [
+      "bucket_90_100",
+      "bucket_85_89",
+      "bucket_80_84",
+      "bucket_75_79",
+      "bucket_below_75",
+      "bucket_no_grade",
+    ];
+
+    const subjects: any[] = [];
+    for (const [key, rowsOfGroup] of byGroup) {
+      const serialized = rowsOfGroup.map(serializeSubject);
+      if (serialized.length === 1) {
+        subjects.push(serialized[0]);
+        continue;
+      }
+      const agg: any = {
+        subject_id: -1,
+        subject_name: key,
+        total: serialized[0].total, // same students across the group
+        mean_grade: null,
+      };
+      for (const f of AVG_BUCKET_FIELDS) {
+        agg[f] = Math.round(
+          serialized.reduce((s: number, r: any) => s + Number(r[f] || 0), 0) / serialized.length
+        );
+      }
+      const means = serialized
+        .map((r: any) => (r.mean_grade === null ? null : Number(r.mean_grade)))
+        .filter((v: number | null): v is number => v !== null && !isNaN(v));
+      agg.mean_grade = means.length > 0
+        ? Math.round((means.reduce((a, b) => a + b, 0) / means.length) * 100) / 100
+        : null;
+      subjects.push(agg);
+    }
+    subjects.sort((a, b) => String(a.subject_name).localeCompare(String(b.subject_name)));
+
     // Build bucket distribution for each subject
-    subjects = subjects.map((s: any) => {
+    const reportedSubjects = subjects.map((s: any) => {
       const buckets = [
         { range: "90-100", count: s.bucket_90_100, color: "#22c55e" },
         { range: "85-89", count: s.bucket_85_89, color: "#3b82f6" },
@@ -736,16 +733,16 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
     });
 
     // Overall stats
-    const totalStudents = subjects.reduce((sum: number, s: any) => Math.max(sum, s.total_students), 0);
-    const overallPassRate = subjects.length > 0
-      ? Math.round(subjects.reduce((sum: number, s: any) => sum + s.pass_rate, 0) / subjects.length)
+    const totalStudents = reportedSubjects.reduce((sum: number, s: any) => Math.max(sum, s.total_students), 0);
+    const overallPassRate = reportedSubjects.length > 0
+      ? Math.round(reportedSubjects.reduce((sum: number, s: any) => sum + s.pass_rate, 0) / reportedSubjects.length)
       : 0;
 
     res.json({
       school_year_id: syId,
       total_students: totalStudents,
       overall_pass_rate: overallPassRate,
-      subjects,
+      subjects: reportedSubjects,
     });
   } catch (error) {
     console.error("Grade distribution error:", error);

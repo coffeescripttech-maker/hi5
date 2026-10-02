@@ -16,17 +16,18 @@ import { HybridTable } from "../../components/HybridTable";
 type GradeEntry = {
   subject: string;
   subject_id: number;
+  /** subjects.subject_group — rows sharing a key report under one heading. */
+  subject_group?: string | null;
   q1: number | "";
   q2: number | "";
   q3: number | "";
-  q4: number | "";
   grade_ids: (number | null)[];
 };
 
 const toNum = (v: number | ""): number => (v === "" ? 0 : Number(v));
 
 const avg = (row: GradeEntry): string => {
-  const vals = [row.q1, row.q2, row.q3, row.q4].filter(v => v !== "");
+  const vals = [row.q1, row.q2, row.q3].filter(v => v !== "");
   if (vals.length === 0) return "—";
   const sum = vals.reduce((a, b) => toNum(a) + toNum(b), 0);
   return (sum / vals.length).toFixed(2);
@@ -34,7 +35,7 @@ const avg = (row: GradeEntry): string => {
 
 const allAvg = (rows: GradeEntry[]): string => {
   const avgs = rows.map(r => {
-    const vals = [r.q1, r.q2, r.q3, r.q4].filter(v => v !== "");
+    const vals = [r.q1, r.q2, r.q3].filter(v => v !== "");
     if (vals.length === 0) return null;
     const sum = vals.reduce((a, b) => toNum(a) + toNum(b), 0);
     return sum / vals.length;
@@ -73,40 +74,52 @@ type DisplayItem =
   | { kind: "header"; label: string; final: string }
   | { kind: "grade"; row: GradeEntry; idx: number };
 
+/** Heading each collapsed subject_group reports under. */
+const GROUP_HEADINGS: Record<string, string> = { tle: "TLE/EPP", tvl: "TVL" };
+
+/** True when the row belongs to a collapsed block (MAPEH or a subject_group). */
+const inGroup = (g: GradeEntry): boolean =>
+  MAPEH_ORDER.includes(g.subject) || Boolean(g.subject_group);
+
+/**
+ * Render rows for the grades table. Grouped learning areas are pulled out of the
+ * raw order and shown as one block under a bold header with a live group average:
+ * MAPEH components (Music, Arts, PE, Health) under "MAPEH", and anything sharing
+ * a subject_group (TLE specializations) under the group's main subject.
+ */
 function buildDisplayRows(grades: GradeEntry[]): DisplayItem[] {
-  const mapehByName = new Map<string, GradeEntry>();
-  let firstMapehPos = -1;
+  const groups = new Map<string, { members: GradeEntry[]; firstPos: number }>();
   grades.forEach((g, i) => {
-    if (MAPEH_ORDER.includes(g.subject)) {
-      mapehByName.set(g.subject, g);
-      if (firstMapehPos === -1) firstMapehPos = i;
-    }
+    const key = MAPEH_ORDER.includes(g.subject) ? "MAPEH" : g.subject_group ?? null;
+    if (!key) return;
+    const entry = groups.get(key) ?? { members: [], firstPos: i };
+    entry.members.push(g);
+    groups.set(key, entry);
   });
 
-  // No MAPEH components — render rows exactly as-is
-  if (firstMapehPos === -1) {
+  // Nothing grouped — render rows exactly as-is
+  if (groups.size === 0) {
     return grades.map((row, idx) => ({ kind: "grade", row, idx }));
   }
 
+  const emitted = new Set<string>();
   const rows: DisplayItem[] = [];
   for (let i = 0; i < grades.length; i++) {
     const g = grades[i];
-    if (MAPEH_ORDER.includes(g.subject)) {
-      // Emit the grouped block once, at the first MAPEH component's position
-      if (i === firstMapehPos) {
-        rows.push({
-          kind: "header",
-          label: "MAPEH",
-          final: allAvg([...mapehByName.values()]),
-        });
-        for (const name of MAPEH_ORDER) {
-          const m = mapehByName.get(name);
-          if (m) rows.push({ kind: "grade", row: m, idx: grades.indexOf(m) });
-        }
-      }
+    const key = MAPEH_ORDER.includes(g.subject) ? "MAPEH" : g.subject_group ?? null;
+    if (!key) {
+      rows.push({ kind: "grade", row: g, idx: i });
       continue;
     }
-    rows.push({ kind: "grade", row: g, idx: i });
+    if (emitted.has(key)) continue;
+    emitted.add(key);
+    const { members } = groups.get(key)!;
+    rows.push({
+      kind: "header",
+      label: key === "MAPEH" ? "MAPEH" : GROUP_HEADINGS[key] ?? key,
+      final: allAvg(members),
+    });
+    for (const m of members) rows.push({ kind: "grade", row: m, idx: grades.indexOf(m) });
   }
   return rows;
 }
@@ -280,7 +293,7 @@ export function GradeManagement() {
     gradesApi.list({ student_id: selectedStudent.id, school_year_id: schoolYearId })
       .then((apiGrades: any) => {
         // Backend returns pivoted format when student_id is provided:
-        // { student_id, enrollment, subjects: [{ subject_id, subject_name, q1, q2, q3, q4, is_locked }] }
+        // { student_id, enrollment, subjects: [{ subject_id, subject_name, q1, q2, q3, is_locked }] }
         // Handle both the pivoted object format and the flat array format
         const subjectsData = apiGrades?.subjects ?? apiGrades;
         const isPivoted = !Array.isArray(apiGrades) && apiGrades?.subjects;
@@ -291,26 +304,25 @@ export function GradeManagement() {
             return {
               subject: sub.name,
               subject_id: sub.id,
+              subject_group: sub.subject_group,
               q1: found?.q1 != null ? Number(found.q1) : "",
               q2: found?.q2 != null ? Number(found.q2) : "",
               q3: found?.q3 != null ? Number(found.q3) : "",
-              q4: found?.q4 != null ? Number(found.q4) : "",
-              grade_ids: [null, null, null, null],
+              grade_ids: [null, null, null],
             };
           }
           // Flat array format: find individual quarter records
           const q1g = subjectsData.find((g: any) => g.subject_id === sub.id && g.quarter === 1);
           const q2g = subjectsData.find((g: any) => g.subject_id === sub.id && g.quarter === 2);
           const q3g = subjectsData.find((g: any) => g.subject_id === sub.id && g.quarter === 3);
-          const q4g = subjectsData.find((g: any) => g.subject_id === sub.id && g.quarter === 4);
           return {
             subject: sub.name,
             subject_id: sub.id,
+            subject_group: sub.subject_group,
             q1: q1g?.grade != null ? Number(q1g.grade) : "",
             q2: q2g?.grade != null ? Number(q2g.grade) : "",
             q3: q3g?.grade != null ? Number(q3g.grade) : "",
-            q4: q4g?.grade != null ? Number(q4g.grade) : "",
-            grade_ids: [q1g?.id ?? null, q2g?.id ?? null, q3g?.id ?? null, q4g?.id ?? null],
+            grade_ids: [q1g?.id ?? null, q2g?.id ?? null, q3g?.id ?? null],
           };
         });
         setGrades(entries);
@@ -324,9 +336,9 @@ export function GradeManagement() {
       .catch(() => {
         // Initialize empty
         const entries: GradeEntry[] = subs.map(sub => ({
-          subject: sub.name, subject_id: sub.id,
-          q1: "", q2: "", q3: "", q4: "",
-          grade_ids: [null, null, null, null],
+          subject: sub.name, subject_id: sub.id, subject_group: sub.subject_group,
+          q1: "", q2: "", q3: "",
+          grade_ids: [null, null, null],
         }));
         setGrades(entries);
         setLocked(false);
@@ -334,7 +346,7 @@ export function GradeManagement() {
       .finally(() => setLoadingGrades(false));
   }, [selectedStudent, schoolYearId]);
 
-  const updateGrade = (idx: number, quarter: "q1" | "q2" | "q3" | "q4", value: string) => {
+  const updateGrade = (idx: number, quarter: "q1" | "q2" | "q3", value: string) => {
     // Subject-level grade security: only assigned subjects may be edited.
     const subject = grades[idx];
     if (subject && !canEditSubject(subject.subject_id)) return;
@@ -357,7 +369,7 @@ export function GradeManagement() {
       for (const entry of grades) {
         // Subject-level scope: only persist grades for assigned subjects.
         if (!canEditSubject(entry.subject_id)) continue;
-        const quarters: ("q1" | "q2" | "q3" | "q4")[] = ["q1", "q2", "q3", "q4"];
+        const quarters: ("q1" | "q2" | "q3")[] = ["q1", "q2", "q3"];
         for (const q of quarters) {
           const qi = quarters.indexOf(q) + 1;
           const val = entry[q];
@@ -659,19 +671,19 @@ export function GradeManagement() {
                     <table className="w-full text-sm min-w-[700px]">
                   <thead>
                     <tr className="bg-gradient-to-r from-emerald-50/80 via-emerald-50/80 to-emerald-50/50 border-b border-emerald-100">
-                      {["Subject", "Q1", "Q2", "Q3", "Q4", "Final", "Remarks"].map(h => (
+                      {["Subject", "Q1", "Q2", "Q3", "Final", "Remarks"].map(h => (
                         <th key={h} className={`${h === "Subject" ? "text-left pl-5" : "text-center px-3"} py-3.5 text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {displayRows.map(item => {
-                      // MAPEH group header
+                      // Grouped learning-area header (MAPEH, TLE specializations, …)
                       if (item.kind === "header") {
                         const desc = getDescriptor(item.final);
                         return (
-                          <tr key="mapeh-header" className="bg-emerald-50/70 border-y border-emerald-100">
-                            <td colSpan={5} className="pl-5 pr-3 py-2.5 font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">
+                          <tr key={`group-header-${item.label}`} className="bg-emerald-50/70 border-y border-emerald-100">
+                            <td colSpan={4} className="pl-5 pr-3 py-2.5 font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">
                               {item.label}
                             </td>
                             <td className="px-3 py-2.5 text-center font-bold text-gray-800 text-sm">
@@ -689,10 +701,10 @@ export function GradeManagement() {
                       const { row, idx } = item;
                       const finalGrade = avg(row);
                       const desc = getDescriptor(finalGrade);
-                      const isMapeh = MAPEH_ORDER.includes(row.subject);
+                      const isGrouped = inGroup(row);
                       return (
                         <tr key={row.subject} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
-                          <td className={`pr-3 py-3 text-sm ${isMapeh ? "pl-8 font-medium text-gray-600" : "pl-5 font-semibold text-gray-700"}`}>
+                          <td className={`pr-3 py-3 text-sm ${isGrouped ? "pl-8 font-medium text-gray-600" : "pl-5 font-semibold text-gray-700"}`}>
                             <span className="flex items-center gap-2">
                               {row.subject}
                               {!canEditSubject(row.subject_id) && (
@@ -702,7 +714,7 @@ export function GradeManagement() {
                               )}
                             </span>
                           </td>
-                          {(["q1", "q2", "q3", "q4"] as const).map(q => (
+                          {(["q1", "q2", "q3"] as const).map(q => (
                             <td key={q} className="px-3 py-2.5 text-center">
                               <input
                                 type="number" min="0" max="100" step="0.01"
@@ -746,11 +758,11 @@ export function GradeManagement() {
                       const { row, idx } = item;
                       const finalGrade = avg(row);
                       const desc = getDescriptor(finalGrade);
-                      const isMapeh = MAPEH_ORDER.includes(row.subject);
+                      const isGrouped = inGroup(row);
                       return (
                         <li key={row.subject} className="px-4 py-3.5">
                           <div className="flex items-center justify-between gap-2">
-                            <p className={`text-sm ${isMapeh ? "pl-3 font-medium text-gray-600" : "font-semibold text-gray-700"}`}>
+                            <p className={`text-sm ${isGrouped ? "pl-3 font-medium text-gray-600" : "font-semibold text-gray-700"}`}>
                               {row.subject}
                               {!canEditSubject(row.subject_id) && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1" title="Read-only">
@@ -760,8 +772,8 @@ export function GradeManagement() {
                             </p>
                             <span className="text-xs font-extrabold text-gray-800 flex-shrink-0">Final: {finalGrade}</span>
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                            {(["q1", "q2", "q3", "q4"] as const).map((q, qi) => (
+                          <div className="grid grid-cols-3 gap-2 mt-2">
+                            {(["q1", "q2", "q3"] as const).map((q, qi) => (
                               <div key={q}>
                                 <label className="block text-center text-[10px] font-semibold text-gray-400 uppercase mb-1">Q{qi + 1}</label>
                                 <input
@@ -941,7 +953,6 @@ export function GradeManagement() {
                       <option value="1">1st Quarter</option>
                       <option value="2">2nd Quarter</option>
                       <option value="3">3rd Quarter</option>
-                      <option value="4">4th Quarter</option>
                     </select>
                   </div>
                   <div>

@@ -405,7 +405,7 @@ export function UploadGrades() {
                 value={quarter}
                 onChange={e => setQuarter(Number(e.target.value))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                {[1, 2, 3, 4].map(q => (
+                {[1, 2, 3].map(q => (
                   <option key={q} value={q}>
                     Quarter {q}
                   </option>

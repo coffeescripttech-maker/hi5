@@ -12,12 +12,12 @@ import { query } from "../config/database";
  * The key lists here MUST mirror the keys in src/app/navigation.ts.
  */
 
-export type Role = "admin" | "teacher" | "registrar" | "principal";
+export type Role = "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
 
-export const ROLES: Role[] = ["admin", "teacher", "registrar", "principal"];
+export const ROLES: Role[] = ["admin", "teacher", "registrar", "principal", "enrollment_committee"];
 
 /** Roles the ICT Coordinator can configure from the RBAC page. */
-export const CONFIGURABLE_ROLES: Role[] = ["teacher", "registrar", "principal"];
+export const CONFIGURABLE_ROLES: Role[] = ["teacher", "registrar", "principal", "enrollment_committee"];
 
 /** Authoritative per-role menu keys (mirrors src/app/navigation.ts). */
 export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
@@ -41,7 +41,6 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
   ],
   teacher: [
     "teacher_dashboard",
-    "teacher_enroll",
     "teacher_my_students",
     "teacher_sections",
     "teacher_promote",
@@ -54,6 +53,7 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
     "teacher_upload",
     "teacher_documents",
     "teacher_atrisk",
+    "teacher_reading_assessments",
     "teacher_profile",
     "teacher_guide",
   ],
@@ -72,6 +72,7 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
     "registrar_sections",
     "registrar_grade_distribution",
     "registrar_grade_corrections",
+    "registrar_transfers",
     "registrar_document_completion",
         "registrar_schedule",
     "registrar_master_schedule",
@@ -98,7 +99,36 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
     "principal_profile",
     "principal_guide",
   ],
+  // The Enrollment Committee carries Admin permissions plus its own duties:
+  // enrollment, section assignment, document verification and transfer approval.
+  enrollment_committee: [
+    "committee_dashboard",
+    "committee_enrollment",
+    "committee_section_assignment",
+    "committee_document_verification",
+    "committee_transfers",
+    "committee_profile",
+    "committee_guide",
+  ],
 };
+
+/** Menu keys the committee inherits and can never have switched off. */
+const INHERITED_MENU_KEYS: Record<string, string[]> = {
+  enrollment_committee: [
+    ...MENU_KEYS_BY_ROLE.admin,
+    ...MENU_KEYS_BY_ROLE.registrar,
+  ],
+};
+
+/** True when a key is part of a role's locked, inherited scope. */
+function isInheritedKey(role: Role, menuKey: string): boolean {
+  return (INHERITED_MENU_KEYS[role] ?? []).includes(menuKey);
+}
+
+/** All keys a role effectively has: its own plus anything it inherits. */
+export function effectiveMenuKeys(role: Role): string[] {
+  return Array.from(new Set([...(INHERITED_MENU_KEYS[role] ?? []), ...MENU_KEYS_BY_ROLE[role]]));
+}
 
 interface PermissionRow extends RowDataPacket {
   role: string;
@@ -109,10 +139,11 @@ interface PermissionRow extends RowDataPacket {
 /**
  * Resolve a role's effective permission map.
  * Keys absent from the table default to enabled (deny-list semantics).
+ * Inherited keys (committee ← admin + registrar) are always on.
  */
 export async function getPermissionMap(role: Role): Promise<Record<string, boolean>> {
   const map: Record<string, boolean> = {};
-  for (const key of MENU_KEYS_BY_ROLE[role]) {
+  for (const key of effectiveMenuKeys(role)) {
     map[key] = true;
   }
 
@@ -121,7 +152,7 @@ export async function getPermissionMap(role: Role): Promise<Record<string, boole
     [role]
   );
   for (const row of rows) {
-    if (row.menu_key in map) {
+    if (row.menu_key in map && !isInheritedKey(role, row.menu_key)) {
       map[row.menu_key] = row.enabled === 1;
     }
   }
@@ -140,8 +171,12 @@ export async function setPermission(
   menuKey: string,
   enabled: boolean
 ): Promise<void> {
-  if (!MENU_KEYS_BY_ROLE[role].includes(menuKey)) {
+  const allowed = effectiveMenuKeys(role);
+  if (!allowed.includes(menuKey)) {
     throw new Error(`Unknown menu key "${menuKey}" for role "${role}".`);
+  }
+  if (isInheritedKey(role, menuKey)) {
+    throw new Error(`"${menuKey}" is inherited and cannot be configured for role "${role}".`);
   }
   await query<ResultSetHeader>(
     `INSERT INTO role_permissions (role, menu_key, enabled)
@@ -164,7 +199,9 @@ export async function getAllMatrix() {
   const roles = await Promise.all(
     CONFIGURABLE_ROLES.map(async role => ({
       role,
+      // Inherited keys are shown too, flagged so the UI can render them locked.
       permissions: await getPermissionMap(role),
+      inherited: INHERITED_MENU_KEYS[role] ?? [],
     }))
   );
   return roles;

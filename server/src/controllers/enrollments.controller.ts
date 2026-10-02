@@ -660,17 +660,23 @@ export async function batchListRequirements(req: Request, res: Response): Promis
           requirements: [],
           submitted_count: 0,
           total_count: 0,
+          verified_count: 0,
         };
       }
       byStudent[r.student_id].requirements.push({
+        enrollment_id: r.enrollment_id,
         id: r.id,
         requirement_key: r.requirement_key,
         label: r.label,
         is_submitted: !!r.is_submitted,
         submitted_at: r.submitted_at,
+        is_verified: !!r.is_verified,
+        verified_at: r.verified_at,
+        verification_notes: r.verification_notes,
       });
       byStudent[r.student_id].total_count++;
       if (r.is_submitted) byStudent[r.student_id].submitted_count++;
+      if (r.is_submitted && r.is_verified) byStudent[r.student_id].verified_count++;
     }
 
     res.json(Object.values(byStudent));
@@ -699,7 +705,11 @@ export async function listRequirements(req: Request, res: Response): Promise<voi
 
 /**
  * PUT /api/enrollments/:id/requirements — Batch update requirements
- * Body: { requirements: [{ requirement_key, is_submitted }] }
+ * Body: { requirements: [{ requirement_key, is_submitted, is_verified?, verification_notes? }] }
+ *
+ * Document verification (is_verified) is an Enrollment Committee action and is
+ * accepted only from that role; it records that a receipt was sighted — no file
+ * is uploaded or stored by this endpoint.
  */
 export async function updateRequirements(req: Request, res: Response): Promise<void> {
   try {
@@ -711,6 +721,16 @@ export async function updateRequirements(req: Request, res: Response): Promise<v
       return;
     }
 
+    const touchesVerification = requirements.some(r =>
+      Object.prototype.hasOwnProperty.call(r, "is_verified")
+    );
+    if (touchesVerification && !["admin", "enrollment_committee"].includes(req.user!.role)) {
+      res.status(403).json({
+        error: "Only the Enrollment Committee can verify submitted documents.",
+      });
+      return;
+    }
+
     for (const r of requirements) {
       if (r.is_submitted) {
         await query<ResultSetHeader>(
@@ -718,10 +738,54 @@ export async function updateRequirements(req: Request, res: Response): Promise<v
           [id, r.requirement_key]
         );
       } else {
+        // Un-submitting a requirement also drops any verification: there is no
+        // longer a document on file for the committee to have sighted.
         await query<ResultSetHeader>(
-          "UPDATE enrollment_requirements SET is_submitted = 0, submitted_at = NULL WHERE enrollment_id = ? AND requirement_key = ?",
+          `UPDATE enrollment_requirements
+           SET is_submitted = 0, submitted_at = NULL,
+               is_verified = 0, verified_at = NULL, verified_by = NULL
+           WHERE enrollment_id = ? AND requirement_key = ?`,
           [id, r.requirement_key]
         );
+      }
+      // Committee verification is handled separately (verification-only, no files).
+      if (Object.prototype.hasOwnProperty.call(r, "is_verified")) {
+        const verified = !!r.is_verified;
+        if (verified) {
+          // Verification must follow the actual document: reject a verification
+          // attempt on a requirement that is not on file.
+          const current = await query<RowDataPacket[]>(
+            "SELECT is_submitted FROM enrollment_requirements WHERE enrollment_id = ? AND requirement_key = ?",
+            [id, r.requirement_key]
+          );
+          if (current.length === 0) {
+            res.status(404).json({ error: `Requirement "${r.requirement_key}" not found for this enrollment.` });
+            return;
+          }
+          if (!current[0].is_submitted) {
+            res.status(400).json({
+              error: `Cannot verify "${r.requirement_key}" — the document has not been submitted yet.`,
+            });
+            return;
+          }
+          await query<ResultSetHeader>(
+            `UPDATE enrollment_requirements
+             SET is_verified = 1,
+                 verified_at = COALESCE(verified_at, NOW()),
+                 verified_by = COALESCE(verified_by, ?),
+                 verification_notes = COALESCE(?, verification_notes)
+             WHERE enrollment_id = ? AND requirement_key = ?`,
+            [req.user!.userId, r.verification_notes ?? null, id, r.requirement_key]
+          );
+        } else {
+          await query<ResultSetHeader>(
+            `UPDATE enrollment_requirements
+             SET is_verified = 0, verified_at = NULL, verified_by = NULL,
+                 verification_notes = COALESCE(?, verification_notes)
+             WHERE enrollment_id = ? AND requirement_key = ?`,
+            [r.verification_notes ?? null, id, r.requirement_key]
+          );
+        }
       }
     }
 
@@ -734,5 +798,77 @@ export async function updateRequirements(req: Request, res: Response): Promise<v
   } catch (error) {
     console.error("Update requirements error:", error);
     res.status(500).json({ error: "Failed to update requirements." });
+  }
+}
+
+/**
+ * GET /api/enrollments/flags — Duplicate-enrollment detection (read-only)
+ *
+ * Flags any student who, within a single school year, has more than one active
+ * ('enrolled') enrollment OR active enrollments placed in more than one section
+ * (which implies enrolment under different advisers). This is purely a monitoring
+ * signal — it never blocks or modifies enrollment data.
+ */
+export async function getEnrollmentFlags(req: Request, res: Response): Promise<void> {
+  try {
+    const { school_year_id } = req.query;
+    const syFilter = school_year_id ? "AND e.school_year_id = ?" : "";
+    const params: any[] = school_year_id ? [parseInt(school_year_id as string)] : [];
+
+    const rows = await query<RowDataPacket[]>(
+      `SELECT e.student_id, s.name AS student_name, s.lrn,
+              e.school_year_id, sy.sy_label,
+              e.section_id, sec.name AS section_name, adv.name AS adviser_name,
+              (SELECT COUNT(*) FROM enrollments e2
+                WHERE e2.student_id = e.student_id
+                  AND e2.school_year_id = e.school_year_id
+                  AND e2.status = 'enrolled') AS active_count,
+              (SELECT COUNT(DISTINCT e3.section_id) FROM enrollments e3
+                WHERE e3.student_id = e.student_id
+                  AND e3.school_year_id = e.school_year_id
+                  AND e3.status = 'enrolled'
+                  AND e3.section_id IS NOT NULL) AS distinct_sections
+       FROM enrollments e
+       JOIN students s ON s.id = e.student_id
+       JOIN school_years sy ON sy.id = e.school_year_id
+       LEFT JOIN sections sec ON sec.id = e.section_id
+       LEFT JOIN users adv ON adv.id = sec.adviser_id
+       WHERE e.status = 'enrolled' ${syFilter}
+       HAVING active_count > 1 OR distinct_sections > 1
+       ORDER BY s.name ASC, sy_label ASC`,
+      params
+    );
+
+    // Group the raw rows into one flag record per student + school year.
+    const flags: any[] = [];
+    const byKey = new Map<string, any>();
+    for (const r of rows as any[]) {
+      const key = `${r.student_id}:${r.school_year_id}`;
+      let flag = byKey.get(key);
+      if (!flag) {
+        flag = {
+          student_id: r.student_id,
+          student_name: r.student_name,
+          lrn: r.lrn,
+          school_year_id: r.school_year_id,
+          sy_label: r.sy_label,
+          active_count: r.active_count,
+          distinct_sections: r.distinct_sections,
+          sections: [],
+        };
+        byKey.set(key, flag);
+        flags.push(flag);
+      }
+      flag.sections.push({
+        section_id: r.section_id,
+        section_name: r.section_name ?? "Pending Section",
+        adviser_name: r.adviser_name ?? null,
+      });
+    }
+
+    res.json({ total: flags.length, flags });
+  } catch (error) {
+    console.error("Enrollment flags error:", error);
+    res.status(500).json({ error: "Failed to detect duplicate enrollments." });
   }
 }

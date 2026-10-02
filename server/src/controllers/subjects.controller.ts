@@ -9,9 +9,26 @@ interface SubjectRow extends RowDataPacket {
   grade_level: number;
   hours_per_week: number;
   subject_type: "core" | "applied" | "specialized";
+  /** Reporting group key — NULL = standalone subject. All rows sharing a group
+   *  (e.g. TLE specializations) are reported under one heading and counted once
+   *  in the general average. Mirrors the existing MAPEH collapse. */
+  subject_group: string | null;
   is_active: number;
   created_at: Date;
   updated_at: Date;
+}
+
+/**
+ * Derive a reporting group from the subject name when none is supplied.
+ * Specialized learning areas (TLE specializations, TVL tracks) are grouped under
+ * the main subject they belong to so they report as one learning area.
+ */
+function inferSubjectGroup(name: string, subjectType: string): string | null {
+  const n = String(name || "").trim();
+  if (!n) return null;
+  if (n === "TLE/EPP" || /^TLE\b/i.test(n)) return "tle";
+  if (subjectType === "specialized" && /^(TVL)\b/i.test(n)) return "tvl";
+  return null;
 }
 
 /**
@@ -129,7 +146,7 @@ export async function getSubjectById(req: Request, res: Response): Promise<void>
  */
 export async function createSubject(req: Request, res: Response): Promise<void> {
   try {
-    const { name, grade_level, hours_per_week, subject_type, is_active } = req.body;
+    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group } = req.body;
 
     if (!name || !grade_level || hours_per_week === undefined || !subject_type) {
       res.status(400).json({ error: "Missing required fields: name, grade_level, hours_per_week, subject_type." });
@@ -151,10 +168,14 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    const group = subject_group !== undefined
+      ? (subject_group === null || subject_group === "" ? null : String(subject_group).trim())
+      : inferSubjectGroup(name, subject_type);
+
     const result = await query<ResultSetHeader>(
-      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, is_active)
-       VALUES (?, ?, ?, ?, ?)`,
-      [name, grade_level, hours_per_week, subject_type, is_active !== undefined ? is_active : 1]
+      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, subject_group, is_active)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, grade_level, hours_per_week, subject_type, group, is_active !== undefined ? is_active : 1]
     );
 
     await logActivity(req.user!.userId, `Created subject "${name}" (Grade ${grade_level})`, "subjects", result.insertId);
@@ -173,7 +194,7 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
 export async function updateSubject(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const { name, grade_level, hours_per_week, subject_type, is_active } = req.body;
+    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM subjects WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -188,6 +209,10 @@ export async function updateSubject(req: Request, res: Response): Promise<void> 
     if (grade_level !== undefined) { fields.push("grade_level = ?"); params.push(grade_level); }
     if (hours_per_week !== undefined) { fields.push("hours_per_week = ?"); params.push(hours_per_week); }
     if (subject_type !== undefined) { fields.push("subject_type = ?"); params.push(subject_type); }
+    if (subject_group !== undefined) {
+      fields.push("subject_group = ?");
+      params.push(subject_group === null || subject_group === "" ? null : String(subject_group).trim());
+    }
     if (is_active !== undefined) { fields.push("is_active = ?"); params.push(is_active); }
 
     if (fields.length === 0) {

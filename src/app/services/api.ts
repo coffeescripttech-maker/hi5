@@ -225,7 +225,7 @@ export interface LoginResponse {
     username: string;
     name: string;
     email: string;
-    role: "admin" | "teacher" | "registrar" | "principal";
+    role: "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
     status: string;
   };
 }
@@ -235,7 +235,7 @@ export interface UserProfile {
   username: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar" | "principal";
+  role: "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
   status: "active" | "idle" | "inactive";
   phone: string | null;
   address: string | null;

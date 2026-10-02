@@ -69,21 +69,21 @@ function buildHtml(ds: LisDataset, school: SchoolProfile | null, depedLogo: stri
   });
 
   // ── Grade Summary: repaginate across several landscape pages ────────────────
-  // The subjects are pivoted into 4 quarterly columns each, so a flat table
+  // The subjects are pivoted into 3 quarterly columns each, so a flat table
   // would squeeze 60+ columns into one page. Every page repeats the learner
   // info columns (LRN, Learner Name, Grade, Section) plus the General Average
   // and Promotion Status, and carries a readable 2-row header — subject name
-  // spanning Q1–Q4 — for at most 3 subjects.
+  // spanning Q1–Q3 — for at most 4 subjects.
   if (ds.title === "Grade Summary") {
     const qWidth = 36;
     // LRN + Learner Name + Grade + Section + General Average + Promotion.
     const fixedWidth = 70 + 200 + 40 + 84 + 60 + 86;
     const pageWidth = 1054; // A4 landscape (297mm) minus 9mm side margins, at 96dpi
-    const subjectsPerPage = Math.max(1, Math.floor((pageWidth - fixedWidth) / (qWidth * 4)));
+    const subjectsPerPage = Math.max(1, Math.floor((pageWidth - fixedWidth) / (qWidth * 3)));
 
-    // Column start index of each subject's 4-quarter block.
+    // Column start index of each subject's 3-quarter block.
     const subjectStarts: number[] = [];
-    for (let i = 4; i < ds.columns.length - 2; i += 4) subjectStarts.push(i);
+    for (let i = 4; i < ds.columns.length - 2; i += 3) subjectStarts.push(i);
 
     const chunks: number[][] = [];
     for (let i = 0; i < subjectStarts.length; i += subjectsPerPage) {
@@ -101,10 +101,10 @@ function buildHtml(ds: LisDataset, school: SchoolProfile | null, depedLogo: stri
       `<th rowspan="2" class="col-promo">Promotion Status</th>`;
     const subHeadTop = (chunk: number[]) =>
       chunk
-        .map(i => `<th class="col-sub-head" colspan="4">${esc(ds.columns[i].replace(/_[Qq][1-4]$/, ""))}</th>`)
+        .map(i => `<th class="col-sub-head" colspan="3">${esc(ds.columns[i].replace(/_[Qq][1-3]$/, ""))}</th>`)
         .join("");
     const subHeadQuarters = (chunk: number[]) =>
-      chunk.map(() => `<th class="col-q">Q1</th><th class="col-q">Q2</th><th class="col-q">Q3</th><th class="col-q">Q4</th>`).join("");
+      chunk.map(() => `<th class="col-q">Q1</th><th class="col-q">Q2</th><th class="col-q">Q3</th>`).join("");
 
     const metaCells = (r: unknown[]) =>
       `<td class="col-lrn">${esc(r[0])}</td>` +
@@ -115,12 +115,12 @@ function buildHtml(ds: LisDataset, school: SchoolProfile | null, depedLogo: stri
       `<td class="col-ga">${esc(r[r.length - 2])}</td>` +
       `<td class="col-promo">${esc(r[r.length - 1])}</td>`;
     const subCells = (r: unknown[], chunk: number[]) =>
-      chunk.map(i => [0, 1, 2, 3].map(q => `<td class="col-q">${esc(r[i + q])}</td>`).join("")).join("");
+      chunk.map(i => [0, 1, 2].map(q => `<td class="col-q">${esc(r[i + q])}</td>`).join("")).join("");
 
-    const chunkWidth = (chunk: number[]) => fixedWidth + chunk.length * qWidth * 4;
+    const chunkWidth = (chunk: number[]) => fixedWidth + chunk.length * qWidth * 3;
 
     const tables = chunks.map(chunk => {
-      const visibleCols = 4 + chunk.length * 4 + 2;
+      const visibleCols = 4 + chunk.length * 3 + 2;
       const body =
         ds.rows.length > 0
           ? ds.rows.map(r => `<tr>${metaCells(r)}${subCells(r, chunk)}${tailCells(r)}</tr>`).join("")

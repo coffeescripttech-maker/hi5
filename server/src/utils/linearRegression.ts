@@ -8,7 +8,7 @@
  */
 
 export interface GradePoint {
-  x: number; // quarter (1..4)
+  x: number; // quarter (1..3)
   y: number; // that quarter's general average
 }
 
@@ -25,7 +25,7 @@ export interface StudentRisk {
   trend: RiskTrend;
   current_average: number | null;
   slope: number | null;
-  projected: number | null; // projected final grade (regression at quarter 4)
+  projected: number | null; // projected final grade (regression at the final quarter)
 }
 
 /** Passing grade (DepEd minimum — configurable via School Settings). */
@@ -36,8 +36,8 @@ export const DEFAULT_MONITOR = 80;
 const DECLINE = -1;
 /** Per-quarter slope considered a meaningful improvement. */
 const IMPROVE = 1;
-/** The final grading period used for the projected grade. */
-const FINAL_QUARTER = 4;
+/** The final grading period used for the projected grade (3-quarter calendar). */
+const FINAL_QUARTER = 3;
 
 /** Overridable academic thresholds (school-configurable). */
 export interface ClassifyConfig {
@@ -76,7 +76,7 @@ export function linearRegression(points: GradePoint[]): RegressionResult {
 /**
  * Classify a student from their per-quarter general averages.
  *
- * `quarters` is indexed by quarter-1 (quarters[0] = Q1 … quarters[3] = Q4);
+ * `quarters` is indexed by quarter-1 (quarters[0] = Q1 … quarters[2] = Q3);
  * missing quarters are null.
  */
 export function classifyStudent(

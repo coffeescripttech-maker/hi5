@@ -3,12 +3,12 @@
 Two layers, both least-squares linear regression (scikit-learn):
 
 1. A **baseline model** trained on the school's historical quarterly general
-   averages (feature = grading period 1..4, target = general average). This is
+   averages (feature = grading period 1..3, target = general average). This is
    the "trained model" a panelist would expect — it learns the typical grade
    trajectory for the school and is saved to ``saved/model.joblib``.
 
 2. A **per-student fit** over the student's own quarterly averages, projecting
-   their final grade at quarter 4. The exact same thresholds as the Node.js
+   their final grade at quarter 3. The exact same thresholds as the Node.js
    classifier (``server/src/utils/linearRegression.ts``) turn that projection
    into On Track / Needs Monitoring / At-Risk — so switching providers never
    changes the numbers the school sees.
@@ -29,7 +29,7 @@ PASSING = 75.0
 MONITOR = 80.0
 DECLINE = -1.0
 IMPROVE = 1.0
-FINAL_QUARTER = 4
+FINAL_QUARTER = 3
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -46,7 +46,7 @@ def fit_linear(xs: np.ndarray, ys: np.ndarray) -> tuple[float, float]:
 
 
 def classify_quarters(quarters) -> dict:
-    """Classify one student from ``[q1, q2, q3, q4]`` (missing = null).
+    """Classify one student from ``[q1, q2, q3]`` (missing = null).
 
     Returns the same shape as the Node.js ``StudentRisk`` object so the two
     providers are interchangeable.

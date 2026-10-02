@@ -260,7 +260,7 @@ export async function setTrackSubjects(req: Request, res: Response): Promise<voi
 
     // Verify track exists
     const track = await query<RowDataPacket[]>(
-      "SELECT id FROM strand_tracks WHERE id = ?",
+      "SELECT id, code, track_type FROM strand_tracks WHERE id = ?",
       [id]
     );
     if (track.length === 0) {
@@ -278,6 +278,15 @@ export async function setTrackSubjects(req: Request, res: Response): Promise<voi
       const values = subject_ids.map(sid => `(${id}, ${sid})`).join(",");
       await query<ResultSetHeader>(
         `INSERT INTO subject_strand_tracks (strand_track_id, subject_id) VALUES ${values}`
+      );
+    }
+
+    // A learning area linked to a TLE specialization belongs to the TLE group, so
+    // it is reported directly under the main TLE subject (grouped, counted once).
+    if (track[0].track_type === "tle" && subject_ids.length > 0) {
+      const idList = subject_ids.join(",");
+      await query<ResultSetHeader>(
+        `UPDATE subjects SET subject_group = 'tle' WHERE id IN (${idList})`
       );
     }
 

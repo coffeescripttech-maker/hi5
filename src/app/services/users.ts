@@ -5,12 +5,19 @@ import { api } from "./api";
 
 export type PresenceStatus = "online" | "idle" | "offline";
 
+export type UserRole =
+  | "admin"
+  | "teacher"
+  | "registrar"
+  | "principal"
+  | "enrollment_committee";
+
 export interface UserRow {
   id: number;
   username: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar" | "principal";
+  role: UserRole;
   status: "active" | "idle" | "inactive";
   phone: string | null;
   address: string | null;
@@ -31,7 +38,7 @@ export interface CreateUserPayload {
   password: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar" | "principal";
+  role: UserRole;
   phone?: string;
   address?: string;
   employee_id?: string;
@@ -44,7 +51,7 @@ export interface UpdateUserPayload {
   name?: string;
   username?: string;
   email?: string;
-  role?: "admin" | "teacher" | "registrar" | "principal";
+  role?: UserRole;
   status?: "active" | "idle" | "inactive";
   phone?: string;
   address?: string;

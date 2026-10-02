@@ -16,23 +16,24 @@ const router = Router();
 
 router.use(authenticate);
 
-// Legacy: pending students (status = 'pending')
-router.get("/pending", authorize("admin", "teacher", "registrar"), getPendingStudents);
-router.post("/assign", authorize("admin", "teacher"), runAutoSectioning);
+// Section assignment and the sectioning rules engine belong to the Enrollment
+// Committee / Registrar — teachers no longer run or confirm sectioning.
+router.get("/pending", authorize("admin", "registrar", "enrollment_committee"), getPendingStudents);
+router.post("/assign", authorize("admin", "enrollment_committee"), runAutoSectioning);
 
 // New: Pending Section Queue (enrolled but section_id IS NULL)
-router.get("/pending-queue", authorize("admin", "registrar"), getPendingQueue);
-router.post("/confirm-assignments", authorize("admin", "registrar"), confirmAssignments);
-router.post("/undo", authorize("admin", "registrar"), undoAssignments);
-router.get("/carry-over-preview", authorize("admin", "registrar"), getCarryOverPreview);
+router.get("/pending-queue", authorize("admin", "registrar", "enrollment_committee"), getPendingQueue);
+router.post("/confirm-assignments", authorize("admin", "registrar", "enrollment_committee"), confirmAssignments);
+router.post("/undo", authorize("admin", "registrar", "enrollment_committee"), undoAssignments);
+router.get("/carry-over-preview", authorize("admin", "registrar", "enrollment_committee"), getCarryOverPreview);
 
 // Auto-sectioning rules engine
 // POST /api/sectioning/rules/generate — run the rules engine and return a
 //   reviewable preview (proposals + flagged transfers + gender balance).
 //   Re-invoking regenerates; manual overrides happen before confirming.
 // PUT  /api/sectioning/eligibility  — record entrance exam / interview results.
-router.post("/rules/generate", authorize("admin", "registrar"), generateRules);
-router.put("/eligibility", authorize("admin", "registrar"), updateEligibility);
+router.post("/rules/generate", authorize("admin", "registrar", "enrollment_committee"), generateRules);
+router.put("/eligibility", authorize("admin", "registrar", "enrollment_committee"), updateEligibility);
 
 function legacyRulesEndpoint(_req: Request, res: Response): void {
   res.status(410).json({
@@ -41,6 +42,6 @@ function legacyRulesEndpoint(_req: Request, res: Response): void {
 }
 
 // Legacy endpoint kept for backward compatibility (now a 410 with guidance)
-router.post("/rules", authorize("admin", "registrar"), legacyRulesEndpoint);
+router.post("/rules", authorize("admin", "registrar", "enrollment_committee"), legacyRulesEndpoint);
 
 export default router;

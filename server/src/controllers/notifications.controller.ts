@@ -12,6 +12,9 @@ import { notificationBus, NotificationBusRow } from "../services/notificationBus
 export async function listNotifications(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
+    // Role-tagged broadcasts stay visible to everyone (unchanged legacy behaviour);
+    // `role` is informational metadata only, so a committee-tagged notice is not
+    // hidden from the admin who may also need to act on it.
     const role = req.user!.role;
 
     const notifications = await query<RowDataPacket[]>(

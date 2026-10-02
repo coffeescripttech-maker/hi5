@@ -31,7 +31,8 @@ const ROLE_PATHS: Record<string, string> = {
   admin: '/admin',
   teacher: '/teacher',
   registrar: '/registrar',
-  principal: '/principal'
+  principal: '/principal',
+  enrollment_committee: '/committee'
 };
 
 /* ── Zod Validation Schemas ─────────────────────────── */

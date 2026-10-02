@@ -247,6 +247,18 @@ export async function uploadDocument(req: Request, res: Response): Promise<void>
       return;
     }
 
+    // A grade workbook carries the quarter it populates; grades are Q1–Q3 only,
+    // so reject an out-of-range quarter here rather than importing rows into a
+    // quarter that the report cards never read.
+    if (quarter !== undefined && quarter !== null && quarter !== "") {
+      const q = Number(quarter);
+      if (!Number.isInteger(q) || q < 1 || q > 3) {
+        fs.unlinkSync(file.path);
+        res.status(400).json({ error: "Quarter must be 1, 2, or 3." });
+        return;
+      }
+    }
+
     const result = await query<ResultSetHeader>(
       `INSERT INTO uploaded_documents (student_id, section_id, subject_id, school_year_id, file_name, file_type, file_path, file_size, uploaded_by, record_count, quarter)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -295,8 +307,8 @@ export async function getTemplate(req: Request, res: Response): Promise<void> {
     const subject_id = parseInt(req.query.subject_id as string);
     const quarter = parseInt(req.query.quarter as string);
 
-    if (!section_id || !school_year_id || !subject_id || ![1, 2, 3, 4].includes(quarter)) {
-      res.status(400).json({ error: "section_id, school_year_id, subject_id, and quarter (1-4) are required." });
+    if (!section_id || !school_year_id || !subject_id || ![1, 2, 3].includes(quarter)) {
+      res.status(400).json({ error: "section_id, school_year_id, subject_id, and quarter (1-3) are required." });
       return;
     }
 
@@ -380,6 +392,15 @@ export async function importDocument(req: Request, res: Response): Promise<void>
 
     if (!doc.subject_id || !doc.school_year_id || !doc.section_id) {
       res.status(400).json({ error: "Document is missing subject/section/school year context. Re-upload with the subject selected." });
+      return;
+    }
+
+    // Grade rows are only meaningful for Q1–Q3; a workbook tagged outside that
+    // range (e.g. an older Q4 upload) must not write unreachable grades.
+    if (![1, 2, 3].includes(Number(doc.quarter))) {
+      res.status(400).json({
+        error: `This document is tagged for quarter ${doc.quarter ?? "none"}. Grades are recorded for quarters 1-3 only — re-upload against the correct quarter.`,
+      });
       return;
     }
 

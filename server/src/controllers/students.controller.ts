@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { query } from "../config/database";
+import { query, getConnection } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -336,13 +336,21 @@ export async function updateStudent(req: Request, res: Response): Promise<void> 
 /**
  * POST /api/students/:id/classifications — Add or update classifications
  * Body: { classifications: ["4ps", "pwd", ...], school_year_id: 1 }
+ *
+ * SNED (Student with Special Needs) is derived, never submitted directly:
+ * a PWD-tagged student is always SNED-tagged as well, and loses the SNED tag
+ * as soon as PWD is removed. SNED is a tracking classification only — it never
+ * restricts curriculum, program or track eligibility.
  */
 export async function updateClassifications(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
     const { classifications, school_year_id } = req.body;
 
-    if (!classifications || !Array.isArray(classifications) || classifications.length === 0) {
+    // An empty array is meaningful — it clears every tag for the school year,
+    // which is the only way to remove a mis-tagged student entirely. Only a
+    // missing/non-array value is a client error.
+    if (!Array.isArray(classifications)) {
       res.status(400).json({ error: "Classifications array is required." });
       return;
     }
@@ -352,7 +360,7 @@ export async function updateClassifications(req: Request, res: Response): Promis
       return;
     }
 
-    const validClassifications = ["4ps", "pwd", "transferee", "non_reader", "balik_aral", "regular"];
+    const validClassifications = ["4ps", "pwd", "sned", "transferee", "non_reader", "balik_aral", "regular"];
     for (const c of classifications) {
       if (!validClassifications.includes(c)) {
         res.status(400).json({ error: `Invalid classification: "${c}". Must be one of: ${validClassifications.join(", ")}` });
@@ -366,21 +374,69 @@ export async function updateClassifications(req: Request, res: Response): Promis
       return;
     }
 
-    // Delete existing classifications for this student + school year
-    await query<ResultSetHeader>(
-      "DELETE FROM student_classifications WHERE student_id = ? AND school_year_id = ?",
-      [id, school_year_id]
-    );
+    // PWD ⇒ SNED: adding PWD also adds SNED, but SNED may also stand on its own
+    // (it covers other special-education needs), so an explicit SNED tag is kept.
+    const requested = classifications as string[];
+    const isPwd = requested.includes("pwd");
+    const finalSet = new Set(requested);
+    if (isPwd) finalSet.add("sned");
+    const normalized = Array.from(finalSet);
+    const snedAutoTagged = isPwd && !requested.includes("sned");
 
-    // Insert new ones
-    for (const classification of classifications) {
-      await query<ResultSetHeader>(
-        "INSERT INTO student_classifications (student_id, classification, school_year_id) VALUES (?, ?, ?)",
-        [id, classification, school_year_id]
+    // Non-Reader is a manual, assessment-backed tag only. It must never be
+    // inferred from grades, general averages or section thresholds, so a
+    // recorded reading assessment is required before it can be saved.
+    if (finalSet.has("non_reader")) {
+      const evidence = await query<RowDataPacket[]>(
+        `SELECT id, assessment_date, result, instrument FROM reading_assessments
+         WHERE student_id = ? AND school_year_id = ?
+         ORDER BY assessment_date DESC, id DESC LIMIT 1`,
+        [id, school_year_id]
       );
+
+      if (evidence.length === 0 || evidence[0].result !== "non_reader") {
+        res.status(400).json({
+          error:
+            "Non-Reader can only be tagged from a recorded reading assessment. Record the reading assessment first — it is never assigned from grades.",
+        });
+        return;
+      }
     }
 
-    await logActivity(req.user!.userId, `Updated classifications for student ID ${id}`, "student_classifications", id);
+    // Replace-all inside a transaction: a mid-loop insert failure would otherwise
+    // leave the student with no tags at all after the DELETE committed.
+    const conn = await getConnection();
+    try {
+      await conn.beginTransaction();
+
+      await conn.execute<ResultSetHeader>(
+        "DELETE FROM student_classifications WHERE student_id = ? AND school_year_id = ?",
+        [id, school_year_id]
+      );
+
+      for (const classification of normalized) {
+        await conn.execute<ResultSetHeader>(
+          "INSERT INTO student_classifications (student_id, classification, school_year_id) VALUES (?, ?, ?)",
+          [id, classification, school_year_id]
+        );
+      }
+
+      await conn.commit();
+    } catch (txError) {
+      await conn.rollback();
+      throw txError;
+    } finally {
+      conn.release();
+    }
+
+    await logActivity(
+      req.user!.userId,
+      snedAutoTagged
+        ? `Updated classifications for student ID ${id} — SNED auto-tagged (PWD)`
+        : `Updated classifications for student ID ${id}`,
+      "student_classifications",
+      id
+    );
 
     // Return updated classifications
     const updated = await query<RowDataPacket[]>(
@@ -391,7 +447,7 @@ export async function updateClassifications(req: Request, res: Response): Promis
       [id, school_year_id]
     );
 
-    res.json(updated);
+    res.json({ classifications: updated, sned_auto_tagged: snedAutoTagged });
   } catch (error) {
     console.error("Update classifications error:", error);
     res.status(500).json({ error: "Failed to update classifications." });

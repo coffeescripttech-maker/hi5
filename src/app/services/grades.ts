@@ -95,10 +95,10 @@ export interface GradeHistorySubject {
   subject_id: number;
   subject_name: string;
   subject_type: string;
+  subject_group?: string | null;
   q1: number | null;
   q2: number | null;
   q3: number | null;
-  q4: number | null;
   final_average: number | null;
 }
 

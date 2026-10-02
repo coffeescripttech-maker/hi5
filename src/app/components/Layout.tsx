@@ -11,7 +11,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { Lock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useRoleAccent } from '../utils/roleTheme';
-import { NAV_BY_ROLE, type Role } from '../navigation';
+import { NAV_BY_ROLE, ROLE_HOME, type Role } from '../navigation';
 import { rbacApi } from '../services/rbac';
 import { Sidebar, type SidebarState } from './layout/Sidebar';
 import { TopBar } from './layout/TopBar';
@@ -138,8 +138,8 @@ export function Layout() {
                   You do not have permission to view this module. Please contact
                   your ICT Coordinator if you believe this is a mistake.
                 </p>
-                <button
-                  onClick={() => navigate(`/${roleKey}`)}
+<button
+                      onClick={() => navigate(ROLE_HOME[roleKey])}
                   className={`mt-5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors ${accent.button}`}>
                   Go to Dashboard
                 </button>

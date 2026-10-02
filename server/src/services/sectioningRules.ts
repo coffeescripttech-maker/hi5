@@ -721,18 +721,29 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
   const specialSection = (gradeLevel: number, type: "ste" | "spfl") => {
     const gradeSections = sectionsByGrade.get(gradeLevel) || [];
     return gradeSections.filter(
-      s => s.section_type.toLowerCase() === type || s.name.toLowerCase().includes(type)
+      s =>
+        !isNonReaderSection(s) &&
+        (s.section_type.toLowerCase() === type || s.name.toLowerCase().includes(type))
     );
   };
+
+  // Non-Reader sections are never auto-assigned from grades: they are only
+  // ever reached through the learner's manual, reading assessment-backed tag.
+  const NON_READER_TYPE = "non_reader";
+  const isNonReaderSection = (s: SectionInfo): boolean =>
+    s.section_type.toLowerCase() === NON_READER_TYPE;
 
   const regularSection = (gradeLevel: number) => {
     const gradeSections = sectionsByGrade.get(gradeLevel) || [];
     const regularOnly = gradeSections.filter(
       s => s.section_type.toLowerCase() === "regular" || s.section_type.toLowerCase() === "streamline"
     );
-    // If the school has no Regular/Streamline section at this grade, fall back
-    // to any open section of the grade so no student is left unassigned.
-    return regularOnly.length > 0 ? regularOnly : gradeSections;
+    if (regularOnly.length > 0) return regularOnly;
+    // No Regular/Streamline section at this grade — fall back to any open
+    // section of the grade so no student is left unassigned, but still
+    // excluding Non-Reader so a low average can never land there.
+    const others = gradeSections.filter(s => !isNonReaderSection(s));
+    return others.length > 0 ? others : [];
   };
 
   for (const [grade, list] of byGrade) {

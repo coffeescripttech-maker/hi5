@@ -24,7 +24,8 @@ import {
   BadgeCheck,
   Briefcase,
   Calendar,
-  BookOpen
+  BookOpen,
+  HeartHandshake
 } from 'lucide-react';
 import { z } from 'zod';
 import {
@@ -37,8 +38,8 @@ import { ROLE_LABELS, type Role } from '../../navigation';
 import { useApp } from '../../context/AppContext';
 import { HybridTable } from '../../components/HybridTable';
 
-type UserRole = 'admin' | 'teacher' | 'registrar' | 'principal';
-const ROLES: UserRole[] = ['admin', 'teacher', 'registrar', 'principal'];
+type UserRole = 'admin' | 'teacher' | 'registrar' | 'principal' | 'enrollment_committee';
+const ROLES: UserRole[] = ['admin', 'teacher', 'registrar', 'principal', 'enrollment_committee'];
 
 /* ── Zod Validation Schema ─────────────────────────── */
 const MIN_PASSWORD = 8;
@@ -85,15 +86,17 @@ const PERMISSIONS: Record<string, string[]> = {
     'Manage enrollment periods'
   ],
   teacher: [
-    'Enroll new & returning students',
     'Encode and upload grades',
-    'View & manage class sections',
-    'Run auto-sectioning process',
-    'View own student roster'
+    'View & manage own class sections',
+    'Record reading assessments',
+    'View own student roster',
+    'Bulk promote own students'
   ],
   registrar: [
     'Search and view student records',
     'Generate SF1, SF5, SF9, and SF10',
+    'File and track transfer requests',
+    'Prepare enrollment & document checklists',
     'View enrollment reports & analytics',
     'Monitor promotion records',
     'Monitor at-risk students'
@@ -105,6 +108,15 @@ const PERMISSIONS: Record<string, string[]> = {
     'View promotion & retention statistics',
     'View section population data',
     'Read-only access to school data'
+  ],
+  enrollment_committee: [
+    'Verify submitted enrollment documents',
+    'Approve or reject transfer requests',
+    'Assign sections to enrolled students',
+    'Administer enrollment records & sections',
+    'Set sectioning rules and thresholds',
+    'Manage users, subjects and school year',
+    'Admin-equivalent on system administration'
   ]
 };
 
@@ -112,14 +124,16 @@ const roleIcons: Record<string, any> = {
   admin: Shield,
   teacher: GraduationCap,
   registrar: FileText,
-  principal: User
+  principal: User,
+  enrollment_committee: HeartHandshake
 };
 
 const roleBadge: Record<string, string> = {
   admin: 'bg-blue-100 text-blue-800 border-blue-200',
   teacher: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   registrar: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  principal: 'bg-purple-100 text-purple-800 border-purple-200'
+  principal: 'bg-purple-100 text-purple-800 border-purple-200',
+  enrollment_committee: 'bg-teal-100 text-teal-700 border-teal-200'
 };
 
 const PRESENCE_META: Record<

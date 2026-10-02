@@ -51,7 +51,7 @@ test("classifyStudent: no grades → null risk, no prediction", () => {
 });
 
 test("classifyStudent: all-null quarters → null risk", () => {
-  const r = classifyStudent([null, null, null, null]);
+  const r = classifyStudent([null, null, null]);
   assert.equal(r.risk_level, null);
   assert.equal(r.current_average, null);
 });
@@ -79,7 +79,7 @@ test("classifyStudent: improving trend → on_track", () => {
   assert.equal(r.trend, "improving");
   assert.equal(r.current_average, 80.67);
   assert.equal(r.slope, 3);
-  assert.equal(r.projected, 86.67);
+  assert.equal(r.projected, 83.67);
 });
 
 test("classifyStudent: declining to below-passing → at_risk", () => {
@@ -88,16 +88,16 @@ test("classifyStudent: declining to below-passing → at_risk", () => {
   assert.equal(r.trend, "declining");
   assert.equal(r.current_average, 79.67);
   assert.equal(r.slope, -5.5);
-  assert.equal(r.projected, 68.67);
+  assert.equal(r.projected, 74.17);
 });
 
 test("classifyStudent: stable but below monitor threshold → needs_monitoring", () => {
-  const r = classifyStudent([76, 78, 77, 77]);
+  const r = classifyStudent([76, 78, 77]);
   assert.equal(r.risk_level, "needs_monitoring");
   assert.equal(r.trend, "stable");
   assert.equal(r.current_average, 77);
-  assert.equal(r.slope, 0.2);
-  assert.equal(r.projected, 77.3);
+  assert.equal(r.slope, 0.5);
+  assert.equal(r.projected, 77.5);
 });
 
 test("classifyStudent: high stable → on_track", () => {
@@ -106,5 +106,5 @@ test("classifyStudent: high stable → on_track", () => {
   assert.equal(r.trend, "stable");
   assert.equal(r.current_average, 91);
   assert.equal(r.slope, 1);
-  assert.equal(r.projected, 93);
+  assert.equal(r.projected, 92);
 });

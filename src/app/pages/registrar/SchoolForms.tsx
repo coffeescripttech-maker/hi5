@@ -902,9 +902,6 @@ export function SchoolForms() {
                                     Q3
                                   </th>
                                   <th className="border border-violet-900 px-2 py-2 text-center">
-                                    Q4
-                                  </th>
-                                  <th className="border border-violet-900 px-2 py-2 text-center">
                                     Final Rating
                                   </th>
                                   <th className="border border-violet-900 px-2 py-2 text-center">
@@ -991,8 +988,7 @@ export function SchoolForms() {
                                     {[
                                       ['Q1', '47', '2'],
                                       ['Q2', '48', '1'],
-                                      ['Q3', '45', '0'],
-                                      ['Q4', '46', '1']
+                                      ['Q3', '45', '0']
                                     ].map(([q, days, abs]) => (
                                       <tr key={q}>
                                         <td className="border border-gray-200 px-2 py-1 text-center font-medium">
@@ -1111,9 +1107,6 @@ export function SchoolForms() {
                                   </th>
                                   <th className="border border-indigo-900 px-2 py-2 text-center">
                                     Q3
-                                  </th>
-                                  <th className="border border-indigo-900 px-2 py-2 text-center">
-                                    Q4
                                   </th>
                                   <th className="border border-indigo-900 px-2 py-2 text-center">
                                     Final Rating

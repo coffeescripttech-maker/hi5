@@ -86,7 +86,7 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
     const quartersByStudent: Record<number, (number | null)[]> = {};
     for (const g of gradeRows as any[]) {
       if (!quartersByStudent[g.student_id]) {
-        quartersByStudent[g.student_id] = [null, null, null, null];
+        quartersByStudent[g.student_id] = [null, null, null];
       }
       quartersByStudent[g.student_id][g.quarter - 1] = Number(g.avg_grade);
     }
@@ -99,7 +99,7 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
 
     const result: any[] = [];
     for (const st of students as any[]) {
-      const quarters = quartersByStudent[st.student_id] ?? [null, null, null, null];
+      const quarters = quartersByStudent[st.student_id] ?? [null, null, null];
 
       let classification: StudentRisk;
       if (aiProvider === "python") {

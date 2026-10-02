@@ -9,6 +9,11 @@ export interface SubjectRow {
   grade_level: number;
   hours_per_week: number;
   subject_type: "core" | "applied" | "specialized";
+  /**
+   * Reporting group key. Subjects sharing a key (TLE/EPP + its specializations)
+   * are reported and averaged as one learning area. NULL = standalone subject.
+   */
+  subject_group?: string | null;
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -19,12 +24,14 @@ export interface CreateSubjectPayload {
   grade_level: number;
   hours_per_week: number;
   subject_type: string;
+  subject_group?: string | null;
 }
 
 export interface UpdateSubjectPayload {
   name?: string;
   hours_per_week?: number;
   subject_type?: string;
+  subject_group?: string | null;
   is_active?: number;
 }
 

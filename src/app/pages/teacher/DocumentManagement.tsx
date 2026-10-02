@@ -180,7 +180,6 @@ export function DocumentManagement() {
             <option>Q1</option>
             <option>Q2</option>
             <option>Q3</option>
-            <option>Q4</option>
           </select>
         </div>
       </div>

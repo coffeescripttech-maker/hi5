@@ -82,7 +82,7 @@ const ALL_NOTIFICATIONS: Record<
     {
       id: 5,
       icon: '📅',
-      text: 'Enrollment period is open. You may now enroll new and returning students.',
+      text: 'Enrollment period is open. You may now enroll new and continuing students.',
       time: 'Yesterday'
     }
   ],
@@ -128,7 +128,7 @@ const ALL_NOTIFICATIONS: Record<
     {
       id: 2,
       icon: '📝',
-      text: 'Grade submission progress: 14/24 sections have submitted Q4 grades.',
+      text: 'Grade submission progress: 14/24 sections have submitted Q3 grades.',
       time: 'Today 09:45'
     },
     {

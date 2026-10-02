@@ -163,7 +163,7 @@ const PROGRAM_BADGES: Record<
 };
 
 const REQUIREMENTS_LIST = [
-  { key: 'psa_birth_cert', label: 'PSA/NSO Birth Certificate (photocopy)' },
+  { key: 'psa_birth_cert', label: 'PSA/NSO Birth Certificate (original)' },
   { key: 'previous_grade_card', label: 'Previous Report Card / Form 138' },
   { key: 'good_moral', label: 'Good Moral Certificate' },
   { key: 'id_photo', label: '2 pcs. 2x2 ID Picture' },
@@ -643,14 +643,13 @@ const genStudentID = (grade: number) => {
   return `${yr}-${g}-${seq}`;
 };
 
-const getSection = (avg: number | null) => {
-  if (avg === null) return 'Pending Section';
-  if (avg >= 90) return 'Star Section';
-  if (avg >= 85) return 'Gold Section';
-  if (avg >= 80) return 'Silver Section';
-  if (avg >= 75) return 'Regular Section';
-  return 'Non-Reader Section';
-};
+/**
+ * Enrolling never picks a section by grade average. A learner's section is
+ * decided by the Enrollment Committee from the pending section queue, and
+ * Non-Reader status comes from a recorded reading assessment — never from a
+ * threshold, so there is deliberately no average-based branch here.
+ */
+const getSection = (): string => 'Pending Section';
 
 export function EnrollmentModule() {
   const { showToast } = useApp();
@@ -1038,7 +1037,7 @@ export function EnrollmentModule() {
         gradeComplete: false,
       };
     const subsComplete = subs.filter(
-      s => s.q1 != null && s.q2 != null && s.q3 != null && s.q4 != null
+      s => s.q1 != null && s.q2 != null && s.q3 != null
     ).length;
     const gradeComplete = subsComplete === subs.length;
     const present = subs.filter(s => s.final_average != null);
@@ -1342,17 +1341,17 @@ export function EnrollmentModule() {
   const handleConfirmNewEnrollment = async () => {
     if (submitting) return;
     if (!newGrade) return;
-    // Per-category validation: documents required for the student's
-    // classifications must be checked off before the student can be enrolled.
+    // Required documents are tracked but never block enrollment — staff may enrol
+    // the student first and collect the remaining documents afterwards. Warn when
+    // a required document for the chosen classifications is still unchecked.
     const categoryRequiredKeys = requiredReqKeysFor(newData.classifications);
     const missing = [...categoryRequiredKeys].filter(k => !requirements[k]);
     if (missing.length > 0) {
       const labels = missing.map(k => REQUIREMENTS_LIST.find(r => r.key === k)?.label || k);
       showToast(
-        'error',
-        `Missing required documents for ${newData.classifications.join(', ')}: ${labels.join('; ')}`
+        'warning',
+        `Enrollment will continue — required documents not yet checked: ${labels.join('; ')}`
       );
-      return;
     }
     setSubmitting(true);
     try {
@@ -1398,7 +1397,6 @@ export function EnrollmentModule() {
           '4Ps Beneficiary': '4ps',
           PWD: 'pwd',
           Transferee: 'transferee',
-          'Non-Reader': 'non_reader',
           'Balik-aral': 'balik_aral'
         };
         try {
@@ -1414,7 +1412,7 @@ export function EnrollmentModule() {
       }
       showToast(
         'success',
-        `${fullName} enrolled successfully — placed in the Pending Section Queue. The Registrar will assign their section.`
+        `${fullName} enrolled successfully — placed in the Pending Section Queue. The Enrollment Committee will assign their section.`
       );
       setEnrolledNew(true);
     } catch (err: any) {
@@ -1645,9 +1643,9 @@ export function EnrollmentModule() {
       {
         key: 'returning',
         flow: 'returning' as Flow,
-        code: 'RETURN',
-        title: 'Returning Student',
-        subtitle: 'Continue your enrollment quickly and easily.',
+        code: 'CONTINUE',
+        title: 'Continuing Student',
+        subtitle: 'Continue the student’s enrollment quickly and easily.',
         desc: 'Search by LRN or Student ID to auto-fill the record, then promote the student to their next grade level.',
         action: 'Continue Enrollment',
         illustration: ReturningStudentIllustration,
@@ -1711,7 +1709,7 @@ export function EnrollmentModule() {
                 Enrollment is currently CLOSED
               </p>
               <p className="text-red-600 text-xs mt-0.5 leading-relaxed">
-                New enrollments and returning student enrollments are disabled
+                New enrollments and continuing student enrollments are disabled
                 while enrollment is closed. You may still process student
                 drop/transfer requests.
               </p>
@@ -2421,7 +2419,11 @@ export function EnrollmentModule() {
                   Classification (check all that apply)
                 </label>
                 <div className="flex flex-wrap gap-3">
-                  {['4Ps Beneficiary', 'PWD', 'Transferee', 'Non-Reader', 'Balik-aral'].map(
+                  {/* Non-Reader is deliberately absent: it requires a recorded
+                      reading assessment, which cannot exist before the learner is
+                      enrolled. A teacher records the assessment afterwards and tags
+                      the learner from the assessment page. */}
+                  {['4Ps Beneficiary', 'PWD', 'Transferee', 'Balik-aral'].map(
                     cls => (
                       <label
                         key={cls}
@@ -2437,6 +2439,10 @@ export function EnrollmentModule() {
                     )
                   )}
                 </div>
+                <p className="mt-2.5 text-[11px] text-gray-400 leading-relaxed">
+                  Non-Reader is not selectable here — it is assigned manually from a
+                  recorded reading assessment, never at enrollment time.
+                </p>
               </div>
             </div>
           )}
@@ -2961,7 +2967,7 @@ export function EnrollmentModule() {
             </div>
             <div>
               <h2 className="font-bold text-gray-900">
-                Enroll Returning Student
+                Enroll Continuing Student
               </h2>
               <p className="text-gray-400 text-sm">
                 Search by LRN or Student ID to auto-populate student records
@@ -3257,9 +3263,6 @@ export function EnrollmentModule() {
                                         Q3
                                       </th>
                                       <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
-                                        Q4
-                                      </th>
-                                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
                                         Final
                                       </th>
                                     </tr>
@@ -3278,9 +3281,6 @@ export function EnrollmentModule() {
                                         </td>
                                         <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q3)}`}>
                                           {subject.q3 !== null ? subject.q3 : '—'}
-                                        </td>
-                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q4)}`}>
-                                          {subject.q4 !== null ? subject.q4 : '—'}
                                         </td>
                                         <td className={`px-2 py-1 text-center text-[10px] font-semibold ${failingGradeCls(subject.final_average)}`}>
                                           {subject.final_average !== null ?
@@ -3607,7 +3607,7 @@ export function EnrollmentModule() {
                   ['Previous Grade', `Grade ${prevGradeLevel}`],
                   ['New Grade Level', `Grade ${retGrade}`],
                   ['School Year', currentSYLabel || '—'],
-                  ['Assigned Section', getSection(null)],
+                  ['Assigned Section', getSection()],
                   ['Program', PROGRAM_BADGES[program]?.label || 'Regular']
                 ].map(([k, v]) => (
                   <div
@@ -4220,9 +4220,6 @@ function ReturningGradePreview({
                         Q3
                       </th>
                       <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
-                        Q4
-                      </th>
-                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-gray-600">
                         Final
                       </th>
                     </tr>
@@ -4243,9 +4240,6 @@ function ReturningGradePreview({
                         </td>
                         <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q3)}`}>
                           {subject.q3 !== null ? subject.q3 : '—'}
-                        </td>
-                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q4)}`}>
-                          {subject.q4 !== null ? subject.q4 : '—'}
                         </td>
                         <td className={`px-2 py-1 text-center text-[10px] font-semibold ${failingCls(subject.final_average)}`}>
                           {subject.final_average !== null

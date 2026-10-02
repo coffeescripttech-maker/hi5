@@ -9,6 +9,7 @@ export interface RbacMyAccess {
 export interface RbacMatrixRole {
   role: Role;
   permissions: Record<string, boolean>;
+  inherited?: string[];
 }
 
 export interface RbacMatrix {

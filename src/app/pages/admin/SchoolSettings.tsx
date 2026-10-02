@@ -764,7 +764,7 @@ export function SchoolSettings() {
           <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4">
             <Info size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-blue-700">
-              Grade averages from the previous school year are used to automatically assign sections to returning students.
+              Grade averages from the previous school year are used to automatically assign sections to continuing students.
               Thresholds must not overlap and must cover the full range from 0 to 100.
             </p>
           </div>

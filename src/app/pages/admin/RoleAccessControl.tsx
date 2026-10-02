@@ -12,20 +12,23 @@ import { NAV_BY_ROLE, CORE_KEYS, ROLE_LABELS, type Role } from '../../navigation
 import { rbacApi } from '../../services/rbac';
 import { useApp } from '../../context/AppContext';
 
-const CONFIGURABLE_ROLES: Role[] = ['teacher', 'registrar', 'principal'];
+const CONFIGURABLE_ROLES: Role[] = ['teacher', 'registrar', 'principal', 'enrollment_committee'];
 
 type EnabledMap = Record<string, boolean>;
 
 interface MatrixRow {
   role: Role;
   permissions: EnabledMap;
+  /** Keys inherited from another role — always on, rendered locked. */
+  inherited?: string[];
 }
 
 const ROLE_ACCENT: Record<Role, { dot: string; text: string; chip: string }> = {
   teacher: { dot: 'bg-emerald-500', text: 'text-emerald-700', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   registrar: { dot: 'bg-indigo-500', text: 'text-indigo-700', chip: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
   principal: { dot: 'bg-purple-500', text: 'text-purple-700', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
-  admin: { dot: 'bg-blue-500', text: 'text-blue-700', chip: 'bg-blue-50 text-blue-700 border-blue-200' }
+  admin: { dot: 'bg-blue-500', text: 'text-blue-700', chip: 'bg-blue-50 text-blue-700 border-blue-200' },
+  enrollment_committee: { dot: 'bg-sky-500', text: 'text-sky-700', chip: 'bg-sky-50 text-sky-700 border-sky-200' }
 };
 
 function Toggle({
@@ -65,6 +68,7 @@ function Toggle({
 export function RoleAccessControl() {
   const { showToast } = useApp();
   const [matrix, setMatrix] = useState<Record<Role, EnabledMap> | null>(null);
+  const [inherited, setInherited] = useState<Record<Role, Set<string>>>({} as Record<Role, Set<string>>);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -77,11 +81,20 @@ export function RoleAccessControl() {
       .matrix()
       .then(res => {
         if (cancelled) return;
-        const map = {} as Record<Role, EnabledMap>;
+        const m = {} as Record<Role, EnabledMap>;
+        const inh: Record<Role, Set<string>> = {
+          admin: new Set(),
+          teacher: new Set(),
+          registrar: new Set(),
+          principal: new Set(),
+          enrollment_committee: new Set(),
+        };
         for (const row of res.roles) {
-          map[row.role] = row.permissions;
+          m[row.role] = row.permissions;
+          inh[row.role] = new Set(row.inherited ?? []);
         }
-        setMatrix(map);
+        setMatrix(m as Record<Role, EnabledMap>);
+        setInherited(inh as Record<Role, Set<string>>);
       })
       .catch((err: any) => {
         if (cancelled) return;
@@ -100,6 +113,16 @@ export function RoleAccessControl() {
   const allKeysOf = (role: Role) =>
     NAV_BY_ROLE[role].flatMap(g => g.items).map(i => i.key);
 
+  /** Keys this role can never toggle: its own core pages + inherited scope. */
+  const lockedKeysOf = (role: Role) => [
+    ...CORE_KEYS[role],
+    ...Array.from(inherited[role] ?? [])
+  ];
+
+  /** Keys an Admin may actually switch for this role. */
+  const configurableKeysOf = (role: Role) =>
+    allKeysOf(role).filter(k => !lockedKeysOf(role).includes(k));
+
   const isVisible = (role: Role, label: string, path: string) => {
     if (!searchTerm) return true;
     return (
@@ -109,7 +132,7 @@ export function RoleAccessControl() {
   };
 
   const handleToggle = (role: Role, key: string, next: boolean) => {
-    if (CORE_KEYS[role].includes(key)) return;
+    if (lockedKeysOf(role).includes(key)) return;
     const label = NAV_BY_ROLE[role]
       .flatMap(g => g.items)
       .find(i => i.key === key)?.label || key;
@@ -155,14 +178,15 @@ export function RoleAccessControl() {
   };
 
   const handleSetAll = async (role: Role, value: boolean) => {
-    const keys = allKeysOf(role).filter(k => !CORE_KEYS[role].includes(k));
+    const locked = lockedKeysOf(role);
+    const keys = configurableKeysOf(role);
     const label = ROLE_LABELS[role];
     setMatrix(prev =>
       prev
         ? {
             ...prev,
             [role]: Object.fromEntries(
-              allKeysOf(role).map(k => [k, CORE_KEYS[role].includes(k) ? true : value])
+              allKeysOf(role).map(k => [k, locked.includes(k) ? true : value])
             )
           }
         : prev
@@ -361,8 +385,9 @@ export function RoleAccessControl() {
                       </p>
                       <div className="space-y-2">
                         {visible.map(item => {
-                          const locked = CORE_KEYS[role].includes(item.key);
-                          const checked = matrix?.[role]?.[item.key] ?? true;
+                          const isInherited = (inherited[role] ?? new Set()).has(item.key);
+                          const locked = lockedKeysOf(role).includes(item.key);
+                          const checked = isInherited ? true : matrix?.[role]?.[item.key] ?? true;
                           const saving = savingKeys.has(`${role}:${item.key}`);
                           return (
                             <div
@@ -379,7 +404,7 @@ export function RoleAccessControl() {
                               </div>
                               {locked ? (
                                 <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${accent.chip}`}>
-                                  <Lock size={10} /> Required
+                                  <Lock size={10} /> {isInherited ? 'Inherited' : 'Required'}
                                 </span>
                               ) : (
                                 <Toggle

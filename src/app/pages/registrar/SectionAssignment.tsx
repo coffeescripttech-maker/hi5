@@ -655,8 +655,8 @@ export function SectionAssignment() {
       <div className="flex items-center justify-center min-h-[50vh] text-gray-400">
         <div className="text-center">
           <AlertTriangle size={40} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm font-medium">Section assignment is handled by the Registrar.</p>
-          <p className="text-xs mt-1">Please contact your Registrar for sectioning concerns.</p>
+          <p className="text-sm font-medium">Section assignment is handled by the Enrollment Committee.</p>
+          <p className="text-xs mt-1">Please contact the Enrollment Committee for sectioning concerns.</p>
         </div>
       </div>
     );

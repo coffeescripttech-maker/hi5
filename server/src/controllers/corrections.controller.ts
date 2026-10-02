@@ -100,6 +100,19 @@ export async function createCorrection(req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Grades are quartered (Q1–Q3); a correction against Q4 (or any other
+    // quarter) targets a grade that cannot exist, so reject it at the door
+    // rather than leaving a permanently pending request nobody can action.
+    if (quarter != null) {
+      const q = Number(quarter);
+      if (!Number.isInteger(q) || q < 1 || q > 3) {
+        res.status(400).json({
+          error: "Quarter must be 1, 2, or 3. Leave it blank to request a correction across all quarters.",
+        });
+        return;
+      }
+    }
+
     const result = await query<ResultSetHeader>(
       `INSERT INTO grade_correction_requests (student_id, subject_id, school_year_id, quarter, requested_by, justification, common_mistake, other_mistake)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

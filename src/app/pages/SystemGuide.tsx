@@ -68,7 +68,7 @@ const NODE_ROUTES: [string, string, string][] = [
 
   // Teacher enrollment
   ['New Student', '/teacher/enroll', 'Enroll New Student'],
-  ['Returning G8', '/teacher/enroll', 'Enroll Returning Student'],
+  ['Continuing G8', '/teacher/enroll', 'Enroll Continuing Student'],
   ['Balik-Aral', '/teacher/enroll', 'Enroll Balik-Aral'],
   ['Strand/Track', '/teacher/enroll', 'Select Strand'],
   ['requirements', '/teacher/enroll', 'Submit Requirements'],
@@ -85,7 +85,7 @@ const NODE_ROUTES: [string, string, string][] = [
   // Teacher grades
   ['Grade Management', '/teacher/grades', 'Grade Management'],
   ['My Students', '/teacher/my-students', 'My Students'],
-  ['Q1-Q4 grades', '/teacher/grades', 'Encode Grades'],
+  ['Q1-Q3 grades', '/teacher/grades', 'Encode Grades'],
   ['locks grades', '/teacher/grades', 'Lock Grades'],
   ['School Forms', '/teacher/forms/sf1', 'School Forms'],
 
@@ -126,7 +126,7 @@ flowchart TB
   subgraph ENROLL_PHASE[Phase 1 - Teacher: Enrollment]
     ENROLL_START{Student type?}:::decision
     ENROLL_START-->|New Student G7|NEW_STU[Teacher fills New Student form<br/>LRN, Name, Grade Level, etc.]:::teacher
-    ENROLL_START-->|Returning G8-G12|RET_STU[Teacher searches LRN<br/>details auto-populate]:::teacher
+    ENROLL_START-->|Continuing G8-G12|RET_STU[Teacher searches LRN<br/>details auto-populate]:::teacher
     ENROLL_START-->|Balik-Aral|BALIK[Teacher searches LRN<br/>creates fresh record]:::teacher
     NEW_STU-->STRAND{G11+?}
     STRAND-->|Yes|SELECT_STRAND[Teacher selects Strand/Track<br/>e.g. STEM, ABM, HUMSS, TVL]:::teacher
@@ -157,7 +157,7 @@ flowchart TB
   CONFIRM-->GRADE_PHASE
 
   subgraph GRADE_PHASE[Phase 3 - Teacher: Grade Encoding]
-    TEACH_GRADE[Teacher opens My Students or Grade Management]:::teacher-->SELECT_CLASS[Selects section and student]:::teacher-->ENTER_GRADES[Enters Q1-Q4 grades for each of 12 subjects]:::teacher-->LOCK[Teacher locks grades per subject]:::teacher-->FORMS[Teacher generates School Forms<br/>SF1 - SF5 - SF9 - SF10]:::teacher
+    TEACH_GRADE[Teacher opens My Students or Grade Management]:::teacher-->SELECT_CLASS[Selects section and student]:::teacher-->ENTER_GRADES[Enters Q1-Q3 grades for each of 12 subjects]:::teacher-->LOCK[Teacher locks grades per subject]:::teacher-->FORMS[Teacher generates School Forms<br/>SF1 - SF5 - SF9 - SF10]:::teacher
     FORMS-->YEAR_END{End of school year?}:::decision
     YEAR_END-->|Not yet|TEACH_GRADE
     YEAR_END-->|Yes|PROMOTE_CHECK
@@ -212,7 +212,7 @@ flowchart LR
 
   A[👤 Admin Setup]:::admin-->B[🧑‍🏫 Teacher Enroll Student<br/><small>no section</small>]:::teacher
   B-->C[📋 Registrar Assign Section]:::registrar
-  C-->D[🧑‍🏫 Teacher Encode Grades Q1-Q4]:::teacher
+  C-->D[🧑‍🏫 Teacher Encode Grades Q1-Q3]:::teacher
   D-->E[🧑‍🏫 Teacher Lock Grades]:::teacher
   E-->F[🧑‍🏫 Teacher Generate Forms<br/>SF1 / SF5 / SF9 / SF10]:::teacher
   F-->G[⚙️ System Bulk Promotion -> next grade]:::system
@@ -240,7 +240,7 @@ const QUICK_REF = [
     textColor: 'text-emerald-700',
     steps: [
       'Enroll Students (no section)',
-      'Encode Q1-Q4 Grades',
+      'Encode Q1-Q3 Grades',
       'Lock Grades',
       'Generate School Forms',
       'Bulk Promotion / Completers'

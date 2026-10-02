@@ -22,9 +22,10 @@ router.get("/my-students", authorize("teacher"), getTeacherStudents);
 // Specific routes must be registered before "/:id" so "graduates" is not parsed as an id.
 router.get("/graduates", authorize("registrar", "principal"), listGraduates);
 router.get("/:id", getStudentById);
-router.post("/", authorize("admin", "teacher", "registrar"), createStudent);
-router.put("/:id", authorize("admin", "teacher", "registrar"), updateStudent);
+router.post("/", authorize("admin", "registrar", "enrollment_committee"), createStudent);
+router.put("/:id", authorize("admin", "registrar", "enrollment_committee"), updateStudent);
 router.delete("/:id", authorize("admin"), deleteStudent);
+// Non-Reader is tagged here from a recorded reading assessment (teachers/admin).
 router.post("/:id/classifications", authorize("admin", "teacher"), updateClassifications);
 
 export default router;

@@ -6,7 +6,7 @@ import { api } from "./api";
 export interface NotificationRow {
   id: number;
   user_id: number | null;
-  role: "admin" | "teacher" | "registrar" | "principal" | null;
+  role: "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee" | null;
   type: "info" | "success" | "warning" | "error" | "security";
   title: string;
   message: string;

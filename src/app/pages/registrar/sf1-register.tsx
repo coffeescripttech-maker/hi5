@@ -97,8 +97,7 @@ const LEAF_COLUMNS: Leaf[] = [
   // GRADE COLUMNS
   { key: 'q1', title: 'Q1', width: '50px' },
   { key: 'q2', title: 'Q2', width: '50px' },
-  { key: 'q3', title: 'Q3', width: '50px' },
-  { key: 'q4', title: 'Q4', width: '50px' }
+  { key: 'q3', title: 'Q3', width: '50px' }
 ];
 
 const TOTAL_ROWS = 30;
@@ -106,7 +105,7 @@ const TOTAL_ROWS = 30;
 type RowData = Record<string, string>;
 
 /** Only these columns are numeric grades; the rest are free-format text. */
-const NUMERIC_CELLS = new Set(['q1', 'q2', 'q3', 'q4']);
+const NUMERIC_CELLS = new Set(['q1', 'q2', 'q3']);
 
 /* ---------------------------------------------------------------- */
 /* Helpers                                                          */

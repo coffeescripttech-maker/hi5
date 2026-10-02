@@ -63,8 +63,8 @@ export const roles: GuideRole[] = [
     summary:
       'Handles the day-to-day classroom data: enrolling students, encoding grades, locking grades, and printing school forms.',
     duties: [
-      'Enroll new and returning students.',
-      'Encode quarterly grades (Q1–Q4).',
+      'Enroll new and continuing students.',
+      'Encode quarterly grades (Q1–Q3).',
       'Lock grades when encoding is finished.',
       'Generate school forms (SF1, SF5, SF9, SF10).',
       'Run bulk promotion or mark completers.'
@@ -132,13 +132,13 @@ export const howtos: GuideHowTo[] = [
     ]
   },
   {
-    title: 'Enroll a Returning (G8–G12) or Balik-Aral Student',
+    title: 'Enroll a Continuing (G8–G12) or Balik-Aral Student',
     summary:
       'For a student continuing from last year, or returning after being out of school.',
     steps: [
-      'Open Enrollment and choose Returning Student or Balik-Aral.',
+      'Open Enrollment and choose Continuing Student or Balik-Aral.',
       "Search by the student's LRN — their details automatically load from their existing record.",
-      'For a returning student, confirm the details and pick the new grade level.',
+      'For a continuing student, confirm the details and pick the new grade level.',
       'For Balik-Aral, the system creates a fresh record while keeping the previous history.',
       'Click Enroll, then let the Registrar assign the section.'
     ]
@@ -154,11 +154,11 @@ export const howtos: GuideHowTo[] = [
     ]
   },
   {
-    title: 'Encode Grades (Q1–Q4)',
+    title: 'Encode Grades (Q1–Q3)',
     summary: 'Enter the quarterly grades for your students.',
     steps: [
       'Open Grade Management or My Students and pick the section and subject.',
-      'Select the quarter (Q1, Q2, Q3, or Q4).',
+      'Select the quarter (Q1, Q2, or Q3).',
       "Enter each student's grade, or upload them from a prepared Excel template.",
       'Double-check the values before saving — a grade of 60–74 means the student needs remedial work.'
     ]

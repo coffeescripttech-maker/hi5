@@ -36,17 +36,17 @@ export const SAMPLE_SECTIONS = [
 ];
 
 export const SAMPLE_GRADES = [
-  { subject: "Mathematics", q1: 92, q2: 89, q3: 94, q4: 91, finalGrade: null },
-  { subject: "English", q1: 88, q2: 90, q3: 87, q4: 92, finalGrade: null },
-  { subject: "Science", q1: 95, q2: 93, q3: 96, q4: 94, finalGrade: null },
-  { subject: "Filipino", q1: 85, q2: 87, q3: 83, q4: 86, finalGrade: null },
-  { subject: "Araling Panlipunan", q1: 90, q2: 88, q3: 91, q4: 89, finalGrade: null },
-  { subject: "Music", q1: 93, q2: 95, q3: 92, q4: 94, finalGrade: null },
-  { subject: "Arts", q1: 90, q2: 92, q3: 91, q4: 93, finalGrade: null },
-  { subject: "Physical Education", q1: 88, q2: 90, q3: 87, q4: 91, finalGrade: null },
-  { subject: "Health", q1: 94, q2: 93, q3: 95, q4: 92, finalGrade: null },
-  { subject: "TLE / EPP", q1: 87, q2: 89, q3: 88, q4: 90, finalGrade: null },
-  { subject: "Values Education", q1: 91, q2: 93, q3: 90, q4: 92, finalGrade: null },
+  { subject: "Mathematics", q1: 92, q2: 89, q3: 94, finalGrade: null },
+  { subject: "English", q1: 88, q2: 90, q3: 87, finalGrade: null },
+  { subject: "Science", q1: 95, q2: 93, q3: 96, finalGrade: null },
+  { subject: "Filipino", q1: 85, q2: 87, q3: 83, finalGrade: null },
+  { subject: "Araling Panlipunan", q1: 90, q2: 88, q3: 91, finalGrade: null },
+  { subject: "Music", q1: 93, q2: 95, q3: 92, finalGrade: null },
+  { subject: "Arts", q1: 90, q2: 92, q3: 91, finalGrade: null },
+  { subject: "Physical Education", q1: 88, q2: 90, q3: 87, finalGrade: null },
+  { subject: "Health", q1: 94, q2: 93, q3: 95, finalGrade: null },
+  { subject: "TLE / EPP", q1: 87, q2: 89, q3: 88, finalGrade: null },
+  { subject: "Values Education", q1: 91, q2: 93, q3: 90, finalGrade: null },
 ];
 
 export const ACTIVITY_LOGS = [
@@ -90,12 +90,12 @@ export const SECTION_RULES = [
 ];
 
 export const AT_RISK_STUDENTS = [
-  { id: "2026-07-0001", name: "Maria Santos", grade: 7, section: "Star", q1: 92, q2: 89, q3: 84, q4: null, trend: "declining", risk: "Needs Monitoring", riskScore: 62, teacher: "Mr. Ramon Dela Cruz" },
-  { id: "2026-08-0002", name: "Carlo Mendoza", grade: 8, section: "Regular", q1: 78, q2: 74, q3: 70, q4: null, trend: "declining", risk: "At-Risk", riskScore: 88, teacher: "Ms. Linda Fernandez" },
-  { id: "2026-09-0002", name: "Miguel Torres", grade: 9, section: "Gold", q1: 90, q2: 88, q3: 87, q4: null, trend: "stable", risk: "On Track", riskScore: 15, teacher: "Mr. Eduardo Ocampo" },
-  { id: "2026-08-0001", name: "Ana Reyes", grade: 8, section: "Silver", q1: 83, q2: 80, q3: 75, q4: null, trend: "declining", risk: "At-Risk", riskScore: 81, teacher: "Mr. Eduardo Ocampo" },
-  { id: "2026-10-0001", name: "Isabella Garcia", grade: 10, section: "Silver", q1: 85, q2: 84, q3: 83, q4: null, trend: "stable", risk: "Needs Monitoring", riskScore: 45, teacher: "Mr. Ramon Dela Cruz" },
-  { id: "2026-07-0002", name: "Juan dela Cruz", grade: 7, section: "Gold", q1: 88, q2: 87, q3: 88, q4: null, trend: "stable", risk: "On Track", riskScore: 10, teacher: "Mr. Ramon Dela Cruz" },
-  { id: "2026-11-0001", name: "Rafael Aquino", grade: 11, section: "Star", q1: 94, q2: 92, q3: 91, q4: null, trend: "stable", risk: "On Track", riskScore: 8, teacher: "Ms. Patricia Lim" },
-  { id: "2026-12-0001", name: "Gabriela Luna", grade: 12, section: "Gold", q1: 87, q2: 82, q3: 77, q4: null, trend: "declining", risk: "At-Risk", riskScore: 79, teacher: "Mr. Fernando Castro" },
+  { id: "2026-07-0001", name: "Maria Santos", grade: 7, section: "Star", q1: 92, q2: 89, q3: 84, trend: "declining", risk: "Needs Monitoring", riskScore: 62, teacher: "Mr. Ramon Dela Cruz" },
+  { id: "2026-08-0002", name: "Carlo Mendoza", grade: 8, section: "Regular", q1: 78, q2: 74, q3: 70, trend: "declining", risk: "At-Risk", riskScore: 88, teacher: "Ms. Linda Fernandez" },
+  { id: "2026-09-0002", name: "Miguel Torres", grade: 9, section: "Gold", q1: 90, q2: 88, q3: 87, trend: "stable", risk: "On Track", riskScore: 15, teacher: "Mr. Eduardo Ocampo" },
+  { id: "2026-08-0001", name: "Ana Reyes", grade: 8, section: "Silver", q1: 83, q2: 80, q3: 75, trend: "declining", risk: "At-Risk", riskScore: 81, teacher: "Mr. Eduardo Ocampo" },
+  { id: "2026-10-0001", name: "Isabella Garcia", grade: 10, section: "Silver", q1: 85, q2: 84, q3: 83, trend: "stable", risk: "Needs Monitoring", riskScore: 45, teacher: "Mr. Ramon Dela Cruz" },
+  { id: "2026-07-0002", name: "Juan dela Cruz", grade: 7, section: "Gold", q1: 88, q2: 87, q3: 88, trend: "stable", risk: "On Track", riskScore: 10, teacher: "Mr. Ramon Dela Cruz" },
+  { id: "2026-11-0001", name: "Rafael Aquino", grade: 11, section: "Star", q1: 94, q2: 92, q3: 91, trend: "stable", risk: "On Track", riskScore: 8, teacher: "Ms. Patricia Lim" },
+  { id: "2026-12-0001", name: "Gabriela Luna", grade: 12, section: "Gold", q1: 87, q2: 82, q3: 77, trend: "declining", risk: "At-Risk", riskScore: 79, teacher: "Mr. Fernando Castro" },
 ];

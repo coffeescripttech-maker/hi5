@@ -36,10 +36,11 @@ import {
   ClipboardList,
   MessageSquare,
   Award,
-  MapPin
+  MapPin,
+  ArrowLeftRight
 } from 'lucide-react';
 
-export type Role = 'admin' | 'teacher' | 'registrar' | 'principal';
+export type Role = 'admin' | 'teacher' | 'registrar' | 'principal' | 'enrollment_committee';
 
 export interface NavItem {
   key: string;
@@ -104,7 +105,6 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     {
       group: 'Student Management',
       items: [
-        { key: 'teacher_enroll', label: 'Enrollment', icon: UserCheck, path: '/teacher/enroll' },
         { key: 'teacher_my_students', label: 'My Students', icon: UsersRound, path: '/teacher/my-students' },
         {
           key: 'teacher_sections',
@@ -112,7 +112,8 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
           icon: BookMarked,
           path: '/teacher/sections'
         },
-        { key: 'teacher_promote', label: 'Bulk Promotion', icon: GraduationCap, path: '/teacher/promote' }
+        { key: 'teacher_promote', label: 'Bulk Promotion', icon: GraduationCap, path: '/teacher/promote' },
+        { key: 'teacher_reading_assessments', label: 'Reading Assessments', icon: BookMarked, path: '/teacher/reading-assessments' }
       ]
     },
     {
@@ -178,7 +179,8 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'registrar_sections', label: 'Section Management', icon: Layers, path: '/registrar/sections' },
         { key: 'registrar_grade_distribution', label: 'Grade Distribution', icon: BarChart2, path: '/registrar/grade-distribution' },
         { key: 'registrar_grade_corrections', label: 'Grade Corrections', icon: MessageSquare, path: '/registrar/grade-corrections' },
-        { key: 'registrar_document_completion', label: 'Document Completion', icon: ClipboardList, path: '/registrar/document-completion' },
+        { key: 'registrar_transfers', label: 'Transfer Management', icon: ArrowLeftRight, path: '/registrar/transfers' },
+        { key: 'registrar_document_completion', label: 'Enrollment Document Checklist', icon: ClipboardList, path: '/registrar/document-completion' },
         { key: 'registrar_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/registrar/atrisk' }
       ]
     },
@@ -202,6 +204,70 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { key: 'registrar_profile', label: 'My Profile', icon: User, path: '/registrar/profile' },
         { key: 'registrar_guide', label: 'System Guide', icon: BookOpen, path: '/registrar/guide' }
+      ]
+    }
+  ],
+  // The Enrollment Committee holds Admin-equivalent permissions, so every
+  // Admin module is available to it too — the modules below are the committee's
+  // own duties layered on top. Admin paths are reused as-is to avoid duplicating
+  // pages; the RBAC permission map (server/src/services/permissions.ts) inherits
+  // the Admin and Registrar key sets for this role.
+  enrollment_committee: [
+    {
+      group: 'Overview',
+      items: [{ key: 'committee_dashboard', label: 'Committee Dashboard', icon: LayoutDashboard, path: '/committee' }]
+    },
+    {
+      group: 'Committee Duties',
+      items: [
+        { key: 'committee_transfers', label: 'Transfer Approvals', icon: ArrowLeftRight, path: '/committee/transfers' },
+        { key: 'committee_enrollment', label: 'Enrollment', icon: UserCheck, path: '/committee/enrollment' },
+        { key: 'committee_section_assignment', label: 'Section Assignment', icon: Layers, path: '/committee/section-assignment' },
+        { key: 'committee_document_verification', label: 'Document Verification', icon: ClipboardList, path: '/committee/documents' }
+      ]
+    },
+    {
+      group: 'Administration',
+      items: [
+        { key: 'admin_dashboard', label: 'Admin Dashboard', icon: LayoutDashboard, path: '/admin' },
+        { key: 'admin_users', label: 'User Management', icon: Users, path: '/admin/users' },
+        { key: 'admin_subjects', label: 'Subject Management', icon: BookOpen, path: '/admin/subjects' },
+        { key: 'admin_sections', label: 'Section Creation', icon: Layers, path: '/admin/sections' },
+        { key: 'admin_academic_year', label: 'Academic Year Mgmt.', icon: Calendar, path: '/admin/academic-year' },
+        { key: 'admin_rooms', label: 'Room Management', icon: MapPin, path: '/admin/rooms' }
+      ]
+    },
+    {
+      group: 'School Forms',
+      items: [
+        { key: 'admin_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/admin/forms/sf1' },
+        { key: 'admin_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/admin/forms/sf5' },
+        { key: 'admin_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/admin/forms/sf9' },
+        { key: 'admin_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/admin/forms/sf10' }
+      ]
+    },
+    {
+      group: 'Records',
+      items: [
+        { key: 'registrar_students', label: 'Student Search', icon: Search, path: '/registrar/students' },
+        { key: 'registrar_promotions', label: 'Promotion Records', icon: GraduationCap, path: '/registrar/promotions' },
+        { key: 'registrar_graduates', label: 'Alumni / Graduates', icon: Award, path: '/registrar/graduates' },
+        { key: 'registrar_reports', label: 'Enrollment Report', icon: BarChart2, path: '/registrar/reports' },
+        { key: 'registrar_grade_distribution', label: 'Grade Distribution', icon: BarChart2, path: '/registrar/grade-distribution' },
+        { key: 'registrar_grade_corrections', label: 'Grade Corrections', icon: MessageSquare, path: '/registrar/grade-corrections' },
+        { key: 'registrar_document_completion', label: 'Enrollment Document Checklist', icon: ClipboardList, path: '/registrar/document-completion' },
+        { key: 'registrar_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/registrar/atrisk' }
+      ]
+    },
+    {
+      group: 'System',
+      items: [
+        { key: 'admin_settings', label: 'School Settings', icon: Settings, path: '/admin/settings' },
+        { key: 'admin_backup', label: 'Database Backup', icon: Database, path: '/admin/backup' },
+        { key: 'admin_logs', label: 'Activity Logs', icon: Activity, path: '/admin/logs' },
+        { key: 'admin_rbac', label: 'Role Access Control', icon: ShieldCheck, path: '/admin/access-control' },
+        { key: 'committee_profile', label: 'My Profile', icon: User, path: '/admin/profile' },
+        { key: 'committee_guide', label: 'System Guide', icon: BookMarked, path: '/admin/guide' }
       ]
     }
   ],
@@ -254,12 +320,23 @@ export const CORE_KEYS: Record<Role, string[]> = {
   admin: ['admin_dashboard', 'admin_profile', 'admin_guide'],
   teacher: ['teacher_dashboard', 'teacher_profile', 'teacher_guide'],
   registrar: ['registrar_dashboard', 'registrar_profile', 'registrar_guide'],
-  principal: ['principal_dashboard', 'principal_profile', 'principal_guide']
+  principal: ['principal_dashboard', 'principal_profile', 'principal_guide'],
+  enrollment_committee: ['committee_dashboard', 'committee_profile', 'committee_guide']
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Administrator',
   teacher: 'Teacher',
   registrar: 'Registrar',
-  principal: 'School Head'
+  principal: 'School Head',
+  enrollment_committee: 'Enrollment Committee'
+};
+
+/** Landing path per role (used for the brand/logo link and post-login redirect). */
+export const ROLE_HOME: Record<Role, string> = {
+  admin: '/admin',
+  teacher: '/teacher',
+  registrar: '/registrar',
+  principal: '/principal',
+  enrollment_committee: '/committee'
 };

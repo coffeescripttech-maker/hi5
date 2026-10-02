@@ -142,12 +142,17 @@ interface SubjectRow {
   q1: number | null;
   q2: number | null;
   q3: number | null;
-  q4: number | null;
   final: number | null;
   remarks: string;
   isMapehHeader?: boolean;
   isMapehComponent?: boolean;
+  /** Header row for a collapsed learning area (MAPEH, TLE specializations). */
+  isGroupHeader?: boolean;
+  isGroupComponent?: boolean;
 }
+
+/** Heading each collapsed subject_group reports under. */
+const GROUP_HEADINGS: Record<string, string> = { tle: 'TLE/EPP', tvl: 'TVL' };
 
 function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
   const mapehItems: typeof subjects = [];
@@ -161,42 +166,72 @@ function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
     }
   }
 
-  const rows: SubjectRow[] = regularItems.map(s => {
-    const q1 = toNum(s.q1);
-    const q2 = toNum(s.q2);
-    const q3 = toNum(s.q3);
-    const q4 = toNum(s.q4);
+  // TLE specializations share subject_group 'tle' and are reported under one
+  // heading alongside TLE/EPP, mirroring the MAPEH block below.
+  const groupedItems = new Map<string, typeof subjects>();
+  for (const s of regularItems) {
+    if (!s.subject_group) continue;
+    const list = groupedItems.get(s.subject_group) ?? [];
+    list.push(s);
+    groupedItems.set(s.subject_group, list);
+  }
+
+  const avgOf = (items: typeof subjects, pick: (s: (typeof subjects)[number]) => number | null) => {
+    const vals = items.map(pick).filter(v => v !== null) as number[];
+    return vals.length > 0
+      ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100
+      : null;
+  };
+
+  const toRow = (s: (typeof subjects)[number], flags: Partial<SubjectRow> = {}): SubjectRow => {
     const final = toNum(s.final_average);
     return {
       name: s.subject_name,
-      q1,
-      q2,
-      q3,
-      q4,
+      q1: toNum(s.q1),
+      q2: toNum(s.q2),
+      q3: toNum(s.q3),
       final,
-      remarks: final !== null ? (final >= 75 ? 'Passed' : 'Failed') : '—'
+      remarks: final !== null ? (final >= 75 ? 'Passed' : 'Failed') : '—',
+      ...flags
     };
-  });
+  };
+
+  const rows: SubjectRow[] = [];
+
+  // Emit each grouped block (header + members) at the first member's position.
+  const emittedGroups = new Set<string>();
+  for (const s of regularItems) {
+    if (s.subject_group && !emittedGroups.has(s.subject_group)) {
+      emittedGroups.add(s.subject_group);
+      const members = groupedItems.get(s.subject_group)!;
+      const headerFinal = avgOf(members, m => toNum(m.final_average));
+      rows.push({
+        name: GROUP_HEADINGS[s.subject_group] ?? s.subject_group,
+        isGroupHeader: true,
+        q1: avgOf(members, m => toNum(m.q1)),
+        q2: avgOf(members, m => toNum(m.q2)),
+        q3: avgOf(members, m => toNum(m.q3)),
+        final: headerFinal,
+        remarks: headerFinal !== null ? (headerFinal >= 75 ? 'Passed' : 'Failed') : '—'
+      });
+      for (const m of members) rows.push(toRow(m, { isGroupComponent: true }));
+      continue;
+    }
+    if (s.subject_group) continue;
+    rows.push(toRow(s));
+  }
 
   // Group MAPEH sub-areas under one "MAPEH" header row, then list each
   // component separately so its own ratings are readable.
   if (mapehItems.length > 0) {
-    const avgOf = (pick: (s: (typeof subjects)[number]) => number | null) => {
-      const vals = mapehItems.map(pick).filter(v => v !== null) as number[];
-      return vals.length > 0
-        ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100
-        : null;
-    };
-
-    const mapehFinal = avgOf(s => toNum(s.final_average));
+    const mapehFinal = avgOf(mapehItems, s => toNum(s.final_average));
 
     rows.push({
       name: 'MAPEH',
       isMapehHeader: true,
-      q1: avgOf(s => toNum(s.q1)),
-      q2: avgOf(s => toNum(s.q2)),
-      q3: avgOf(s => toNum(s.q3)),
-      q4: avgOf(s => toNum(s.q4)),
+      q1: avgOf(mapehItems, s => toNum(s.q1)),
+      q2: avgOf(mapehItems, s => toNum(s.q2)),
+      q3: avgOf(mapehItems, s => toNum(s.q3)),
       final: mapehFinal,
       remarks: mapehFinal !== null ? (mapehFinal >= 75 ? 'Passed' : 'Failed') : '—'
     });
@@ -205,23 +240,7 @@ function buildSubjectRows(subjects: SF9Row['subjects']): SubjectRow[] {
     const orderedMapeh = [...mapehItems].sort(
       (a, b) => MAPEH_SUBJECTS.indexOf(a.subject_name) - MAPEH_SUBJECTS.indexOf(b.subject_name)
     );
-    for (const s of orderedMapeh) {
-      const q1 = toNum(s.q1);
-      const q2 = toNum(s.q2);
-      const q3 = toNum(s.q3);
-      const q4 = toNum(s.q4);
-      const final = toNum(s.final_average);
-      rows.push({
-        name: s.subject_name,
-        isMapehComponent: true,
-        q1,
-        q2,
-        q3,
-        q4,
-        final,
-        remarks: final !== null ? (final >= 75 ? 'Passed' : 'Failed') : '—'
-      });
-    }
+    for (const s of orderedMapeh) rows.push(toRow(s, { isMapehComponent: true }));
   }
 
   return rows;
@@ -854,8 +873,7 @@ export function SF9Report() {
                       {[
                         '1st Quarter',
                         '2nd Quarter',
-                        '3rd Quarter',
-                        '4th Quarter'
+                        '3rd Quarter'
                       ].map(q => (
                         <div key={q} className="flex items-end gap-1">
                           <span className="text-[11px] font-semibold whitespace-nowrap">
@@ -1226,7 +1244,7 @@ export function SF9Report() {
                   <table className="w-full border-collapse text-[9px]">
                     <colgroup>
                       <col style={{ width: '34%' }} />
-                      <col span={4} style={{ width: '8%' }} />
+                      <col span={3} style={{ width: '8%' }} />
                       <col style={{ width: '16%' }} />
                       <col style={{ width: '18%' }} />
                     </colgroup>
@@ -1254,7 +1272,7 @@ export function SF9Report() {
                         </th>
                       </tr>
                       <tr className="font-bold">
-                        {[1, 2, 3, 4].map(q => (
+                        {[1, 2, 3].map(q => (
                           <th
                             key={q}
                             className="border border-black px-1 py-0.5 text-center">
@@ -1265,12 +1283,12 @@ export function SF9Report() {
                     </thead>
                     <tbody>
                       {subjectRows.map((row, i) => (
-                        <tr key={`${row.name}-${i}`} className={row.isMapehHeader ? 'bg-gray-50' : ''}>
+                        <tr key={`${row.name}-${i}`} className={row.isMapehHeader || row.isGroupHeader ? 'bg-gray-50' : ''}>
                           <td
                             className={`border border-black px-1 py-0.5 text-left ${
-                              row.isMapehHeader
+                              row.isMapehHeader || row.isGroupHeader
                                 ? 'font-bold uppercase'
-                                : row.isMapehComponent
+                                : row.isMapehComponent || row.isGroupComponent
                                   ? 'font-medium pl-6'
                                   : 'font-medium'
                             }`}>
@@ -1289,10 +1307,6 @@ export function SF9Report() {
                             {row.q3 !== null ? row.q3.toFixed(2) : '—'}
                           </td>
                           <td
-                            className="border border-black px-1 py-0.5 text-center">
-                            {row.q4 !== null ? row.q4.toFixed(2) : '—'}
-                          </td>
-                          <td
                             className={`border border-black px-1 py-0.5 text-center font-bold ${row.final !== null && row.final >= 75 ? '' : 'text-red-700'}`}>
                             {row.final !== null ? row.final.toFixed(2) : '—'}
                           </td>
@@ -1306,7 +1320,7 @@ export function SF9Report() {
                       {/* General Average row */}
                       <tr className="font-bold">
                         <td
-                          colSpan={5}
+                          colSpan={4}
                           className="border border-black px-1 py-1 text-center">
                           General Average
                         </td>
@@ -1332,7 +1346,7 @@ export function SF9Report() {
                     <colgroup>
                       <col style={{ width: '16%' }} />
                       <col style={{ width: '44%' }} />
-                      <col span={4} style={{ width: '10%' }} />
+                      <col span={3} style={{ width: '10%' }} />
                     </colgroup>
                     <thead>
                       <tr>
@@ -1347,13 +1361,13 @@ export function SF9Report() {
                           Behavior Statements
                         </th>
                         <th
-                          colSpan={4}
+                          colSpan={3}
                           className="border border-black px-1 py-0.5 font-bold text-center">
                           Quarter
                         </th>
                       </tr>
                       <tr className="font-bold">
-                        {[1, 2, 3, 4].map(q => (
+                        {[1, 2, 3].map(q => (
                           <th
                             key={q}
                             className="border border-black px-1 py-0.5 text-center">
@@ -1376,7 +1390,7 @@ export function SF9Report() {
                             <td className="border border-black px-1 py-1 text-left align-middle leading-tight">
                               {st}
                             </td>
-                            {[1, 2, 3, 4].map(q => (
+                            {[1, 2, 3].map(q => (
                               <td key={q} className="border border-black p-0">
                                 <select
                                   value={getObserved(cvIdx, stIdx, q)}

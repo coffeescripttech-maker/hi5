@@ -107,6 +107,22 @@ export const ROLE_ACCENTS: Record<Role, RoleAccent> = {
     chartHex: "#9333ea",
     chartHexSoft: "#d8b4fe",
   },
+  enrollment_committee: {
+    gradient: "from-sky-500 via-sky-600 to-sky-400",
+    tile: "from-sky-500 to-sky-600",
+    tileShadow: "shadow-sky-200",
+    button: "bg-sky-600 hover:bg-sky-700",
+    ring: "focus:ring-sky-500/30",
+    text: "text-sky-600",
+    soft: "bg-sky-50",
+    softTile: "bg-sky-100 text-sky-600",
+    chip: "bg-sky-50 text-sky-700 border-sky-200",
+    dot: "bg-sky-500",
+    spinnerTrack: "border-sky-100",
+    spinnerArc: "border-t-sky-600",
+    chartHex: "#0284c7",
+    chartHexSoft: "#7dd3fc",
+  },
 };
 
 export function useRoleAccent(): RoleAccent {

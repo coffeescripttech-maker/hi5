@@ -72,7 +72,8 @@ export function AutoSectioning() {
 
     if (gradeSections.length === 0) return null;
 
-    // Non-Reader override
+    // Non-Reader placement is driven purely by the teacher's manual, reading
+    // assessment-backed tag — never by the general average.
     if (isNonReader) {
       const nrSection = gradeSections.find(s => s.section_type === "non_reader");
       if (nrSection) {
@@ -82,7 +83,7 @@ export function AutoSectioning() {
           sectionName: nrSection.name,
           sectionType: nrSection.section_type,
           icon: "📖",
-          reason: "Non-Reader classification",
+          reason: "Non-Reader classification (reading assessment)",
         };
       }
     }
@@ -90,13 +91,16 @@ export function AutoSectioning() {
     // No GA — can't place
     if (ga === null) return null;
 
-    // Find section where ga >= min_average, highest tier first
+    // Find section where ga >= min_average, highest tier first.
+    // Non-Reader sections are excluded: low marks must never route a learner
+    // into a Non-Reader section.
     let best = gradeSections.find(s => s.section_type !== "non_reader" && ga >= s.min_average);
 
-    // If no section meets the threshold, assign to the lowest tier (non_reader or regular)
+    // Nothing met the threshold — fall back to the lowest *non*-Non-Reader tier.
     if (!best) {
-      best = gradeSections.find(s => s.section_type === "non_reader")
-        || gradeSections[gradeSections.length - 1]; // fallback to last (lowest)
+      best = [...gradeSections]
+        .filter(s => s.section_type !== "non_reader")
+        .sort((a, b) => a.min_average - b.min_average)[0];
     }
 
     if (best) {

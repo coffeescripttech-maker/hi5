@@ -37,6 +37,8 @@ import roomsRoutes from "./routes/rooms.routes";
 import lisRoutes from "./routes/lis.routes";
 import rbacRoutes from "./routes/rbac.routes";
 import presenceRoutes from "./routes/presence.routes";
+import transfersRoutes from "./routes/transfers.routes";
+import readingAssessmentsRoutes from "./routes/readingAssessments.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { startUserStatusCron } from "./cron/userStatusCron";
 import { startBackupCron } from "./cron/backupCron";
@@ -159,6 +161,8 @@ app.use("/api/rooms", roomsRoutes);
 app.use("/api/lis", lisRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/presence", presenceRoutes);
+  app.use("/api/transfers", transfersRoutes);
+  app.use("/api/reading-assessments", readingAssessmentsRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

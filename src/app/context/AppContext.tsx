@@ -12,7 +12,7 @@ import { settingsApi } from '../services/settings';
 import { schoolYearsApi } from '../services/schoolYears';
 import { isValidPhotoUrl } from '../utils/photo';
 
-type Role = 'admin' | 'teacher' | 'registrar' | 'principal' | null;
+type Role = 'admin' | 'teacher' | 'registrar' | 'principal' | 'enrollment_committee' | null;
 
 export interface Toast {
   id: string;

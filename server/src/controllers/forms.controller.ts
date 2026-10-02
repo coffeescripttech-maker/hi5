@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
 import { getAcademicThresholds } from "../services/schoolConfig";
+import { collapseSubjectGroups } from "../utils/subjectGroups";
 
 /**
  * GET /api/forms/sf1 — School Register (list of all enrolled students)
@@ -277,21 +278,29 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
     params.push(subjectGradeLevel);
 
     const grades = await query<RowDataPacket[]>(
-      `SELECT s.name AS subject_name, s.subject_type, s.hours_per_week,
+      `SELECT s.name AS subject_name, s.subject_type, s.subject_group, s.hours_per_week,
               MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
               MAX(CASE WHEN g.quarter = 2 THEN g.grade END) AS q2,
               MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
-              MAX(CASE WHEN g.quarter = 4 THEN g.grade END) AS q4,
               ROUND(AVG(g.grade), 2) AS final_average
        FROM subjects s
        LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
        WHERE s.is_active = 1 AND s.grade_level = ?
-       GROUP BY s.id, s.name, s.subject_type, s.hours_per_week
+       GROUP BY s.id, s.name, s.subject_type, s.subject_group, s.hours_per_week
        ORDER BY s.name ASC`,
       params
     );
 
-    const gradesWithValues = grades.filter((g: any) => g.final_average !== null);
+    // Grouped areas (MAPEH components, TLE specializations) count once in the
+    // general average, matching the report card.
+    const collapsedGrades = collapseSubjectGroups(grades as any[], [
+      "q1",
+      "q2",
+      "q3",
+      "final_average",
+    ]);
+
+    const gradesWithValues = collapsedGrades.filter((g: any) => g.final_average !== null);
     const generalAverage = gradesWithValues.length > 0
       ? Math.round(gradesWithValues.reduce((sum: number, g: any) => sum + parseFloat(g.final_average), 0) / gradesWithValues.length * 100) / 100
       : null;
@@ -306,7 +315,7 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
       student: student[0],
       enrollment: enrollments[0] || null,
       general_average: generalAverage,
-      subjects: grades,
+      subjects: collapsedGrades,
     });
   } catch (error) {
     console.error("SF9 error:", error);
@@ -366,21 +375,27 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
     for (const enroll of enrollments) {
       // Like SF9, list ALL active subjects for that school year's grade level
       // (LEFT JOIN), so learning areas without encoded grades still appear.
-      const syGrades = await query<RowDataPacket[]>(
-        `SELECT sub.name AS subject_name, sub.subject_type,
+      const syGradesRaw = await query<RowDataPacket[]>(
+        `SELECT sub.name AS subject_name, sub.subject_type, sub.subject_group,
                 MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
                 MAX(CASE WHEN g.quarter = 2 THEN g.grade END) AS q2,
                 MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
-                MAX(CASE WHEN g.quarter = 4 THEN g.grade END) AS q4,
                 ROUND(AVG(g.grade), 2) AS final_average
          FROM subjects sub
          LEFT JOIN grades g ON g.subject_id = sub.id
            AND g.student_id = ? AND g.school_year_id = ?
          WHERE sub.is_active = 1 AND sub.grade_level = ?
-         GROUP BY sub.id, sub.name, sub.subject_type
+         GROUP BY sub.id, sub.name, sub.subject_type, sub.subject_group
          ORDER BY sub.name ASC`,
         [student_id, enroll.school_year_id, enroll.grade_level]
       );
+
+      const syGrades = collapseSubjectGroups(syGradesRaw as any[], [
+        "q1",
+        "q2",
+        "q3",
+        "final_average",
+      ]);
 
       const genAvg = syGrades.length > 0
         ? (() => {

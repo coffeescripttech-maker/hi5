@@ -40,7 +40,6 @@ export interface Grade {
   q1: number | null;
   q2: number | null;
   q3: number | null;
-  q4: number | null;
   finalGrade: number | null;
 }
 
@@ -87,7 +86,6 @@ export interface AtRiskStudent {
   q1: number | null;
   q2: number | null;
   q3: number | null;
-  q4: number | null;
   trend: TrendDirection;
   risk: RiskLevel;
   riskScore: number;

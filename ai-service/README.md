@@ -64,14 +64,14 @@ automatically falls back to the local regression — no errors reach the UI.
 |--------|------------|-----------------------------------------------------|
 | GET    | `/health`  | Liveness + whether the model is trained             |
 | GET    | `/model`   | Training metrics (samples, R², MAE, slope)          |
-| POST   | `/predict` | `{ student_id, quarters: [q1..q4] }` → risk result  |
+| POST   | `/predict` | `{ student_id, quarters: [q1..q3] }` → risk result  |
 | POST   | `/train`   | Re-train from `data/grades.csv`                     |
 
 ## Defense talking points
 
 > "The AI component is a Python-based machine learning service built with
 > scikit-learn. We trained a Linear Regression model using historical quarterly
-> grades (Q1–Q4). Once trained, the model is saved and loaded by a FastAPI
+> grades (Q1–Q3). Once trained, the model is saved and loaded by a FastAPI
 > server. Whenever the Node.js application needs a prediction, it sends the
 > student's grades to the AI service. The model projects the expected final
 > grade, which is converted into a risk score and classification for the

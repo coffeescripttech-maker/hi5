@@ -34,7 +34,7 @@ import { useApp } from "../context/AppContext";
 import { authApi } from "../services/api";
 import { isValidPhotoUrl } from "../utils/photo";
 
-export type Role = "admin" | "teacher" | "registrar" | "principal";
+export type Role = "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
 export type Tone = "blue" | "emerald" | "indigo" | "violet" | "purple";
 
 interface ToneClasses {
@@ -125,12 +125,14 @@ const ROLE_NAME: Record<Role, string> = {
   teacher: "Teacher",
   registrar: "Registrar",
   principal: "Principal",
+  enrollment_committee: "Enrollment Committee",
 };
 const ROLE_SUBTITLE: Record<Role, string> = {
   admin: "Administrator",
   teacher: "Faculty Member",
   registrar: "School Registrar",
   principal: "School Principal",
+  enrollment_committee: "Enrollment Committee",
 };
 
 const STATUS_META: Record<string, { label: string; chip: string; dot: string }> = {

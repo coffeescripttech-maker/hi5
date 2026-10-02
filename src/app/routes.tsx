@@ -15,9 +15,9 @@ import { RoleAccessControl } from "./pages/admin/RoleAccessControl";
 import { LisExport } from "./pages/admin/LisExport";
 import { TeacherDashboard } from "./pages/teacher/TeacherDashboard";
 import { EnrollmentModule } from "./pages/teacher/EnrollmentModule";
+import { ReadingAssessments } from "./pages/teacher/ReadingAssessments";
 import { GradeManagement } from "./pages/teacher/GradeManagement";
 import { UploadGrades } from "./pages/teacher/UploadGrades";
-import { AutoSectioning } from "./pages/teacher/AutoSectioning";
 import { SectionManagement } from "./pages/teacher/SectionManagement";
 import { BulkPromotion } from "./pages/teacher/BulkPromotion";
 import { AtRiskDetection } from "./pages/teacher/AtRiskDetection";
@@ -35,6 +35,7 @@ import { RegistrarAtRisk } from "./pages/registrar/RegistrarAtRisk";
 import { GradeDistribution } from "./pages/registrar/GradeDistribution";
 import { GradeCorrections } from "./pages/registrar/GradeCorrections";
 import { DocumentCompletion } from "./pages/registrar/DocumentCompletion";
+import { TransferManagement } from "./pages/registrar/TransferManagement";
 import { RegistrarProfile } from "./pages/registrar/RegistrarProfile";
 import { SubjectView } from "./pages/registrar/SubjectView";
 import { SectionAssignment } from "./pages/registrar/SectionAssignment";
@@ -57,6 +58,8 @@ import { SystemGuide } from "./pages/SystemGuide";
 import { NotFound } from "./pages/NotFound";
 import { ActivityLogs } from "./pages/admin/ActivityLogs";
 import { AdminRooms } from "./pages/admin/AdminRooms";
+import { CommitteeDashboard } from "./pages/committee/CommitteeDashboard";
+import { TransferApprovals } from "./pages/committee/TransferApprovals";
 
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
@@ -84,10 +87,9 @@ export const router = createBrowserRouter([
     path: "/teacher", Component: Layout,
     children: [
       { index: true, Component: TeacherDashboard },
-      { path: "enroll", Component: EnrollmentModule },
+      { path: "reading-assessments", Component: ReadingAssessments },
       { path: "grades", Component: GradeManagement },
       { path: "upload", Component: UploadGrades },
-      { path: "sectioning", Component: AutoSectioning },
       { path: "sections", Component: SectionManagement },
       { path: "promote", Component: BulkPromotion },
       { path: "atrisk", Component: AtRiskDetection },
@@ -97,6 +99,12 @@ export const router = createBrowserRouter([
       { path: "schedule", Component: TeacherSchedule },
       { path: "guide", Component: SystemGuide },
       { path: "forms/:formCode?", Component: SchoolForms },
+      // Section assignment and enrollment are committee duties; teachers kept the
+      // routes earlier only to read their own sections, which SectionManagement
+      // and StudentList already cover. Re-point the old paths so a stale bookmark
+      // lands on the teacher-visible page instead of a removed module.
+      { path: "enroll", element: <Navigate to="/teacher/my-students" replace /> },
+      { path: "sectioning", element: <Navigate to="/teacher/sections" replace /> },
     ],
   },
   {
@@ -113,6 +121,7 @@ export const router = createBrowserRouter([
       { path: "grade-distribution", Component: GradeDistribution },
       { path: "grade-corrections", Component: GradeCorrections },
       { path: "document-completion", Component: DocumentCompletion },
+      { path: "transfers", Component: TransferManagement },
       { path: "profile", Component: RegistrarProfile },
       { path: "sections", Component: SectionCreation },
       { path: "subjects", Component: SubjectView },
@@ -122,6 +131,21 @@ export const router = createBrowserRouter([
       { path: "lis-export", Component: RegistrarLisExport },
       { path: "certificates/enrollment", Component: CertificateOfEnrollment },
       { path: "certificates/good-moral", Component: GoodMoralCertificate },
+      { path: "guide", Component: SystemGuide },
+    ],
+  },
+  {
+    // Enrollment Committee: its own duty pages. The duty modules themselves are
+    // the shared Registrar/Admin components (enrollment, section assignment,
+    // document checklist) — the committee holds Admin-equivalent permissions and
+    // simply owns the decision. Transfer approvals are committee-only.
+    path: "/committee", Component: Layout,
+    children: [
+      { index: true, Component: CommitteeDashboard },
+      { path: "transfers", Component: TransferApprovals },
+      { path: "enrollment", Component: EnrollmentModule },
+      { path: "section-assignment", Component: SectionAssignment },
+      { path: "documents", Component: DocumentCompletion },
       { path: "guide", Component: SystemGuide },
     ],
   },

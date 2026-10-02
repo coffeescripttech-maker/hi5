@@ -32,7 +32,6 @@ interface LearningAreaRow {
   q1: string;
   q2: string;
   q3: string;
-  q4: string;
   finalRating: string;
   remarks: string;
 }
@@ -220,7 +219,6 @@ type LearningAreaDisplay =
       q1: string;
       q2: string;
       q3: string;
-      q4: string;
       finalRating: string;
       remarks: string;
     }
@@ -256,7 +254,6 @@ function buildLearningAreaDisplay(
   const q1 = avgOfStrings(ordered.map(c => c.area.q1));
   const q2 = avgOfStrings(ordered.map(c => c.area.q2));
   const q3 = avgOfStrings(ordered.map(c => c.area.q3));
-  const q4 = avgOfStrings(ordered.map(c => c.area.q4));
   const finalRating = avgOfStrings(ordered.map(c => c.area.finalRating));
 
   const header: LearningAreaDisplay = {
@@ -265,7 +262,6 @@ function buildLearningAreaDisplay(
     q1,
     q2,
     q3,
-    q4,
     finalRating,
     remarks: finalRating === '' ? '' : remarksFor(Number(finalRating))
   };
@@ -519,7 +515,6 @@ export function SF10Report() {
               q1: fmt(sub.q1),
               q2: fmt(sub.q2),
               q3: fmt(sub.q3),
-              q4: fmt(sub.q4),
               finalRating: fmt(sub.final_average),
               remarks: remarksFor(sub.final_average)
             })),
@@ -1344,9 +1339,7 @@ export function SF10Report() {
                         <th className="border border-gray-800 p-1 font-bold">
                           3
                         </th>
-                        <th className="border border-gray-800 p-1 font-bold">
-                          4
-                        </th>
+                        
                       </tr>
                     </thead>
                     <tbody>
@@ -1368,9 +1361,6 @@ export function SF10Report() {
                                 </td>
                                 <td className="border border-gray-800 p-1 text-center font-bold">
                                   {display.q3}
-                                </td>
-                                <td className="border border-gray-800 p-1 text-center font-bold">
-                                  {display.q4}
                                 </td>
                                 <td className="border border-gray-800 p-1 text-center font-bold">
                                   {display.finalRating}
@@ -1445,25 +1435,7 @@ export function SF10Report() {
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
                                 />
                               </td>
-                              <td className="border border-gray-800 p-0">
-                                <input
-                                  inputMode="numeric"
-                                  value={area.q4}
-                                  onChange={e =>
-                                    updateLearningArea(
-                                      idx,
-                                      li,
-                                      'q4',
-                                      e.target.value === ''
-                                        ? ''
-                                        : Math.min(100, Math.max(0,
-                                          Math.floor(Number(e.target.value) * 100) / 100)
-                                        ).toString()
-                                    )
-                                  }
-                                  className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
-                                />
-                              </td>
+
                               <td className="border border-gray-800 p-0">
                                 <input
                                   type="text"

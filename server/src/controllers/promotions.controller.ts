@@ -173,7 +173,7 @@ export async function previewSection(req: Request, res: Response): Promise<void>
     const results = students.map(s => {
       const subjectCount = parseInt(s.subject_count || "0", 10);
       const minQuarters = parseInt(s.min_quarters || "0", 10);
-      const gradeComplete = subjectCount > 0 && minQuarters >= 4;
+      const gradeComplete = subjectCount > 0 && minQuarters >= 3;
       const avg = s.general_average != null ? parseFloat(s.general_average) : NaN;
       const isRetained = gradeComplete && !isNaN(avg) && avg < passingMark;
       return {
@@ -287,7 +287,7 @@ async function promoteSectionCore(
     const avg = parseFloat(s.general_average || "0");
     const subjectCount = parseInt(s.subject_count || "0", 10);
     const minQuarters = parseInt(s.min_quarters || "0", 10);
-    const gradeComplete = subjectCount > 0 && minQuarters >= 4;
+    const gradeComplete = subjectCount > 0 && minQuarters >= 3;
     const isIncomplete = !gradeComplete;
     // Only students with complete grades are judged by their average
     const isRetained = isIncomplete ? 0 : (avg < passingMark ? 1 : 0);

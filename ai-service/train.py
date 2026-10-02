@@ -29,6 +29,7 @@ load_dotenv(SERVER_ENV)
 QUERY = """
 SELECT g.student_id, g.quarter, ROUND(AVG(g.grade), 2) AS avg_grade
 FROM grades g
+WHERE g.quarter BETWEEN 1 AND 3
 GROUP BY g.student_id, g.quarter
 ORDER BY g.student_id, g.quarter
 """

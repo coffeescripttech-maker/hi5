@@ -15,7 +15,8 @@ export const ROLE_GRADIENTS: Record<Role, string> = {
   admin: 'from-[#0d1b3e] to-[#1a3a8f]',
   teacher: 'from-[#064e35] to-[#065f46]',
   registrar: 'from-[#1a1040] to-[#3730a3]',
-  principal: 'from-[#3b0764] to-[#6b21a8]'
+  principal: 'from-[#3b0764] to-[#6b21a8]',
+  enrollment_committee: 'from-[#0f172a] to-[#1e3a8a]'
 };
 
 /** Solid avatar / badge chip color per role. */
@@ -23,7 +24,8 @@ export const ROLE_BADGE_COLORS: Record<Role, string> = {
   admin: 'bg-blue-700',
   teacher: 'bg-emerald-600',
   registrar: 'bg-indigo-600',
-  principal: 'bg-purple-600'
+  principal: 'bg-purple-600',
+  enrollment_committee: 'bg-sky-700'
 };
 
 /** Small role glyph used next to the role label in the sidebar footer. */
@@ -31,5 +33,6 @@ export const ROLE_ICONS: Record<Role, ElementType> = {
   admin: Shield,
   teacher: GraduationCap,
   registrar: FileText,
-  principal: User
+  principal: User,
+  enrollment_committee: Shield
 };
