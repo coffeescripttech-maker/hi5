@@ -10,6 +10,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Hi5 Portal — DSPMNHS</title>
+    <script>
+      // Apply the saved theme before first paint. Without this the app always
+      // renders light for a frame or two on every load, which reads as a flash.
+      // Keep the key in sync with THEME_KEY in AppContext.tsx.
+      try {
+        if (localStorage.getItem('hi5_theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {
+        /* private mode / storage disabled — fall back to light */
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />

@@ -92,7 +92,7 @@ export function Layout() {
 
   return (
     <div
-      className={`flex h-dvh overflow-hidden ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      className={`flex h-dvh overflow-hidden ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {mobileSidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden"

@@ -52,19 +52,51 @@
 .sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
 .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
 
-/* Dark mode base */
+/* ══════════ Dark mode ══════════
+   The app paints itself with raw Tailwind palette utilities (bg-white,
+   text-gray-*, border-gray-*) rather than the semantic tokens in theme.css, so
+   class-based dark mode needs a remap layer. These are unlayered on purpose:
+   they must beat Tailwind's layered utilities.
+   Print/report surfaces are deliberately NOT remapped — see the @media print
+   block further down, which pins them to white paper. */
 .dark body { background: #0f172a; color: #f1f5f9; }
+
+/* Surfaces */
 .dark .bg-white { background: #1e293b !important; }
 .dark .bg-gray-50 { background: #0f172a !important; }
 .dark .bg-gray-100 { background: #1e293b !important; }
+.dark .bg-gray-200 { background: #334155 !important; }
+/* Opacity variants are distinct class names, so they need their own rules. */
+.dark .bg-white\/80 { background: rgb(30 41 59 / 0.8) !important; }
+.dark .bg-white\/70 { background: rgb(30 41 59 / 0.7) !important; }
+.dark .bg-white\/95 { background: rgb(30 41 59 / 0.95) !important; }
+
+/* Borders — border-gray-100 is the single most common hairline in the app
+   (521 uses); without this, near-white borders glow on dark cards. */
+.dark .border-gray-100 { border-color: #334155 !important; }
 .dark .border-gray-200 { border-color: #334155 !important; }
+.dark .border-gray-300 { border-color: #475569 !important; }
+.dark .border-gray-400 { border-color: #64748b !important; }
+.dark .divide-gray-100 > * + * { border-color: #334155 !important; }
+.dark .divide-gray-200 > * + * { border-color: #334155 !important; }
+
+/* Text */
+.dark .text-black { color: #f8fafc !important; }
+.dark .text-gray-900 { color: #f1f5f9 !important; }
 .dark .text-gray-800 { color: #f1f5f9 !important; }
 .dark .text-gray-700 { color: #e2e8f0 !important; }
 .dark .text-gray-600 { color: #cbd5e1 !important; }
 .dark .text-gray-500 { color: #94a3b8 !important; }
 .dark .text-gray-400 { color: #64748b !important; }
+.dark .text-gray-300 { color: #475569 !important; }
+.dark .text-white { color: #f1f5f9 !important; }
+
+/* Shadows read as heavy halos on a dark background */
 .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
-.dark .rounded-xl { }
+.dark .shadow { box-shadow: 0 4px 12px rgba(0,0,0,0.45) !important; }
+.dark .shadow-md { box-shadow: 0 6px 16px rgba(0,0,0,0.5) !important; }
+.dark .shadow-lg { box-shadow: 0 10px 24px rgba(0,0,0,0.55) !important; }
+
 
 /* ══════════ Mobile foundation (Capacitor/Cordova WebView) ══════════ */
 html {
@@ -151,4 +183,83 @@ html {
   .doc-viewer-toolbar {
     display: none !important;
   }
+}
+
+/* ══════════ Dark mode must never reach paper ══════════
+   Two independent paths can put a report on paper, and both are colour-sensitive:
+
+   1. window.print() — uses the live page, so the .dark rules above apply.
+   2. downloadRenderedPdf() — pdfRender.ts walks the captured subtree and inlines
+      every *computed* style onto each element, then the server prints with
+      printBackground: true. Whatever colour an element has on screen is baked
+      into the PDF. It then re-harvests @media print rules via CSSOM into the
+      standalone page, so this block travels with it and overrides those inlined
+      colours.
+
+   Both are handled by the same reset below. Without it, a dark-themed SF1 sheet
+   or certificate would print as black text on a navy page. */
+@media print {
+  /* The page behind every report is the app chrome, which is themed. Pin the
+     canvas to paper-white so no themed surface shows through. */
+  html, body { background: #fff !important; color: #000 !important; }
+
+  /* Report cards, registers and certificates are always printed on white. */
+  #sf1-print-area,
+  #sf5-print-area,
+  #sf9-print-area,
+  #sf10-print-area,
+  #sf-print-area,
+  #cert-enrollment-content,
+  #cert-goodmoral-content,
+  #system-guide-pdf,
+  .sf1-sheet {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Restore ink inside those areas. The .dark text remaps above would otherwise
+     leave light-grey body text on white paper.
+     Backgrounds are deliberately NOT cleared here: inside a report, `bg-gray-50`
+     marks real content (the MAPEH/TLE group header rows), and blanking it would
+     change an official report card. Only the two app-chrome shades that can leak
+     in are remapped back to their printed appearance. */
+  #sf1-print-area *,
+  #sf5-print-area *,
+  #sf9-print-area *,
+  #sf10-print-area *,
+  #sf-print-area *,
+  #cert-enrollment-content *,
+  #cert-goodmoral-content *,
+  #system-guide-pdf *,
+  .sf1-sheet * {
+    color: #000 !important;
+    border-color: #000 !important;
+  }
+  #sf1-print-area .bg-gray-50,
+  #sf5-print-area .bg-gray-50,
+  #sf9-print-area .bg-gray-50,
+  #sf10-print-area .bg-gray-50,
+  .sf1-sheet .bg-gray-50 {
+    background: #f3f4f6 !important;
+  }
+  #sf1-print-area .bg-white,
+  #sf5-print-area .bg-white,
+  #sf9-print-area .bg-white,
+  #sf10-print-area .bg-white,
+  #sf-print-area .bg-white,
+  #cert-enrollment-content .bg-white,
+  #cert-goodmoral-content .bg-white,
+  #system-guide-pdf .bg-white,
+  .sf1-sheet .bg-white {
+    background: #fff !important;
+  }
+
+  /* These two are bordered cards rather than borderless print areas, so they
+     keep a soft border and a white field instead of black hairlines. */
+  #sf-print-area,
+  #sf-print-area * { border-color: #6b7280 !important; }
+  #cert-enrollment-content,
+  #cert-enrollment-content *,
+  #cert-goodmoral-content,
+  #cert-goodmoral-content * { border-color: #e5e7eb !important; }
 }

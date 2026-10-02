@@ -657,7 +657,9 @@ export function SF10Report() {
       {/* ── Print styles ── */}
       <style>{`
         @media print {
-          body { font-family: 'Times New Roman', Times, serif; color: #000; background: #fff; margin: 0; padding: 0; }
+          /* !important is required: the app-wide dark theme remaps the body
+             element, and without this the record prints on themed paper. */
+          html, body { font-family: 'Times New Roman', Times, serif; color: #000 !important; background: #fff !important; margin: 0; padding: 0; }
           .no-print { display: none !important; }
           #sf10-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0.15in; }
           #sf10-print-area .print-page { page-break-after: always; }
@@ -941,7 +943,7 @@ export function SF10Report() {
       {/* SF10 Official DepEd Learner's Permanent Academic Record        */}
       {/* ────────────────────────────────────────────────────────────── */}
       {!loadingReport && sf10Data && selectedStudent && (
-        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-x-auto">
+        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-x-auto print:border-transparent print:shadow-none">
           <DocumentViewer>
           <div
             id="sf10-print-area"

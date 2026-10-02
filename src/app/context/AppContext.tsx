@@ -32,9 +32,32 @@ const LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 const SESSION_KEY = 'hi5_portal_session';
 
+/** Must match the key read by the pre-paint script in index.html. */
+const THEME_KEY = 'hi5_theme';
+
 interface StoredSession {
   role: Role;
   username: string;
+}
+
+/**
+ * Read the saved theme. The inline script in index.html has already put the
+ * class on <html> before React mounts, so this only has to agree with it.
+ */
+function readStoredTheme(): boolean {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'dark';
+  } catch {
+    return false;
+  }
+}
+
+function storeTheme(isDark: boolean): void {
+  try {
+    localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+  } catch {
+    /* storage unavailable — the theme still applies for this session */
+  }
 }
 
 function loadSession(): StoredSession | null {
@@ -145,7 +168,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<Role>(_init.role);
   const [username, setUsername] = useState(_init.username);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(() => readStoredTheme());
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [readNotifs, setReadNotifs] = useState<number[]>([]);
   const [loginAttempts, setLoginAttempts] = useState(0);
@@ -340,7 +363,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const dismissToast = (id: string) =>
     setToasts(prev => prev.filter(t => t.id !== id));
-  const toggleDarkMode = () => setDarkMode(d => !d);
+  const toggleDarkMode = () =>
+    setDarkMode(d => {
+      storeTheme(!d);
+      return !d;
+    });
   const markAllRead = () => setReadNotifs([1, 2, 3, 4, 5]);
   const markOneRead = (id: number) =>
     setReadNotifs(prev => (prev.includes(id) ? prev : [...prev, id]));
