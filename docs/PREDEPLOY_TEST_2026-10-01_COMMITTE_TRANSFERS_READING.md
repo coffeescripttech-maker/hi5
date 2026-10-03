@@ -1,8 +1,8 @@
-# Pre-Deployment Test Guide — Enrollment Committee, Transfers & Reading Assessments
+# Pre-Deployment Test Guide — Committee, Transfers, Reading, Dark Mode, SF9 Special Subjects & ALS
 
-> **Release:** 2026-10-01 · **Scope:** Migrations 036/037, Enrollment Committee role, Registrar↔Committee transfer workflow, committee document verification, teacher reading assessments, Q1–Q3 grade enforcement, SNED + subject grouping.
+> **Release:** 2026-10-01 (rev. 2026-10-02) · **Scope:** Migrations 036/037/038, Enrollment Committee role, Registrar↔Committee transfer workflow, committee document verification, teacher reading assessments, Q1–Q3 grade enforcement, SNED + subject grouping, light/dark theme toggle, SF9 special-subject rows, and ALS program support (ALS-JHS/ALS-SHS) with program + TLE-track subject scoping.
 >
-> **Why this document exists:** this release adds a new role, two new tables, and new cross-role workflows. Server-side behavior is already covered by automated tests (`npm test` → 13/13, `npm run test:api` → 19/19). **The UI has never been clicked through.** This guide is the manual pass. Do not deploy until every check below reads PASS.
+> **Why this document exists:** this release adds a new role, several tables/columns, new cross-role workflows, and changes which subjects appear on report cards. Server-side behavior is already covered by automated tests (`npm test` → 13/13, `npm run test:api` → 26/26, `npx tsx scripts/smokeSpecialSubjects.ts` → 20/20). **The UI has never been clicked through.** This guide is the manual pass. Do not deploy until every check below reads PASS.
 
 ---
 
@@ -10,16 +10,19 @@
 
 | Layer | Command / method | Result |
 |---|---|---|
-| DB schema (live Railway `hi5_db`) | `npm run migrate` | Migrations 036/037 applied 2026-09-30 / 2026-10-01 |
-| Enum + column verification | read-only `information_schema` query | committee role, `sned`, verification columns, TLE grouping all present |
+| DB schema (live Railway `hi5_db`) | `npm run migrate` | Migrations 036/037 applied 2026-09-30 / 2026-10-01; **038 applied 2026-10-02** |
+| Enum + column verification | read-only `information_schema` query | committee role, `sned`, verification columns, TLE grouping, `enrollments.program` enum incl. `als_jhs`, `subjects.program` column all present |
 | Unit tests | `cd server && npm test` | **13/13 pass** |
-| API authorization tests | `cd server && npm run test:api` | **19/19 pass** |
+| API authorization tests | `cd server && npm run test:api` | **26/26 pass** |
+| SF9 special-subject tests | `cd server && npx tsx scripts/smokeSpecialSubjects.ts` | **20/20 pass** (writes one temp subject, then deletes it) |
 | Frontend (browser) | **manual, this document** | ⬜ **NOT YET DONE** |
 | Deploy | — | ⬜ blocked on the manual pass |
 
 **Known accepted state:**
 - 377 legacy `quarter = 4` grade rows exist in live data. Decision on record: **leave them, block new ones.** They are inert — SF9/SF10, LIS, at-risk and promotion all read Q1–Q3 only. New Q4 writes are now refused by the API.
 - 6 students carry a legacy `non_reader` tag with **no** supporting reading assessment. Pre-existing data, not created by this release. See step **3.6**.
+- The single live `als_shs` enrollment (id 8) is a **Grade 9** learner — internally inconsistent, because ALS-SHS covers Grades 11–12. Migration 038 seeds ALS-SHS strands at Grades 11–12 only, so this learner sees core subjects but no ALS strands. **Decide with the committee** whether to correct the program to `als_jhs` or move the learner to the right grade. See step **13.4**.
+- `ITCS` (Grade 7) is intentionally left **unscoped** (`program = NULL`), so it appears for every program. Confirm whether it is STE-only, SPFL-only, or genuinely shared; if not shared, set its scope in Subject Management. See step **13.5**.
 
 ---
 
@@ -398,7 +401,117 @@ Confirm nothing broke that existed before this release:
 
 ---
 
-## 11. Sign-off
+## 11. Dark mode (light/dark theme toggle)
+
+> **The rules under test:** the preference persists across reloads with no first-paint flash; the shell and shared components re-theme; every report/print view stays on white paper even in dark mode.
+
+### 11.1 Toggle
+1. As any role, find the **Sun/Moon** toggle in the top bar
+2. Click it → **Verify:** the whole shell (sidebar, cards, tables, modals, toasts) switches to dark
+3. **Verify:** the icon flips (Sun shown while dark, Moon while light)
+
+### 11.2 Persistence
+1. In dark mode, reload the page
+2. **Verify:** it returns dark with **no** white flash on first paint
+3. Log out and back in → **Verify:** the preference is retained
+4. Open a private/incognito window → **Verify:** it defaults to light (no stored preference)
+
+### 11.3 Report/print views stay light
+1. In dark mode, open **SF9** and **SF10**
+2. **Verify:** the report renders black-on-white paper
+3. Open the browser print preview (Ctrl+P) → **Verify:** only the report prints, clean white background, no dark chrome
+4. Repeat for certificates and any other printable view
+
+### 11.4 Shared components
+1. In dark mode, open a Dashboard, a table-heavy list, a modal, and the notifications panel
+2. **Verify:** text stays readable everywhere (no dark-on-dark or light-on-light)
+
+---
+
+## 12. SF9 special subjects
+
+> **The rules under test:** a one-off special subject behaves like a real subject on the report card; it moves the general average once it has a grade; it can be retired without deleting history.
+
+### 12.1 Access
+1. As `registrar01` → **Subject Management → Special Subjects** (or the SF9 special-subject surface). **Verify:** it loads.
+2. As `teacher01`, **Verify:** create/edit controls are absent (API returns 403)
+3. As `committee01`, **Verify:** the list is readable (admin-equivalent)
+
+### 12.2 Create & validate
+1. Add a subject: name, grade level 7–12, hours per week
+2. **Verify:** it is created as `specialized` and standalone (not folded into TLE/TVL)
+3. **Verify:** blank name, grade outside 7–12, and zero hours are each refused with field problems
+4. **Verify:** a duplicate name for the same grade is refused (409)
+
+### 12.3 On the report card
+1. Open the **SF9** for a learner in that grade
+2. **Verify:** the special subject appears as its own row with empty quarter cells
+3. **Verify:** it does **not** change the general average while it has no grade
+4. Enter a grade for it → **Verify:** it now counts in the general average as a real subject
+5. **Verify:** it also appears in **SF10** for the same learner
+
+### 12.4 Retire & delete
+1. Set the subject **inactive** → **Verify:** it leaves SF9/SF10 but is still listed when "include inactive" is on
+2. Reactivate → **Verify:** it returns
+3. Delete a subject with **no** grades → **Verify:** true delete
+4. A subject **with** grades → **Verify:** it is deactivated, not deleted (history preserved)
+5. **Verify:** a core subject cannot be renamed through the special-subject endpoint
+
+### 12.5 Automated
+```bash
+cd server
+npx tsx scripts/smokeSpecialSubjects.ts   # server must be running; expect 20/20
+```
+
+---
+
+## 13. ALS programs & subject scoping
+
+> **The rules under test:** a learner only sees subjects for their own program **and** their own TLE track; ALS learners see core **plus** LS1–LS6; regular learners do **not** see STE/SPFL additions.
+
+### 13.1 Subject scoping on SF9 (the leak fix)
+1. Open SF9 for a **regular** Junior High learner
+2. **Verify:** the STE/SPFL additions — `Advanced Mathematics`, `Advanced Science`, `Foreign Language`, `Research` — do **not** appear
+3. **Verify:** exactly **one** TLE/EPP heading appears (collapsed), not five specializations
+4. Open SF9 for a learner **with a TLE track assigned**
+5. **Verify:** only that learner's own track specialization is present
+6. Open the **single-student grade view** for the same learner → **Verify:** the same scoping applies
+
+### 13.2 ALS-JHS
+1. Select an **ALS-JHS** learner at Grades 7–10
+2. Open SF9
+3. **Verify:** core subjects **plus** the six strands appear — LS1 Communication (English), LS2 Communication (Filipino), LS3 Scientific Literacy, LS4 Mathematical, LS5 Life and Career, LS6 Understanding Self and Society
+4. **Verify:** the strands are distinct rows and count once graded
+
+### 13.3 ALS-SHS
+1. Select an **ALS-SHS** learner at Grades 11–12
+2. **Verify:** core SHS subjects plus LS1–LS6 appear
+3. **Verify:** the (currently empty) SHS strands inject no unexpected subjects
+
+### 13.4 Malformed ALS enrollment
+1. Investigate enrollment **id 8** (`program = als_shs`, Grade 9)
+2. Decide with the committee: correct it to `als_jhs`, or move the learner to Grade 11–12
+3. **Verify:** after correction, the learner's SF9 shows the expected strands
+
+### 13.5 ITCS classification
+1. As `admin` → **Subject Management**
+2. Confirm whether `ITCS` is genuinely shared or belongs to one program
+3. If not shared, set its **Program Scope** and **Verify:** it stops appearing for other programs
+
+### 13.6 Subject Management
+1. As `admin` → **Subject Management**
+2. **Verify:** the **Program Scope** selector (Regular / STE / SPFL / Open HS / ALS-SHS / ALS-JHS / shared) works on create and edit
+3. **Verify:** presets (STE, SPFL, ALS Learning Strands) apply the right scope
+4. **Verify:** each row shows its program scope
+
+### 13.7 Enrollment & dashboards
+1. As teacher → **Enrollment**. **Verify:** **ALS-JHS** is selectable with its badge
+2. As registrar → **Section Assignment**. **Verify:** ALS-JHS / ALS-SHS / Open-HS learners flow into the **manual** placement queue, not auto-sectioned
+3. As principal → Dashboard / Enrollment Figures. **Verify:** ALS-JHS and ALS-SHS cards render when counts are non-zero
+
+---
+
+## 14. Sign-off
 
 | # | Section | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|
@@ -411,17 +524,21 @@ Confirm nothing broke that existed before this release:
 | 8 | Q1–Q3 enforcement | | | ⬜ | |
 | 9 | SNED & subject grouping | | | ⬜ | |
 | 10 | Regression sweep | | | ⬜ | |
+| 11 | Dark mode | | | ⬜ | |
+| 12 | SF9 special subjects | | | ⬜ | |
+| 13 | ALS programs & subject scoping | | | ⬜ | |
 
 **Deploy gate:** all rows PASS, and `npm test` + `npm run test:api` are green on the deploy commit.
 
 **Automated re-run before deploy:**
 ```bash
 cd server
-npm test          # expect 13/13
-npm run test:api  # expect 19/19 (server must be running)
-npx tsc --noEmit  # expect no errors
+npm test                                    # expect 13/13
+npm run test:api                            # expect 26/26 (server must be running)
+npx tsx scripts/smokeSpecialSubjects.ts     # expect 20/20 (server must be running)
+npx tsc --noEmit                            # expect no errors
 cd ..
-npx tsc -b        # expect no errors
+npx tsc -b                                  # expect no errors
 ```
 
 **Re-apply migrations on the target environment:**
@@ -429,7 +546,7 @@ npx tsc -b        # expect no errors
 cd server
 npm run migrate
 ```
-Expect `0 new migration(s) executed` if already applied. If it reports new migrations, stop and verify the schema before continuing.
+Expect `0 new migration(s) executed` if already applied (036, 037, 038). If it reports new migrations, stop and verify the schema before continuing.
 
 ---
 
@@ -439,6 +556,7 @@ Expect `0 new migration(s) executed` if already applied. If it reports new migra
 - Transfer requests, reading assessments, and document verifications created during this pass are test records. Prefer using clearly-named test learners (e.g. `ZZTEST`) and clean them up, or run the pass on a staging copy of the database.
 - 6 legacy `non_reader` tags lack assessment evidence (step 3.6). Resolve deliberately — do not bulk-delete.
 - 377 legacy `quarter = 4` rows: **leave as-is** per the recorded decision. Do not delete.
+- If `smokeSpecialSubjects.ts` is interrupted, a `ZZ Smoke Special` subject may remain. Delete it in Subject Management or with SQL before re-running; the smoke refuses to create a duplicate.
 
 ## Appendix B — What was already automated
 
@@ -451,12 +569,18 @@ Expect `0 new migration(s) executed` if already applied. If it reports new migra
 - teacher cannot decide a transfer
 - registrar cannot decide a transfer (separation of duties)
 - committee passes authz on filing (admin-equivalent, fails on validation)
+- transfer-out with no active enrollment refused; refusal names the enrolled school years
+- transfer form validation (LRN, future birthdate, grade range, multiple problems, blank reason)
 - teacher can list reading assessments
 - `non_reader` tagging refused without assessment evidence
 - empty classification array accepted (clears tags)
 - Q4 correction request refused
 - committee can read enrollment requirements
 
+`server/scripts/smokeSpecialSubjects.ts` (run via `npx tsx`) covers the SF9 special-subject lifecycle: authorization, field validation, server-pinned `specialized`/standalone type, duplicate guard, retire/restore, appearance on the SF9, general-average neutrality while ungraded, list growth by one row, conditional delete, and cleanup. It **writes** one temporary subject (`ZZ Smoke Special`) and deletes it; if the run aborts, delete any leftover row before re-running.
+
 `server/src/utils/linearRegression.test.ts` (run via `npm test`) covers the at-risk regression and classification math.
 
-**What automation does NOT cover:** rendering, routing, sidebar gating, optimistic UI, toasts, counters, and any multi-step workflow. That is exactly what this document tests.
+**Program scoping** (STEP 13) was verified against live data during development (a regular Grade 7 SF9 with no track shows no STE/SPFL additions and no TLE specializations; a tracked learner shows only their own track). It is not yet part of the HTTP smoke harness — the manual checks in section **13** are the gate.
+
+**What automation does NOT cover:** rendering, routing, sidebar gating, optimistic UI, toasts, counters, dark-mode theming, and any multi-step workflow. That is exactly what this document tests.

@@ -12,6 +12,7 @@ import { settingsApi } from "../../services/settings";
 import { useApp } from "../../context/AppContext";
 import { PageContainer } from "../../components/PageContainer";
 import { HybridTable } from "../../components/HybridTable";
+import { ModalShell } from "../../components/ModalShell";
 
 type GradeEntry = {
   subject: string;
@@ -858,178 +859,183 @@ export function GradeManagement() {
 
       {/* ── Lock Confirmation Modal ── */}
       {showLockModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shadow-sm">
-                <AlertTriangle size={22} className="text-amber-600" />
+      <ModalShell
+        open
+        onClose={() => setShowLockModal(false)}
+        maxWidth="max-w-md"
+        className="animate-in zoom-in-95"
+        bodyClassName="p-6"
+      >
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shadow-sm">
+            <AlertTriangle size={22} className="text-amber-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900">Lock & Finalize Grades</h3>
+            <p className="text-gray-400 text-xs">This action will prevent further edits</p>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-xl p-4 text-sm space-y-3 mb-5">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-500">Student:</span>
+            <span className="font-bold text-gray-800">{selectedStudent.name}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-500">Grade Level:</span>
+            <span className="font-semibold">Grade {selectedStudent.grade_level}</span>
+          </div>
+          <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+            <span className="text-gray-500">General Average:</span>
+            <span className={`font-bold text-lg ${descriptor.color}`}>{overallAvg}</span>
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+          Once locked, grades cannot be edited directly. If changes are needed, you must submit a <strong>Correction Request</strong> to the Registrar for approval.
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowLockModal(false)}
+            disabled={locking}
+            className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleLock}
+            disabled={locking}
+            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+          >
+            {locking ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+            {locking ? "Locking..." : "Yes, Lock Grades"}
+          </button>
+        </div>
+      </ModalShell>
+      )}
+
+      {/* ── Correction Request Modal ── */}
+      <ModalShell
+        open={showCorrectionModal}
+        onClose={() => setShowCorrectionModal(false)}
+        maxWidth="max-w-md"
+        bodyClassName="p-0"
+      >
+        <div className="px-6 py-5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <MessageSquare size={18} className="text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Grade Correction Request</h3>
+              <p className="text-white/70 text-xs">Submit for Registrar approval</p>
+            </div>
+          </div>
+          <button onClick={() => setShowCorrectionModal(false)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+            <X size={18} />
+          </button>
+        </div>
+        {!correctionSubmitted ? (
+          <>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Subject</label>
+                <select
+                  value={correctionSubject}
+                  onChange={e => setCorrectionSubject(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
+                >
+                  <option value="">All subjects</option>
+                  {grades.map(g => <option key={g.subject}>{g.subject}</option>)}
+                </select>
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">Lock & Finalize Grades</h3>
-                <p className="text-gray-400 text-xs">This action will prevent further edits</p>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Quarter</label>
+                <select
+                  value={correctionQuarter}
+                  onChange={e => setCorrectionQuarter(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
+                >
+                  <option value="">All quarters</option>
+                  <option value="1">1st Quarter</option>
+                  <option value="2">2nd Quarter</option>
+                  <option value="3">3rd Quarter</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
+                  Common Mistake <span className="text-gray-300">(optional)</span>
+                </label>
+                <select
+                  value={correctionMistake}
+                  onChange={e => { setCorrectionMistake(e.target.value); if (e.target.value !== "Other") setCorrectionOther(""); }}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
+                >
+                  <option value="">Select a reason...</option>
+                  <option value="Wrong item count">Wrong item count</option>
+                  <option value="Transposed score">Transposed score</option>
+                  <option value="Missing student">Missing student</option>
+                  <option value="Computation error">Computation error</option>
+                  <option value="Encoding lag">Encoding lag</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              {correctionMistake === "Other" && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Describe the mistake</label>
+                  <textarea
+                    value={correctionOther}
+                    onChange={e => setCorrectionOther(e.target.value)}
+                    rows={2} placeholder="Briefly describe what went wrong..."
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Justification</label>
+                <textarea
+                  value={correctionJustification}
+                  onChange={e => setCorrectionJustification(e.target.value)}
+                  rows={4} placeholder="Explain why the grade needs to be corrected..."
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
+                />
               </div>
             </div>
-
-            <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-xl p-4 text-sm space-y-3 mb-5">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Student:</span>
-                <span className="font-bold text-gray-800">{selectedStudent.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Grade Level:</span>
-                <span className="font-semibold">Grade {selectedStudent.grade_level}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <span className="text-gray-500">General Average:</span>
-                <span className={`font-bold text-lg ${descriptor.color}`}>{overallAvg}</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-              Once locked, grades cannot be edited directly. If changes are needed, you must submit a <strong>Correction Request</strong> to the Registrar for approval.
-            </p>
-
-            <div className="flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
               <button
-                onClick={() => setShowLockModal(false)}
-                disabled={locking}
+                onClick={() => setShowCorrectionModal(false)}
+                disabled={submittingCorrection}
                 className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={handleLock}
-                disabled={locking}
-                className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                onClick={handleSubmitCorrection}
+                disabled={!correctionJustification || submittingCorrection}
+                className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all inline-flex items-center justify-center gap-2"
               >
-                {locking ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
-                {locking ? "Locking..." : "Yes, Lock Grades"}
+                {submittingCorrection ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {submittingCorrection ? "Submitting..." : "Submit Request"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Correction Request Modal ── */}
-      {showCorrectionModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                  <MessageSquare size={18} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white">Grade Correction Request</h3>
-                  <p className="text-white/70 text-xs">Submit for Registrar approval</p>
-                </div>
-              </div>
-              <button onClick={() => setShowCorrectionModal(false)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
-                <X size={18} />
-              </button>
+          </>
+        ) : (
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <CheckCircle size={32} className="text-emerald-600" />
             </div>
-            {!correctionSubmitted ? (
-              <>
-              <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Subject</label>
-                    <select
-                      value={correctionSubject}
-                      onChange={e => setCorrectionSubject(e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
-                    >
-                      <option value="">All subjects</option>
-                      {grades.map(g => <option key={g.subject}>{g.subject}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Quarter</label>
-                    <select
-                      value={correctionQuarter}
-                      onChange={e => setCorrectionQuarter(e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
-                    >
-                      <option value="">All quarters</option>
-                      <option value="1">1st Quarter</option>
-                      <option value="2">2nd Quarter</option>
-                      <option value="3">3rd Quarter</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
-                      Common Mistake <span className="text-gray-300">(optional)</span>
-                    </label>
-                    <select
-                      value={correctionMistake}
-                      onChange={e => { setCorrectionMistake(e.target.value); if (e.target.value !== "Other") setCorrectionOther(""); }}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
-                    >
-                      <option value="">Select a reason...</option>
-                      <option value="Wrong item count">Wrong item count</option>
-                      <option value="Transposed score">Transposed score</option>
-                      <option value="Missing student">Missing student</option>
-                      <option value="Computation error">Computation error</option>
-                      <option value="Encoding lag">Encoding lag</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  {correctionMistake === "Other" && (
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Describe the mistake</label>
-                      <textarea
-                        value={correctionOther}
-                        onChange={e => setCorrectionOther(e.target.value)}
-                        rows={2} placeholder="Briefly describe what went wrong..."
-                        className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Justification</label>
-                    <textarea
-                      value={correctionJustification}
-                      onChange={e => setCorrectionJustification(e.target.value)}
-                      rows={4} placeholder="Explain why the grade needs to be corrected..."
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
-                    />
-                  </div>
-                </div>
-              <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
-                <button
-                  onClick={() => setShowCorrectionModal(false)}
-                  disabled={submittingCorrection}
-                  className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitCorrection}
-                  disabled={!correctionJustification || submittingCorrection}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all inline-flex items-center justify-center gap-2"
-                >
-                  {submittingCorrection ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  {submittingCorrection ? "Submitting..." : "Submit Request"}
-                </button>
-              </div>
-              </>
-            ) : (
-              <div className="p-6 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <CheckCircle size={32} className="text-emerald-600" />
-                </div>
-                <h3 className="font-bold text-gray-900 text-lg mb-1">Request Submitted</h3>
-                <p className="text-sm text-gray-500 mb-5">Your correction request has been forwarded to the Registrar for review.</p>
-                <button
-                  onClick={() => setShowCorrectionModal(false)}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
-                >
-                  Done
-                </button>
-              </div>
-            )}
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Request Submitted</h3>
+            <p className="text-sm text-gray-500 mb-5">Your correction request has been forwarded to the Registrar for review.</p>
+            <button
+              onClick={() => setShowCorrectionModal(false)}
+              className="w-full bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
+            >
+              Done
+            </button>
           </div>
-        </div>
-      )}
+        )}
+      </ModalShell>
     </PageContainer>
   );
 }

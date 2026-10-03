@@ -30,6 +30,7 @@ import { sectionsApi, SectionRow, TeacherBrief } from "../../services/sections";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { roomsApi, RoomRow } from "../../services/rooms";
 import { useApp } from "../../context/AppContext";
+import { ModalShell } from "../../components/ModalShell";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -399,12 +400,13 @@ export function ScheduleModifier() {
       </div>
 
       {/* Create / edit form */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <form
-            onSubmit={handleSave}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto app-scroll"
-          >
+      <ModalShell
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        maxWidth="max-w-2xl"
+        bodyClassName="p-0"
+      >
+          <form onSubmit={handleSave}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="font-bold text-gray-800">
                 {editing ? "Edit Schedule Entry" : "New Schedule Entry"}
@@ -596,8 +598,7 @@ export function ScheduleModifier() {
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </ModalShell>
     </div>
   );
 }

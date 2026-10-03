@@ -132,7 +132,7 @@ export function StudentRiskOverview({ schoolYearId }: { schoolYearId?: number })
                       {s.current_average != null ? s.current_average.toFixed(2) : "—"}
                     </span>
                     <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${RISK_CONFIG[s.risk_level ?? "no_data"].chip}`}
+                      className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${RISK_CONFIG[s.risk_level ?? "no_data"].chip}`}
                     >
                       {RISK_LABEL[s.risk_level ?? "no_data"]}
                     </span>

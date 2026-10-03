@@ -15,9 +15,12 @@ interface ConfettiProps {
  * it unmounts automatically when the modal closes — no timers to clean up.
  */
 export function Confetti({ count = 70 }: ConfettiProps) {
-  const pieces = useMemo(
-    () =>
-      Array.from({ length: count }, (_, i) => ({
+  const pieces = useMemo(() => {
+    // Fewer animated DOM nodes on phones to protect battery / frame rate.
+    const n = typeof window !== "undefined" && window.innerWidth < 768
+      ? Math.min(count, 28)
+      : count;
+    return Array.from({ length: n }, (_, i) => ({
         id: i,
         left: Math.random() * 100,
         delay: Math.random() * 1.2,
@@ -26,9 +29,8 @@ export function Confetti({ count = 70 }: ConfettiProps) {
         width: 7 + Math.random() * 6,
         height: 4 + Math.random() * 5,
         drift: -50 + Math.random() * 100,
-      })),
-    [count]
-  );
+      }));
+  }, [count]);
 
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden z-[70]" aria-hidden="true">

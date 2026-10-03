@@ -46,6 +46,19 @@ export function DocumentViewer({
     setZoom(clamped);
   }, []);
 
+  // Auto-fit the paper to the phone viewport on first paint so the sheet is
+  // visible without a manual tap. Deferred a frame so the surface/scale refs
+  // have measured; skip on desktop where the paper renders at natural size.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+        fit();
+      }
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** Scale so the paper's full width fits the viewport (never above 100%). */
   const fit = useCallback(() => {
     const surface = surfaceRef.current;

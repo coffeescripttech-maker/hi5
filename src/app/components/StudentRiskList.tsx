@@ -159,7 +159,7 @@ export function StudentRiskList({ schoolYearId }: { schoolYearId?: number }) {
             <input
               type="text" placeholder="Search by name or LRN..."
               value={query} onChange={e => setQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white"
+              className="w-full min-h-11 pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 bg-white"
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -167,7 +167,7 @@ export function StudentRiskList({ schoolYearId }: { schoolYearId?: number }) {
               <button
                 key={chip.key}
                 onClick={() => setFilter(chip.key)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-150 border ${
+                className={`touch-target inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-150 border ${
                   filter === chip.key
                     ? chip.key === "at_risk"
                       ? "bg-red-50 text-red-700 border-red-200 shadow-sm"
@@ -188,7 +188,7 @@ export function StudentRiskList({ schoolYearId }: { schoolYearId?: number }) {
           <span className="ml-auto text-[11px] text-gray-400 hidden lg:inline">Live — recomputed from quarterly averages</span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[1000px]">
             <thead className="bg-gray-50/80">
               <tr>
@@ -245,6 +245,48 @@ export function StudentRiskList({ schoolYearId }: { schoolYearId?: number }) {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile card list */}
+        <div className="md:hidden divide-y divide-gray-50">
+          {filtered.map(s => {
+            const riskKey = s.risk_level ?? "no_data";
+            const cfg = RISK_CONFIG[riskKey];
+            return (
+              <div key={s.student_id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
+                    {s.student_name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{s.student_name}</p>
+                    <p className="text-[11px] text-gray-400 font-mono truncate">{s.lrn}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Grade {s.grade_level} · {s.section_name || "—"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-500">
+                      <span>
+                        Avg <b className="font-mono text-gray-700">{s.current_average != null ? s.current_average.toFixed(2) : "—"}</b>
+                      </span>
+                      <span>
+                        Slope <b className={`font-mono ${s.slope != null && s.slope < 0 ? "text-red-500" : s.slope != null && s.slope > 0 ? "text-emerald-600" : "text-gray-400"}`}>{s.slope != null ? `${s.slope > 0 ? "+" : ""}${s.slope.toFixed(2)}` : "—"}</b>
+                      </span>
+                      <span>
+                        Proj <b className="font-mono text-gray-700">{s.projected != null ? s.projected.toFixed(2) : "—"}</b>
+                      </span>
+                      <TrendCell trend={s.trend} />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${cfg.chip}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                    {RISK_LABEL[riskKey]}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {filtered.length === 0 && (

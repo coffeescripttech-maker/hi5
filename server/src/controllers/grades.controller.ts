@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { collapseSubjectGroups } from "../utils/subjectGroups";
+import { subjectScopeSql } from "../utils/subjectScope";
 import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -113,14 +114,15 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         params.push(school_year_id);
       }
 
-      // Get student's strand track (if any) from their current enrollment
+      // Get student's strand track and program from their current enrollment
       const enrollmentInfo = await query<RowDataPacket[]>(
-        `SELECT e.strand_track_id FROM enrollments e
+        `SELECT e.strand_track_id, e.program FROM enrollments e
          WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : " AND e.status = 'enrolled'"}
          ORDER BY e.school_year_id DESC LIMIT 1`,
         school_year_id ? [student_id, school_year_id] : [student_id]
       );
       const strandTrackId = (enrollmentInfo[0] as any)?.strand_track_id || null;
+      const enrollmentProgram = (enrollmentInfo[0] as any)?.program || null;
 
       // Build grade params — first two are for student_id in JOIN and ON clause
       const gradeParams: any[] = [student_id, student_id];
@@ -128,15 +130,12 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         gradeParams.push(school_year_id);
       }
 
-      // When student has a strand track, filter subjects by that track
-      let trackWhere = "";
-      if (strandTrackId) {
-        trackWhere = ` AND (
-          NOT EXISTS (SELECT 1 FROM subject_strand_tracks WHERE subject_id = s.id)
-          OR s.id IN (SELECT subject_id FROM subject_strand_tracks WHERE strand_track_id = ?)
-        )`;
-        gradeParams.push(strandTrackId);
-      }
+      // Scope subjects to the learner's program and (when assigned) strand/track.
+      const scopeWhere = subjectScopeSql(
+        "s",
+        { program: enrollmentProgram, strandTrackId },
+        gradeParams
+      );
 
       const grades = await query<RowDataPacket[]>(
         `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type,
@@ -148,7 +147,7 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
          FROM subjects s
          JOIN students stu ON stu.id = ?
          LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
-         WHERE s.grade_level = stu.grade_level AND s.is_active = 1${trackWhere}
+         WHERE s.grade_level = stu.grade_level AND s.is_active = 1${scopeWhere}
          GROUP BY s.id, s.name, s.subject_type
          ORDER BY s.name ASC`,
         gradeParams

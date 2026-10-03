@@ -131,7 +131,7 @@ export function CertificateOfEnrollment() {
 
       {/* ── Certificate ── */}
       <div id="cert-enrollment-content" className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="p-10 sm:p-14" style={{ fontFamily: "serif" }}>
+        <div className="p-6 sm:p-14" style={{ fontFamily: "serif" }}>
           <Letterhead school={school} />
 
           <div className="mb-8 border-t-2 border-b border-gray-300" />

@@ -106,7 +106,7 @@ export function GradeProgress() {
             <span className="text-xs font-semibold text-purple-600">{g.pct}% complete</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-gray-50/80">
                 <tr>
                   {["Section", "Adviser", "Students Graded", "Status"].map(h => (

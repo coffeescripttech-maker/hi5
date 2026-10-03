@@ -33,6 +33,7 @@ import type { LucideIcon } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { authApi } from "../services/api";
 import { isValidPhotoUrl } from "../utils/photo";
+import { ModalShell } from "./ModalShell";
 
 export type Role = "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
 export type Tone = "blue" | "emerald" | "indigo" | "violet" | "purple";
@@ -273,7 +274,7 @@ export function ProfileHeader({
             <button
               onClick={() => fileRef.current?.click()}
               title="Change profile photo"
-              className={`absolute -bottom-1.5 -right-1.5 w-8 h-8 rounded-xl ${accent.button} ${accent.hover} flex items-center justify-center shadow-md border-2 border-white transition`}>
+              className={`absolute -bottom-1.5 -right-1.5 w-8 h-8 rounded-xl ${accent.button} ${accent.hover} flex items-center justify-center shadow-md border-2 border-white transition after:absolute after:-inset-3 after:content-['']`}>
               <Camera size={13} className="text-white" />
             </button>
             <input
@@ -311,7 +312,7 @@ export function ProfileHeader({
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              className={`text-xs ${accent.text} hover:underline mt-2 font-medium inline-flex items-center gap-1`}>
+              className={`text-xs ${accent.text} hover:underline mt-2 font-medium inline-flex items-center gap-1 min-h-11`}>
               <Camera size={11} /> Change profile photo
             </button>
           </div>
@@ -476,19 +477,19 @@ export function EditableInfoCard({
           <div className="flex gap-2">
             <button
               onClick={handleSaveClick}
-              className={`text-xs ${accent.button} ${accent.hover} text-white px-3.5 py-1.5 rounded-lg font-medium shadow-sm transition`}>
+              className={`text-xs ${accent.button} ${accent.hover} text-white px-3.5 py-1.5 rounded-lg font-medium shadow-sm transition min-h-11`}>
               Save Changes
             </button>
             <button
               onClick={onCancel}
-              className="text-xs text-gray-500 px-3 py-1.5 font-medium flex items-center gap-1 hover:bg-gray-100 rounded-lg transition">
+              className="text-xs text-gray-500 px-3 py-1.5 font-medium flex items-center gap-1 hover:bg-gray-100 rounded-lg transition min-h-11">
               <X size={11} /> Cancel
             </button>
           </div>
         ) : (
           <button
             onClick={onEdit}
-            className={`flex items-center gap-1.5 text-xs ${accent.text} hover:opacity-80 font-medium transition`}>
+            className={`flex items-center gap-1.5 text-xs ${accent.text} hover:opacity-80 font-medium transition min-h-11`}>
             <Pencil size={12} /> Edit
           </button>
         )
@@ -629,7 +630,7 @@ export function AccountSecurityCard({
       actions={
         <button
           onClick={onChangePassword}
-          className={`flex items-center gap-1.5 text-xs ${accent.text} hover:opacity-80 font-medium`}>
+          className={`flex items-center gap-1.5 text-xs ${accent.text} hover:opacity-80 font-medium min-h-11`}>
           <Lock size={12} /> Change Password
         </button>
       }>
@@ -699,8 +700,6 @@ export function ChangePasswordModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!open) return null;
-
   const reset = () => {
     setCurrent("");
     setNext("");
@@ -749,64 +748,62 @@ export function ChangePasswordModal({
         data-1p-ignore="true"
         className={`w-full pl-3 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 border border-gray-200 bg-white ${accent.ring}`}
       />
-      <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+      <button type="button" aria-label={show ? "Hide password" : "Show password"} onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 touch-target inline-flex items-center justify-center text-gray-400 hover:text-gray-600">
         {show ? <EyeOff size={15} /> : <Eye size={15} />}
       </button>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className={`px-6 py-5 bg-gradient-to-r ${accent.gradient} flex items-center justify-between`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Lock size={18} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-white">Change Password</h3>
-              <p className="text-white/70 text-xs">Keep your account secure</p>
-            </div>
-          </div>
-          <button onClick={() => { reset(); onClose(); }} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Current Password</label>
-            {input(current, setCurrent, "Enter current password", "new-password")}
+    <ModalShell open={open} onClose={onClose} maxWidth="max-w-md" bodyClassName="p-0">
+      <div className={`px-6 py-5 bg-gradient-to-r ${accent.gradient} flex items-center justify-between`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+            <Lock size={18} className="text-white" />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">New Password</label>
-            {input(next, setNext, "Minimum 8 characters", "new-password")}
+            <h3 className="font-bold text-white">Change Password</h3>
+            <p className="text-white/70 text-xs">Keep your account secure</p>
           </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Confirm New Password</label>
-            {input(confirm, setConfirm, "Re-enter new password", "new-password")}
-          </div>
-          {error && (
-            <p className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
-              <AlertCircle size={12} className="flex-shrink-0" />{error}
-            </p>
-          )}
         </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
-          <button
-            onClick={() => { reset(); onClose(); }}
-            className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className={`flex-1 ${accent.button} ${accent.hover} disabled:opacity-60 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center justify-center gap-2`}>
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            {saving ? "Updating…" : "Update Password"}
-          </button>
-        </div>
+        <button onClick={() => { reset(); onClose(); }} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+          <X size={18} />
+        </button>
       </div>
-    </div>
+      <div className="p-6 space-y-4">
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Current Password</label>
+          {input(current, setCurrent, "Enter current password", "new-password")}
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">New Password</label>
+          {input(next, setNext, "Minimum 8 characters", "new-password")}
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Confirm New Password</label>
+          {input(confirm, setConfirm, "Re-enter new password", "new-password")}
+        </div>
+        {error && (
+          <p className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+            <AlertCircle size={12} className="flex-shrink-0" />{error}
+          </p>
+        )}
+      </div>
+      <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+        <button
+          onClick={() => { reset(); onClose(); }}
+          className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className={`flex-1 ${accent.button} ${accent.hover} disabled:opacity-60 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center justify-center gap-2`}>
+          {saving && <Loader2 size={14} className="animate-spin" />}
+          {saving ? "Updating…" : "Update Password"}
+        </button>
+      </div>
+    </ModalShell>
   );
 }
 

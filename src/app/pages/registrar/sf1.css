@@ -18,13 +18,15 @@
     padding: 0 !important;
   }
 
-  /* Hide sidebar, topbar, toolbar, and layout extras */
+  /* Hide sidebar, topbar, toolbar, and layout extras.
+     Scoped to pages that actually render the SF sheet so printing an
+     unrelated page is not affected by this file's global print rules. */
   .no-print {
     display: none !important;
   }
 
-  aside,
-  header.border-b {
+  body:has(.sf1-page) aside,
+  body:has(.sf1-page) header.border-b {
     display: none !important;
   }
 
@@ -42,9 +44,9 @@
   }
 
   /* Ensure the page uses full width available */
-  main,
-  #root > div,
-  [class*='flex-1'] {
+  body:has(.sf1-page) main,
+  body:has(.sf1-page) #root > div,
+  body:has(.sf1-page) [class*='flex-1'] {
     margin: 0 !important;
     padding: 0 !important;
     max-width: none !important;

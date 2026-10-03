@@ -15,6 +15,7 @@
 import htmlToPdfmake from "html-to-pdfmake";
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
+import { saveOrShareFile } from "./nativeExport";
 import tinosRegular from "../../assets/fonts/Tinos-Regular.ttf";
 import tinosBold from "../../assets/fonts/Tinos-Bold.ttf";
 
@@ -589,7 +590,8 @@ export async function exportToPdf({
       ],
     };
 
-    pdfMake.createPdf(docDefinition).download(`${filename}.pdf`);
+    const blob = await pdfMake.createPdf(docDefinition).getBlob();
+    await saveOrShareFile(blob, `${filename}.pdf`);
   } catch (error) {
     console.error("PDF export failed:", error);
     throw error;

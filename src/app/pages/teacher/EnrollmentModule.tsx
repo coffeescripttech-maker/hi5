@@ -146,7 +146,13 @@ const PROGRAMS = [
   {
     value: 'als_shs',
     label: 'ALS SHS',
-    desc: 'Alternative Learning System',
+    desc: 'Alternative Learning System (Senior High)',
+    color: 'emerald'
+  },
+  {
+    value: 'als_jhs',
+    label: 'ALS JHS',
+    desc: 'Alternative Learning System (Junior High)',
     color: 'emerald'
   }
 ];
@@ -159,7 +165,8 @@ const PROGRAM_BADGES: Record<
   ste: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'STE' },
   spfl: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'SPFL' },
   open_high: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Open High' },
-  als_shs: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'ALS SHS' }
+  als_shs: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'ALS SHS' },
+  als_jhs: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'ALS JHS' }
 };
 
 const REQUIREMENTS_LIST = [
@@ -1728,10 +1735,10 @@ export function EnrollmentModule() {
               {/* soft radial glow */}
               <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${s.iconTile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`} />
               <div className="relative flex items-center justify-between gap-2 mb-3">
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
+                <span className="min-w-0 truncate text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
                   {s.label}
                 </span>
-                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${s.iconTile} shadow-md ${s.tileShadow} flex items-center justify-center flex-shrink-0`}>
+                <div className={`hidden sm:flex w-9 h-9 rounded-xl bg-gradient-to-br ${s.iconTile} shadow-md ${s.tileShadow} items-center justify-center flex-shrink-0`}>
                   <s.icon size={16} className="text-white" />
                 </div>
               </div>

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { gradesApi, CorrectionRequestRow } from "../../services/grades";
 import { useApp } from "../../context/AppContext";
+import { ModalShell } from "../../components/ModalShell";
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -121,7 +122,7 @@ export function GradeCorrections() {
             <button
               onClick={load}
               disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 min-h-11 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
               Refresh
@@ -144,7 +145,7 @@ export function GradeCorrections() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${
+                className={`min-h-11 px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${
                   filter === f.key
                     ? "bg-indigo-600 text-white shadow-sm"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -173,7 +174,7 @@ export function GradeCorrections() {
       {/* ── Requests table ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="bg-indigo-50/70 border-b border-indigo-100">
                 <th className="text-left px-5 py-3.5 text-indigo-800 font-semibold text-xs uppercase tracking-wider">Student</th>
@@ -245,14 +246,14 @@ export function GradeCorrections() {
                         <button
                           onClick={() => setConfirming({ id: r.id, action: "approved" })}
                           disabled={actingId !== null}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-11 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition disabled:opacity-50"
                         >
                           <CheckCircle2 size={13} /> Approve
                         </button>
                         <button
                           onClick={() => setConfirming({ id: r.id, action: "rejected" })}
                           disabled={actingId !== null}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs font-semibold hover:bg-red-100 transition disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-11 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs font-semibold hover:bg-red-100 transition disabled:opacity-50"
                         >
                           <XCircle size={13} /> Reject
                         </button>
@@ -272,8 +273,12 @@ export function GradeCorrections() {
 
       {/* ── Confirm modal ── */}
       {confirming && confirmingRow && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <ModalShell
+          open
+          onClose={() => setConfirming(null)}
+          maxWidth="max-w-md"
+          bodyClassName="p-6"
+        >
             <div className="flex items-center gap-3 mb-4">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
                 confirming.action === "approved" ? "bg-emerald-100" : "bg-red-100"
@@ -339,14 +344,14 @@ export function GradeCorrections() {
               <button
                 onClick={() => setConfirming(null)}
                 disabled={actingId !== null}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                className="flex-1 border border-gray-200 text-gray-700 py-2.5 min-h-11 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReview}
                 disabled={actingId !== null}
-                className={`flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2 ${
+                className={`flex-1 text-white py-2.5 min-h-11 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2 ${
                   confirming.action === "approved"
                     ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
                     : "bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
@@ -368,8 +373,7 @@ export function GradeCorrections() {
                 )}
               </button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

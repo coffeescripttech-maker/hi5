@@ -8,7 +8,7 @@ export function NotFound() {
   const navigate = useNavigate();
   const { schoolYearLabel } = useApp();
   return (
-    <div className="min-h-dvh bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-dvh bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 flex items-center justify-center p-4 pt-safe pb-safe relative overflow-hidden">
       {/* Decorative orbs */}
       <div className="absolute top-[-80px] right-[-80px] w-80 h-80 rounded-full opacity-10 pointer-events-none"
         style={{ background: "radial-gradient(circle, #93c5fd, transparent 70%)" }} />
@@ -40,7 +40,7 @@ export function NotFound() {
         </p>
         <p className="text-blue-300/50 text-xs mb-8">Hi5 Portal · DSPMNHS · SY {schoolYearLabel ?? '--'}</p>
 
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-blue-200 border border-blue-600/40 hover:bg-blue-800/50 transition"

@@ -16,6 +16,7 @@ import { rbacApi } from '../services/rbac';
 import { Sidebar, type SidebarState } from './layout/Sidebar';
 import { TopBar } from './layout/TopBar';
 import { BottomNav } from './layout/BottomNav';
+import { registerNativeBackHandler } from '../services/nativeBack';
 
 export function Layout() {
   const { role, darkMode } = useApp();
@@ -41,6 +42,15 @@ export function Layout() {
   useEffect(() => {
     if (!role) navigate('/login', { replace: true });
   }, [role, navigate]);
+
+  // Close the mobile drawer on the native hardware back button.
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    return registerNativeBackHandler(() => {
+      setMobileSidebarOpen(false);
+      return true;
+    });
+  }, [mobileSidebarOpen]);
 
   // Load this role's enabled menu keys to filter the sidebar and guard
   // direct-URL access to disabled modules. Admin always has full access.
@@ -119,7 +129,7 @@ export function Layout() {
         />
 
         <main
-          className={`app-scroll flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6 ${
+          className={`app-scroll flex-1 overflow-y-auto px-safe p-4 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6 ${
             darkMode ? 'bg-gray-900' : 'bg-gray-50'
           }`}>
           {accessDenied ? (

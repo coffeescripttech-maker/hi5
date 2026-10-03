@@ -401,11 +401,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none py-safe sm:left-auto sm:right-5">
         {toasts.map(t => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium min-w-[280px] max-w-[360px] animate-slide-in ${
+            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium w-full sm:min-w-[280px] sm:max-w-[360px] animate-slide-in ${
               t.type === 'success'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : t.type === 'error'

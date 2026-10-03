@@ -55,7 +55,7 @@ export function TopBar({
 
   return (
     <>
-      <header className="relative z-40 flex h-16 flex-shrink-0 items-center gap-2 border-b border-gray-200/70 bg-white/80 px-3 backdrop-blur md:gap-3 md:px-5 dark:border-slate-700/60 dark:bg-slate-900/80">
+      <header className="relative z-40 flex min-h-16 flex-shrink-0 items-center gap-2 border-b border-gray-200/70 bg-white/80 px-3 pt-safe backdrop-blur md:gap-3 md:px-5 dark:border-slate-700/60 dark:bg-slate-900/80">
         {/* Mobile hamburger */}
         <button
           onClick={onOpenMobile}

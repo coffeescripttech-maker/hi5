@@ -3,6 +3,7 @@ import { ArrowUpCircle, Archive, CheckCircle, AlertTriangle, Info, Calendar, Use
 import { schoolYearsApi, SchoolYearRow } from "../../services/schoolYears";
 import { promotionsApi, PromotionRow } from "../../services/promotions";
 import { useApp } from "../../context/AppContext";
+import { ModalShell } from "../../components/ModalShell";
 
 type Step = "idle" | "confirm-promote" | "promoting" | "promoted" | "confirm-archive" | "archiving" | "archived";
 
@@ -351,7 +352,7 @@ export function AcademicYearManagement() {
                                 )
                               }
                               disabled={togglingId === sy.id}
-                              className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition disabled:opacity-50 ${
+                              className={`touch-target inline-flex items-center justify-center text-[11px] font-medium px-3 py-1.5 rounded-lg border transition disabled:opacity-50 ${
                                 sy.enrollment_open === 1
                                   ? "text-red-600 hover:bg-red-50 border-red-200 hover:border-red-300"
                                   : "text-emerald-600 hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300"
@@ -377,7 +378,7 @@ export function AcademicYearManagement() {
                                     showToast("error", err.detail?.error || err.message || "Failed to set current.");
                                   }
                                 }}
-                                className="text-[11px] font-medium text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 hover:border-blue-300 transition"
+                                className="touch-target inline-flex items-center justify-center text-[11px] font-medium text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 hover:border-blue-300 transition"
                               >
                                 Set as Current
                               </button>
@@ -387,7 +388,7 @@ export function AcademicYearManagement() {
                                   setCurrentSY(sy.sy_label);
                                   setNextSY(deriveNextLabel(sy.sy_label));
                                 }}
-                                className="text-[11px] font-medium text-gray-500 hover:bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 transition"
+                                className="touch-target inline-flex items-center justify-center text-[11px] font-medium text-gray-500 hover:bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 transition"
                               >
                                 Edit
                               </button>
@@ -438,7 +439,7 @@ export function AcademicYearManagement() {
         <div className="p-5 sm:p-6">
           {/* Summary table */}
           <div className="overflow-x-auto rounded-xl border border-gray-100 mb-4">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="bg-gray-50/80 border-b border-gray-100">
                   {["Transition", "Total", "For Promotion", "For Retention", "Promotion Rate"].map(h => (
@@ -478,7 +479,7 @@ export function AcademicYearManagement() {
 
           {step === "idle" && (
             <button onClick={() => setStep("confirm-promote")}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              className="touch-target inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
               <ArrowUpCircle size={16} /> Execute Bulk Promotion
             </button>
           )}
@@ -572,10 +573,12 @@ export function AcademicYearManagement() {
       </div>
 
       {/* ── Confirm Promotion Modal ── */}
-      {step === "confirm-promote" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center gap-3 mb-4">
+      <ModalShell
+        open={step === "confirm-promote"}
+        onClose={() => setStep("idle")}
+        maxWidth="max-w-md"
+        bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
                 <AlertTriangle size={22} className="text-amber-600" />
               </div>
@@ -596,15 +599,15 @@ export function AcademicYearManagement() {
               <button onClick={handlePromote}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">Confirm Promotion</button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* ── Confirm Archive Modal ── */}
-      {step === "confirm-archive" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center gap-3 mb-4">
+      <ModalShell
+        open={step === "confirm-archive"}
+        onClose={() => setStep("promoted")}
+        maxWidth="max-w-md"
+        bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
                 <Archive size={22} className="text-red-600" />
               </div>
@@ -622,9 +625,7 @@ export function AcademicYearManagement() {
               <button onClick={handleArchive}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">Yes, Archive</button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
     </div>
   );
 }

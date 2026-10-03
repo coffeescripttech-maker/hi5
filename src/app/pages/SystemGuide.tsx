@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import { exportToPdf } from '../services/pdfExport';
+import { isNativePlatform, saveOrShareFile } from '../services/nativeExport';
 import {
   downloadRenderedPdf,
   type PdfRenderOptions
@@ -25,9 +26,7 @@ import {
   howtos,
   glossary
 } from '../data/systemGuideContent';
-
-const MERMAID_CDN =
-  'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+import depedLogo from '../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png';
 
 /**
  * Print rules for the written user guide PDF (landscape letter, paginated by
@@ -320,82 +319,69 @@ export function SystemGuide() {
   }
 
   useEffect(() => {
-    if (document.getElementById('mermaid-script')) {
-      waitForMermaid();
-      return;
-    }
+    let cancelled = false;
 
-    const script = document.createElement('script');
-    script.id = 'mermaid-script';
-    script.src = MERMAID_CDN;
-    script.onload = () => waitForMermaid();
-    script.onerror = () =>
-      setError('Failed to load Mermaid renderer from CDN.');
-    document.head.appendChild(script);
+    (async () => {
+      try {
+        // Bundled mermaid (dynamically imported → own chunk, works offline).
+        const mermaid = (await import('mermaid')).default;
+        if (cancelled) return;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'base',
+          themeVariables: {
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            primaryColor: '#6366f1',
+            primaryBorderColor: '#4f46e5',
+            primaryTextColor: '#1e293b',
+            lineColor: '#94a3b8',
+            secondaryColor: '#d1fae5',
+            tertiaryColor: '#fef3c7'
+          },
+          flowchart: {
+            useMaxWidth: true,
+            htmlLabels: true,
+            curve: 'basis',
+            padding: 16
+          },
+          securityLevel: 'loose'
+        });
 
-    function waitForMermaid() {
-      const check = () => {
-        if ((window as any).mermaid) {
-          initMermaid();
-        } else {
-          setTimeout(check, 200);
-        }
-      };
-      check();
-    }
+        const [lifecycleResult, yearlyResult] = await Promise.all([
+          mermaid.render('lifecycle-guide', LIFECYCLE_DEF),
+          mermaid.render('yearly-guide', YEARLY_DEF)
+        ]);
+        if (cancelled) return;
+        setLifecycleSvg(lifecycleResult.svg);
+        setYearlySvg(yearlyResult.svg);
+        setLoaded(true);
+      } catch (e: any) {
+        if (!cancelled) setError('Failed to render flowcharts: ' + e.message);
+      }
+    })();
 
-    function initMermaid() {
-      const mermaid = (window as any).mermaid;
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: 'base',
-        themeVariables: {
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          primaryColor: '#6366f1',
-          primaryBorderColor: '#4f46e5',
-          primaryTextColor: '#1e293b',
-          lineColor: '#94a3b8',
-          secondaryColor: '#d1fae5',
-          tertiaryColor: '#fef3c7'
-        },
-        flowchart: {
-          useMaxWidth: true,
-          htmlLabels: true,
-          curve: 'basis',
-          padding: 16
-        },
-        securityLevel: 'loose'
-      });
-
-      Promise.all([
-        mermaid.render('lifecycle-guide', LIFECYCLE_DEF),
-        mermaid.render('yearly-guide', YEARLY_DEF)
-      ])
-        .then(([lifecycleResult, yearlyResult]) => {
-          setLifecycleSvg(lifecycleResult.svg);
-          setYearlySvg(yearlyResult.svg);
-          setLoaded(true);
-        })
-        .catch((e: any) => setError('Render error: ' + e.message));
-    }
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleDownloadSVG = () => {
+  const handleDownloadSVG = async () => {
     if (!lifecycleSvg) return;
     const blob = new Blob([lifecycleSvg], {
       type: 'image/svg+xml;charset=utf-8'
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'student-lifecycle-flowchart.svg';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    await saveOrShareFile(blob, 'student-lifecycle-flowchart.svg');
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    // window.print() is unsupported in the native WebView — export the PDF and
+    // share it (the OS share sheet includes a Print action) instead.
+    if (isNativePlatform()) {
+      void handleDownloadPdf();
+      return;
+    }
+    window.print();
+  };
 
   const handleDownloadPdf = async () => {
     if (exporting) return;
@@ -432,7 +418,7 @@ export function SystemGuide() {
         <div className="p-5 sm:p-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center flex-shrink-0 overflow-hidden">
             <img
-              src="https://hi5-six.vercel.app/assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5-32KE5vhv.png"
+              src={depedLogo}
               alt="Department of Education seal"
               className="w-10 h-10 object-contain"
             />
@@ -525,7 +511,7 @@ export function SystemGuide() {
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400" />
         <div className="p-8 sm:p-12 text-center">
           <img
-            src="https://hi5-six.vercel.app/assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5-32KE5vhv.png"
+            src={depedLogo}
             alt="Department of Education seal"
             className="cover-logo block w-20 h-20 sm:w-24 sm:h-24 mx-auto object-contain mb-5"
           />
@@ -767,12 +753,14 @@ export function SystemGuide() {
               All 6 phases across Admin, Teacher, Registrar, and Principal roles
             </p>
             <div
-              className="guide-zoom rounded-xl border border-gray-100 overflow-x-auto"
-              style={{
-                transform: `scale(${zoom / 100})`,
-                transformOrigin: 'top left'
-              }}>
-              <div className="diagram-canvas min-w-[800px]" ref={lifecycleRef}>
+              className="guide-zoom rounded-xl border border-gray-100 overflow-auto">
+              <div
+                className="diagram-canvas min-w-[800px]"
+                ref={lifecycleRef}
+                style={{
+                  transform: `scale(${zoom / 100})`,
+                  transformOrigin: 'top left'
+                }}>
                 {lifecycleSvg ? (
                   <div dangerouslySetInnerHTML={{ __html: lifecycleSvg }} />
                 ) : error ? null : (

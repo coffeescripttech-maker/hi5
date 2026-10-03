@@ -9,7 +9,7 @@
  * Routes: /principal/exports/:section (documents | reports | data)
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { useParams, Link } from 'react-router';
 import {
   FileText,
   BarChart2,
@@ -30,6 +30,7 @@ import { formsApi } from '../../services/forms';
 import { enrollmentsApi } from '../../services/enrollments';
 import { gradesApi } from '../../services/grades';
 import { promotionsApi } from '../../services/promotions';
+import { saveOrShareFile } from '../../services/nativeExport';
 import { useApp } from '../../context/AppContext';
 
 pdfMake.addVirtualFileSystem(pdfFonts);
@@ -83,8 +84,9 @@ function buildHeaderRows(
   ];
 }
 
-function downloadPdf(doc: any, filename: string) {
-  pdfMake.createPdf(doc).download(`${filename}.pdf`);
+async function downloadPdf(doc: any, filename: string) {
+  const blob = await pdfMake.createPdf(doc).getBlob();
+  await saveOrShareFile(blob, `${filename}.pdf`);
 }
 
 /** Age in whole years from an ISO/date string (returns NaN if unparseable). */
@@ -155,7 +157,7 @@ export function PrincipalExportCenter() {
     setExporting(key);
     try {
       const doc = await build();
-      downloadPdf(doc, filename);
+      await downloadPdf(doc, filename);
       showToast('success', `${filename} exported.`);
     } catch (err: any) {
       showToast(
@@ -471,16 +473,16 @@ export function PrincipalExportCenter() {
         {tabs.map(t => {
           const active = effective === t.key;
           return (
-            <a
+            <Link
               key={t.key}
-              href={`/principal/exports/${t.key}`}
+              to={`/principal/exports/${t.key}`}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition ${
                 active
                   ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                   : 'bg-white text-gray-500 border-gray-200 hover:border-purple-300'
               }`}>
               <t.icon size={15} /> {t.label}
-            </a>
+            </Link>
           );
         })}
       </div>

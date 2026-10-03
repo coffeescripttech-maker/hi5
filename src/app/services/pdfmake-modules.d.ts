@@ -37,6 +37,8 @@ declare module "html-to-pdfmake" {
 declare module "pdfmake/build/pdfmake" {
   interface CreatedPdf {
     download(filename?: string, callback?: () => void): void;
+    /** 0.3.x runtime returns a promise to the generated Blob (browser only). */
+    getBlob(): Promise<Blob>;
     getBuffer(callback: (buffer: Uint8Array) => void): void;
     getDataUrl(callback: (dataUrl: string) => void): void;
     open(options?: { print?: boolean; landscape?: boolean }): void;

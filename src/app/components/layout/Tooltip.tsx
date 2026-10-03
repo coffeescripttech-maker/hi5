@@ -17,6 +17,7 @@ interface TooltipProps {
 export function Tooltip({ label, children }: TooltipProps) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const timer = useRef<number | null>(null);
 
   const show = useCallback(() => {
     const el = ref.current;
@@ -27,6 +28,14 @@ export function Tooltip({ label, children }: TooltipProps) {
 
   const hide = useCallback(() => setPos(null), []);
 
+  // Touch has no hover — briefly reveal the label on tap so icon-only
+  // controls are identifiable on phones.
+  const showTemporarily = useCallback(() => {
+    show();
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setPos(null), 1600);
+  }, [show]);
+
   return (
     <div
       ref={ref}
@@ -34,7 +43,8 @@ export function Tooltip({ label, children }: TooltipProps) {
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}
-      onBlur={hide}>
+      onBlur={hide}
+      onTouchStart={showTemporarily}>
       {children}
       {pos &&
         createPortal(

@@ -10,6 +10,7 @@ const PROGRAMS = [
   { key: "spfl", label: "SPFL" },
   { key: "open_high", label: "Open High" },
   { key: "als_shs", label: "ALS-SHS" },
+  { key: "als_jhs", label: "ALS-JHS" },
 ];
 
 const gradeLevels = [7, 8, 9, 10, 11, 12];
@@ -65,7 +66,7 @@ export function EnrollmentFigures() {
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
-        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
               <TrendingUp size={22} className="text-white" />
@@ -84,10 +85,10 @@ export function EnrollmentFigures() {
         <School size={13} className="text-gray-400" />
         <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em] mr-1">Program:</span>
         <button onClick={() => setActiveProgram("all")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === "all" ? "bg-purple-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>All</button>
+          className={`touch-target inline-flex items-center justify-center px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === "all" ? "bg-purple-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>All</button>
         {PROGRAMS.map(p => (
           <button key={p.key} onClick={() => setActiveProgram(p.key)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === p.key ? "bg-purple-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{p.label}</button>
+            className={`touch-target inline-flex items-center justify-center px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeProgram === p.key ? "bg-purple-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{p.label}</button>
         ))}
       </div>
 
@@ -97,8 +98,8 @@ export function EnrollmentFigures() {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={byGrade}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
+            <XAxis dataKey="grade" tick={{ fontSize: 12 }} interval={0} />
+            <YAxis width={36} tick={{ fontSize: 12 }} />
             <Tooltip />
             <Bar dataKey="count" fill="#9333ea" radius={[6, 6, 0, 0]} name="Students" />
           </BarChart>
@@ -111,7 +112,7 @@ export function EnrollmentFigures() {
           <h3 className="font-semibold text-gray-800 text-sm">Enrollment by Program</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[520px] text-sm">
             <thead className="bg-gray-50/80">
               <tr>
                 {["Program", "Students", "Percentage"].map(h => (

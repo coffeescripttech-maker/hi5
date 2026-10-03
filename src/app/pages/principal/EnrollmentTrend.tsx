@@ -52,7 +52,7 @@ export function EnrollmentTrend() {
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-400" />
-        <div className="p-5 sm:p-6 flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-200 flex items-center justify-center flex-shrink-0">
               <BarChart2 size={22} className="text-white" />
@@ -87,8 +87,8 @@ export function EnrollmentTrend() {
         <ResponsiveContainer width="100%" height={320}>
           <LineChart data={trendData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
+            <XAxis dataKey="grade" tick={{ fontSize: 12 }} interval={0} />
+            <YAxis width={36} tick={{ fontSize: 12 }} />
             <Tooltip />
             <Line type="monotone" dataKey="students" stroke="#9333ea" strokeWidth={3} dot={{ fill: "#9333ea", r: 5 }} name="Students" />
           </LineChart>
@@ -101,7 +101,7 @@ export function EnrollmentTrend() {
           <h3 className="font-semibold text-gray-800 text-sm">Enrollment Status Breakdown</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[520px] text-sm">
             <thead className="bg-gray-50/80">
               <tr>
                 {["Grade", "Enrolled", "Dropped", "Transferred"].map(h => (

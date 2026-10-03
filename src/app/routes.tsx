@@ -38,6 +38,7 @@ import { DocumentCompletion } from "./pages/registrar/DocumentCompletion";
 import { TransferManagement } from "./pages/registrar/TransferManagement";
 import { RegistrarProfile } from "./pages/registrar/RegistrarProfile";
 import { SubjectView } from "./pages/registrar/SubjectView";
+import { SpecialSubjects } from "./pages/registrar/SpecialSubjects";
 import { SectionAssignment } from "./pages/registrar/SectionAssignment";
 import { ScheduleModifier } from "./pages/registrar/ScheduleModifier";
 import { MasterSchedule } from "./pages/registrar/MasterSchedule";
@@ -125,6 +126,7 @@ export const router = createBrowserRouter([
       { path: "profile", Component: RegistrarProfile },
       { path: "sections", Component: SectionCreation },
       { path: "subjects", Component: SubjectView },
+      { path: "special-subjects", Component: SpecialSubjects },
       { path: "section-assignment", Component: SectionAssignment },
       { path: "schedule-modifier", Component: ScheduleModifier },
       { path: "master-schedule", Component: MasterSchedule },

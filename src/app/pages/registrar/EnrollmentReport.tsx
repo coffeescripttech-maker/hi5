@@ -12,6 +12,7 @@ import { sectionsApi, SectionRow } from "../../services/sections";
 import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
 import { exportToPdf } from "../../services/pdfExport";
+import { isNativePlatform, saveOrShareFile } from "../../services/nativeExport";
 
 const CLASSIFICATIONS = ["All Classifications", "4Ps", "PWD", "Transferee", "Non-Reader", "Balik-aral", "Regular"];
 const GRADES = ["All Grades", "7", "8", "9", "10", "11", "12"];
@@ -158,7 +159,7 @@ export function EnrollmentReport() {
   };
 
   // ── CSV Export ──
-  const handleExportCsv = () => {
+  const handleExportCsv = async () => {
     const escapeCsv = (val: string | number | null | undefined) => {
       if (val == null) return "";
       const s = String(val);
@@ -183,18 +184,13 @@ export function EnrollmentReport() {
     const bom = "﻿";
     const csv = bom + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Enrollment_Report_${syLabel.replace(/\s/g, "_")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await saveOrShareFile(blob, `Enrollment_Report_${syLabel.replace(/\s/g, "_")}.csv`);
     setExportMsg("CSV exported successfully!");
     setTimeout(() => setExportMsg(""), 3000);
   };
 
   // ── Excel Export ──
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     // Build an HTML table that Excel can open
     const rowsHtml = filtered.map((s, idx) => `
       <tr>
@@ -265,12 +261,7 @@ export function EnrollmentReport() {
     `;
 
     const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Enrollment_Report_${syLabel.replace(/\s/g, "_")}.xls`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await saveOrShareFile(blob, `Enrollment_Report_${syLabel.replace(/\s/g, "_")}.xls`);
     setExportMsg("Excel exported successfully!");
     setTimeout(() => setExportMsg(""), 3000);
   };
@@ -297,6 +288,12 @@ export function EnrollmentReport() {
 
   // ── Print ──
   const handlePrint = () => {
+    // window.print() is unsupported in the native WebView — export the PDF and
+    // share it (the OS share sheet includes a Print action) instead.
+    if (isNativePlatform()) {
+      void handleExportPdf();
+      return;
+    }
     window.print();
   };
 
@@ -463,7 +460,7 @@ export function EnrollmentReport() {
                   className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 transition-all bg-white"
                 />
                 {lrnSearch && (
-                  <button onClick={() => setLrnSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
+                  <button onClick={() => setLrnSearch("")} className="touch-target inline-flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
                     <X size={14} />
                   </button>
                 )}
@@ -483,7 +480,7 @@ export function EnrollmentReport() {
                   className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-indigo-100 focus:border-indigo-400 transition-all bg-white"
                 />
                 {nameSearch && (
-                  <button onClick={() => setNameSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
+                  <button onClick={() => setNameSearch("")} className="touch-target inline-flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
                     <X size={14} />
                   </button>
                 )}

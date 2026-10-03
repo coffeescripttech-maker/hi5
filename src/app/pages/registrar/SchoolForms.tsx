@@ -26,6 +26,7 @@ import { SF10Report } from './sf10-report';
 import { FormPrintPreview } from '../../components/FormPrintPreview';
 import { downloadRenderedPdf } from '../../services/pdfRender';
 import { exportToPdf } from '../../services/pdfExport';
+import { ModalShell } from '../../components/ModalShell';
 
 // --- Form Definitions ---
 interface SchoolForm {
@@ -352,8 +353,12 @@ export function SchoolForms() {
 
       {/* Generator Modal */}
       {activeForm && currentForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <ModalShell
+          open
+          onClose={() => setActiveForm(null)}
+          maxWidth="max-w-4xl"
+          bodyClassName="p-0"
+        >
             {/* Header */}
             <div className="px-6 py-5 bg-white border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-4">
@@ -583,7 +588,8 @@ export function SchoolForms() {
                             Class Adviser: —
                           </p>
                         </div>
-                        <table className="w-full border-collapse text-xs">
+                        <div className="overflow-x-auto">
+                        <table className="w-full min-w-[720px] border-collapse text-xs">
                           <thead>
                             <tr className="bg-blue-800 text-white">
                               <th className="border border-blue-900 px-1.5 py-2 text-center">
@@ -662,6 +668,7 @@ export function SchoolForms() {
                             </tr>
                           </tfoot>
                         </table>
+                        </div>
                       </div>
                     )}
 
@@ -672,7 +679,8 @@ export function SchoolForms() {
                           REPORT ON PROMOTION AND LEVEL OF PROFICIENCY — END OF
                           SCHOOL YEAR {activeSY}
                         </p>
-                        <table className="w-full border-collapse text-xs">
+                        <div className="overflow-x-auto">
+                        <table className="w-full min-w-[720px] border-collapse text-xs">
                           <thead>
                             <tr className="bg-emerald-800 text-white">
                               <th
@@ -787,6 +795,7 @@ export function SchoolForms() {
                             </tr>
                           </tfoot>
                         </table>
+                        </div>
                         <div className="mt-4 border-t border-gray-200 pt-3">
                           <p className="font-bold text-xs mb-2">
                             PROFICIENCY LEVEL DISTRIBUTION:
@@ -886,7 +895,8 @@ export function SchoolForms() {
                                 DSPMNHS
                               </p>
                             </div>
-                            <table className="w-full border-collapse text-xs">
+                            <div className="overflow-x-auto">
+                            <table className="w-full min-w-[720px] border-collapse text-xs">
                               <thead>
                                 <tr className="bg-violet-800 text-white">
                                   <th className="border border-violet-900 px-2 py-2 text-left">
@@ -965,12 +975,14 @@ export function SchoolForms() {
                                 </tr>
                               </tfoot>
                             </table>
+                            </div>
                             <div className="grid grid-cols-2 gap-4 mt-2">
                               <div className="border border-gray-200 rounded p-3">
                                 <p className="font-bold text-xs mb-2 text-violet-700 uppercase tracking-wide">
                                   Attendance Summary
                                 </p>
-                                <table className="w-full text-xs border-collapse">
+                                  <div className="overflow-x-auto">
+                                  <table className="w-full min-w-[320px] text-xs border-collapse">
                                   <thead>
                                     <tr className="bg-gray-100">
                                       <th className="border border-gray-200 px-2 py-1">
@@ -1003,7 +1015,8 @@ export function SchoolForms() {
                                       </tr>
                                     ))}
                                   </tbody>
-                                </table>
+                                  </table>
+                                  </div>
                               </div>
                               <div className="border border-gray-200 rounded p-3">
                                 <p className="font-bold text-xs mb-2 text-violet-700 uppercase tracking-wide">
@@ -1093,7 +1106,8 @@ export function SchoolForms() {
                               Academic Record — Grade{' '}
                               {selectedStudent.grade_level} · SY {activeSY}
                             </p>
-                            <table className="w-full border-collapse text-xs">
+                            <div className="overflow-x-auto">
+                            <table className="w-full min-w-[720px] border-collapse text-xs">
                               <thead>
                                 <tr className="bg-indigo-800 text-white">
                                   <th className="border border-indigo-900 px-2 py-2 text-left">
@@ -1172,6 +1186,7 @@ export function SchoolForms() {
                                 </tr>
                               </tfoot>
                             </table>
+                            </div>
                           </div>
                         );
                       })()}
@@ -1219,19 +1234,19 @@ export function SchoolForms() {
 
             {/* Footer */}
             {generated && (
-              <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0 bg-gray-50">
+              <div className="px-6 py-4 border-t border-gray-100 flex flex-wrap gap-3 flex-shrink-0 bg-gray-50">
                 <button
                   onClick={() => setActiveForm(null)}
-                  className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-100 transition shrink-0">
+                  className="sm:flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-100 transition shrink-0">
                   Close
                 </button>
                 <button
-                  className={`flex items-center gap-2 flex-1 ${accent.button} text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0`}
+                  className={`flex items-center gap-2 sm:flex-1 ${accent.button} text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0`}
                   onClick={() => setPreviewOpen(true)}>
                   <Printer size={14} /> Print Form
                 </button>
                 <button
-                  className="flex items-center gap-2 flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0"
+                  className="flex items-center gap-2 sm:flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition justify-center shadow-sm shrink-0"
                   onClick={() => setPreviewOpen(true)}>
                   <Download size={14} /> Export PDF
                 </button>
@@ -1248,8 +1263,7 @@ export function SchoolForms() {
               orientation="landscape"
               format="letter"
             />
-          </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

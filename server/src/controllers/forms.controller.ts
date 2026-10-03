@@ -3,6 +3,7 @@ import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
 import { getAcademicThresholds } from "../services/schoolConfig";
 import { collapseSubjectGroups } from "../utils/subjectGroups";
+import { subjectScopeSql } from "../utils/subjectScope";
 
 /**
  * GET /api/forms/sf1 — School Register (list of all enrolled students)
@@ -277,6 +278,17 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
       enrollments[0]?.grade_level ?? student[0].grade_level;
     params.push(subjectGradeLevel);
 
+    // Only list the learning areas that belong to this learner's program and
+    // chosen strand/track (STE/SPFL/ALS additions and TLE specialization).
+    const scopeSql = subjectScopeSql(
+      "s",
+      {
+        program: enrollments[0]?.program ?? null,
+        strandTrackId: enrollments[0]?.strand_track_id ?? null,
+      },
+      params
+    );
+
     const grades = await query<RowDataPacket[]>(
       `SELECT s.name AS subject_name, s.subject_type, s.subject_group, s.hours_per_week,
               MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
@@ -285,7 +297,7 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
               ROUND(AVG(g.grade), 2) AS final_average
        FROM subjects s
        LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
-       WHERE s.is_active = 1 AND s.grade_level = ?
+       WHERE s.is_active = 1 AND s.grade_level = ?${scopeSql}
        GROUP BY s.id, s.name, s.subject_type, s.subject_group, s.hours_per_week
        ORDER BY s.name ASC`,
       params
@@ -361,7 +373,8 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
     // Get all enrollments across school years
     const enrollments = await query<RowDataPacket[]>(
       `SELECT e.school_year_id, sy.sy_label, sec.name AS section_name, sec.grade_level,
-              e.enrollment_date, e.status AS enrollment_status
+              e.enrollment_date, e.status AS enrollment_status,
+              e.program, e.strand_track_id
        FROM enrollments e
        JOIN sections sec ON e.section_id = sec.id
        JOIN school_years sy ON e.school_year_id = sy.id
@@ -374,7 +387,14 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
     const gradesBySY: Record<string, any> = {};
     for (const enroll of enrollments) {
       // Like SF9, list ALL active subjects for that school year's grade level
-      // (LEFT JOIN), so learning areas without encoded grades still appear.
+      // (LEFT JOIN), so learning areas without encoded grades still appear —
+      // but only those scoped to the program/track the learner had that year.
+      const syParams: any[] = [student_id, enroll.school_year_id, enroll.grade_level];
+      const scopeSql = subjectScopeSql(
+        "sub",
+        { program: enroll.program, strandTrackId: enroll.strand_track_id },
+        syParams
+      );
       const syGradesRaw = await query<RowDataPacket[]>(
         `SELECT sub.name AS subject_name, sub.subject_type, sub.subject_group,
                 MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
@@ -384,10 +404,10 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
          FROM subjects sub
          LEFT JOIN grades g ON g.subject_id = sub.id
            AND g.student_id = ? AND g.school_year_id = ?
-         WHERE sub.is_active = 1 AND sub.grade_level = ?
+         WHERE sub.is_active = 1 AND sub.grade_level = ?${scopeSql}
          GROUP BY sub.id, sub.name, sub.subject_type, sub.subject_group
          ORDER BY sub.name ASC`,
-        [student_id, enroll.school_year_id, enroll.grade_level]
+        syParams
       );
 
       const syGrades = collapseSubjectGroups(syGradesRaw as any[], [

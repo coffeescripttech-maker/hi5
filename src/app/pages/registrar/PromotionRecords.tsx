@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { promotionsApi, PromotionRow, PromotionStudentRow } from "../../services/promotions";
 import { useApp } from "../../context/AppContext";
+import { saveOrShareFile } from "../../services/nativeExport";
+import { ModalShell } from "../../components/ModalShell";
 
 const STATUS_BADGE: Record<string, { bg: string; label: string }> = {
   completed: { bg: "bg-emerald-50 text-emerald-700 border-emerald-200/50", label: "Completed" },
@@ -51,7 +53,7 @@ export function PromotionRecords() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  const exportStudents = (d: PromotionRow & { students: PromotionStudentRow[] }) => {
+  const exportStudents = async (d: PromotionRow & { students: PromotionStudentRow[] }) => {
     const csv = [
       ["Student Name", "LRN", "From Section", "To Section", "General Average", "Result"].join(","),
       ...d.students.map(st =>
@@ -66,11 +68,7 @@ export function PromotionRecords() {
       ),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `promotion-${d.id}-${d.section_name.replace(/\s+/g, "-")}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    await saveOrShareFile(blob, `promotion-${d.id}-${d.section_name.replace(/\s+/g, "-")}.csv`);
   };
 
   const total = promotions.reduce((a, r) => a + r.student_count, 0);
@@ -249,12 +247,12 @@ export function PromotionRecords() {
               if (!r) return null;
               const detail = details[expanded];
               return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                  <div
-                    className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
-                    onClick={() => setExpanded(null)}
-                  />
-                  <div className="relative w-full max-w-3xl max-h-[85vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                <ModalShell
+                  open={expanded !== null}
+                  onClose={() => setExpanded(null)}
+                  maxWidth="max-w-3xl"
+                  bodyClassName="p-0"
+                >
                     {/* Header */}
                     <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50/50 to-indigo-50/50">
                       <div className="flex items-center gap-3 min-w-0">
@@ -426,12 +424,11 @@ export function PromotionRecords() {
                           onClick={() => exportStudents(detail!.data!)}
                           className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all font-medium"
                         >
-                          <Download size={13} /> Export Students (CSV)
-                        </button>
-                      )}
+                        <Download size={13} /> Export Students (CSV)
+                      </button>
+                    )}
                     </div>
-                  </div>
-                </div>
+                </ModalShell>
               );
             })()}
           </>

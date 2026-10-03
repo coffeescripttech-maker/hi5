@@ -263,10 +263,10 @@ function LegalModal({
   const doc = override ? { title: base.title, ...override } : base;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center"
       onClick={onClose}>
       <div
-        className="hi5-card bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+        className="hi5-card bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden pb-safe"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="font-bold text-gray-800">{doc.title}</h3>
@@ -707,7 +707,7 @@ export function Login() {
     return (
       <>
         <style>{ANIM_STYLE}</style>
-        <div className="min-h-dvh flex flex-col lg:flex-row overflow-hidden">
+        <div className="min-h-dvh flex flex-col lg:flex-row pt-safe pb-safe px-safe overflow-hidden">
           <LeftPanel />
           <MobileBanner />
           <div className="flex-1 flex flex-col items-center bg-gray-50 px-6 py-5 lg:py-10 overflow-y-auto">
@@ -875,7 +875,7 @@ export function Login() {
   return (
     <>
       <style>{ANIM_STYLE}</style>
-      <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
+      <div className="min-h-dvh flex flex-col lg:flex-row pt-safe pb-safe px-safe overflow-hidden">
         <LeftPanel />
         <MobileBanner />
         <div className="flex-1 flex flex-col items-center bg-gray-50 px-4 sm:px-6 py-5 lg:py-8 overflow-y-auto">
@@ -980,7 +980,7 @@ export function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition p-1">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 touch-target inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
                     {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -1024,10 +1024,10 @@ export function Login() {
                   }}
                   className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-400 cursor-pointer"
                 />
-                <label
-                  htmlFor="agree-terms"
-                  className="text-xs text-gray-600 leading-relaxed cursor-pointer select-none">
-                  I agree to the{' '}
+                <div className="text-xs text-gray-600 leading-relaxed select-none">
+                  <label htmlFor="agree-terms" className="cursor-pointer">
+                    I agree to the{' '}
+                  </label>
                   <button
                     type="button"
                     onClick={() => setLegalModal('terms')}
@@ -1049,7 +1049,7 @@ export function Login() {
                     Conditions
                   </button>
                   .
-                </label>
+                </div>
               </div>
 
               {/* Errors */}

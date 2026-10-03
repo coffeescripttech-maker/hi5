@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { roomsApi, RoomRow, CreateRoomPayload, UpdateRoomPayload } from "../../services/rooms";
 import { useApp } from "../../context/AppContext";
+import { ModalShell } from "../../components/ModalShell";
 
 const ROOM_TYPES = [
   { value: "Classroom", label: "Classroom" },
@@ -156,11 +157,11 @@ export function AdminRooms() {
             placeholder="Search by name, building, or floor..."
             className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Filter size={14} className="text-gray-400" />
           {(["All", ...STATUS_OPTIONS] as const).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+              className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold border transition ${
                 statusFilter === s ? "bg-blue-50 text-blue-700 border-blue-200" : "border-gray-200 text-gray-500 hover:bg-gray-50"
               }`}>
               {s}
@@ -203,10 +204,10 @@ export function AdminRooms() {
                 {r.capacity != null && <span>{r.capacity} seats</span>}
               </div>
               <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-50">
-                <button onClick={() => openEdit(r)} className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
+                <button onClick={() => openEdit(r)} className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50 touch-target inline-flex items-center justify-center">
                   <Edit2 size={14} />
                 </button>
-                <button onClick={() => setDeleteId(r.id)} className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
+                <button onClick={() => setDeleteId(r.id)} className="text-red-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50 touch-target inline-flex items-center justify-center">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -216,9 +217,12 @@ export function AdminRooms() {
       )}
 
       {/* -- Form Modal (Create/Edit) -- */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <ModalShell
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        maxWidth="max-w-lg"
+        bodyClassName="p-0">
+          <form onSubmit={handleSave} className="bg-white">
             <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -298,14 +302,15 @@ export function AdminRooms() {
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </ModalShell>
 
       {/* -- Delete Confirmation Modal -- */}
-      {deleteId !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="p-6 text-center">
+      <ModalShell
+        open={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        maxWidth="max-w-sm"
+        bodyClassName="p-0">
+          <div className="p-6 text-center">
               <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center mx-auto mb-3">
                 <AlertTriangle size={20} className="text-red-500" />
               </div>
@@ -320,9 +325,7 @@ export function AdminRooms() {
                 {deleting ? "Deleting..." : "Delete Room"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
     </div>
   );
 }

@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, Loader2, PencilLine, Printer, X, FileDown, AlertTriangle } from "lucide-react";
 import { serializeElementForPdf } from "../services/pdfRender";
+import { isNativePlatform } from "../services/nativeExport";
 
 interface FormPrintPreviewProps {
   open: boolean;
@@ -69,6 +70,12 @@ export function FormPrintPreview({
   if (!open) return null;
 
   const handlePrint = () => {
+    // Android/iOS WebViews don't support window.print(). On native, hand the
+    // rendered PDF to the OS share sheet, which includes a Print action.
+    if (isNativePlatform()) {
+      onExportPdf?.();
+      return;
+    }
     try {
       const win = iframeRef.current?.contentWindow;
       if (win) {

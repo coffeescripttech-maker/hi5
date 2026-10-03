@@ -37,7 +37,8 @@ import {
   MessageSquare,
   Award,
   MapPin,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Sparkles
 } from 'lucide-react';
 
 export type Role = 'admin' | 'teacher' | 'registrar' | 'principal' | 'enrollment_committee';
@@ -169,7 +170,8 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'registrar_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/registrar/forms/sf1' },
         { key: 'registrar_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/registrar/forms/sf5' },
         { key: 'registrar_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/registrar/forms/sf9' },
-        { key: 'registrar_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/registrar/forms/sf10' }
+        { key: 'registrar_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/registrar/forms/sf10' },
+        { key: 'registrar_special_subjects', label: 'SF9 Special Subjects', icon: Sparkles, path: '/registrar/special-subjects' }
       ]
     },
     {

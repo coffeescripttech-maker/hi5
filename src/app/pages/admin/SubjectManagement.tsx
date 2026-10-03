@@ -6,6 +6,7 @@ import { usersApi, UserRow } from "../../services/users";
 import { useApp } from "../../context/AppContext";
 import { formatHoursPerWeek } from "../../utils/hours";
 import { HybridTable } from "../../components/HybridTable";
+import { ModalShell } from "../../components/ModalShell";
 
 const TYPE_COLORS: Record<string, string> = {
   core: "bg-blue-100 text-blue-700 border-blue-200",
@@ -21,8 +22,28 @@ const TYPE_LABEL: Record<string, string> = {
 
 type SubjectType = "core" | "applied" | "specialized";
 
-const emptyForm: { name: string; grade_level: number; hours_per_week: number; subject_type: SubjectType } =
-  { name: "", grade_level: 7, hours_per_week: 4, subject_type: "core" };
+const emptyForm: { name: string; grade_level: number; hours_per_week: number; subject_type: SubjectType; program: string } =
+  { name: "", grade_level: 7, hours_per_week: 4, subject_type: "core", program: "" };
+
+/* ── Program scope labels ('' = shared across all programs) ── */
+const PROGRAM_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Shared (all programs)" },
+  { value: "regular", label: "Regular" },
+  { value: "ste", label: "STE" },
+  { value: "spfl", label: "SPFL" },
+  { value: "open_high", label: "Open High School" },
+  { value: "als_jhs", label: "ALS JHS" },
+  { value: "als_shs", label: "ALS SHS" },
+];
+
+const PROGRAM_BADGE: Record<string, { label: string; cls: string }> = {
+  regular: { label: "Regular", cls: "bg-gray-100 text-gray-600 border-gray-200" },
+  ste: { label: "STE", cls: "bg-purple-100 text-purple-700 border-purple-200" },
+  spfl: { label: "SPFL", cls: "bg-teal-100 text-teal-700 border-teal-200" },
+  open_high: { label: "Open HS", cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  als_jhs: { label: "ALS JHS", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  als_shs: { label: "ALS SHS", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+};
 
 /* ── Curriculum preset catalog for the "Populate Subjects" shortcut ── */
 
@@ -30,6 +51,7 @@ interface PresetSubjectItem {
   name: string;
   hours_per_week: number;
   subject_type: SubjectType;
+  program?: string | null;
 }
 
 interface SubjectPreset {
@@ -56,13 +78,27 @@ const MATATAG_JHS: PresetSubjectItem[] = [
 ];
 
 const STE_ADDITIONS: PresetSubjectItem[] = [
-  { name: "Research", hours_per_week: 2, subject_type: "specialized" },
-  { name: "Advanced Mathematics", hours_per_week: 2, subject_type: "specialized" },
-  { name: "Advanced Science", hours_per_week: 2, subject_type: "specialized" },
+  { name: "Research", hours_per_week: 2, subject_type: "specialized", program: "ste" },
+  { name: "Advanced Mathematics", hours_per_week: 2, subject_type: "specialized", program: "ste" },
+  { name: "Advanced Science", hours_per_week: 2, subject_type: "specialized", program: "ste" },
 ];
 
 const SPFL_ADDITIONS: PresetSubjectItem[] = [
-  { name: "Foreign Language", hours_per_week: 2, subject_type: "specialized" },
+  { name: "Foreign Language", hours_per_week: 2, subject_type: "specialized", program: "spfl" },
+];
+
+/**
+ * ALS learning strands (LS1–LS6). Added as extra subjects for ALS learners:
+ * Grades 7–10 run under ALS JHS, Grades 11–12 under ALS SHS.
+ * Names must match migration 038 exactly so the preset never duplicates them.
+ */
+const ALS_STRANDS: PresetSubjectItem[] = [
+  { name: "LS1 — Communication Skills (English)", hours_per_week: 4, subject_type: "core" },
+  { name: "LS2 — Communication Skills (Filipino)", hours_per_week: 4, subject_type: "core" },
+  { name: "LS3 — Scientific Literacy and Critical Thinking Skills", hours_per_week: 4, subject_type: "core" },
+  { name: "LS4 — Mathematical and Problem Solving Skills", hours_per_week: 4, subject_type: "core" },
+  { name: "LS5 — Life and Career Skills", hours_per_week: 4, subject_type: "core" },
+  { name: "LS6 — Understanding the Self and Society", hours_per_week: 4, subject_type: "core" },
 ];
 
 const SHS_CORE_11: PresetSubjectItem[] = [
@@ -110,6 +146,15 @@ const SUBJECT_PRESETS: SubjectPreset[] = [
     grades: [7, 8, 9, 10],
     icon: Globe,
     getSubjects: () => SPFL_ADDITIONS,
+  },
+  {
+    id: "als",
+    name: "ALS Learning Strands",
+    description: "LS1–LS6 strands for ALS learners (ALS JHS Grades 7–10, ALS SHS Grades 11–12)",
+    grades: [7, 8, 9, 10, 11, 12],
+    icon: Sparkles,
+    getSubjects: (grade) =>
+      ALS_STRANDS.map(s => ({ ...s, program: grade >= 11 ? "als_shs" : "als_jhs" })),
   },
   {
     id: "shs_core",
@@ -270,11 +315,11 @@ export function SubjectManagement() {
   const handleSave = async () => {
     try {
       if (editSubject) {
-        const payload: UpdateSubjectPayload = { name: form.name, hours_per_week: form.hours_per_week, subject_type: form.subject_type };
+        const payload: UpdateSubjectPayload = { name: form.name, hours_per_week: form.hours_per_week, subject_type: form.subject_type, program: form.program || null };
         await subjectsApi.update(editSubject.id, payload);
         showToast("success", `Subject "${form.name}" updated.`);
       } else {
-        const payload: CreateSubjectPayload = { name: form.name, grade_level: form.grade_level, hours_per_week: form.hours_per_week, subject_type: form.subject_type };
+        const payload: CreateSubjectPayload = { name: form.name, grade_level: form.grade_level, hours_per_week: form.hours_per_week, subject_type: form.subject_type, program: form.program || null };
         await subjectsApi.create(payload);
         showToast("success", `Subject "${form.name}" created.`);
       }
@@ -304,7 +349,7 @@ export function SubjectManagement() {
 
   const openEdit = (s: SubjectRow) => {
     setEditSubject(s);
-    setForm({ name: s.name, grade_level: s.grade_level, hours_per_week: s.hours_per_week, subject_type: s.subject_type });
+    setForm({ name: s.name, grade_level: s.grade_level, hours_per_week: s.hours_per_week, subject_type: s.subject_type, program: s.program ?? "" });
     setShowForm(true);
   };
 
@@ -601,10 +646,12 @@ export function SubjectManagement() {
       )}
 
       {/* ── Add/Edit Subject Modal ── */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+      <ModalShell
+        open={showForm}
+        onClose={() => { setShowForm(false); setEditSubject(null); }}
+        maxWidth="max-w-lg"
+        bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <BookOpen size={18} className="text-white" />
@@ -614,7 +661,7 @@ export function SubjectManagement() {
                   <p className="text-blue-200 text-xs">{editSubject ? `Editing: ${editSubject.name}` : "Create a new subject for the curriculum"}</p>
                 </div>
               </div>
-              <button onClick={() => { setShowForm(false); setEditSubject(null); }} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+              <button onClick={() => { setShowForm(false); setEditSubject(null); }} className="touch-target p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
                 <X size={18} />
               </button>
             </div>
@@ -646,7 +693,7 @@ export function SubjectManagement() {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Subject Type</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {(["core", "applied", "specialized"] as const).map(t => {
                     const colors: Record<string, string> = {
                       core: "border-blue-500 bg-blue-50 text-blue-700",
@@ -660,7 +707,7 @@ export function SubjectManagement() {
                     };
                     return (
                       <button key={t} onClick={() => setForm(p => ({ ...p, subject_type: t }))}
-                        className={`py-2.5 rounded-xl text-xs font-semibold border-2 transition-all ${
+                        className={`touch-target py-2.5 rounded-xl text-xs font-semibold border-2 transition-all ${
                           form.subject_type === t
                             ? colors[t]
                             : `border-gray-200 text-gray-500 ${hover[t]}`
@@ -671,6 +718,16 @@ export function SubjectManagement() {
                   })}
                 </div>
               </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">Program Scope</label>
+                <select value={form.program} onChange={e => setForm(p => ({ ...p, program: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white">
+                  {PROGRAM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  Shared subjects appear for every learner. Scoped subjects appear only for that program (plus the learner&apos;s strand/track).
+                </p>
+              </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
               <button onClick={() => { setShowForm(false); setEditSubject(null); }}
@@ -680,15 +737,16 @@ export function SubjectManagement() {
                 {editSubject ? "Save Changes" : "Add Subject"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* ── Assign Teachers Modal ── */}
-      {assignSubject && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400 flex items-center justify-between">
+      {assignSubject !== null && (
+      <ModalShell
+        open
+        onClose={() => setAssignSubject(null)}
+        maxWidth="max-w-lg"
+        bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Users size={18} className="text-white" />
@@ -698,7 +756,7 @@ export function SubjectManagement() {
                   <p className="text-indigo-200 text-xs">{assignSubject.name} &middot; Grade {assignSubject.grade_level} &middot; current school year</p>
                 </div>
               </div>
-              <button onClick={() => setAssignSubject(null)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+              <button onClick={() => setAssignSubject(null)} className="touch-target p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
                 <X size={18} />
               </button>
             </div>
@@ -758,14 +816,15 @@ export function SubjectManagement() {
                 Done
               </button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
 
       {/* ── Populate Subjects Modal ── */}
-      {showPopulate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <ModalShell
+        open={showPopulate}
+        onClose={() => setShowPopulate(false)}
+        maxWidth="max-w-2xl"
+        bodyClassName="p-0">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -777,7 +836,7 @@ export function SubjectManagement() {
                   <p className="text-blue-200 text-xs">Auto-fill a curriculum preset — existing subjects are skipped, never duplicated</p>
                 </div>
               </div>
-              <button onClick={() => setShowPopulate(false)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+              <button onClick={() => setShowPopulate(false)} className="touch-target p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
                 <X size={18} />
               </button>
             </div>
@@ -897,15 +956,16 @@ export function SubjectManagement() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* ── Delete Confirm Modal ── */}
       {deleteId !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
+      <ModalShell
+        open
+        onClose={() => setDeleteId(null)}
+        maxWidth="max-w-sm"
+        bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
                 <AlertTriangle size={22} className="text-red-600" />
               </div>
@@ -923,8 +983,7 @@ export function SubjectManagement() {
               <button onClick={() => handleDelete(deleteId)}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">Delete</button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
     </div>
   );

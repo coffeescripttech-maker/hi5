@@ -25,6 +25,7 @@ import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
 import { DocumentViewer } from '../../components/DocumentViewer';
 import { FormPrintPreview } from '../../components/FormPrintPreview';
+import depedSeal from '../../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png';
 
 /* ---------------------------------------------------------------- */
 /* DepEd School Form 5 (SF5)                                        */
@@ -775,7 +776,7 @@ export function SF5Report() {
             <div className="mb-4 flex items-center justify-between gap-6">
               <div className="flex w-16 shrink-0 items-center justify-center">
                 <img
-                  src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS_96lFoHFcY7YTT3NbY84OBer4jAMloUcfne1cTKV6lQ&s"
+                  src={depedSeal}
                   alt="Department of Education seal"
                   width={72}
                   height={72}

@@ -100,8 +100,8 @@ export function PromotionStats() {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={promoByGrade}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
+            <XAxis dataKey="grade" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={54} />
+            <YAxis width={36} tick={{ fontSize: 12 }} />
             <Tooltip />
             <Bar dataKey="promoted" fill="#9333ea" radius={[6, 6, 0, 0]} name="Promoted" />
           </BarChart>
@@ -114,7 +114,7 @@ export function PromotionStats() {
           <h3 className="font-semibold text-gray-800 text-sm">Promotion Records</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-gray-50/80">
               <tr>
                 {["School Year", "From", "To", "Students", "Status"].map(h => (

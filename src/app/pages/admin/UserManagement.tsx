@@ -37,6 +37,7 @@ import {
 import { ROLE_LABELS, type Role } from '../../navigation';
 import { useApp } from '../../context/AppContext';
 import { HybridTable } from '../../components/HybridTable';
+import { ModalShell } from '../../components/ModalShell';
 
 type UserRole = 'admin' | 'teacher' | 'registrar' | 'principal' | 'enrollment_committee';
 const ROLES: UserRole[] = ['admin', 'teacher', 'registrar', 'principal', 'enrollment_committee'];
@@ -777,9 +778,12 @@ export function UserManagement() {
 
       {/* ── Assign Subjects Prompt Modal ── */}
       {showAssignPrompt !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
+      <ModalShell
+        open
+        onClose={() => setShowAssignPrompt(null)}
+        maxWidth="max-w-sm"
+        bodyClassName="p-6">
+        <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
                 <BookOpen size={22} className="text-emerald-600" />
               </div>
@@ -812,15 +816,17 @@ export function UserManagement() {
                 Assign Subjects
               </button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
 
       {/* ── Delete Confirm Modal ── */}
       {showDeleteConfirm !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
+      <ModalShell
+        open
+        onClose={() => setShowDeleteConfirm(null)}
+        maxWidth="max-w-sm"
+        bodyClassName="p-6">
+        <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
                 <AlertTriangle size={22} className="text-red-600" />
               </div>
@@ -850,15 +856,19 @@ export function UserManagement() {
                 Delete Account
               </button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
 
       {/* ── Create / Edit User Modal ── */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+      <ModalShell
+        open={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditUser(null);
+        }}
+        maxWidth="max-w-xl"
+        bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Users size={18} className="text-white" />
@@ -1021,7 +1031,7 @@ export function UserManagement() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition touch-target inline-flex items-center justify-center">
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
@@ -1200,9 +1210,7 @@ export function UserManagement() {
                 {editUser ? 'Save Changes' : 'Create User Account'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
     </div>
   );
 }

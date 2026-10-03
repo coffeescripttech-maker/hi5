@@ -6,6 +6,7 @@
  *  - JSON datasets — consumed by the official PDF composer (lisPdf.ts)
  */
 import { api } from "./api";
+import { saveOrShareResponse } from "./nativeExport";
 
 export type ExportParams = {
   school_year_id?: number;
@@ -24,18 +25,7 @@ export interface LisDataset {
 
 /** Trigger a browser download from a blob Response. */
 async function triggerDownload(response: Response, defaultFilename: string): Promise<void> {
-  const disposition = response.headers.get("Content-Disposition") || "";
-  const match = disposition.match(/filename="?(.+?)"?$/);
-  const filename = match ? match[1] : defaultFilename;
-  const blob = await response.blob();
-
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  await saveOrShareResponse(response, defaultFilename);
 }
 
 async function downloadFile(url: string, params: ExportParams | undefined, defaultFilename: string): Promise<void> {

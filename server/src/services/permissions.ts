@@ -68,6 +68,7 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
     "registrar_forms_sf5",
     "registrar_forms_sf9",
     "registrar_forms_sf10",
+    "registrar_special_subjects",
     "registrar_reports",
     "registrar_sections",
     "registrar_grade_distribution",

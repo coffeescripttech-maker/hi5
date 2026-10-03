@@ -11,6 +11,7 @@ import depedLogoUrl from "../../assets/deped-logo.png";
 import schoolLogoUrl from "../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png";
 import { api } from "./api";
 import { lisApi, LisCard, LisDataset, ExportParams } from "./lis";
+import { saveOrShareResponse } from "./nativeExport";
 import { settingsApi } from "./settings";
 
 interface SchoolProfile {
@@ -265,16 +266,5 @@ export async function exportLisPdf(
     throw new Error(message);
   }
 
-  const disposition = response.headers.get("Content-Disposition") || "";
-  const match = disposition.match(/filename="?(.+?)"?$/);
-  const filename = match ? match[1] : `${baseName}.pdf`;
-  const blob = await response.blob();
-
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  await saveOrShareResponse(response, `${baseName}.pdf`);
 }

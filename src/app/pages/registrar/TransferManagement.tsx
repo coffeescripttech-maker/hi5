@@ -26,6 +26,7 @@ import { sectionsApi, SectionRow } from '../../services/sections';
 import { studentsApi, StudentRow } from '../../services/students';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { SearchableStudentSelect } from '../../components/SearchableStudentSelect';
+import { ModalShell } from '../../components/ModalShell';
 import {
   validate,
   newLearnerSchema,
@@ -453,7 +454,7 @@ export function TransferManagement() {
       </div>
 
       {/* ── STATS ── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
             Pending
@@ -476,7 +477,7 @@ export function TransferManagement() {
 
       {/* ── LIST ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-bold text-gray-900">Requests</h3>
           <select
             value={statusFilter}
@@ -565,7 +566,7 @@ export function TransferManagement() {
                     {r.status === 'pending' && (
                       <button
                         onClick={() => handleCancel(r)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition">
+                        className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-red-600 px-3 py-1.5 min-h-11 rounded-lg hover:bg-red-50 transition">
                         <Ban size={13} /> Withdraw
                       </button>
                     )}
@@ -578,9 +579,12 @@ export function TransferManagement() {
       </div>
 
       {/* ── FILE REQUEST MODAL ── */}
-      {showForm && (
-        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8">
+      <ModalShell
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        maxWidth="max-w-2xl"
+        bodyClassName="p-0"
+      >
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-gray-900">
@@ -592,7 +596,7 @@ export function TransferManagement() {
               </div>
               <button
                 onClick={() => setShowForm(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
+                className="touch-target inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
                 <X size={17} />
               </button>
             </div>
@@ -658,7 +662,7 @@ export function TransferManagement() {
                 </div>
               ) : (
                 <>
-                  <label className="flex items-center gap-2 text-xs text-gray-600">
+                  <label className="touch-target flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={existingStudent}
@@ -676,7 +680,7 @@ export function TransferManagement() {
                         setErrors({});
                         setTouched({});
                       }}
-                      className="rounded border-gray-300"
+                      className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
                     />
                     This learner already exists in our records (e.g. returning
                     from a previous school year)
@@ -870,20 +874,18 @@ export function TransferManagement() {
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
               <button
                 onClick={() => setShowForm(false)}
-                className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                className="rounded-xl border border-gray-200 px-4 py-2.5 min-h-11 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition">
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 min-h-11 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition">
                 {saving && <Loader2 size={15} className="animate-spin" />}
                 File Request
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
     </PageContainer>
   );
 }

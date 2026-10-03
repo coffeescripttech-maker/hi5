@@ -65,7 +65,7 @@ function LegalDocFields({
             <button
               type="button"
               onClick={() => removeSection(i)}
-              className="text-[11px] font-medium text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg transition">
+              className="text-[11px] font-medium text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg transition relative after:absolute after:-inset-3 after:content-['']">
               Remove
             </button>
           </div>
@@ -372,7 +372,7 @@ export function SchoolSettings() {
   const inputClass = "w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white";
 
   const sectionFooter = (onSave: () => void, label: string, children?: React.ReactNode) => (
-    <div className="px-5 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end gap-3">
+    <div className="px-5 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-end gap-3">
       {children}
       <button onClick={onSave} disabled={saving}
         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
@@ -572,7 +572,7 @@ export function SchoolSettings() {
               <div className="relative">
                 <CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="text" value={schoolYear} readOnly
-                  className={`${inputClass} w-44 bg-gray-50 text-gray-500 cursor-not-allowed`} />
+                  className={`${inputClass} w-full sm:w-44 bg-gray-50 text-gray-500 cursor-not-allowed`} />
               </div>
               <span className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-200">Currently Active</span>
             </div>
@@ -831,7 +831,7 @@ export function SchoolSettings() {
                       Core section type — its threshold can still be customized to match your school's policy.
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Minimum Average</label>
                       <input type="number" min={0} max={100} step="0.01" value={t.min_average}

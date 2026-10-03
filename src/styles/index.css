@@ -29,6 +29,11 @@
   will-change: transform, opacity;
 }
 
+/* Respect the OS "reduce motion" setting — no falling confetti. */
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece { display: none; }
+}
+
 /* App shell animations */
 @keyframes fade-in {
   from { opacity: 0; }

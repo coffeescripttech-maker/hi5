@@ -13,10 +13,17 @@ interface SubjectRow extends RowDataPacket {
    *  (e.g. TLE specializations) are reported under one heading and counted once
    *  in the general average. Mirrors the existing MAPEH collapse. */
   subject_group: string | null;
+  /** Curriculum program this subject belongs to — NULL = shared by all programs. */
+  program: string | null;
   is_active: number;
   created_at: Date;
   updated_at: Date;
 }
+
+/** Program values a subject may be scoped to (mirrors enrollments.program). */
+const PROGRAM_SCOPES = ["regular", "ste", "spfl", "open_high", "als_shs", "als_jhs"];
+const isProgramScope = (v: unknown): v is string =>
+  typeof v === "string" && PROGRAM_SCOPES.includes(v);
 
 /**
  * Derive a reporting group from the subject name when none is supplied.
@@ -71,15 +78,17 @@ export async function getAssignedSubjects(req: Request, res: Response): Promise<
 
 /**
  * GET /api/subjects — List subjects with filters
- * Query: ?grade_level=7&subject_type=core&strand_track_id=1
+ * Query: ?grade_level=7&subject_type=core&strand_track_id=1&program=ste
  *
  * When strand_track_id is provided, returns subjects that are either:
  *   - Shared (not linked to any strand track), OR
  *   - Linked to the specified strand track
+ *
+ * When program is provided, returns shared subjects plus those scoped to it.
  */
 export async function listSubjects(req: Request, res: Response): Promise<void> {
   try {
-    const { grade_level, subject_type, is_active, strand_track_id } = req.query;
+    const { grade_level, subject_type, is_active, strand_track_id, program } = req.query;
 
     let sql = "SELECT * FROM subjects";
     const params: any[] = [];
@@ -105,6 +114,12 @@ export async function listSubjects(req: Request, res: Response): Promise<void> {
         OR id IN (SELECT subject_id FROM subject_strand_tracks WHERE strand_track_id = ?)
       )`);
       params.push(parseInt(strand_track_id as string));
+    }
+
+    // Program filter — show shared subjects + subjects scoped to the program
+    if (program) {
+      conditions.push("(program IS NULL OR program = ?)");
+      params.push(program);
     }
 
     if (conditions.length > 0) {
@@ -146,7 +161,7 @@ export async function getSubjectById(req: Request, res: Response): Promise<void>
  */
 export async function createSubject(req: Request, res: Response): Promise<void> {
   try {
-    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group } = req.body;
+    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group, program } = req.body;
 
     if (!name || !grade_level || hours_per_week === undefined || !subject_type) {
       res.status(400).json({ error: "Missing required fields: name, grade_level, hours_per_week, subject_type." });
@@ -155,6 +170,11 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
 
     if (!["core", "applied", "specialized"].includes(subject_type)) {
       res.status(400).json({ error: "Invalid subject_type. Must be core, applied, or specialized." });
+      return;
+    }
+
+    if (program !== undefined && program !== null && program !== "" && !isProgramScope(program)) {
+      res.status(400).json({ error: `Invalid program. Must be one of: ${PROGRAM_SCOPES.join(", ")}.` });
       return;
     }
 
@@ -172,10 +192,12 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
       ? (subject_group === null || subject_group === "" ? null : String(subject_group).trim())
       : inferSubjectGroup(name, subject_type);
 
+    const programScope = program === undefined || program === null || program === "" ? null : program;
+
     const result = await query<ResultSetHeader>(
-      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, subject_group, is_active)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, grade_level, hours_per_week, subject_type, group, is_active !== undefined ? is_active : 1]
+      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, subject_group, program, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, grade_level, hours_per_week, subject_type, group, programScope, is_active !== undefined ? is_active : 1]
     );
 
     await logActivity(req.user!.userId, `Created subject "${name}" (Grade ${grade_level})`, "subjects", result.insertId);
@@ -194,11 +216,16 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
 export async function updateSubject(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group } = req.body;
+    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group, program } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM subjects WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "Subject not found." });
+      return;
+    }
+
+    if (program !== undefined && program !== null && program !== "" && !isProgramScope(program)) {
+      res.status(400).json({ error: `Invalid program. Must be one of: ${PROGRAM_SCOPES.join(", ")}.` });
       return;
     }
 
@@ -212,6 +239,10 @@ export async function updateSubject(req: Request, res: Response): Promise<void> 
     if (subject_group !== undefined) {
       fields.push("subject_group = ?");
       params.push(subject_group === null || subject_group === "" ? null : String(subject_group).trim());
+    }
+    if (program !== undefined) {
+      fields.push("program = ?");
+      params.push(program === null || program === "" ? null : program);
     }
     if (is_active !== undefined) { fields.push("is_active = ?"); params.push(is_active); }
 
@@ -295,13 +326,14 @@ export async function populateSubjects(req: Request, res: Response): Promise<voi
     }
 
     const VALID_GRADES = [7, 8, 9, 10, 11, 12];
-    const cleaned: { name: string; grade_level: number; hours_per_week: number; subject_type: string }[] = [];
+    const cleaned: { name: string; grade_level: number; hours_per_week: number; subject_type: string; program: string | null }[] = [];
 
     for (const [idx, item] of items.entries()) {
       const name = typeof item.name === "string" ? item.name.trim() : "";
       const grade_level = parseInt(item.grade_level);
       const hours_per_week = parseFloat(item.hours_per_week);
       const subject_type = item.subject_type;
+      const program = item.program === undefined || item.program === null || item.program === "" ? null : item.program;
 
       if (!name) {
         res.status(400).json({ error: `Item ${idx + 1}: name is required.` });
@@ -319,7 +351,11 @@ export async function populateSubjects(req: Request, res: Response): Promise<voi
         res.status(400).json({ error: `Item ${idx + 1} ("${name}"): invalid subject_type.` });
         return;
       }
-      cleaned.push({ name, grade_level, hours_per_week, subject_type });
+      if (program !== null && !isProgramScope(program)) {
+        res.status(400).json({ error: `Item ${idx + 1} ("${name}"): invalid program.` });
+        return;
+      }
+      cleaned.push({ name, grade_level, hours_per_week, subject_type, program });
     }
 
     // Snapshot existing (name, grade) pairs so we never insert duplicates
@@ -331,10 +367,10 @@ export async function populateSubjects(req: Request, res: Response): Promise<voi
 
     let createdCount = 0;
     if (toCreate.length > 0) {
-      const placeholders = toCreate.map(() => "(?, ?, ?, ?, ?)").join(", ");
-      const params = toCreate.flatMap(c => [c.name, c.grade_level, c.hours_per_week, c.subject_type, 1]);
+      const placeholders = toCreate.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+      const params = toCreate.flatMap(c => [c.name, c.grade_level, c.hours_per_week, c.subject_type, c.program, 1]);
       const result = await query<ResultSetHeader>(
-        `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, is_active)
+        `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, program, is_active)
          VALUES ${placeholders}`,
         params
       );

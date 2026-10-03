@@ -4,6 +4,7 @@ import { backupsApi, BackupRow } from "../../services/backups";
 import { settingsApi, BackupSettings } from "../../services/settings";
 import { useApp } from "../../context/AppContext";
 import { HybridTable } from "../../components/HybridTable";
+import { ModalShell } from "../../components/ModalShell";
 
 export function DatabaseBackup() {
   const { showToast } = useApp();
@@ -332,7 +333,7 @@ export function DatabaseBackup() {
                           <div className="flex items-center gap-2">
                             {b.status === "success" && (
                               <>
-                                <button onClick={() => backupsApi.download(b.id)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                <button onClick={() => backupsApi.download(b.id).catch(err => showToast("error", err?.message || "Download failed"))} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                                   <Download size={11} /> Download
                                 </button>
                                 <button onClick={() => setConfirmRestore(b.id)}
@@ -380,12 +381,12 @@ export function DatabaseBackup() {
                       </div>
                       {b.status === "success" && (
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button onClick={() => backupsApi.download(b.id)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1">
-                            <Download size={11} /> Download
+                          <button onClick={() => backupsApi.download(b.id).catch(err => showToast("error", err?.message || "Download failed"))} className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1 touch-target">
+                            <Download size={13} /> Download
                           </button>
                           <button onClick={() => setConfirmRestore(b.id)}
-                            className="flex items-center gap-1 text-xs text-amber-600 hover:underline p-1">
-                            <RotateCcw size={11} /> Restore
+                            className="flex items-center gap-1 text-xs text-amber-600 hover:underline p-1 touch-target">
+                            <RotateCcw size={13} /> Restore
                           </button>
                         </div>
                       )}
@@ -400,9 +401,12 @@ export function DatabaseBackup() {
 
       {/* Restore Confirmation Dialog */}
       {confirmRestore !== null && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center gap-3">
+      <ModalShell
+        open
+        onClose={() => setConfirmRestore(null)}
+        maxWidth="max-w-md"
+        bodyClassName="p-6 space-y-4">
+          <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle size={20} className="text-red-600" />
               </div>
@@ -432,8 +436,7 @@ export function DatabaseBackup() {
                 ) : "Restore Database"}
               </button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
 
       {/* Compliance notice */}

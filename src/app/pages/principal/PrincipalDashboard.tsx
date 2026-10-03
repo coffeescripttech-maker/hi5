@@ -70,6 +70,7 @@ export function PrincipalDashboard() {
     { name: "SPFL", value: enrollments.filter(e => e.status === "enrolled" && e.program === "spfl").length, color: "#c084fc" },
     { name: "Open High", value: enrollments.filter(e => e.status === "enrolled" && e.program === "open_high").length, color: "#e9d5ff" },
     { name: "ALS-SHS", value: enrollments.filter(e => e.status === "enrolled" && e.program === "als_shs").length, color: "#7c3aed" },
+    { name: "ALS-JHS", value: enrollments.filter(e => e.status === "enrolled" && e.program === "als_jhs").length, color: "#6d28d9" },
   ].filter(p => p.value > 0);
 
   // ── Principal analytics (charts added for at-a-glance school-wide insight) ──
@@ -192,8 +193,8 @@ export function PrincipalDashboard() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={enrollmentByGrade}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="grade" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <XAxis dataKey="grade" tick={{ fontSize: 12 }} interval={0} />
+              <YAxis width={36} tick={{ fontSize: 12 }} />
               <Tooltip />
               <Bar dataKey="enrolled" fill="#9333ea" radius={[4, 4, 0, 0]} name="Enrolled" />
               <Bar dataKey="capacity" fill="#f3e8ff" radius={[4, 4, 0, 0]} name="Capacity" />
@@ -209,12 +210,13 @@ export function PrincipalDashboard() {
           </div>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={programData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
-                label={(e: any) => `${e.name}: ${e.value}`}>
+              <Pie data={programData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%"
+                label={false}>
                 {programData.map((_entry, idx) => (
                   <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                 ))}
               </Pie>
+              <Legend />
               <Tooltip formatter={(v: any, n: any) => [`${v} students`, n]} />
             </PieChart>
           </ResponsiveContainer>
@@ -235,7 +237,7 @@ export function PrincipalDashboard() {
               <LineChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="sy" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                <YAxis width={36} tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip />
                 <Line type="monotone" dataKey="students" stroke="#4f46e5" strokeWidth={3} dot={{ fill: "#4f46e5", r: 5 }} name="Enrolled" />
               </LineChart>
@@ -262,7 +264,7 @@ export function PrincipalDashboard() {
                 <BarChart data={distData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="range" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                  <YAxis width={36} tick={{ fontSize: 12 }} allowDecimals={false} />
                   <Tooltip formatter={(v: number) => [String(v), "Students"]} />
                   <Bar dataKey="count" name="Grades" radius={[4, 4, 0, 0]}>
                     {distData.map((d, idx) => (
@@ -283,7 +285,7 @@ export function PrincipalDashboard() {
               {genderData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
-                    <Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={(e: any) => `${e.name}: ${e.value}`}>
+                    <Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={false}>
                       {genderData.map((g, idx) => (
                         <Cell key={idx} fill={g.color} />
                       ))}

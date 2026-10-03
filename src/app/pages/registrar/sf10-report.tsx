@@ -848,7 +848,7 @@ export function SF10Report() {
                     <button
                       key={s.id}
                       type="button"
-                      onMouseDown={() => {
+                      onPointerDown={() => {
                         setSelectedStudentId(s.id);
                         setSearchQuery(`${s.lrn} — ${s.name}`);
                         setShowSuggestions(false);

@@ -9,6 +9,7 @@
  * (that would be a behavior change, out of scope).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
@@ -173,6 +174,8 @@ export function NotificationsDropdown() {
   const accent = useRoleAccent();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   // Real-time subscription — DB notifications pushed via SSE, no refresh.
   const onNewLive = useCallback(
@@ -237,14 +240,51 @@ export function NotificationsDropdown() {
     else liveMarkOneRead(id);
   };
 
-  // Close when clicking outside the bell / panel.
+  // Close when clicking outside the bell / panel, or pressing Escape.
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
+    const handlePointer = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
-    if (open) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    if (open) {
+      document.addEventListener('pointerdown', handlePointer);
+      document.addEventListener('keydown', handleKey);
+    }
+    return () => {
+      document.removeEventListener('pointerdown', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  // The panel is portaled to <body> so the header's backdrop-blur can't clip
+  // it. Anchor it under the bell on desktop; center it on phones.
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const place = () => {
+      const el = ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const width = Math.min(vw * 0.92, 360);
+      const centered = vw < 640;
+      let left = centered ? (vw - width) / 2 : rect.right - width;
+      left = Math.max(8, Math.min(left, vw - width - 8));
+      setPos({ top: rect.bottom + 8, left });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
   }, [open]);
 
   return (
@@ -269,8 +309,11 @@ export function NotificationsDropdown() {
         )}
       </button>
 
-      {open && (
-        <div className="animate-scale-in absolute right-0 top-12 z-50 w-[min(92vw,360px)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+      {open && pos && createPortal(
+        <div
+          ref={panelRef}
+          style={{ top: pos.top, left: pos.left, width: 'min(92vw, 360px)' }}
+          className="animate-scale-in fixed z-[100] flex max-h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-slate-700">
             <div className="flex items-center gap-2">
@@ -303,7 +346,7 @@ export function NotificationsDropdown() {
           </div>
 
           {/* Items */}
-          <div className="app-scroll max-h-72 overflow-y-auto">
+          <div className="app-scroll min-h-0 flex-1 overflow-y-auto">
             {currentNotifs.map((n, idx) => {
               const isUnread = !(n as { isRead?: boolean }).isRead;
               const isSec = (n as { isSecurity?: boolean }).isSecurity;
@@ -356,7 +399,8 @@ export function NotificationsDropdown() {
               Hi5 Portal · Notification Center
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

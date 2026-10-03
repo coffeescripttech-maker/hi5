@@ -1,7 +1,8 @@
 /**
  * Backups API service
  */
-import { api, getToken } from "./api";
+import { api } from "./api";
+import { saveOrShareResponse } from "./nativeExport";
 
 export interface BackupRow {
   id: number;
@@ -19,22 +20,14 @@ export const backupsApi = {
   list: () => api.get<BackupRow[]>("/backups"),
   create: () => api.post<BackupRow>("/backups"),
   restore: (id: number) => api.post<{ message: string; backup_id: number }>(`/backups/${id}/restore`),
-  download: (id: number): void =>
-    // Same-tab anchor navigation — can't be popup-blocked, and the server
-    // returns Content-Disposition: attachment so the tab stays put and the
-    // file is saved with the server-provided name.
-    triggerNavigationDownload(`/backups/${id}/download`),
+  // Fetches through the authenticated API client (Bearer header) and routes
+  // the bytes to the native share sheet on Capacitor, or a browser download on
+  // the web. Avoids putting the JWT in the URL.
+  download: async (id: number): Promise<void> => {
+    const response = await api.getBlob(`/backups/${id}/download`);
+    if (!response.ok) {
+      throw new Error(`Backup download failed (${response.status})`);
+    }
+    await saveOrShareResponse(response, `backup-${id}.sql`);
+  },
 };
-
-function triggerNavigationDownload(path: string): void {
-  const token = getToken();
-  const sp = new URLSearchParams();
-  if (token) sp.set("token", token);
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
-  const a = document.createElement("a");
-  a.href = `${API_BASE}${path}?${sp.toString()}`;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}

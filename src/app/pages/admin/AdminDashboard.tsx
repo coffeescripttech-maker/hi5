@@ -199,7 +199,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(card => {
           const Icon = card.icon;
           return (
@@ -247,7 +247,8 @@ export function AdminDashboard() {
             </span>
           </div>
           {enrollmentByGender.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}>
+            <div className="h-56 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={enrollmentByGender} barCategoryGap="30%">
                 <CartesianGrid
                   strokeDasharray="3 3"
@@ -261,6 +262,7 @@ export function AdminDashboard() {
                   tickLine={false}
                 />
                 <YAxis
+                  width={32}
                   tick={{ fontSize: 10, fill: '#6b7280' }}
                   axisLine={false}
                   tickLine={false}
@@ -277,8 +279,9 @@ export function AdminDashboard() {
                 <Bar dataKey="Female" fill="#93c5fd" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="h-[240px] flex items-center justify-center text-gray-400 text-sm">
+            <div className="h-56 sm:h-72 flex items-center justify-center text-gray-400 text-sm">
               No enrollment data available
             </div>
           )}

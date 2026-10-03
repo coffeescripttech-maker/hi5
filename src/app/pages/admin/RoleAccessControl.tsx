@@ -49,7 +49,7 @@ function Toggle({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => !disabled && onToggle(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 after:absolute after:-inset-3 after:content-[''] ${
         checked ? 'bg-emerald-500' : 'bg-gray-300'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
       {saving ? (
@@ -348,18 +348,18 @@ export function RoleAccessControl() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleSetAll(role, true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium transition-colors border border-emerald-200">
+                    className="flex items-center gap-1.5 min-h-11 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium transition-colors border border-emerald-200">
                     <Check size={13} /> Enable all
                   </button>
                   <button
                     onClick={() => handleSetAll(role, false)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium transition-colors border border-red-200">
+                    className="flex items-center gap-1.5 min-h-11 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium transition-colors border border-red-200">
                     <X size={13} /> Disable all
                   </button>
                   <button
                     onClick={() => handleReset(role)}
                     disabled={resetting === role}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-medium transition-colors border border-gray-200 disabled:opacity-50">
+                    className="flex items-center gap-1.5 min-h-11 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-medium transition-colors border border-gray-200 disabled:opacity-50">
                     {resetting === role ? (
                       <Loader2 size={13} className="animate-spin" />
                     ) : (
@@ -371,7 +371,7 @@ export function RoleAccessControl() {
               </div>
 
               {/* Checklist */}
-              <div className="divide-y divide-gray-50 max-h-[560px] overflow-y-auto">
+              <div className="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto">
                 {NAV_BY_ROLE[role].map(group => {
                   const visible = group.items.filter(item =>
                     isVisible(role, item.label, item.path)

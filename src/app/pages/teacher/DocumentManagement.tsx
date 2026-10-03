@@ -255,7 +255,7 @@ export function DocumentManagement() {
                           </td>
                           <td className="px-5 py-3">
                             {doc.status !== "pending" && doc.status !== "failed" && (
-                              <button onClick={() => documentsApi.download(doc.id)}
+                              <button onClick={() => documentsApi.download(doc.id).catch(err => showToast("error", err?.message || "Download failed"))}
                                 className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline">
                                 <Download size={11} /> Download
                               </button>
@@ -296,7 +296,7 @@ export function DocumentManagement() {
                             {STATUS_ICON[doc.status]}{STATUS_LABEL[doc.status] || doc.status}
                           </span>
                           {doc.status !== "pending" && doc.status !== "failed" && (
-                            <button onClick={() => documentsApi.download(doc.id)}
+                            <button onClick={() => documentsApi.download(doc.id).catch(err => showToast("error", err?.message || "Download failed"))}
                               className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline touch-target">
                               <Download size={11} /> Download
                             </button>

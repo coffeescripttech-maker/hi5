@@ -48,7 +48,7 @@ export function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
+    <div className="min-h-dvh flex items-center justify-center bg-gray-50 px-4 pt-safe pb-safe">
       <div className="w-full max-w-md">
         <div className="hi5-card hi5-stagger-1 mb-7 flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-200 flex items-center justify-center">
@@ -132,7 +132,7 @@ export function ResetPassword() {
                       setPassword(e.target.value);
                       if (error) setError('');
                     }}
-                    className="w-full pl-9 pr-10 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white transition shadow-sm border border-gray-200 focus:ring-emerald-400 focus:border-emerald-400"
+                    className="w-full pl-9 pr-11 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white transition shadow-sm border border-gray-200 focus:ring-emerald-400 focus:border-emerald-400"
                     placeholder="At least 6 characters"
                     required
                     autoFocus
@@ -142,7 +142,7 @@ export function ResetPassword() {
                     type="button"
                     onClick={() => setShow(v => !v)}
                     aria-label={show ? 'Hide password' : 'Show password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 touch-target inline-flex items-center justify-center text-gray-400 hover:text-gray-600">
                     {show ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
@@ -161,7 +161,7 @@ export function ResetPassword() {
                       setConfirm(e.target.value);
                       if (error) setError('');
                     }}
-                    className="w-full pl-9 pr-10 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white transition shadow-sm border border-gray-200 focus:ring-emerald-400 focus:border-emerald-400"
+                    className="w-full pl-9 pr-11 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white transition shadow-sm border border-gray-200 focus:ring-emerald-400 focus:border-emerald-400"
                     placeholder="Re-enter your new password"
                     required
                     autoComplete="new-password"

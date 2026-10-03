@@ -1,4 +1,5 @@
 ﻿import React from "react";
+import { Link } from "react-router";
 import { ArrowRight, Upload } from "lucide-react";
 
 /**
@@ -10,7 +11,7 @@ import { ArrowRight, Upload } from "lucide-react";
  */
 export function LisExport() {
   return (
-    <div className="max-w-2xl mx-auto mt-10 bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+    <div className="max-w-2xl mx-auto mt-6 sm:mt-10 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8 text-center">
       <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mx-auto mb-4">
         <Upload size={26} className="text-indigo-600" />
       </div>
@@ -22,12 +23,12 @@ export function LisExport() {
         available only to the Registrar role. Please use the Registrar account
         to download LIS-ready CSV files.
       </p>
-      <a
-        href="/registrar/lis-export"
-        className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all"
+      <Link
+        to="/registrar/lis-export"
+        className="inline-flex items-center justify-center gap-2 touch-target bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all"
       >
         Open Registrar LIS Export <ArrowRight size={15} />
-      </a>
+      </Link>
     </div>
   );
 }

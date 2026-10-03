@@ -120,7 +120,7 @@ export function SectionPopulation() {
           <h3 className="font-semibold text-gray-800 text-sm">All Sections</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50/80">
               <tr>
                 {["Section", "Grade", "Adviser", "Capacity", "Enrolled", "Utilization"].map(h => (

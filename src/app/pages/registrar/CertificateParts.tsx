@@ -11,6 +11,8 @@ import React from 'react';
 import logoImage from '../../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png';
 import depedLogo from '../../../assets/deped-logo.png';
 import type { CertificateSchool } from '../../services/certificates';
+import { downloadRenderedPdf } from '../../services/pdfRender';
+import { isNativePlatform } from '../../services/nativeExport';
 
 /** Placeholder shown while a student hasn't been loaded yet. */
 export const PLACEHOLDER = '________________________';
@@ -107,7 +109,7 @@ export function SignatureBlock({ name, title, schoolName }: SignatureBlockProps)
   return (
     <div className="mt-12 flex justify-end">
       <div className="text-center">
-        <div className="w-64 border-t border-gray-400 pt-2">
+        <div className="w-40 sm:w-64 max-w-full border-t border-gray-400 pt-2">
           <p className="text-sm font-bold uppercase text-gray-800">
             {name?.trim() ? name.trim() : 'Authorized Signatory'}
           </p>
@@ -127,6 +129,18 @@ export function SignatureBlock({ name, title, schoolName }: SignatureBlockProps)
  * of the printed page.
  */
 export function printCertificate(elementId: string) {
+  // Android/iOS WebViews don't support window.print(). On native, render the
+  // certificate to PDF on the server and hand it to the OS share sheet, which
+  // includes a Print action.
+  if (isNativePlatform()) {
+    void downloadRenderedPdf({
+      elementId,
+      filename: 'certificate',
+      orientation: 'portrait',
+      format: 'letter',
+    });
+    return;
+  }
   const el = document.getElementById(elementId);
   if (!el) return;
   const style = document.createElement('style');

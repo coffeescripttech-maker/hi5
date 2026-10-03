@@ -53,7 +53,7 @@ const GRADE_LABELS: Record<number, string> = {
   7: "G7", 8: "G8", 9: "G9", 10: "G10", 11: "G11", 12: "G12",
 };
 const PROGRAM_LABELS: Record<string, string> = {
-  regular: "Regular", ste: "STE", spfl: "SPFL", open_high: "Open HS", als_shs: "ALS-SHS",
+  regular: "Regular", ste: "STE", spfl: "SPFL", open_high: "Open HS", als_shs: "ALS-SHS", als_jhs: "ALS-JHS",
 };
 const CLASSIF_LABELS: Record<string, string> = {
   "4ps": "4Ps", pwd: "PWD", transferee: "Transferee", non_reader: "Non-Reader", balik_aral: "Balik-aral",
@@ -559,7 +559,7 @@ export function SectionAssignment() {
   const generateManualPreview = () => {
     setGenerating(true);
     const candidates = queue.filter(
-      s => s.program === "als_shs" || s.program === "open_high"
+      s => s.program === "als_shs" || s.program === "als_jhs" || s.program === "open_high"
     );
 
     if (candidates.length === 0) {
@@ -795,7 +795,7 @@ export function SectionAssignment() {
         ) : !loading ? (
           <>
           <div className="overflow-x-auto border border-gray-100 rounded-xl">
-            <table className="w-full">
+            <table className="w-full min-w-[860px]">
                 <thead>
                   <tr className="bg-gray-50/80">
                     <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">#</th>
@@ -1073,17 +1073,19 @@ export function SectionAssignment() {
               )}
 
               <div className="overflow-x-auto border border-gray-100 rounded-xl">
-                <table className="w-full">
+                <table className="w-full min-w-[860px]">
                   <thead>
                     <tr className="bg-gray-50/80">
                       <th className="px-4 py-3 w-10">
-                        <input
-                          type="checkbox"
-                          checked={allFilteredSelected}
-                          ref={el => { if (el) el.indeterminate = someFilteredSelected; }}
-                          onChange={toggleSelectAll}
-                          className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
-                        />
+                        <label className="touch-target inline-flex items-center justify-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={allFilteredSelected}
+                            ref={el => { if (el) el.indeterminate = someFilteredSelected; }}
+                            onChange={toggleSelectAll}
+                            className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                          />
+                        </label>
                       </th>
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">#</th>
                       <SortHeader label="Student" sortKey="name" active={previewBrowser.sortKey === "name"} dir={previewBrowser.sortDir} onToggle={previewBrowser.toggleSort} />
@@ -1103,12 +1105,14 @@ export function SectionAssignment() {
                     {previewBrowser.slice.map((student, i) => (
                       <tr key={student.student_id} className={`${(previewBrowser.startIndex + i) % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
                         <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(student.student_id)}
-                            onChange={() => toggleSelect(student.student_id)}
-                            className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
-                          />
+                          <label className="touch-target inline-flex items-center justify-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(student.student_id)}
+                              onChange={() => toggleSelect(student.student_id)}
+                              className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                            />
+                          </label>
                         </td>
                         <td className="px-4 py-3 text-gray-400 text-xs">{previewBrowser.startIndex + i + 1}</td>
                         <td className="px-4 py-3">
@@ -1179,7 +1183,7 @@ export function SectionAssignment() {
                                     onClick={() => toggleAdmission(student.enrollment_id!, "exam", rec.exam === true ? null : true)}
                                     title="Entrance exam passed?"
                                     className={clsx(
-                                      "px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
+                                      "min-h-11 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
                                       rec.exam === true
                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                         : rec.exam === false
@@ -1194,7 +1198,7 @@ export function SectionAssignment() {
                                     onClick={() => toggleAdmission(student.enrollment_id!, "interview", rec.interview === true ? null : true)}
                                     title="Interview passed?"
                                     className={clsx(
-                                      "px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
+                                      "min-h-11 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
                                       rec.interview === true
                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                         : rec.interview === false

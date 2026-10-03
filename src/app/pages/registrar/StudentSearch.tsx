@@ -8,6 +8,7 @@ import {
 import { studentsApi, StudentRow } from "../../services/students";
 import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
 import { useApp } from "../../context/AppContext";
+import { saveOrShareFile } from "../../services/nativeExport";
 
 const GRADE_LEVELS = [7, 8, 9, 10, 11, 12];
 
@@ -155,7 +156,7 @@ export function StudentSearch() {
   const hasActiveFilters = filterGrade !== "all" || filterStatus !== "all" || filterSex !== "all";
   const clearFilters = () => { setFilterGrade("all"); setFilterStatus("all"); setFilterSex("all"); };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const csv = [
       ["Student ID", "LRN", "Name", "Grade Level", "Sex", "Status"].join(","),
       ...processed.map(s =>
@@ -163,12 +164,7 @@ export function StudentSearch() {
       ),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `student-records-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await saveOrShareFile(blob, `student-records-${new Date().toISOString().slice(0, 10)}.csv`);
     showToast("success", `Exported ${processed.length} student records`);
   };
 
@@ -223,7 +219,7 @@ export function StudentSearch() {
             {search && <span className="text-xs text-gray-400">{processed.length} of {students.length} found</span>}
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 text-xs bg-white text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all font-medium"
+              className="flex items-center gap-1.5 text-xs bg-white text-gray-600 border border-gray-200 px-3 py-1.5 min-h-11 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all font-medium"
             >
               <Download size={13} /> Export
             </button>
@@ -243,7 +239,7 @@ export function StudentSearch() {
             />
             {search && (
               <button onClick={() => { setSearch(""); setShowSuggestions(false); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
+                className="relative after:absolute after:-inset-3.5 after:content-[''] absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
                 <X size={16} />
               </button>
             )}
@@ -303,7 +299,7 @@ export function StudentSearch() {
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
-                    className="text-[11px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
+                    className="text-[11px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 min-h-11 rounded-lg transition flex items-center gap-1"
                   >
                     <X size={12} /> Clear all
                   </button>
@@ -401,7 +397,7 @@ export function StudentSearch() {
                         <td className="px-6 py-3.5 text-right">
                           <button
                             onClick={() => navigate(`/student/${s.id}`)}
-                            className="inline-flex items-center gap-1.5 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200/70 px-3 py-1.5 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-all font-medium"
+                            className="inline-flex items-center gap-1.5 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200/70 px-3 py-1.5 min-h-11 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-all font-medium"
                           >
                             <Eye size={13} /> View Profile
                           </button>
@@ -414,7 +410,7 @@ export function StudentSearch() {
             </div>
 
             {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <p className="text-xs text-gray-400">
                   Showing <span className="font-medium text-gray-600">{(safePage - 1) * pageSize + 1}</span>–
@@ -432,13 +428,13 @@ export function StudentSearch() {
                   </select>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 <button onClick={() => setPage(1)} disabled={safePage === 1}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                  className="touch-target w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                   <ChevronFirst size={14} />
                 </button>
                 <button onClick={() => setPage(safePage - 1)} disabled={safePage === 1}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                  className="touch-target w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                   <ChevronLeft size={14} />
                 </button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -447,7 +443,7 @@ export function StudentSearch() {
                   if (n > totalPages) return null;
                   return (
                     <button key={n} onClick={() => setPage(n)}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition ${
+                      className={`touch-target w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition ${
                         n === safePage
                           ? "bg-indigo-500 text-white shadow-sm"
                           : "border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -457,11 +453,11 @@ export function StudentSearch() {
                   );
                 })}
                 <button onClick={() => setPage(safePage + 1)} disabled={safePage === totalPages}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                  className="touch-target w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                   <ChevronRight size={14} />
                 </button>
                 <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                  className="touch-target w-8 h-8 rounded-lg flex items-center justify-center text-xs border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
                   <ChevronLast size={14} />
                 </button>
               </div>

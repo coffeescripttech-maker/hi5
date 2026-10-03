@@ -200,13 +200,13 @@ export function ActivityLogs() {
             {search && (
               <button
                 onClick={() => changeFilter(() => setSearch(""))}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold touch-target inline-flex items-center justify-center"
               >
                 ✕
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <SlidersHorizontal size={14} className="text-gray-400" />
             <select
               value={category}

@@ -3,6 +3,8 @@
  * (SF1, SF10, ...). Mirrors the School Form 1 layout: DepEd seal on the
  * left, the form title centered, and the DepEd logo on the right.
  */
+import depedSeal from '../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.png';
+
 export function SchoolFormTitleBlock({
   title,
   subtitle,
@@ -13,7 +15,7 @@ export function SchoolFormTitleBlock({
   return (
     <div className="mb-4 flex items-center justify-between gap-6">
       <img
-        src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS_96lFoHFcY7YTT3NbY84OBer4jAMloUcfne1cTKV6lQ&s"
+        src={depedSeal}
         alt="Department of Education seal"
         width={72}
         height={72}

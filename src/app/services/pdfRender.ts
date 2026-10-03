@@ -11,6 +11,7 @@
  */
 
 import { api } from "./api";
+import { saveOrShareResponse } from "./nativeExport";
 import {
   fetchAsBase64,
   inlineRemoteImages,
@@ -525,18 +526,5 @@ export async function downloadRenderedPdf(opts: PdfRenderOptions): Promise<void>
     throw new Error(message);
   }
 
-  const disposition = response.headers.get("Content-Disposition") || "";
-  const match = disposition.match(/filename="?([^";]+)"?/);
-  const serverName = (match ? match[1] : `${filename}.pdf`).replace(/\.pdf$/i, "");
-  const safeName = serverName || filename;
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${safeName}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  await saveOrShareResponse(response, `${filename}.pdf`);
 }

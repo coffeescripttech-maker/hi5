@@ -4,6 +4,7 @@ import { sectionsApi, SectionRow, CreateSectionPayload, UpdateSectionPayload, Te
 import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
 import { useApp } from "../../context/AppContext";
 import { HybridTable } from "../../components/HybridTable";
+import { ModalShell } from "../../components/ModalShell";
 
 const FALLBACK_COLORS = "bg-gray-100 text-gray-700 border-gray-200";
 
@@ -82,7 +83,7 @@ function TeacherSearch({
           className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 transition-all bg-white"
         />
         {query && (
-          <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
+          <button onClick={handleClear} className="touch-target inline-flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
             <X size={14} />
           </button>
         )}
@@ -527,10 +528,12 @@ export function SectionCreation() {
       )}
 
       {/* ── Create Section Modal ── */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+      <ModalShell
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        maxWidth="max-w-xl"
+        bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Layers size={18} className="text-white" />
@@ -608,15 +611,16 @@ export function SectionCreation() {
                 Create Section
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* ── Edit Section Modal ── */}
-      {editTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+      {editTarget !== null && (
+      <ModalShell
+        open
+        onClose={() => setEditTarget(null)}
+        maxWidth="max-w-xl"
+        bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Edit2 size={18} className="text-white" />
@@ -672,15 +676,17 @@ export function SectionCreation() {
                 Save Changes
               </button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
 
       {/* ── Delete Confirm Modal ── */}
       {deleteId !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
+      <ModalShell
+        open
+        onClose={() => setDeleteId(null)}
+        maxWidth="max-w-sm"
+        bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
                 <AlertTriangle size={22} className="text-red-600" />
               </div>
@@ -696,14 +702,15 @@ export function SectionCreation() {
               <button onClick={() => handleDelete(deleteId)}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">Delete</button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
 
       {/* ── Manage Types Modal ── */}
-      {showManageTypes && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <ModalShell
+        open={showManageTypes}
+        onClose={() => { setShowManageTypes(false); setTypeFormMode(null); setEditingType(null); setDeleteTypeId(null); }}
+        maxWidth="max-w-2xl"
+        bodyClassName="p-0">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -861,15 +868,15 @@ export function SectionCreation() {
               <button onClick={() => { setShowManageTypes(false); setTypeFormMode(null); setEditingType(null); setDeleteTypeId(null); }}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition">Close</button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* ── Add/Edit Section Type Form Modal ── */}
-      {typeFormMode && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+      <ModalShell
+        open={typeFormMode !== null}
+        onClose={() => { setTypeFormMode(null); setEditingType(null); }}
+        maxWidth="max-w-md"
+        bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Palette size={18} className="text-white" />
@@ -926,7 +933,7 @@ export function SectionCreation() {
                         type="button"
                         onClick={() => setTypeForm(p => ({ ...p, color_code: c.value }))}
                         title={c.label}
-                        className={`w-8 h-8 rounded-xl border-2 transition-all ${c.swatch} ${
+                        className={`w-10 h-10 rounded-xl border-2 transition-all ${c.swatch} ${
                           typeForm.color_code === c.value
                             ? "border-gray-800 scale-110 shadow-md ring-2 ring-offset-1 ring-gray-800/20"
                             : "border-transparent hover:scale-105 hover:shadow-sm"
@@ -945,7 +952,7 @@ export function SectionCreation() {
                     )}
                     {typeForm.color_code && (
                       <button onClick={() => setTypeForm(p => ({ ...p, color_code: "" }))}
-                        className="text-[10px] text-gray-400 hover:text-red-500 underline ml-1">Clear</button>
+                        className="touch-target inline-flex items-center text-[10px] text-gray-400 hover:text-red-500 underline ml-1">Clear</button>
                     )}
                   </div>
                 </div>
@@ -957,7 +964,7 @@ export function SectionCreation() {
                         key={icon}
                         type="button"
                         onClick={() => setTypeForm(p => ({ ...p, icon }))}
-                        className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all border-2 ${
+                        className={`w-11 h-11 rounded-xl text-lg flex items-center justify-center transition-all border-2 ${
                           typeForm.icon === icon
                             ? "border-blue-500 bg-blue-50 scale-110 shadow-sm"
                             : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"
@@ -971,7 +978,7 @@ export function SectionCreation() {
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-xs text-gray-400">Selected: <span className="text-lg">{typeForm.icon}</span></span>
                       <button onClick={() => setTypeForm(p => ({ ...p, icon: "" }))}
-                        className="text-[10px] text-gray-400 hover:text-red-500 underline">Clear</button>
+                        className="touch-target inline-flex items-center text-[10px] text-gray-400 hover:text-red-500 underline">Clear</button>
                     </div>
                   )}
                 </div>
@@ -1018,15 +1025,16 @@ export function SectionCreation() {
                 {typeFormMode === "add" ? "Create Type" : "Save Changes"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* ── Delete Section Type Confirm Modal ── */}
-      {deleteTypeId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
+      {deleteTypeId !== null && (
+      <ModalShell
+        open
+        onClose={() => setDeleteTypeId(null)}
+        maxWidth="max-w-sm"
+        bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
                 <AlertTriangle size={22} className="text-red-600" />
               </div>
@@ -1055,8 +1063,7 @@ export function SectionCreation() {
               }}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">Delete</button>
             </div>
-          </div>
-        </div>
+      </ModalShell>
       )}
     </div>
   );

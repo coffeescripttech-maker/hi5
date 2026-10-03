@@ -227,7 +227,8 @@ export function StudentProfile() {
             navigator.clipboard.writeText(value);
             showToast('success', 'Copied!');
           }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200/60 rounded-md mt-0.5"
+          className="touch-target inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-gray-200/60 rounded-md mt-0.5"
+          aria-label={`Copy ${label}`}
           title="Copy">
           <CreditCard size={13} className="text-gray-400" />
         </button>
@@ -503,8 +504,8 @@ export function StudentProfile() {
       {/* ────────── TABS + CONTENT ────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
         {/* Tab bar */}
-        <div className="border-b border-gray-100 overflow-x-auto">
-          <div className="flex px-1">
+        <div className="border-b border-gray-100 overflow-x-auto overscroll-x-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar]:bg-transparent [&::-webkit-scrollbar]:rounded-full [&::-webkit-scrollbar]:thumb:bg-gray-200">
+          <div className="flex px-1 min-w-max">
             {TABS.map(tab => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -512,7 +513,7 @@ export function StudentProfile() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex items-center gap-2 px-4 py-4 text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                  className={`relative flex-none flex items-center gap-2 px-4 py-4 text-sm font-medium whitespace-nowrap transition-all duration-200 min-h-11 ${
                     active ? accent.text : 'text-gray-500 hover:text-gray-700'
                   }`}>
                   {/* background */}
