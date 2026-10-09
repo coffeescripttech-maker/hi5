@@ -914,9 +914,6 @@ export function SchoolForms() {
                                   <th className="border border-violet-900 px-2 py-2 text-center">
                                     Final Rating
                                   </th>
-                                  <th className="border border-violet-900 px-2 py-2 text-center">
-                                    Remarks
-                                  </th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -951,9 +948,6 @@ export function SchoolForms() {
                                       <td className="border border-gray-300 px-2 py-1.5 text-center font-bold text-violet-800">
                                         {final}
                                       </td>
-                                      <td className="border border-gray-300 px-2 py-1.5 text-center font-medium text-emerald-600">
-                                        {final >= 75 ? 'Passed' : 'Failed'}
-                                      </td>
                                     </tr>
                                   );
                                 })}
@@ -967,9 +961,6 @@ export function SchoolForms() {
                                   </td>
                                   <td className="border border-gray-400 px-2 py-2 text-center text-violet-800">
                                     {avgScore}
-                                  </td>
-                                  <td className="border border-gray-400 px-2 py-2 text-center text-emerald-700">
-                                    PROMOTED
                                   </td>
                                 </tr>
                               </tfoot>

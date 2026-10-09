@@ -521,7 +521,6 @@ export function SF9Report() {
     ? buildSubjectRows(sf9Data.subjects)
     : [];
   const ga = toNum(sf9Data?.general_average);
-  const gaRemarks = ga !== null ? (ga >= 75 ? 'PROMOTED' : 'RETAINED') : '—';
 
   /* ── Print ── */
   const handlePrint = () => {
@@ -1248,7 +1247,6 @@ export function SF9Report() {
                       <col style={{ width: '34%' }} />
                       <col span={3} style={{ width: '8%' }} />
                       <col style={{ width: '16%' }} />
-                      <col style={{ width: '18%' }} />
                     </colgroup>
                     <thead>
                       <tr>
@@ -1266,11 +1264,6 @@ export function SF9Report() {
                           rowSpan={2}
                           className="border border-black px-1 py-1 align-middle font-bold text-center">
                           Final Rating
-                        </th>
-                        <th
-                          rowSpan={2}
-                          className="border border-black px-1 py-1 align-middle font-bold text-center">
-                          Remarks
                         </th>
                       </tr>
                       <tr className="font-bold">
@@ -1312,10 +1305,6 @@ export function SF9Report() {
                             className={`border border-black px-1 py-0.5 text-center font-bold ${row.final !== null && row.final >= 75 ? '' : 'text-red-700'}`}>
                             {row.final !== null ? row.final.toFixed(2) : '—'}
                           </td>
-                          <td
-                            className={`border border-black px-1 py-0.5 text-center font-medium ${row.remarks === 'Passed' ? '' : 'text-red-700'}`}>
-                            {row.remarks}
-                          </td>
                         </tr>
                       ))}
 
@@ -1329,10 +1318,6 @@ export function SF9Report() {
                         <td
                           className={`border border-black px-1 py-1 text-center ${ga !== null && ga >= 75 ? '' : 'text-red-700'}`}>
                           {ga !== null ? ga.toFixed(2) : '—'}
-                        </td>
-                        <td
-                          className={`border border-black px-1 py-1 text-center ${gaRemarks === 'PROMOTED' ? 'text-green-800' : 'text-red-700'}`}>
-                          {gaRemarks}
                         </td>
                       </tr>
                     </tbody>
