@@ -1316,7 +1316,7 @@ export function SF10Report() {
                           LEARNING AREAS
                         </th>
                         <th
-                          colSpan={4}
+                          colSpan={3}
                           className="border border-gray-800 p-1 font-bold">
                           QUARTERS
                         </th>
@@ -1480,7 +1480,7 @@ export function SF10Report() {
                       {record.learningAreas.length === 0 && (
                         <tr>
                           <td
-                            colSpan={7}
+                            colSpan={6}
                             className="border border-gray-800 p-2 text-center italic text-gray-400">
                             No grades recorded for this school year.
                           </td>
@@ -1488,7 +1488,7 @@ export function SF10Report() {
                       )}
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={4}
                           className="border border-gray-800 p-1 text-center italic font-bold">
                           General Average
                         </td>

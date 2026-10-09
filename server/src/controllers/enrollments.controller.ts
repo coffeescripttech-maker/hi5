@@ -5,6 +5,22 @@ import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
+ * Standard enrollment-requirement documents. Used when the Student Profile's
+ * Document Checklist (or any requirement update) upserts a document that has no
+ * row on file yet (legacy enrollments), so a meaningful label is always stored.
+ */
+const DEFAULT_REQUIREMENT_LABELS: Record<string, string> = {
+  psa_birth_cert: "PSA/NSO Birth Certificate",
+  previous_grade_card: "Previous Report Card / Form 138",
+  good_moral: "Good Moral Certificate",
+  id_photo: "2 pcs. 2x2 ID Picture",
+  medical_clearance: "Medical/Dental Clearance",
+  parent_consent: "Parent/Guardian Consent Form",
+  transcript: "Transcript of Records / Form 137",
+  lrn_verification: "LRN Verification Slip",
+};
+
+/**
  * GET /api/enrollments/stats — Dashboard aggregation stats
  * Query: ?school_year_id=1
  * Returns gender breakdown per grade + classification totals
@@ -732,20 +748,37 @@ export async function updateRequirements(req: Request, res: Response): Promise<v
     }
 
     for (const r of requirements) {
+      const label =
+        typeof r.label === "string" && r.label.trim()
+          ? r.label
+          : DEFAULT_REQUIREMENT_LABELS[r.requirement_key] || r.requirement_key;
       if (r.is_submitted) {
+        // Upsert so the checklist works even for enrollments whose requirement
+        // rows were never recorded (legacy/pending).
         await query<ResultSetHeader>(
-          "UPDATE enrollment_requirements SET is_submitted = 1, submitted_at = COALESCE(submitted_at, NOW()) WHERE enrollment_id = ? AND requirement_key = ?",
-          [id, r.requirement_key]
+          `INSERT INTO enrollment_requirements
+             (enrollment_id, requirement_key, label, is_submitted, submitted_at, notes, created_at, updated_at)
+           VALUES (?, ?, ?, 1, NOW(), NULL, NOW(), NOW())
+           ON DUPLICATE KEY UPDATE
+             is_submitted = 1,
+             submitted_at = COALESCE(submitted_at, NOW()),
+             label = COALESCE(label, ?),
+             updated_at = NOW()`,
+          [id, r.requirement_key, label, label]
         );
       } else {
         // Un-submitting a requirement also drops any verification: there is no
         // longer a document on file for the committee to have sighted.
         await query<ResultSetHeader>(
-          `UPDATE enrollment_requirements
-           SET is_submitted = 0, submitted_at = NULL,
-               is_verified = 0, verified_at = NULL, verified_by = NULL
-           WHERE enrollment_id = ? AND requirement_key = ?`,
-          [id, r.requirement_key]
+          `INSERT INTO enrollment_requirements
+             (enrollment_id, requirement_key, label, is_submitted, submitted_at, notes, created_at, updated_at)
+           VALUES (?, ?, ?, 0, NULL, NULL, NOW(), NOW())
+           ON DUPLICATE KEY UPDATE
+             is_submitted = 0, submitted_at = NULL,
+             is_verified = 0, verified_at = NULL, verified_by = NULL,
+             label = COALESCE(label, ?),
+             updated_at = NOW()`,
+          [id, r.requirement_key, label, label]
         );
       }
       // Committee verification is handled separately (verification-only, no files).

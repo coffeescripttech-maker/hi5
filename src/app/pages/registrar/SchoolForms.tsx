@@ -925,11 +925,10 @@ export function SchoolForms() {
                                   const vals = [
                                     base + 1,
                                     base - 1,
-                                    base + 2,
-                                    base
+                                    base + 2
                                   ].map(v => Math.min(100, Math.max(75, v)));
                                   const final = Math.round(
-                                    vals.reduce((a, b) => a + b, 0) / 4
+                                    vals.reduce((a, b) => a + b, 0) / 3
                                   );
                                   return (
                                     <tr
@@ -963,7 +962,7 @@ export function SchoolForms() {
                                 <tr className="bg-violet-100 font-bold border-t-2 border-violet-400">
                                   <td
                                     className="border border-gray-400 px-2 py-2"
-                                    colSpan={5}>
+                                    colSpan={4}>
                                     GENERAL AVERAGE
                                   </td>
                                   <td className="border border-gray-400 px-2 py-2 text-center text-violet-800">
@@ -1136,11 +1135,10 @@ export function SchoolForms() {
                                   const vals = [
                                     base + 1,
                                     base - 1,
-                                    base + 2,
-                                    base
+                                    base + 2
                                   ].map(v => Math.min(100, Math.max(75, v)));
                                   const final = Math.round(
-                                    vals.reduce((a, b) => a + b, 0) / 4
+                                    vals.reduce((a, b) => a + b, 0) / 3
                                   );
                                   return (
                                     <tr
@@ -1174,7 +1172,7 @@ export function SchoolForms() {
                                 <tr className="bg-indigo-100 font-bold border-t-2 border-indigo-400">
                                   <td
                                     className="border border-gray-400 px-2 py-2"
-                                    colSpan={5}>
+                                    colSpan={4}>
                                     GENERAL AVERAGE
                                   </td>
                                   <td className="border border-gray-400 px-2 py-2 text-center text-indigo-800">

@@ -173,6 +173,8 @@ export const enrollmentsApi = {
       requirements: {
         requirement_key: string;
         is_submitted: boolean;
+        /** Display label — used when the checklist upserts a missing document row. */
+        label?: string;
         is_verified?: boolean;
         verification_notes?: string | null;
       }[];

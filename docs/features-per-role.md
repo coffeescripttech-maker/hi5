@@ -341,7 +341,7 @@ View sections (same layout as Admin/Techer section views).
 | **Dark Mode** | All | Toggle in sidebar top bar, persists via context |
 | **Notification Center** | All | Role-specific notifications, security alerts, read tracking, mark all read |
 | **Responsive Sidebar** | All | Full / Icons-only / Hidden modes, mobile overlay |
-| **Student Profile** | Teacher, Registrar | 5 tabs: Personal Info, Enrollment History, Grade History (by SY), Uploaded Files, Section History |
+| **Student Profile** | Teacher, Registrar | 5 tabs: Personal Info, Enrollment History, Grade History (by SY), Document Checklist, Section History |
 | **Data Privacy (RA 10173)** | All | Compliance notices on Login, Backup, Forms pages |
 | **Recharts Visualizations** | All | Bar, Pie, Area, Line charts throughout dashboards |
 | **AppContext State** | All | Role, auth, dark mode, toast notifications, promotion history, login attempts/lockout, read notifications, security alerts |

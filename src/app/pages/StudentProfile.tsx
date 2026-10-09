@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   ArrowLeft,
   User,
   BookOpen,
   BarChart2,
-  FileSpreadsheet,
+  ClipboardList,
   Layers,
   ClipboardEdit,
   Phone,
@@ -13,6 +13,11 @@ import {
   Calendar,
   ChevronRight,
   CheckCircle,
+  XCircle,
+  ShieldCheck,
+  Loader2,
+  FileText,
+  Info,
   AlertCircle,
   GraduationCap,
   Hash,
@@ -34,7 +39,11 @@ import {
   Target
 } from 'lucide-react';
 import { studentsApi, StudentDetail } from '../services/students';
-import { enrollmentsApi, EnrollmentRow } from '../services/enrollments';
+import {
+  enrollmentsApi,
+  EnrollmentRow,
+  EnrollmentRequirementRow
+} from '../services/enrollments';
 import { gradesApi, GradeHistoryYear } from '../services/grades';
 import { useApp } from '../context/AppContext';
 import { useRoleAccent } from '../utils/roleTheme';
@@ -44,8 +53,20 @@ const TABS = [
   { id: 'personal', label: 'Personal Information', icon: User },
   { id: 'enrollment', label: 'Enrollment History', icon: BookOpen },
   { id: 'grades', label: 'Grade History', icon: BarChart2 },
-  { id: 'files', label: 'Uploaded Files', icon: FileSpreadsheet },
+  { id: 'documents', label: 'Document Checklist', icon: ClipboardList },
   { id: 'sections', label: 'Section History', icon: Layers }
+];
+
+/** Standard enrollment-requirement documents shown in the Student Profile checklist. */
+const DOCUMENT_CHECKLIST = [
+  { key: 'psa_birth_cert', label: 'PSA/NSO Birth Certificate' },
+  { key: 'previous_grade_card', label: 'Previous Report Card / Form 138' },
+  { key: 'good_moral', label: 'Good Moral Certificate' },
+  { key: 'id_photo', label: '2 pcs. 2x2 ID Picture' },
+  { key: 'medical_clearance', label: 'Medical/Dental Clearance' },
+  { key: 'parent_consent', label: 'Parent/Guardian Consent Form' },
+  { key: 'transcript', label: 'Transcript of Records / Form 137' },
+  { key: 'lrn_verification', label: 'LRN Verification Slip' }
 ];
 
 const STATUS_BADGE: Record<
@@ -90,6 +111,240 @@ interface DetailRowProps {
   value: string;
   highlight?: boolean;
   copyable?: boolean;
+}
+
+/** Student Profile — Document Checklist tab.
+ *  Reads the current enrollment's required documents and lets authorized users
+ *  (admin / registrar / enrollment committee) mark each as Submitted or Not
+ *  Submitted. Committee verification is displayed read-only — it stays the
+ *  committee dashboard's action. No file is uploaded from this page. */
+function DocumentChecklist({
+  enrollment,
+  canEdit,
+  showToast,
+  accent
+}: {
+  enrollment: StudentDetail['enrollment'];
+  canEdit: boolean;
+  showToast: (type: 'success' | 'error' | 'info', message: string) => void;
+  accent: ReturnType<typeof useRoleAccent>;
+}) {
+  const enrollmentId = enrollment?.id ?? null;
+  const [rows, setRows] = useState<EnrollmentRequirementRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    if (enrollmentId == null) {
+      setRows(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    enrollmentsApi
+      .listRequirements(enrollmentId)
+      .then(setRows)
+      .catch(err =>
+        showToast(
+          'error',
+          'Failed to load document checklist: ' +
+            (err.detail?.error || err.message)
+        )
+      )
+      .finally(() => setLoading(false));
+  }, [enrollmentId, showToast]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const display = useMemo(() => {
+    const base = DOCUMENT_CHECKLIST.map(d => ({
+      key: d.key,
+      label: d.label,
+      rec: (rows ?? []).find(r => r.requirement_key === d.key)
+    }));
+    const extra = (rows ?? [])
+      .filter(r => !DOCUMENT_CHECKLIST.some(d => d.key === r.requirement_key))
+      .map(r => ({
+        key: r.requirement_key,
+        label: r.label || r.requirement_key,
+        rec: r
+      }));
+    return [...base, ...extra];
+  }, [rows]);
+
+  const submittedCount = display.filter(d => !!d.rec?.is_submitted).length;
+  const verifiedCount = display.filter(
+    d => !!d.rec?.is_submitted && !!d.rec?.is_verified
+  ).length;
+
+  const fmtDate = (d?: string | null): string =>
+    d
+      ? new Date(d).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        })
+      : '';
+
+  const toggle = async (key: string, label: string) => {
+    if (enrollmentId == null || !canEdit) return;
+    const rec = display.find(d => d.key === key)?.rec;
+    const next = !rec?.is_submitted;
+    setSavingKey(key);
+    setRows(prev =>
+      (prev ?? []).map(r =>
+        r.requirement_key === key
+          ? {
+              ...r,
+              is_submitted: next ? 1 : 0,
+              submitted_at: next ? new Date().toISOString() : null,
+              is_verified: next ? r.is_verified : 0
+            }
+          : r
+      )
+    );
+    try {
+      const updated = await enrollmentsApi.updateRequirements(enrollmentId, {
+        requirements: [{ requirement_key: key, label, is_submitted: next }]
+      });
+      setRows(updated);
+      showToast('success', next ? 'Marked as Submitted' : 'Marked as Not Submitted');
+    } catch (err: any) {
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to update checklist.'
+      );
+      reload();
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  return (
+    <div>
+      {!enrollmentId ? (
+        <div className="text-center py-16 bg-gray-50/50 rounded-xl border border-gray-100">
+          <div
+            className={`w-16 h-16 rounded-2xl ${accent.soft} flex items-center justify-center mx-auto mb-4`}>
+            <ClipboardList size={32} className={`${accent.text} opacity-50`} />
+          </div>
+          <p className="text-gray-500 text-sm font-semibold mb-1">
+            No enrollment to check
+          </p>
+          <p className="text-gray-400 text-xs max-w-sm mx-auto leading-relaxed">
+            A document checklist appears once the student has an active
+            enrollment with recorded requirements.
+          </p>
+        </div>
+      ) : loading ? (
+        <div className="flex items-center justify-center gap-2 py-16 text-gray-400 text-sm">
+          <Loader2 size={16} className="animate-spin" />
+          Loading document checklist...
+        </div>
+      ) : (
+        <>
+          <div
+            className={`px-4 py-3 rounded-xl border border-gray-100 ${accent.soft} mb-4`}>
+            <div className="flex items-center justify-between text-xs font-semibold text-gray-600 mb-1.5">
+              <span>
+                {submittedCount} of {display.length} documents submitted
+              </span>
+              <span>{verifiedCount} verified</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/70 overflow-hidden">
+              <div
+                className={`h-full rounded-full bg-gradient-to-r ${accent.gradient} transition-all duration-300`}
+                style={{
+                  width: `${
+                    display.length ? (submittedCount / display.length) * 100 : 0
+                  }%`
+                }}
+              />
+            </div>
+          </div>
+
+          {canEdit && (
+            <div className="flex items-start gap-2 px-1 mb-3 text-[11px] text-gray-400 leading-relaxed">
+              <Info size={13} className="flex-shrink-0 mt-0.5" />
+              <p>
+                Mark each required document as Submitted or Not Submitted.
+                Unmarking a document also removes its committee verification.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-50">
+            {display.map(({ key, label, rec }) => {
+              const submitted = !!rec?.is_submitted;
+              const verified = !!rec?.is_verified;
+              return (
+                <div
+                  key={key}
+                  className="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-2.5 sm:gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0">
+                    <FileText size={15} className="text-gray-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {label}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {submitted && rec?.submitted_at
+                        ? `Submitted ${fmtDate(rec.submitted_at)}`
+                        : 'Not yet recorded'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto flex-wrap">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border ${
+                        submitted
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                          : 'bg-gray-50 text-gray-500 border-gray-200/80'
+                      }`}>
+                      {submitted ? (
+                        <CheckCircle size={11} />
+                      ) : (
+                        <XCircle size={11} />
+                      )}
+                      {submitted ? 'Submitted' : 'Not Submitted'}
+                    </span>
+                    {verified && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border bg-blue-50 text-blue-700 border-blue-200/60">
+                        <ShieldCheck size={11} /> Verified
+                      </span>
+                    )}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        disabled={savingKey === key}
+                        onClick={() => toggle(key, label)}
+                        title={
+                          submitted
+                            ? 'Mark as Not Submitted'
+                            : 'Mark as Submitted'
+                        }
+                        className={`touch-target inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${
+                          submitted
+                            ? 'text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100'
+                            : 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100'
+                        } disabled:opacity-60 disabled:cursor-wait`}>
+                        {savingKey === key && (
+                          <Loader2 size={12} className="animate-spin" />
+                        )}
+                        {submitted ? 'Mark Not Submitted' : 'Mark Submitted'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export function StudentProfile() {
@@ -176,6 +431,14 @@ export function StudentProfile() {
         label: student.status
       }
     : null;
+
+  // Only admin / registrar / enrollment committee may edit the document
+  // checklist — this mirrors the backend PUT /enrollments/:id/requirements
+  // permission. Other roles (teacher, principal) view it read-only.
+  const canEditChecklist =
+    role === 'admin' ||
+    role === 'registrar' ||
+    role === 'enrollment_committee';
 
   // Graduation details for graduated students — the class year comes from the
   // SY they completed (e.g. "2030-2031" → Class of 2031).
@@ -994,37 +1257,39 @@ export function StudentProfile() {
             </div>
           )}
 
-          {/* ══════ UPLOADED FILES ══════ */}
-          {activeTab === 'files' && (
+          {/* ══════ DOCUMENT CHECKLIST ══════ */}
+          {activeTab === 'documents' && (
             <div>
               <div className="flex items-center gap-2.5 mb-6">
                 <div
                   className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center`}>
-                  <FileSpreadsheet size={14} />
+                  <ClipboardList size={14} />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-800">
-                    Uploaded Documents & Files
+                    Document Checklist
                   </h4>
                   <p className="text-[10px] text-gray-400 font-medium">
-                    Requirements, forms, and other attachments
+                    Required enrollment documents
+                    {student.enrollment
+                      ? ` for SY ${student.enrollment.sy_label}`
+                      : ''}
                   </p>
                 </div>
+                {canEditChecklist && (
+                  <span
+                    className={`ml-auto ${accent.chip} text-[11px] font-semibold px-2.5 py-1.5 rounded-full border shadow-xs hidden sm:inline-flex items-center gap-1`}>
+                    <ShieldCheck size={11} /> Editable
+                  </span>
+                )}
               </div>
 
-              <div className="text-center py-16 bg-gradient-to-b from-gray-50/80 to-white rounded-xl border border-gray-100">
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <FileSpreadsheet size={32} className="text-gray-300" />
-                </div>
-                <p className="text-gray-500 text-sm font-semibold mb-1">
-                  No Documents Uploaded
-                </p>
-                <p className="text-gray-400 text-xs max-w-sm mx-auto leading-relaxed">
-                  Uploaded documents such as report cards (Form 138), Good Moral
-                  certificates, PSA birth certificate, and other enrollment
-                  requirements will appear here.
-                </p>
-              </div>
+              <DocumentChecklist
+                enrollment={student.enrollment}
+                canEdit={canEditChecklist}
+                showToast={showToast}
+                accent={accent}
+              />
             </div>
           )}
 

@@ -1258,7 +1258,7 @@ export function SF9Report() {
                           Learning Areas
                         </th>
                         <th
-                          colSpan={4}
+                          colSpan={3}
                           className="border border-black px-1 py-0.5 font-bold text-center">
                           Quarter
                         </th>
