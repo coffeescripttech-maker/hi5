@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Users, Layers, TrendingUp, FileText, ArrowUpRight, GraduationCap,
-  BarChart3, Activity, BookOpen, School, UserCheck, HeartHandshake
+  BarChart3, Activity, BookOpen, School, UserCheck, HeartHandshake, Filter
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { enrollmentsApi, EnrollmentRow, DashboardStats } from "../../services/enrollments";
 import { sectionsApi, SectionRow } from "../../services/sections";
+import { schoolYearsApi, SchoolYearRow } from "../../services/schoolYears";
 import { gradesApi, GradeDistribution } from "../../services/grades";
 import { useApp } from "../../context/AppContext";
 import { StudentRiskOverview } from "../../components/StudentRiskOverview";
@@ -46,7 +47,11 @@ export function RegistrarDashboard() {
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  // School-wide grade performance (current SY) for the analytics charts.
+  const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
+  // Dashboard scope — defaults to the current school year / all sections.
+  const [selectedSY, setSelectedSY] = useState<number | null>(null);
+  const [selectedSection, setSelectedSection] = useState<string>("all");
+  // School-wide grade performance for the selected SY, for the analytics charts.
   // Optional: if it fails (no grades yet), the chart simply shows a hint.
   const [distribution, setDistribution] = useState<GradeDistribution | null>(null);
 
@@ -54,41 +59,67 @@ export function RegistrarDashboard() {
     Promise.all([
       enrollmentsApi.list(),
       sectionsApi.list(),
-      enrollmentsApi.stats(),
-    ]).then(([enr, sec, st]) => {
+      schoolYearsApi.list(),
+    ]).then(([enr, sec, years]) => {
       setEnrollments(enr);
       setSections(sec);
-      setStats(st);
+      setSchoolYears(years);
+      const current = years.find(y => y.is_current === 1) ?? years[0];
+      if (current) setSelectedSY(current.id);
     }).catch(err => {
       showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
     }).finally(() => setLoading(false));
   }, []);
 
+  // Gender + classification stats, re-fetched whenever the scope changes.
   useEffect(() => {
+    let cancelled = false;
+    enrollmentsApi
+      .stats(
+        selectedSY ?? undefined,
+        selectedSection === "all" ? undefined : Number(selectedSection)
+      )
+      .then(st => {
+        if (!cancelled) setStats(st);
+      })
+      .catch(err => {
+        if (!cancelled)
+          showToast("error", "Failed to load stats: " + (err.detail?.error || err.message));
+      });
+    return () => { cancelled = true; };
+  }, [selectedSY, selectedSection]);
+
+  useEffect(() => {
+    if (selectedSY == null) return;
     let cancelled = false;
     (async () => {
       try {
-        const { schoolYearsApi } = await import("../../services/schoolYears");
-        const years = await schoolYearsApi.list();
-        const current = years.find(y => y.is_current === 1);
-        if (!current) return;
-        const dist = await gradesApi.getDistribution({ school_year_id: current.id });
+        const dist = await gradesApi.getDistribution({ school_year_id: selectedSY });
         if (!cancelled) setDistribution(dist);
       } catch { /* grade analytics are optional */ }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [selectedSY]);
+
+  // Sections + enrollments scoped to the selected school year & section.
+  const scopedSections = selectedSection === "all"
+    ? sections
+    : sections.filter(s => s.id === Number(selectedSection));
+  const scopedEnrollments = enrollments.filter(e =>
+    (selectedSY == null || e.school_year_id === selectedSY) &&
+    (selectedSection === "all" || e.section_id === Number(selectedSection))
+  );
 
   const gradeLevels = [7, 8, 9, 10, 11, 12];
   const enrollmentStats = gradeLevels.map(g => {
-    const sectionForGrade = sections.filter(s => s.grade_level === g);
-    const enrolled = enrollments.filter(e => e.grade_level === g && e.status === "enrolled").length;
+    const sectionForGrade = scopedSections.filter(s => s.grade_level === g);
+    const enrolled = scopedEnrollments.filter(e => e.grade_level === g && e.status === "enrolled").length;
     const capacity = sectionForGrade.reduce((sum, s) => sum + s.capacity, 0);
     return { grade: `Grade ${g}`, enrolled, capacity };
   });
 
-  const totalEnrolled = enrollments.filter(e => e.status === "enrolled").length;
-  const totalCapacity = sections.reduce((sum, s) => sum + s.capacity, 0);
+  const totalEnrolled = scopedEnrollments.filter(e => e.status === "enrolled").length;
+  const totalCapacity = scopedSections.reduce((sum, s) => sum + s.capacity, 0);
   const overallPercent = totalCapacity > 0 ? Math.round((totalEnrolled / totalCapacity) * 100) : 0;
 
   const totalMale = stats?.gender_totals.male ?? 0;
@@ -97,7 +128,7 @@ export function RegistrarDashboard() {
   const malePct = genderTotal > 0 ? Math.round((totalMale / genderTotal) * 100) : 0;
   const femalePct = genderTotal > 0 ? Math.round((totalFemale / genderTotal) * 100) : 0;
 
-  const sectionPopData = sections
+  const sectionPopData = [...scopedSections]
     .sort((a, b) => b.current_count - a.current_count)
     .slice(0, 5)
     .map(s => ({ name: s.name, value: s.current_count }));
@@ -109,8 +140,11 @@ export function RegistrarDashboard() {
   }));
 
   // Enrollment trend: enrolled students per school year, chronological.
+  const trendSource = selectedSection === "all"
+    ? enrollments
+    : enrollments.filter(e => e.section_id === Number(selectedSection));
   const trendData = Array.from(
-    enrollments.reduce((map, e) => {
+    trendSource.reduce((map, e) => {
       if (e.status === "enrolled") map.set(e.sy_label, (map.get(e.sy_label) || 0) + 1);
       return map;
     }, new Map<string, number>())
@@ -161,10 +195,48 @@ export function RegistrarDashboard() {
           </div>
           <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100">
             <School size={14} className="text-indigo-500" />
-            <span className="font-semibold text-gray-600">{sections.length}</span> sections
+            <span className="font-semibold text-gray-600">{scopedSections.length}</span> sections
             <span className="text-gray-300">|</span>
             <span className="text-indigo-600 font-medium">{totalEnrolled}</span> enrolled
           </div>
+        </div>
+      </div>
+
+      {/* ── SCOPE FILTERS ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
+          <Filter size={14} className="text-indigo-500" /> Filter dashboard
+        </div>
+        <div className="flex flex-col sm:flex-row sm:ml-auto gap-3">
+          <label className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="whitespace-nowrap">School Year</span>
+            <select
+              value={selectedSY ?? ""}
+              onChange={e => setSelectedSY(e.target.value ? Number(e.target.value) : null)}
+              className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+            >
+              {schoolYears.map(y => (
+                <option key={y.id} value={y.id}>
+                  {y.sy_label}{y.is_current === 1 ? " (Current)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="whitespace-nowrap">Section</span>
+            <select
+              value={selectedSection}
+              onChange={e => setSelectedSection(e.target.value)}
+              className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+            >
+              <option value="all">All sections</option>
+              {sections.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} (Gr. {s.grade_level})
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 

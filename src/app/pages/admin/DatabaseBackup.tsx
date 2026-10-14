@@ -1,10 +1,23 @@
-import React, { useState, useEffect } from "react";
-import { Database, Download, CheckCircle, Clock, AlertTriangle, RefreshCw, Shield, HardDrive, Archive, RotateCcw, ToggleLeft, ToggleRight } from "lucide-react";
-import { backupsApi, BackupRow } from "../../services/backups";
-import { settingsApi, BackupSettings } from "../../services/settings";
-import { useApp } from "../../context/AppContext";
-import { HybridTable } from "../../components/HybridTable";
-import { ModalShell } from "../../components/ModalShell";
+import React, { useState, useEffect } from 'react';
+import {
+  Database,
+  Download,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  RefreshCw,
+  Shield,
+  HardDrive,
+  Archive,
+  RotateCcw,
+  ToggleLeft,
+  ToggleRight
+} from 'lucide-react';
+import { backupsApi, BackupRow } from '../../services/backups';
+import { settingsApi, BackupSettings } from '../../services/settings';
+import { useApp } from '../../context/AppContext';
+import { HybridTable } from '../../components/HybridTable';
+import { ModalShell } from '../../components/ModalShell';
 
 export function DatabaseBackup() {
   const { showToast } = useApp();
@@ -19,27 +32,36 @@ export function DatabaseBackup() {
   // Backup schedule state
   const [schedLoading, setSchedLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [frequency, setFrequency] = useState<string>("daily");
-  const [backupTime, setBackupTime] = useState<string>("02:00");
-  const [retention, setRetention] = useState<string>("last_30");
+  const [frequency, setFrequency] = useState<string>('daily');
+  const [backupTime, setBackupTime] = useState<string>('02:00');
+  const [retention, setRetention] = useState<string>('last_30');
   const [enabled, setEnabled] = useState<boolean>(true);
 
   useEffect(() => {
-    backupsApi.list()
+    backupsApi
+      .list()
       .then(setBackups)
-      .catch(err => showToast("error", "Failed to load backups: " + (err.detail?.error || err.message)))
+      .catch(err =>
+        showToast(
+          'error',
+          'Failed to load backups: ' + (err.detail?.error || err.message)
+        )
+      )
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    settingsApi.getBackupSettings()
+    settingsApi
+      .getBackupSettings()
       .then((s: BackupSettings) => {
         setFrequency(s.backup_frequency);
-        setBackupTime(s.backup_time?.slice(0, 5) || "02:00");
+        setBackupTime(s.backup_time?.slice(0, 5) || '02:00');
         setRetention(s.backup_retention);
         setEnabled(s.backup_enabled === 1);
       })
-      .catch(() => { /* defaults */ })
+      .catch(() => {
+        /* defaults */
+      })
       .finally(() => setSchedLoading(false));
   }, []);
 
@@ -48,9 +70,9 @@ export function DatabaseBackup() {
     setConfirmRestore(null);
     try {
       await backupsApi.restore(id);
-      showToast("success", "Database restored successfully from backup #" + id);
+      showToast('success', 'Database restored successfully from backup #' + id);
     } catch (err: any) {
-      showToast("error", err.detail?.error || err.message || "Restore failed");
+      showToast('error', err.detail?.error || err.message || 'Restore failed');
     } finally {
       setRestoring(null);
     }
@@ -75,14 +97,17 @@ export function DatabaseBackup() {
       clearInterval(interval);
       setProgress(100);
       setDone(true);
-      showToast("success", "Backup completed successfully.");
+      showToast('success', 'Backup completed successfully.');
 
       // Refresh backup list
-      backupsApi.list().then(setBackups).catch(() => {});
+      backupsApi
+        .list()
+        .then(setBackups)
+        .catch(() => {});
     } catch (err: any) {
       clearInterval(interval);
       setProgress(0);
-      showToast("error", err.detail?.error || err.message || "Backup failed");
+      showToast('error', err.detail?.error || err.message || 'Backup failed');
     } finally {
       setBacking(false);
     }
@@ -92,14 +117,17 @@ export function DatabaseBackup() {
     setSaving(true);
     try {
       await settingsApi.updateBackupSettings({
-        backup_frequency: frequency as BackupSettings["backup_frequency"],
-        backup_time: backupTime + ":00",
-        backup_retention: retention as BackupSettings["backup_retention"],
-        backup_enabled: enabled ? 1 : 0,
+        backup_frequency: frequency as BackupSettings['backup_frequency'],
+        backup_time: backupTime + ':00',
+        backup_retention: retention as BackupSettings['backup_retention'],
+        backup_enabled: enabled ? 1 : 0
       });
-      showToast("success", "Backup schedule saved successfully.");
+      showToast('success', 'Backup schedule saved successfully.');
     } catch (err: any) {
-      showToast("error", err.detail?.error || err.message || "Failed to save schedule");
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to save schedule'
+      );
     } finally {
       setSaving(false);
     }
@@ -108,25 +136,39 @@ export function DatabaseBackup() {
   const lastBackup = backups.length > 0 ? backups[0] : null;
   const totalSize = lastBackup?.file_size
     ? lastBackup.file_size >= 1024 * 1024
-      ? (lastBackup.file_size / (1024 * 1024)).toFixed(1) + " MB"
-      : (lastBackup.file_size / 1024).toFixed(1) + " KB"
-    : "—";
-  const successCount = backups.filter(b => b.status === "success").length;
+      ? (lastBackup.file_size / (1024 * 1024)).toFixed(1) + ' MB'
+      : (lastBackup.file_size / 1024).toFixed(1) + ' KB'
+    : '—';
+  const successCount = backups.filter(b => b.status === 'success').length;
   const lastBackupDate = lastBackup
-    ? new Date(lastBackup.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
-    : "—";
+    ? new Date(lastBackup.created_at).toLocaleDateString('en-PH', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    : '—';
 
   const frequencyLabel =
-    frequency === "every_12h" ? "Every 12 Hours"
-    : frequency === "weekly" ? "Weekly"
-    : "Daily";
+    frequency === 'every_12h'
+      ? 'Every 12 Hours'
+      : frequency === 'weekly'
+        ? 'Weekly'
+        : 'Daily';
 
   const timeLabel = backupTime
-    ? new Date("2000-01-01T" + backupTime + ":00").toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", hour12: true })
-    : "—";
+    ? new Date('2000-01-01T' + backupTime + ':00').toLocaleTimeString('en-PH', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      })
+    : '—';
 
   if (loading) {
-    return <div className="p-10 text-center text-gray-400 text-sm">Loading backup records...</div>;
+    return (
+      <div className="p-10 text-center text-gray-400 text-sm">
+        Loading backup records...
+      </div>
+    );
   }
 
   return (
@@ -135,43 +177,74 @@ export function DatabaseBackup() {
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400" />
         <div className="p-5 sm:p-6">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-200 flex items-center justify-center">
-            <Database size={22} className="text-white" />
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-200 flex items-center justify-center">
+              <Database size={22} className="text-white" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">
+                Database Backup Management
+              </h2>
+              <p className="text-gray-500 text-sm">
+                Manage and monitor backups of all Hi5 Portal student and
+                academic records
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">Database Backup Management</h2>
-            <p className="text-gray-500 text-sm">Manage and monitor backups of all Hi5 Portal student and academic records</p>
-          </div>
-        </div>
         </div>
       </div>
 
       {/* Status cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl border border-green-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Last Backup</p><CheckCircle size={13} className="text-green-500" /></div>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-gray-500">Last Backup</p>
+            <CheckCircle size={13} className="text-green-500" />
+          </div>
           <p className="text-sm font-bold text-green-700">{lastBackupDate}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{lastBackup ? (lastBackup.backup_type === "auto" ? "Automatic" : "Manual") : "No backups yet"}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {lastBackup
+              ? lastBackup.backup_type === 'auto'
+                ? 'Automatic'
+                : 'Manual'
+              : 'No backups yet'}
+          </p>
         </div>
         <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Backup Size</p><HardDrive size={13} className="text-blue-500" /></div>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-gray-500">Backup Size</p>
+            <HardDrive size={13} className="text-blue-500" />
+          </div>
           <p className="text-sm font-bold text-blue-700">{totalSize}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{lastBackup?.record_count?.toLocaleString() || "—"} records</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {lastBackup?.record_count?.toLocaleString() || '—'} records
+          </p>
         </div>
         <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Total Backups</p><Archive size={13} className="text-blue-500" /></div>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-gray-500">Total Backups</p>
+            <Archive size={13} className="text-blue-500" />
+          </div>
           <p className="text-sm font-bold text-blue-700">{backups.length}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{successCount} successful</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {successCount} successful
+          </p>
         </div>
         <div className="bg-white rounded-2xl border border-amber-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1"><p className="text-xs text-gray-500">Auto Backup</p><Clock size={13} className="text-amber-500" /></div>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-gray-500">Auto Backup</p>
+            <Clock size={13} className="text-amber-500" />
+          </div>
           {schedLoading ? (
             <p className="text-sm text-gray-400">Loading...</p>
           ) : (
             <>
-              <p className="text-sm font-bold text-amber-700">{enabled ? frequencyLabel : "Paused"}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{enabled ? `${timeLabel} · Scheduled` : "Disabled"}</p>
+              <p className="text-sm font-bold text-amber-700">
+                {enabled ? frequencyLabel : 'Paused'}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {enabled ? `${timeLabel} · Scheduled` : 'Disabled'}
+              </p>
             </>
           )}
         </div>
@@ -180,10 +253,15 @@ export function DatabaseBackup() {
       {/* Manual Backup */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-semibold text-gray-800 mb-1">Manual Backup</h3>
-        <p className="text-xs text-gray-500 mb-4">Creates an immediate full backup of all student records, academic data, and system configurations. Recommended before major changes such as bulk promotion or school year archiving.</p>
+        <p className="text-xs text-gray-500 mb-4">
+          Creates an immediate full backup of all student records, academic
+          data, and system configurations. Recommended before major changes such
+          as bulk promotion or school year archiving.
+        </p>
 
         {!backing && !done && (
-          <button onClick={handleBackup}
+          <button
+            onClick={handleBackup}
             className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">
             <Database size={15} /> Backup Now
           </button>
@@ -196,9 +274,14 @@ export function DatabaseBackup() {
               Backing up database... {progress}%
             </div>
             <div className="w-full bg-gray-100 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-200"
+                style={{ width: `${progress}%` }}
+              />
             </div>
-            <p className="text-xs text-gray-400">Do not close the browser while backup is in progress.</p>
+            <p className="text-xs text-gray-400">
+              Do not close the browser while backup is in progress.
+            </p>
           </div>
         )}
 
@@ -207,7 +290,11 @@ export function DatabaseBackup() {
             <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-700 text-sm font-semibold">
               <CheckCircle size={16} /> Backup completed successfully
             </div>
-            <button onClick={() => { setDone(false); setProgress(0); }}
+            <button
+              onClick={() => {
+                setDone(false);
+                setProgress(0);
+              }}
               className="flex items-center gap-2 text-xs text-gray-600 border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
               <RefreshCw size={11} /> Run Another Backup
             </button>
@@ -218,23 +305,30 @@ export function DatabaseBackup() {
       {/* Backup Schedule Settings */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <h3 className="font-semibold text-gray-800">Automatic Backup Schedule</h3>
+          <h3 className="font-semibold text-gray-800">
+            Automatic Backup Schedule
+          </h3>
           {!schedLoading && (
             <button
               onClick={() => setEnabled(e => !e)}
               className={`flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium transition self-start ${
-                enabled ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
-              }`}
-            >
+                enabled
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-gray-100 text-gray-500 border border-gray-200'
+              }`}>
               {enabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-              {enabled ? "Enabled" : "Disabled"}
+              {enabled ? 'Enabled' : 'Disabled'}
             </button>
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Backup Frequency</label>
-            <select value={frequency} onChange={e => setFrequency(e.target.value)}
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Backup Frequency
+            </label>
+            <select
+              value={frequency}
+              onChange={e => setFrequency(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
               <option value="daily">Daily (Recommended)</option>
               <option value="every_12h">Every 12 Hours</option>
@@ -242,13 +336,23 @@ export function DatabaseBackup() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Backup Time</label>
-            <input type="time" value={backupTime} onChange={e => setBackupTime(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Backup Time
+            </label>
+            <input
+              type="time"
+              value={backupTime}
+              onChange={e => setBackupTime(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Retention Policy</label>
-            <select value={retention} onChange={e => setRetention(e.target.value)}
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Retention Policy
+            </label>
+            <select
+              value={retention}
+              onChange={e => setRetention(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
               <option value="last_30">Keep last 30 backups</option>
               <option value="last_7">Keep last 7 backups</option>
@@ -256,26 +360,39 @@ export function DatabaseBackup() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Status
+            </label>
             {enabled ? (
               <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm text-green-700 font-medium">Automatic backups are enabled</span>
+                <span className="text-sm text-green-700 font-medium">
+                  Automatic backups are enabled
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-2 border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5">
                 <span className="w-2 h-2 rounded-full bg-gray-400" />
-                <span className="text-sm text-gray-500 font-medium">Automatic backups are paused</span>
+                <span className="text-sm text-gray-500 font-medium">
+                  Automatic backups are paused
+                </span>
               </div>
             )}
           </div>
         </div>
-        <button onClick={handleSaveSchedule} disabled={saving}
+        <button
+          onClick={handleSaveSchedule}
+          disabled={saving}
           className="mt-4 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50">
           {saving ? (
-            <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
+            <>
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{' '}
+              Saving...
+            </>
           ) : (
-            <><CheckCircle size={14} /> Save Schedule</>
+            <>
+              <CheckCircle size={14} /> Save Schedule
+            </>
           )}
         </button>
       </div>
@@ -284,13 +401,17 @@ export function DatabaseBackup() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold text-gray-800">Backup History</h3>
-          <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">{backups.length} records</span>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+            {backups.length} records
+          </span>
         </div>
         {backups.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <Database size={32} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">No backup records yet.</p>
-            <p className="text-xs mt-1">Run a manual backup to create the first record.</p>
+            <p className="text-xs mt-1">
+              Run a manual backup to create the first record.
+            </p>
           </div>
         ) : (
           <HybridTable
@@ -299,44 +420,84 @@ export function DatabaseBackup() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      {["Backup ID", "Date", "Type", "Size", "Records", "Status", "Action"].map(h => (
-                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                      {[
+                        'Backup ID',
+                        'Date',
+                        'Type',
+                        'Size',
+                        'Records',
+                        'Status',
+                        'Action'
+                      ].map(h => (
+                        <th
+                          key={h}
+                          className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="">
                     {backups.map(b => (
                       <tr key={b.id} className="hover:bg-gray-50/60">
-                        <td className="px-5 py-3 font-mono text-xs text-gray-500">#{b.id}</td>
+                        <td className="px-5 py-3 font-mono text-xs text-gray-500">
+                          #{b.id}
+                        </td>
                         <td className="px-5 py-3 text-gray-700 text-sm">
-                          {new Date(b.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                          {new Date(b.created_at).toLocaleDateString('en-PH', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
                         </td>
                         <td className="px-5 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.backup_type === "manual" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
-                            {b.backup_type === "manual" ? "Manual" : "Automatic"}
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.backup_type === 'manual' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {b.backup_type === 'manual'
+                              ? 'Manual'
+                              : 'Automatic'}
                           </span>
                         </td>
                         <td className="px-5 py-3 text-gray-600 text-xs">
                           {b.file_size
                             ? b.file_size >= 1024 * 1024
-                              ? (b.file_size / (1024 * 1024)).toFixed(1) + " MB"
-                              : (b.file_size / 1024).toFixed(1) + " KB"
-                            : "—"}
+                              ? (b.file_size / (1024 * 1024)).toFixed(1) + ' MB'
+                              : (b.file_size / 1024).toFixed(1) + ' KB'
+                            : '—'}
                         </td>
-                        <td className="px-5 py-3 text-gray-600 text-xs">{b.record_count?.toLocaleString() || "—"}</td>
+                        <td className="px-5 py-3 text-gray-600 text-xs">
+                          {b.record_count?.toLocaleString() || '—'}
+                        </td>
                         <td className="px-5 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${b.status === "success" ? "bg-green-100 text-green-700" : b.status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
-                            {b.status === "success" ? "Success" : b.status === "failed" ? "Failed" : "In Progress"}
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-semibold ${b.status === 'success' ? 'bg-green-100 text-green-700' : b.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {b.status === 'success'
+                              ? 'Success'
+                              : b.status === 'failed'
+                                ? 'Failed'
+                                : 'In Progress'}
                           </span>
                         </td>
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2">
-                            {b.status === "success" && (
+                            {b.status === 'success' && (
                               <>
-                                <button onClick={() => backupsApi.download(b.id).catch(err => showToast("error", err?.message || "Download failed"))} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                <button
+                                  onClick={() =>
+                                    backupsApi
+                                      .download(b.id)
+                                      .catch(err =>
+                                        showToast(
+                                          'error',
+                                          err?.message || 'Download failed'
+                                        )
+                                      )
+                                  }
+                                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                                   <Download size={11} /> Download
                                 </button>
-                                <button onClick={() => setConfirmRestore(b.id)}
+                                <button
+                                  onClick={() => setConfirmRestore(b.id)}
                                   className="flex items-center gap-1 text-xs text-amber-600 hover:underline">
                                   <RotateCcw size={11} /> Restore
                                 </button>
@@ -351,40 +512,77 @@ export function DatabaseBackup() {
               </div>
             }
             mobile={
-              <ul className="divide-y divide-gray-50">
+              <ul className="">
                 {backups.map(b => (
                   <li key={b.id} className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-gray-500">#{b.id}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.backup_type === "manual" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
-                            {b.backup_type === "manual" ? "Manual" : "Automatic"}
+                          <span className="font-mono text-xs text-gray-500">
+                            #{b.id}
                           </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${b.status === "success" ? "bg-green-100 text-green-700" : b.status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
-                            {b.status === "success" ? "Success" : b.status === "failed" ? "Failed" : "In Progress"}
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.backup_type === 'manual' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {b.backup_type === 'manual'
+                              ? 'Manual'
+                              : 'Automatic'}
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-semibold ${b.status === 'success' ? 'bg-green-100 text-green-700' : b.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {b.status === 'success'
+                              ? 'Success'
+                              : b.status === 'failed'
+                                ? 'Failed'
+                                : 'In Progress'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-700 mt-1.5">
-                          {new Date(b.created_at).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          {new Date(b.created_at).toLocaleString('en-PH', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </p>
                         <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-500">
-                          <span>Size: <strong className="text-gray-700">
-                            {b.file_size
-                              ? b.file_size >= 1024 * 1024
-                                ? (b.file_size / (1024 * 1024)).toFixed(1) + " MB"
-                                : (b.file_size / 1024).toFixed(1) + " KB"
-                              : "—"}
-                          </strong></span>
-                          <span>Records: <strong className="text-gray-700">{b.record_count?.toLocaleString() || "—"}</strong></span>
+                          <span>
+                            Size:{' '}
+                            <strong className="text-gray-700">
+                              {b.file_size
+                                ? b.file_size >= 1024 * 1024
+                                  ? (b.file_size / (1024 * 1024)).toFixed(1) +
+                                    ' MB'
+                                  : (b.file_size / 1024).toFixed(1) + ' KB'
+                                : '—'}
+                            </strong>
+                          </span>
+                          <span>
+                            Records:{' '}
+                            <strong className="text-gray-700">
+                              {b.record_count?.toLocaleString() || '—'}
+                            </strong>
+                          </span>
                         </div>
                       </div>
-                      {b.status === "success" && (
+                      {b.status === 'success' && (
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button onClick={() => backupsApi.download(b.id).catch(err => showToast("error", err?.message || "Download failed"))} className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1 touch-target">
+                          <button
+                            onClick={() =>
+                              backupsApi
+                                .download(b.id)
+                                .catch(err =>
+                                  showToast(
+                                    'error',
+                                    err?.message || 'Download failed'
+                                  )
+                                )
+                            }
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:underline p-1 touch-target">
                             <Download size={13} /> Download
                           </button>
-                          <button onClick={() => setConfirmRestore(b.id)}
+                          <button
+                            onClick={() => setConfirmRestore(b.id)}
                             className="flex items-center gap-1 text-xs text-amber-600 hover:underline p-1 touch-target">
                             <RotateCcw size={13} /> Restore
                           </button>
@@ -401,49 +599,63 @@ export function DatabaseBackup() {
 
       {/* Restore Confirmation Dialog */}
       {confirmRestore !== null && (
-      <ModalShell
-        open
-        onClose={() => setConfirmRestore(null)}
-        maxWidth="max-w-md"
-        bodyClassName="p-6 space-y-4">
+        <ModalShell
+          open
+          onClose={() => setConfirmRestore(null)}
+          maxWidth="max-w-md"
+          bodyClassName="p-6 space-y-4">
           <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle size={20} className="text-red-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800">Restore Database?</h3>
-                <p className="text-xs text-gray-500">This action cannot be undone.</p>
-              </div>
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={20} className="text-red-600" />
             </div>
-            <p className="text-sm text-gray-600">
-              Restoring from backup <strong>#{confirmRestore}</strong> will overwrite ALL current data
-              including student records, grades, enrollment data, and system settings.
-            </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-              <strong>Warning:</strong> Make sure you have a recent backup before proceeding. It is
-              strongly recommended to create a new backup first.
+            <div>
+              <h3 className="font-bold text-gray-800">Restore Database?</h3>
+              <p className="text-xs text-gray-500">
+                This action cannot be undone.
+              </p>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setConfirmRestore(null)}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
-                Cancel
-              </button>
-              <button onClick={() => handleRestore(confirmRestore)}
-                disabled={restoring !== null}
-                className="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2">
-                {restoring !== null ? (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Restoring...</>
-                ) : "Restore Database"}
-              </button>
-            </div>
-      </ModalShell>
+          </div>
+          <p className="text-sm text-gray-600">
+            Restoring from backup <strong>#{confirmRestore}</strong> will
+            overwrite ALL current data including student records, grades,
+            enrollment data, and system settings.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+            <strong>Warning:</strong> Make sure you have a recent backup before
+            proceeding. It is strongly recommended to create a new backup first.
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => setConfirmRestore(null)}
+              className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
+              Cancel
+            </button>
+            <button
+              onClick={() => handleRestore(confirmRestore)}
+              disabled={restoring !== null}
+              className="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2">
+              {restoring !== null ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{' '}
+                  Restoring...
+                </>
+              ) : (
+                'Restore Database'
+              )}
+            </button>
+          </div>
+        </ModalShell>
       )}
 
       {/* Compliance notice */}
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
         <Shield size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-amber-800 leading-relaxed">
-          <strong>Data Privacy Act of 2012 (RA 10173) Compliance:</strong> All database backups contain personal student information and must be stored securely. Backup files must not be shared with unauthorized personnel and must be deleted in accordance with the institution's data retention policy and NPC guidelines.
+          <strong>Data Privacy Act of 2012 (RA 10173) Compliance:</strong> All
+          database backups contain personal student information and must be
+          stored securely. Backup files must not be shared with unauthorized
+          personnel and must be deleted in accordance with the institution's
+          data retention policy and NPC guidelines.
         </p>
       </div>
     </div>

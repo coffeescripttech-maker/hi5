@@ -13,7 +13,7 @@ import {
   Trash2,
   ShieldCheck,
   AlertTriangle,
-  Info,
+  Info
 } from 'lucide-react';
 import { PageContainer } from '../../components/PageContainer';
 import { useApp } from '../../context/AppContext';
@@ -23,7 +23,7 @@ import { SearchableStudentSelect } from '../../components/SearchableStudentSelec
 import {
   readingAssessmentsApi,
   ReadingAssessment,
-  ReadingResult,
+  ReadingResult
 } from '../../services/readingAssessments';
 
 const GRADES = [7, 8, 9, 10, 11, 12];
@@ -53,7 +53,7 @@ export function ReadingAssessments() {
         student_id: s.student_id,
         grade_level: s.grade_level,
         sex: s.sex,
-        context: s.section_name || 'Pending queue',
+        context: s.section_name || 'Pending queue'
       })),
     [students]
   );
@@ -69,7 +69,10 @@ export function ReadingAssessments() {
         if (current) setSyId(current.id);
       })
       .catch(err =>
-        showToast('error', 'Failed to load data: ' + (err.detail?.error || err.message))
+        showToast(
+          'error',
+          'Failed to load data: ' + (err.detail?.error || err.message)
+        )
       )
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -83,7 +86,10 @@ export function ReadingAssessments() {
       .list({ school_year_id: syId })
       .then(setAssessments)
       .catch(err =>
-        showToast('error', 'Failed to load assessments: ' + (err.detail?.error || err.message))
+        showToast(
+          'error',
+          'Failed to load assessments: ' + (err.detail?.error || err.message)
+        )
       );
   }, [syId, showToast]);
 
@@ -94,7 +100,10 @@ export function ReadingAssessments() {
       showToast('error', 'Select a learner first.');
       return;
     }
-    if (score !== '' && (isNaN(Number(score)) || Number(score) < 0 || Number(score) > 100)) {
+    if (
+      score !== '' &&
+      (isNaN(Number(score)) || Number(score) < 0 || Number(score) > 100)
+    ) {
       showToast('error', 'Score must be between 0 and 100.');
       return;
     }
@@ -111,7 +120,7 @@ export function ReadingAssessments() {
         result,
         score: score === '' ? null : Number(score),
         instrument: instrument.trim() || undefined,
-        remarks: remarks.trim() || undefined,
+        remarks: remarks.trim() || undefined
       });
       showToast(
         'success',
@@ -125,7 +134,10 @@ export function ReadingAssessments() {
       setRemarks('');
       loadAssessments();
     } catch (err: any) {
-      showToast('error', err.detail?.error || err.message || 'Failed to record assessment.');
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to record assessment.'
+      );
     } finally {
       setSaving(false);
     }
@@ -150,18 +162,28 @@ export function ReadingAssessments() {
       );
       loadAssessments();
     } catch (err: any) {
-      showToast('error', err.detail?.error || err.message || 'Failed to remove assessment.');
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to remove assessment.'
+      );
     }
   };
 
-  const nonReaderCount = assessments.filter(a => a.result === 'non_reader').length;
+  const nonReaderCount = assessments.filter(
+    a => a.result === 'non_reader'
+  ).length;
 
   if (loading) {
     return (
       <PageContainer>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
-          <Loader2 size={28} className="mx-auto text-emerald-500 animate-spin" />
-          <p className="text-gray-400 text-sm font-medium mt-3">Loading reading assessments...</p>
+          <Loader2
+            size={28}
+            className="mx-auto text-emerald-500 animate-spin"
+          />
+          <p className="text-gray-400 text-sm font-medium mt-3">
+            Loading reading assessments...
+          </p>
         </div>
       </PageContainer>
     );
@@ -192,10 +214,11 @@ export function ReadingAssessments() {
         <div className="flex items-start gap-3">
           <ShieldCheck size={16} className="text-emerald-600 mt-0.5 shrink-0" />
           <p className="text-xs text-emerald-800 leading-relaxed">
-            <strong>Non-Reader is a manual, assessment-backed tag.</strong> It is never assigned
-            automatically from grades, general averages or sectioning thresholds. Record the
-            assessment result here first; the tag can then be applied on the learner's profile.
-            Removing the last supporting assessment also clears the tag.
+            <strong>Non-Reader is a manual, assessment-backed tag.</strong> It
+            is never assigned automatically from grades, general averages or
+            sectioning thresholds. Record the assessment result here first; the
+            tag can then be applied on the learner's profile. Removing the last
+            supporting assessment also clears the tag.
           </p>
         </div>
       </div>
@@ -227,8 +250,7 @@ export function ReadingAssessments() {
             <select
               value={result}
               onChange={e => setResult(e.target.value as ReadingResult)}
-              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400"
-            >
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400">
               <option value="non_reader">Non-Reader</option>
               <option value="reader">Reader</option>
             </select>
@@ -279,9 +301,12 @@ export function ReadingAssessments() {
         <button
           onClick={handleCreate}
           disabled={saving || !studentId}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        >
-          {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+          {saving ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <Plus size={15} />
+          )}
           Record Assessment
         </button>
       </div>
@@ -292,13 +317,17 @@ export function ReadingAssessments() {
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
             Assessments
           </span>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{assessments.length}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {assessments.length}
+          </p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
             Non-Reader
           </span>
-          <p className="text-2xl font-bold text-red-500 mt-1">{nonReaderCount}</p>
+          <p className="text-2xl font-bold text-red-500 mt-1">
+            {nonReaderCount}
+          </p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
@@ -317,7 +346,9 @@ export function ReadingAssessments() {
             <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
               <BookMarked size={28} className="text-gray-300" />
             </div>
-            <p className="text-gray-500 text-sm font-semibold">No reading assessments recorded</p>
+            <p className="text-gray-500 text-sm font-semibold">
+              No reading assessments recorded
+            </p>
             <p className="text-gray-400 text-xs mt-1">
               Record one above to enable a Non-Reader tag for a learner.
             </p>
@@ -347,11 +378,15 @@ export function ReadingAssessments() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="">
                 {assessments.map(a => (
-                  <tr key={a.id} className="hover:bg-emerald-50/40 transition-colors duration-150">
+                  <tr
+                    key={a.id}
+                    className="hover:bg-emerald-50/40 transition-colors duration-150">
                     <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-gray-900">{a.student_name}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {a.student_name}
+                      </span>
                       <span className="block text-[11px] font-mono text-gray-400">
                         {a.student_code}
                       </span>
@@ -365,20 +400,20 @@ export function ReadingAssessments() {
                           a.result === 'non_reader'
                             ? 'bg-red-50 text-red-700 border-red-200'
                             : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}
-                      >
+                        }`}>
                         {a.result === 'non_reader' ? 'Non-Reader' : 'Reader'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-xs font-medium text-gray-700">
                       {a.score ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{a.instrument || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {a.instrument || '—'}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => handleRemove(a)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition"
-                      >
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition">
                         <Trash2 size={13} /> Remove
                       </button>
                     </td>
@@ -393,7 +428,8 @@ export function ReadingAssessments() {
             <Info size={12} /> Grades are never consulted.
           </span>
           <span className="flex items-center gap-1">
-            <AlertTriangle size={12} /> Removing the last assessment clears the Non-Reader tag.
+            <AlertTriangle size={12} /> Removing the last assessment clears the
+            Non-Reader tag.
           </span>
         </div>
       </div>

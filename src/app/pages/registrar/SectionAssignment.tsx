@@ -1,13 +1,31 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  RefreshCw, Check, AlertTriangle, Loader2, Users,
-  X, Shuffle, Sparkles, ArrowRight, UserPlus, BookOpen,
-  GraduationCap, Layers, Filter, BarChart3, SlidersHorizontal,
-  Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown,
+  RefreshCw,
+  Check,
+  AlertTriangle,
+  Loader2,
+  Users,
+  X,
+  Shuffle,
+  Sparkles,
+  ArrowRight,
+  UserPlus,
+  BookOpen,
+  GraduationCap,
+  Layers,
+  Filter,
+  BarChart3,
+  SlidersHorizontal,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   RotateCcw
-} from "lucide-react";
-import { useApp } from "../../context/AppContext";
-import { ModalShell } from "../../components/ModalShell";
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { ModalShell } from '../../components/ModalShell';
 import {
   sectioningApi,
   PendingQueueStudent,
@@ -15,13 +33,13 @@ import {
   RulesPlan,
   RulesProposal,
   BalanceRow,
-  GenerateRulesPayload,
-} from "../../services/sectioning";
+  GenerateRulesPayload
+} from '../../services/sectioning';
 
 /* ──────────────────────────────────────────
    Types
    ────────────────────────────────────────── */
-type WorkflowTab = "random" | "placement" | "carryover" | "manual";
+type WorkflowTab = 'random' | 'placement' | 'carryover' | 'manual';
 
 interface PendingCount {
   grade_level: number;
@@ -50,38 +68,52 @@ interface PreviewAssignment {
    Helpers
    ────────────────────────────────────────── */
 const GRADE_LABELS: Record<number, string> = {
-  7: "G7", 8: "G8", 9: "G9", 10: "G10", 11: "G11", 12: "G12",
+  7: 'G7',
+  8: 'G8',
+  9: 'G9',
+  10: 'G10',
+  11: 'G11',
+  12: 'G12'
 };
 const PROGRAM_LABELS: Record<string, string> = {
-  regular: "Regular", ste: "STE", spfl: "SPFL", open_high: "Open HS", als_shs: "ALS-SHS", als_jhs: "ALS-JHS",
+  regular: 'Regular',
+  ste: 'STE',
+  spfl: 'SPFL',
+  open_high: 'Open HS',
+  als_shs: 'ALS-SHS',
+  als_jhs: 'ALS-JHS'
 };
 const CLASSIF_LABELS: Record<string, string> = {
-  "4ps": "4Ps", pwd: "PWD", transferee: "Transferee", non_reader: "Non-Reader", balik_aral: "Balik-aral",
+  '4ps': '4Ps',
+  pwd: 'PWD',
+  transferee: 'Transferee',
+  non_reader: 'Non-Reader',
+  balik_aral: 'Balik-aral'
 };
 const SECTION_TYPE_BADGES: Record<string, string> = {
-  star: "bg-amber-100 text-amber-800",
-  gold: "bg-yellow-100 text-yellow-800",
-  silver: "bg-gray-100 text-gray-800",
-  regular: "bg-blue-100 text-blue-800",
-  non_reader: "bg-red-100 text-red-800",
+  star: 'bg-amber-100 text-amber-800',
+  gold: 'bg-yellow-100 text-yellow-800',
+  silver: 'bg-gray-100 text-gray-800',
+  regular: 'bg-blue-100 text-blue-800',
+  non_reader: 'bg-red-100 text-red-800'
 };
 
 function clsx(...classes: (string | false | null | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
+  return classes.filter(Boolean).join(' ');
 }
 
 /* ──────────────────────────────────────────
    Client-side browsing controls (search → sort → paginate)
    ────────────────────────────────────────── */
-type SortDir = "asc" | "desc";
+type SortDir = 'asc' | 'desc';
 
 function useDataBrowser<T>(
   rows: T[],
   opts: { searchKeys?: (keyof T)[]; pageSize?: number } = {}
 ) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<keyof T | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(opts.pageSize ?? 25);
 
@@ -103,7 +135,7 @@ function useDataBrowser<T>(
 
   const sorted = React.useMemo(() => {
     if (!sortKey) return filtered;
-    const dir = sortDir === "asc" ? 1 : -1;
+    const dir = sortDir === 'asc' ? 1 : -1;
     return [...filtered].sort((a, b) => {
       const av = (a as any)[sortKey];
       const bv = (b as any)[sortKey];
@@ -111,7 +143,7 @@ function useDataBrowser<T>(
       if (av == null) return 1; // nulls sink to the bottom either direction
       if (bv == null) return -1;
       const cmp =
-        typeof av === "number" && typeof bv === "number"
+        typeof av === 'number' && typeof bv === 'number'
           ? av - bv
           : String(av).localeCompare(String(bv));
       return cmp * dir;
@@ -129,18 +161,28 @@ function useDataBrowser<T>(
 
   const toggleSort = (key: keyof T) => {
     if (sortKey === key) {
-      setSortDir(d => (d === "asc" ? "desc" : "asc"));
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
-      setSortDir("asc");
+      setSortDir('asc');
     }
   };
 
   return {
-    search, setSearch,
-    sortKey, sortDir, toggleSort,
-    page: safePage, setPage, pageCount, pageSize, setPageSize,
-    slice, total, startIndex, filtered,
+    search,
+    setSearch,
+    sortKey,
+    sortDir,
+    toggleSort,
+    page: safePage,
+    setPage,
+    pageCount,
+    pageSize,
+    setPageSize,
+    slice,
+    total,
+    startIndex,
+    filtered
   };
 }
 
@@ -149,7 +191,7 @@ function SortHeader<T>({
   sortKey,
   active,
   dir,
-  onToggle,
+  onToggle
 }: {
   label: string;
   sortKey: keyof T;
@@ -164,13 +206,16 @@ function SortHeader<T>({
         onClick={() => onToggle(sortKey)}
         title={`Sort by ${label}`}
         className={clsx(
-          "inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors",
-          active ? "text-indigo-600" : "text-gray-500 hover:text-gray-700"
-        )}
-      >
+          'inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors',
+          active ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'
+        )}>
         {label}
         {active ? (
-          dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />
+          dir === 'asc' ? (
+            <ArrowUp size={11} />
+          ) : (
+            <ArrowDown size={11} />
+          )
         ) : (
           <ArrowUpDown size={11} className="text-gray-300" />
         )}
@@ -180,7 +225,12 @@ function SortHeader<T>({
 }
 
 function Pager({
-  page, pageCount, total, pageSize, setPage, setPageSize,
+  page,
+  pageCount,
+  total,
+  pageSize,
+  setPage,
+  setPageSize
 }: {
   page: number;
   pageCount: number;
@@ -194,24 +244,27 @@ function Pager({
   return (
     <div className="flex items-center justify-between flex-wrap gap-3 pt-3">
       <span className="text-[11px] text-gray-400">
-        Showing <strong className="text-gray-600">{start}–{end}</strong> of{" "}
-        <strong className="text-gray-600">{total}</strong>
+        Showing{' '}
+        <strong className="text-gray-600">
+          {start}–{end}
+        </strong>{' '}
+        of <strong className="text-gray-600">{total}</strong>
       </span>
       <div className="flex items-center gap-2">
         <select
           value={pageSize}
           onChange={e => setPageSize(parseInt(e.target.value))}
-          className="text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-        >
+          className="text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200">
           {[10, 25, 50, 100].map(n => (
-            <option key={n} value={n}>{n} / page</option>
+            <option key={n} value={n}>
+              {n} / page
+            </option>
           ))}
         </select>
         <button
           onClick={() => setPage(page - 1)}
           disabled={page <= 1}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed"
-        >
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed">
           <ChevronLeft size={12} /> Prev
         </button>
         <span className="text-[11px] text-gray-500 font-medium tabular-nums">
@@ -220,8 +273,7 @@ function Pager({
         <button
           onClick={() => setPage(page + 1)}
           disabled={page >= pageCount}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed"
-        >
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed">
           Next <ChevronRight size={12} />
         </button>
       </div>
@@ -238,7 +290,10 @@ export function SectionAssignment() {
   // ── Data state ──
   const [queue, setQueue] = useState<PendingQueueStudent[]>([]);
   const [sections, setSections] = useState<SectioningSection[]>([]);
-  const [schoolYear, setSchoolYear] = useState<{ id: number; sy_label: string } | null>(null);
+  const [schoolYear, setSchoolYear] = useState<{
+    id: number;
+    sy_label: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -247,9 +302,9 @@ export function SectionAssignment() {
   const [carryOverTouched, setCarryOverTouched] = useState(false);
 
   // ── UI state ──
-  const [activeTab, setActiveTab] = useState<WorkflowTab>("random");
-  const [filterGrade, setFilterGrade] = useState<number | "">("");
-  const [filterProgram, setFilterProgram] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<WorkflowTab>('random');
+  const [filterGrade, setFilterGrade] = useState<number | ''>('');
+  const [filterProgram, setFilterProgram] = useState<string>('');
   const [committing, setCommitting] = useState(false);
   const [commitMsg, setCommitMsg] = useState<string | null>(null);
   const [commitResults, setCommitResults] = useState<any[] | null>(null);
@@ -260,20 +315,24 @@ export function SectionAssignment() {
 
   // ── Client-side browsing (search / sort / paginate) ──
   const queueBrowser = useDataBrowser<PendingQueueStudent>(queue, {
-    searchKeys: ["name", "lrn", "student_display_id"],
-    pageSize: 10,
+    searchKeys: ['name', 'lrn', 'student_display_id'],
+    pageSize: 10
   });
-  const [flagFilter, setFlagFilter] = useState<"all" | "flagged" | "unflagged">("all");
+  const [flagFilter, setFlagFilter] = useState<'all' | 'flagged' | 'unflagged'>(
+    'all'
+  );
   const previewRows = React.useMemo(
     () =>
-      flagFilter === "all"
+      flagFilter === 'all'
         ? preview
-        : preview.filter(p => (flagFilter === "flagged" ? p.flagged : !p.flagged)),
+        : preview.filter(p =>
+            flagFilter === 'flagged' ? p.flagged : !p.flagged
+          ),
     [preview, flagFilter]
   );
   const previewBrowser = useDataBrowser<PreviewAssignment>(previewRows, {
-    searchKeys: ["name", "lrn", "student_display_id"],
-    pageSize: 10,
+    searchKeys: ['name', 'lrn', 'student_display_id'],
+    pageSize: 10
   });
 
   // ── Selection + undo of the last confirmed batch ──
@@ -284,12 +343,20 @@ export function SectionAssignment() {
   const [confirmUndoOpen, setConfirmUndoOpen] = useState(false);
 
   const selectedCount = preview.filter(p => selected.has(p.student_id)).length;
-  const selectedWithSection = preview.filter(p => selected.has(p.student_id) && p.current_section_id != null);
-  const selectedSkipped = preview.filter(p => selected.has(p.student_id) && p.current_section_id == null);
-  const filteredSelectedCount = previewBrowser.filtered.filter(p => selected.has(p.student_id)).length;
+  const selectedWithSection = preview.filter(
+    p => selected.has(p.student_id) && p.current_section_id != null
+  );
+  const selectedSkipped = preview.filter(
+    p => selected.has(p.student_id) && p.current_section_id == null
+  );
+  const filteredSelectedCount = previewBrowser.filtered.filter(p =>
+    selected.has(p.student_id)
+  ).length;
   const allFilteredSelected =
-    previewBrowser.filtered.length > 0 && filteredSelectedCount === previewBrowser.filtered.length;
-  const someFilteredSelected = filteredSelectedCount > 0 && !allFilteredSelected;
+    previewBrowser.filtered.length > 0 &&
+    filteredSelectedCount === previewBrowser.filtered.length;
+  const someFilteredSelected =
+    filteredSelectedCount > 0 && !allFilteredSelected;
 
   const toggleSelect = (studentId: number) => {
     setSelected(prev => {
@@ -320,11 +387,36 @@ export function SectionAssignment() {
   const [savingEligibility, setSavingEligibility] = useState(false);
 
   // ── Tabs config ──
-  const TABS: { key: WorkflowTab; label: string; icon: React.ElementType; desc: string }[] = [
-    { key: "random", label: "Random Distribution", icon: Shuffle, desc: "Distribute JHS Regular students evenly by GA" },
-    { key: "placement", label: "Placement Assistance", icon: Sparkles, desc: "Assign STE, SPFL students based on classifications" },
-    { key: "carryover", label: "Carry-Over (G11→G12)", icon: GraduationCap, desc: "Carry G11 students to their matching G12 section" },
-    { key: "manual", label: "Manual Assignment", icon: UserPlus, desc: "Assign ALS-SHS and Open HS students manually" },
+  const TABS: {
+    key: WorkflowTab;
+    label: string;
+    icon: React.ElementType;
+    desc: string;
+  }[] = [
+    {
+      key: 'random',
+      label: 'Random Distribution',
+      icon: Shuffle,
+      desc: 'Distribute JHS Regular students evenly by GA'
+    },
+    {
+      key: 'placement',
+      label: 'Placement Assistance',
+      icon: Sparkles,
+      desc: 'Assign STE, SPFL students based on classifications'
+    },
+    {
+      key: 'carryover',
+      label: 'Carry-Over (G11→G12)',
+      icon: GraduationCap,
+      desc: 'Carry G11 students to their matching G12 section'
+    },
+    {
+      key: 'manual',
+      label: 'Manual Assignment',
+      icon: UserPlus,
+      desc: 'Assign ALS-SHS and Open HS students manually'
+    }
   ];
 
   /* ── Load Pending Queue ── */
@@ -334,21 +426,36 @@ export function SectionAssignment() {
     try {
       const data = await sectioningApi.getPendingQueue({
         grade_level: filterGrade || undefined,
-        program: filterProgram || undefined,
+        program: filterProgram || undefined
       });
       setQueue(data.queue);
       setSections(data.sections);
       setSchoolYear(data.school_year);
-      const map: Record<number, { exam: boolean | null; interview: boolean | null }> = {};
+      const map: Record<
+        number,
+        { exam: boolean | null; interview: boolean | null }
+      > = {};
       for (const q of data.queue) {
         map[q.enrollment_id] = {
-          exam: q.entrance_exam_passed === 1 ? true : q.entrance_exam_passed === 0 ? false : null,
-          interview: q.interview_passed === 1 ? true : q.interview_passed === 0 ? false : null,
+          exam:
+            q.entrance_exam_passed === 1
+              ? true
+              : q.entrance_exam_passed === 0
+                ? false
+                : null,
+          interview:
+            q.interview_passed === 1
+              ? true
+              : q.interview_passed === 0
+                ? false
+                : null
         };
       }
       setAdmissions(map);
     } catch (err: any) {
-      setError(err.detail?.error || err.message || "Failed to load pending queue.");
+      setError(
+        err.detail?.error || err.message || 'Failed to load pending queue.'
+      );
     } finally {
       setLoading(false);
     }
@@ -361,7 +468,9 @@ export function SectionAssignment() {
   /* ── Pending queue counts per grade ── */
   const gradeCounts: PendingCount[] = React.useMemo(() => {
     const map = new Map<number, number>();
-    queue.forEach(s => map.set(s.grade_level, (map.get(s.grade_level) || 0) + 1));
+    queue.forEach(s =>
+      map.set(s.grade_level, (map.get(s.grade_level) || 0) + 1)
+    );
     return Array.from(map.entries())
       .map(([grade_level, count]) => ({ grade_level, count }))
       .sort((a, b) => a.grade_level - b.grade_level);
@@ -374,7 +483,11 @@ export function SectionAssignment() {
 
   /* ── Rules engine: run the backend auto-sectioning rules for a scope ── */
   const runRulesEngine = useCallback(
-    async (scope: GenerateRulesPayload["scope"], gradeLevel?: number, program?: string) => {
+    async (
+      scope: GenerateRulesPayload['scope'],
+      gradeLevel?: number,
+      program?: string
+    ) => {
       if (!schoolYear) return;
       setGenerating(true);
       setCommitMsg(null);
@@ -384,7 +497,7 @@ export function SectionAssignment() {
           school_year_id: schoolYear.id,
           scope,
           grade_level: gradeLevel,
-          program,
+          program
         });
         setRulesPlan(plan);
         // Map engine proposals into the reviewable preview rows.
@@ -404,14 +517,18 @@ export function SectionAssignment() {
             target_program: p.target_program,
             flagged: p.flagged,
             reason: p.reason,
-            eligibility: p.eligibility,
+            eligibility: p.eligibility
           }))
         );
         if (plan.proposals.length === 0) {
-          setCommitMsg("The rules engine found no students to assign in this view.");
+          setCommitMsg(
+            'The rules engine found no students to assign in this view.'
+          );
         }
       } catch (err: any) {
-        setCommitMsg(err.detail?.error || err.message || "Failed to run auto-sectioning.");
+        setCommitMsg(
+          err.detail?.error || err.message || 'Failed to run auto-sectioning.'
+        );
       } finally {
         setGenerating(false);
       }
@@ -420,44 +537,45 @@ export function SectionAssignment() {
   );
 
   /* ── Random Distribution (JHS Regular) — 50/50 gender balance ── */
-  const generateRandomPreview = () => runRulesEngine("regular");
+  const generateRandomPreview = () => runRulesEngine('regular');
 
   /* ── Placement Assistance (STE / SPFL) — eligibility-driven ── */
-  const generatePlacementPreview = () => runRulesEngine("special");
+  const generatePlacementPreview = () => runRulesEngine('special');
 
   /* ── Carry-Over (returning students) — previous section carried forward ── */
   const loadCarryOverPreview = useCallback(
-    () => runRulesEngine("carryover", carryOverGrade),
+    () => runRulesEngine('carryover', carryOverGrade),
     [runRulesEngine, carryOverGrade]
   );
 
   /* ── Record admission evidence for an STE/SPFL applicant then regenerate ── */
   const toggleAdmission = async (
     enrollmentId: number,
-    field: "exam" | "interview",
+    field: 'exam' | 'interview',
     value: boolean | null
   ) => {
     setSavingEligibility(true);
     try {
       await sectioningApi.updateEligibility({
         enrollment_id: enrollmentId,
-        ...(field === "exam"
+        ...(field === 'exam'
           ? { entrance_exam_passed: value ?? false }
-          : { interview_passed: value ?? false }),
+          : { interview_passed: value ?? false })
       });
       setAdmissions(prev => ({
         ...prev,
-        [enrollmentId]: { ...(prev[enrollmentId] || {}), [field]: value },
+        [enrollmentId]: { ...(prev[enrollmentId] || {}), [field]: value }
       }));
       // Re-run eligibility so the proposal reflects the new admission result.
-      if (activeTab === "placement") await runRulesEngine("special");
+      if (activeTab === 'placement') await runRulesEngine('special');
     } catch (err: any) {
-      setCommitMsg(err.detail?.error || err.message || "Failed to update admission result.");
+      setCommitMsg(
+        err.detail?.error || err.message || 'Failed to update admission result.'
+      );
     } finally {
       setSavingEligibility(false);
     }
   };
-
 
   /* ── Manual section picker target ── */
   const assignSection = (studentId: number, sectionId: number) => {
@@ -467,7 +585,8 @@ export function SectionAssignment() {
           ? {
               ...p,
               current_section_id: sectionId,
-              current_section_name: sections.find(s => s.id === sectionId)?.name ?? null,
+              current_section_name:
+                sections.find(s => s.id === sectionId)?.name ?? null
             }
           : p
       )
@@ -479,11 +598,15 @@ export function SectionAssignment() {
     const toAssign = selectedWithSection;
     if (toAssign.length === 0) {
       if (selectedCount === 0) {
-        setCommitMsg("Select at least one student (checkbox) to confirm their assignment — or use the header checkbox to select everyone in the list.");
+        setCommitMsg(
+          'Select at least one student (checkbox) to confirm their assignment — or use the header checkbox to select everyone in the list.'
+        );
       } else if (selectedSkipped.length > 0) {
-        setCommitMsg(`${selectedSkipped.length} selected student(s) have no available section and were skipped.`);
+        setCommitMsg(
+          `${selectedSkipped.length} selected student(s) have no available section and were skipped.`
+        );
       } else {
-        setCommitMsg("Nothing to confirm.");
+        setCommitMsg('Nothing to confirm.');
       }
       return;
     }
@@ -498,8 +621,8 @@ export function SectionAssignment() {
         assignments: toAssign.map(a => ({
           enrollment_id: a.enrollment_id,
           student_id: a.student_id,
-          section_id: a.current_section_id!,
-        })),
+          section_id: a.current_section_id!
+        }))
       });
       setCommitResults(result.results);
       setCommitMsg(result.message);
@@ -512,7 +635,9 @@ export function SectionAssignment() {
       await loadQueue();
       setRulesPlan(null);
     } catch (err: any) {
-      setCommitMsg(err.detail?.error || err.message || "Failed to confirm assignments.");
+      setCommitMsg(
+        err.detail?.error || err.message || 'Failed to confirm assignments.'
+      );
     } finally {
       setCommitting(false);
     }
@@ -536,7 +661,9 @@ export function SectionAssignment() {
       setRulesPlan(null);
       await loadQueue();
     } catch (err: any) {
-      setCommitMsg(err.detail?.error || err.message || "Failed to undo assignments.");
+      setCommitMsg(
+        err.detail?.error || err.message || 'Failed to undo assignments.'
+      );
     } finally {
       setUndoing(false);
     }
@@ -548,10 +675,18 @@ export function SectionAssignment() {
     setCommitResults(null);
     setSelected(new Set());
     switch (activeTab) {
-      case "random": generateRandomPreview(); break;
-      case "placement": generatePlacementPreview(); break;
-      case "carryover": loadCarryOverPreview(); break;
-      case "manual": generateManualPreview(); break;
+      case 'random':
+        generateRandomPreview();
+        break;
+      case 'placement':
+        generatePlacementPreview();
+        break;
+      case 'carryover':
+        loadCarryOverPreview();
+        break;
+      case 'manual':
+        generateManualPreview();
+        break;
     }
   };
 
@@ -559,12 +694,15 @@ export function SectionAssignment() {
   const generateManualPreview = () => {
     setGenerating(true);
     const candidates = queue.filter(
-      s => s.program === "als_shs" || s.program === "als_jhs" || s.program === "open_high"
+      s =>
+        s.program === 'als_shs' ||
+        s.program === 'als_jhs' ||
+        s.program === 'open_high'
     );
 
     if (candidates.length === 0) {
       setGenerating(false);
-      setCommitMsg("No ALS-SHS or Open HS students in the pending queue.");
+      setCommitMsg('No ALS-SHS or Open HS students in the pending queue.');
       return;
     }
 
@@ -580,7 +718,7 @@ export function SectionAssignment() {
       current_section_id: null,
       current_section_name: null,
       general_average: s.general_average,
-      classifications: s.classifications,
+      classifications: s.classifications
     }));
 
     setPreview(previewList);
@@ -589,7 +727,7 @@ export function SectionAssignment() {
 
   /* ── When switching to carry-over tab, auto-load ── */
   useEffect(() => {
-    if (activeTab === "carryover") {
+    if (activeTab === 'carryover') {
       loadCarryOverPreview();
     }
   }, [activeTab, loadCarryOverPreview]);
@@ -620,7 +758,7 @@ export function SectionAssignment() {
   /* ── Section picker for a student row (Manual tab) ── */
   const SectionPicker = ({
     student,
-    currentSectionId,
+    currentSectionId
   }: {
     student: PreviewAssignment;
     currentSectionId: number | null;
@@ -631,18 +769,18 @@ export function SectionAssignment() {
     return (
       <select
         className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white w-44 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-        value={currentSectionId ?? ""}
-        onChange={e => assignSection(student.student_id, parseInt(e.target.value))}
-      >
+        value={currentSectionId ?? ''}
+        onChange={e =>
+          assignSection(student.student_id, parseInt(e.target.value))
+        }>
         <option value="">— Select section —</option>
         {gradeSections.map(s => (
           <option
             key={s.id}
             value={s.id}
-            disabled={s.current_count >= s.capacity}
-          >
+            disabled={s.current_count >= s.capacity}>
             {s.name} ({s.current_count}/{s.capacity})
-            {s.current_count >= s.capacity ? " FULL" : ""}
+            {s.current_count >= s.capacity ? ' FULL' : ''}
           </option>
         ))}
       </select>
@@ -650,13 +788,17 @@ export function SectionAssignment() {
   };
 
   /* ── Render ── */
-  if (role === "teacher") {
+  if (role === 'teacher') {
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-gray-400">
         <div className="text-center">
           <AlertTriangle size={40} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm font-medium">Section assignment is handled by the Enrollment Committee.</p>
-          <p className="text-xs mt-1">Please contact the Enrollment Committee for sectioning concerns.</p>
+          <p className="text-sm font-medium">
+            Section assignment is handled by the Enrollment Committee.
+          </p>
+          <p className="text-xs mt-1">
+            Please contact the Enrollment Committee for sectioning concerns.
+          </p>
         </div>
       </div>
     );
@@ -672,17 +814,19 @@ export function SectionAssignment() {
             <Layers size={22} className="text-white" />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Section Assignment</h2>
+            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
+              Section Assignment
+            </h2>
             <p className="text-gray-500 text-sm">
-              {schoolYear ? `SY ${schoolYear.sy_label}` : ""} — Assign enrolled students to sections
+              {schoolYear ? `SY ${schoolYear.sy_label}` : ''} — Assign enrolled
+              students to sections
             </p>
           </div>
           <button
             onClick={loadQueue}
             disabled={loading}
-            className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors disabled:opacity-50">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
@@ -691,190 +835,272 @@ export function SectionAssignment() {
       {/* ── Pending Queue Summary Bar ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-5 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-            <Users size={16} className="text-indigo-500" />
-            Pending Section Queue
-            {loading && <Loader2 size={14} className="animate-spin text-indigo-500" />}
-          </h3>
-          {queue.length > 0 && !loading && (
-            <span className="bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-indigo-100">
-              {queue.length} pending
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+              <Users size={16} className="text-indigo-500" />
+              Pending Section Queue
+              {loading && (
+                <Loader2 size={14} className="animate-spin text-indigo-500" />
+              )}
+            </h3>
+            {queue.length > 0 && !loading && (
+              <span className="bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-indigo-100">
+                {queue.length} pending
+              </span>
+            )}
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+              <AlertTriangle size={15} />
+              {error}
+            </div>
           )}
-        </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
-            <AlertTriangle size={15} />
-            {error}
-          </div>
-        )}
-
-        {/* Grade-level counts (shown when data loaded, even if 0) */}
-        {!loading && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {gradeCounts.length > 0 ? gradeCounts.map(gc => (
-              <div
-                key={gc.grade_level}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/60 text-indigo-700 rounded-lg text-xs font-medium border border-indigo-100"
-              >
-                <span className="font-semibold">Grade {gc.grade_level}</span>
-                <span className="text-indigo-300">·</span>
-                <span className="font-bold">{gc.count}</span>
-                <span className="text-indigo-400">{gc.count === 1 ? "student" : "students"}</span>
-              </div>
-            )) : (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-400 rounded-lg text-xs border border-gray-100">
-                <Users size={14} />
-                <span>No students in queue</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Filters — always visible */}
-        <div className="flex flex-wrap gap-3 items-center mb-4">
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
-            <input
-              value={queueBrowser.search}
-              onChange={e => queueBrowser.setSearch(e.target.value)}
-              placeholder="Search name, LRN..."
-              className="pl-7 pr-3 py-1.5 w-48 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            />
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold uppercase tracking-[0.04em]">
-            <SlidersHorizontal size={12} />
-            Filters
-          </div>
-          <select
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            value={filterGrade}
-            onChange={e => setFilterGrade(e.target.value ? parseInt(e.target.value) : "")}
-          >
-            <option value="">All Grades</option>
-            {[7, 8, 9, 10, 11, 12].map(g => (
-              <option key={g} value={g}>Grade {g}</option>
-            ))}
-          </select>
-          <select
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            value={filterProgram}
-            onChange={e => setFilterProgram(e.target.value)}
-          >
-            <option value="">All Programs</option>
-            {Object.entries(PROGRAM_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Queue list or empty or loading state */}
-        {loading ? (
-          <div className="text-center py-10 text-gray-400 border border-dashed border-gray-200 rounded-xl">
-            <Loader2 size={28} className="mx-auto mb-2 animate-spin text-indigo-400" />
-            <p className="text-sm font-medium text-gray-500">Loading queue...</p>
-          </div>
-        ) : queue.length === 0 ? (
-          <div className="text-center py-10 text-gray-400 border border-dashed border-gray-200 rounded-xl">
-            <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
-              <Users size={24} className="text-gray-300" />
+          {/* Grade-level counts (shown when data loaded, even if 0) */}
+          {!loading && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {gradeCounts.length > 0 ? (
+                gradeCounts.map(gc => (
+                  <div
+                    key={gc.grade_level}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/60 text-indigo-700 rounded-lg text-xs font-medium border border-indigo-100">
+                    <span className="font-semibold">
+                      Grade {gc.grade_level}
+                    </span>
+                    <span className="text-indigo-300">·</span>
+                    <span className="font-bold">{gc.count}</span>
+                    <span className="text-indigo-400">
+                      {gc.count === 1 ? 'student' : 'students'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-400 rounded-lg text-xs border border-gray-100">
+                  <Users size={14} />
+                  <span>No students in queue</span>
+                </div>
+              )}
             </div>
-            <p className="text-sm font-semibold text-gray-500">
-              {filterGrade || filterProgram
-                ? "No students match the current filters."
-                : "No students awaiting section assignment."}
-            </p>
-            <p className="text-xs mt-1 text-gray-400">
-              {filterGrade || filterProgram
-                ? "Try changing the grade or program filter above."
-                : "Students enrolled by the Teacher will appear here."}
-            </p>
-          </div>
-        ) : !loading ? (
-          <>
-          <div className="overflow-x-auto border border-gray-100 rounded-xl">
-            <table className="w-full min-w-[860px]">
-                <thead>
-                  <tr className="bg-gray-50/80">
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">#</th>
-                    <SortHeader label="Student" sortKey="name" active={queueBrowser.sortKey === "name"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
-                    <SortHeader label="Grade" sortKey="grade_level" active={queueBrowser.sortKey === "grade_level"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
-                    <SortHeader label="Program" sortKey="program" active={queueBrowser.sortKey === "program"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
-                    <SortHeader label="GA" sortKey="general_average" active={queueBrowser.sortKey === "general_average"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
-                    <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Enrolled By</th>
-                    <SortHeader label="Date" sortKey="enrollment_date" active={queueBrowser.sortKey === "enrollment_date"} dir={queueBrowser.sortDir} onToggle={queueBrowser.toggleSort} />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {queueBrowser.slice.map((s, i) => (
-                    <tr key={s.enrollment_id} className={`${(queueBrowser.startIndex + i) % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
-                      <td className="px-4 py-3 text-gray-400 text-xs">{queueBrowser.startIndex + i + 1}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
-                            {s.name.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-800 text-sm">{s.name}</p>
-                            <p className="text-gray-400 text-[10px] font-mono">{s.student_display_id}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs font-mono">{s.lrn}</td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-indigo-50/60 text-indigo-700 border border-indigo-100">
-                          G{s.grade_level}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs text-gray-500 font-medium">{PROGRAM_LABELS[s.program] || s.program}</span>
-                        {s.classifications.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {s.classifications.map((c, ci) => (
-                              <span key={ci} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600 border border-purple-100">{CLASSIF_LABELS[c] || c}</span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={clsx(
-                          "text-xs font-semibold",
-                          s.general_average != null
-                            ? s.general_average >= 85 ? "text-emerald-600" : s.general_average >= 75 ? "text-amber-600" : "text-red-600"
-                            : "text-gray-300"
-                        )}>
-                          {s.general_average != null ? s.general_average.toFixed(2) : "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{s.enrolled_by_name}</td>
-                      <td className="px-4 py-3 text-xs text-gray-400">
-                        {new Date(s.enrollment_date).toLocaleDateString("en-PH")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {queueBrowser.total === 0 && (
-              <p className="text-xs text-gray-400 text-center py-4">
-                No students match your search.
-              </p>
-            )}
-            {queueBrowser.total > 0 && (
-              <Pager
-                page={queueBrowser.page}
-                pageCount={queueBrowser.pageCount}
-                total={queueBrowser.total}
-                pageSize={queueBrowser.pageSize}
-                setPage={queueBrowser.setPage}
-                setPageSize={queueBrowser.setPageSize}
+          )}
+
+          {/* Filters — always visible */}
+          <div className="flex flex-wrap gap-3 items-center mb-4">
+            <div className="relative">
+              <Search
+                size={12}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300"
               />
-            )}
-          </>
-        ) : null}
+              <input
+                value={queueBrowser.search}
+                onChange={e => queueBrowser.setSearch(e.target.value)}
+                placeholder="Search name, LRN..."
+                className="pl-7 pr-3 py-1.5 w-48 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold uppercase tracking-[0.04em]">
+              <SlidersHorizontal size={12} />
+              Filters
+            </div>
+            <select
+              className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              value={filterGrade}
+              onChange={e =>
+                setFilterGrade(e.target.value ? parseInt(e.target.value) : '')
+              }>
+              <option value="">All Grades</option>
+              {[7, 8, 9, 10, 11, 12].map(g => (
+                <option key={g} value={g}>
+                  Grade {g}
+                </option>
+              ))}
+            </select>
+            <select
+              className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              value={filterProgram}
+              onChange={e => setFilterProgram(e.target.value)}>
+              <option value="">All Programs</option>
+              {Object.entries(PROGRAM_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Queue list or empty or loading state */}
+          {loading ? (
+            <div className="text-center py-10 text-gray-400 border border-dashed border-gray-200 rounded-xl">
+              <Loader2
+                size={28}
+                className="mx-auto mb-2 animate-spin text-indigo-400"
+              />
+              <p className="text-sm font-medium text-gray-500">
+                Loading queue...
+              </p>
+            </div>
+          ) : queue.length === 0 ? (
+            <div className="text-center py-10 text-gray-400 border border-dashed border-gray-200 rounded-xl">
+              <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                <Users size={24} className="text-gray-300" />
+              </div>
+              <p className="text-sm font-semibold text-gray-500">
+                {filterGrade || filterProgram
+                  ? 'No students match the current filters.'
+                  : 'No students awaiting section assignment.'}
+              </p>
+              <p className="text-xs mt-1 text-gray-400">
+                {filterGrade || filterProgram
+                  ? 'Try changing the grade or program filter above.'
+                  : 'Students enrolled by the Teacher will appear here.'}
+              </p>
+            </div>
+          ) : !loading ? (
+            <>
+              <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                <table className="w-full min-w-[860px]">
+                  <thead>
+                    <tr className="bg-gray-50/80">
+                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                        #
+                      </th>
+                      <SortHeader
+                        label="Student"
+                        sortKey="name"
+                        active={queueBrowser.sortKey === 'name'}
+                        dir={queueBrowser.sortDir}
+                        onToggle={queueBrowser.toggleSort}
+                      />
+                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                        LRN
+                      </th>
+                      <SortHeader
+                        label="Grade"
+                        sortKey="grade_level"
+                        active={queueBrowser.sortKey === 'grade_level'}
+                        dir={queueBrowser.sortDir}
+                        onToggle={queueBrowser.toggleSort}
+                      />
+                      <SortHeader
+                        label="Program"
+                        sortKey="program"
+                        active={queueBrowser.sortKey === 'program'}
+                        dir={queueBrowser.sortDir}
+                        onToggle={queueBrowser.toggleSort}
+                      />
+                      <SortHeader
+                        label="GA"
+                        sortKey="general_average"
+                        active={queueBrowser.sortKey === 'general_average'}
+                        dir={queueBrowser.sortDir}
+                        onToggle={queueBrowser.toggleSort}
+                      />
+                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                        Enrolled By
+                      </th>
+                      <SortHeader
+                        label="Date"
+                        sortKey="enrollment_date"
+                        active={queueBrowser.sortKey === 'enrollment_date'}
+                        dir={queueBrowser.sortDir}
+                        onToggle={queueBrowser.toggleSort}
+                      />
+                    </tr>
+                  </thead>
+                  <tbody className="">
+                    {queueBrowser.slice.map((s, i) => (
+                      <tr
+                        key={s.enrollment_id}
+                        className={`${(queueBrowser.startIndex + i) % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                        <td className="px-4 py-3 text-gray-400 text-xs">
+                          {queueBrowser.startIndex + i + 1}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
+                              {s.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800 text-sm">
+                                {s.name}
+                              </p>
+                              <p className="text-gray-400 text-[10px] font-mono">
+                                {s.student_display_id}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 text-xs font-mono">
+                          {s.lrn}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-indigo-50/60 text-indigo-700 border border-indigo-100">
+                            G{s.grade_level}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-gray-500 font-medium">
+                            {PROGRAM_LABELS[s.program] || s.program}
+                          </span>
+                          {s.classifications.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {s.classifications.map((c, ci) => (
+                                <span
+                                  key={ci}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600 border border-purple-100">
+                                  {CLASSIF_LABELS[c] || c}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={clsx(
+                              'text-xs font-semibold',
+                              s.general_average != null
+                                ? s.general_average >= 85
+                                  ? 'text-emerald-600'
+                                  : s.general_average >= 75
+                                    ? 'text-amber-600'
+                                    : 'text-red-600'
+                                : 'text-gray-300'
+                            )}>
+                            {s.general_average != null
+                              ? s.general_average.toFixed(2)
+                              : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500">
+                          {s.enrolled_by_name}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-400">
+                          {new Date(s.enrollment_date).toLocaleDateString(
+                            'en-PH'
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {queueBrowser.total === 0 && (
+                <p className="text-xs text-gray-400 text-center py-4">
+                  No students match your search.
+                </p>
+              )}
+              {queueBrowser.total > 0 && (
+                <Pager
+                  page={queueBrowser.page}
+                  pageCount={queueBrowser.pageCount}
+                  total={queueBrowser.total}
+                  pageSize={queueBrowser.pageSize}
+                  setPage={queueBrowser.setPage}
+                  setPageSize={queueBrowser.setPageSize}
+                />
+              )}
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -888,15 +1114,26 @@ export function SectionAssignment() {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setPreview([]); setRulesPlan(null); setCommitMsg(null); setCommitResults(null); setSelected(new Set()); setLastBatch(null); setUndoCount(0); }}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setPreview([]);
+                  setRulesPlan(null);
+                  setCommitMsg(null);
+                  setCommitResults(null);
+                  setSelected(new Set());
+                  setLastBatch(null);
+                  setUndoCount(0);
+                }}
                 className={clsx(
-                  "flex items-center gap-2 px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
+                  'flex items-center gap-2 px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
                   active
-                    ? "border-indigo-600 text-indigo-700 bg-indigo-50/50"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                )}
-              >
-                <Icon size={16} className={active ? "text-indigo-500" : "text-gray-400"} />
+                    ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                )}>
+                <Icon
+                  size={16}
+                  className={active ? 'text-indigo-500' : 'text-gray-400'}
+                />
                 {tab.label}
               </button>
             );
@@ -912,23 +1149,27 @@ export function SectionAssignment() {
                 {TABS.find(t => t.key === activeTab)?.desc}
               </p>
               <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-indigo-400" /> {availableSections.length} sections available</span>
+                <span className="inline-flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-indigo-400" />{' '}
+                  {availableSections.length} sections available
+                </span>
                 <span className="text-gray-200">|</span>
                 <span>{queue.length} students pending</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {activeTab === "carryover" && (
+              {activeTab === 'carryover' && (
                 <>
-                  <span className="text-xs text-gray-500 whitespace-nowrap">Carry-over target:</span>
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    Carry-over target:
+                  </span>
                   <select
                     className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                     value={carryOverGrade}
                     onChange={e => {
                       setCarryOverTouched(true);
                       setCarryOverGrade(parseInt(e.target.value));
-                    }}
-                  >
+                    }}>
                     <option value={12}>G11 → G12</option>
                     <option value={11}>G10 → G11</option>
                     <option value={10}>G9 → G10</option>
@@ -940,8 +1181,7 @@ export function SectionAssignment() {
               <button
                 onClick={handleGenerate}
                 disabled={loading || generating || queue.length === 0}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-              >
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm">
                 {generating ? (
                   <Loader2 size={15} className="animate-spin" />
                 ) : (
@@ -961,12 +1201,15 @@ export function SectionAssignment() {
                     Preview Assignments
                   </p>
                   <span className="bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-indigo-100">
-                    {preview.length} student{preview.length !== 1 ? "s" : ""}
+                    {preview.length} student{preview.length !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative">
-                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <Search
+                      size={12}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300"
+                    />
                     <input
                       value={previewBrowser.search}
                       onChange={e => previewBrowser.setSearch(e.target.value)}
@@ -974,34 +1217,49 @@ export function SectionAssignment() {
                       className="pl-7 pr-3 py-1.5 w-44 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                     />
                   </div>
-                  {(["all", "flagged", "unflagged"] as const).map(f => (
+                  {(['all', 'flagged', 'unflagged'] as const).map(f => (
                     <button
                       key={f}
                       type="button"
                       onClick={() => setFlagFilter(f)}
                       className={clsx(
-                        "px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                        'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors',
                         flagFilter === f
-                          ? f === "flagged"
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : f === "unflagged"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                          : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
-                      )}
-                    >
-                      {f === "all" ? "All" : f === "flagged" ? "Flagged" : "Unflagged"}
+                          ? f === 'flagged'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : f === 'unflagged'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                      )}>
+                      {f === 'all'
+                        ? 'All'
+                        : f === 'flagged'
+                          ? 'Flagged'
+                          : 'Unflagged'}
                     </button>
                   ))}
                   <div className="flex items-center gap-3 text-xs">
-                    {preview.filter(p => p.current_section_id != null).length > 0 && (
+                    {preview.filter(p => p.current_section_id != null).length >
+                      0 && (
                       <span className="text-emerald-600 font-medium flex items-center gap-1">
-                        <Check size={12} /> {preview.filter(p => p.current_section_id != null).length} assigned
+                        <Check size={12} />{' '}
+                        {
+                          preview.filter(p => p.current_section_id != null)
+                            .length
+                        }{' '}
+                        assigned
                       </span>
                     )}
-                    {preview.filter(p => p.current_section_id == null).length > 0 && (
+                    {preview.filter(p => p.current_section_id == null).length >
+                      0 && (
                       <span className="text-amber-600 font-medium flex items-center gap-1">
-                        <AlertTriangle size={12} /> {preview.filter(p => p.current_section_id == null).length} unassigned
+                        <AlertTriangle size={12} />{' '}
+                        {
+                          preview.filter(p => p.current_section_id == null)
+                            .length
+                        }{' '}
+                        unassigned
                       </span>
                     )}
                   </div>
@@ -1017,25 +1275,29 @@ export function SectionAssignment() {
                       Gender Balance
                     </p>
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {rulesPlan.summary.balance.sections.map((row: BalanceRow) => (
-                        <div key={`${row.grade_level}-${row.section_name}`} className="flex items-center gap-2 text-xs">
-                          <span className="w-14 text-gray-500 font-medium shrink-0">
-                            G{row.grade_level}
-                          </span>
-                          <span className="w-32 text-gray-700 font-medium truncate shrink-0">
-                            {row.section_name}
-                          </span>
-                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 font-semibold">
-                            ♂ {row.male}
-                          </span>
-                          <span className="text-pink-700 bg-pink-50 border border-pink-100 rounded px-1.5 py-0.5 font-semibold">
-                            ♀ {row.female}
-                          </span>
-                          <span className="text-gray-400">
-                            ({row.total}/{row.capacity})
-                          </span>
-                        </div>
-                      ))}
+                      {rulesPlan.summary.balance.sections.map(
+                        (row: BalanceRow) => (
+                          <div
+                            key={`${row.grade_level}-${row.section_name}`}
+                            className="flex items-center gap-2 text-xs">
+                            <span className="w-14 text-gray-500 font-medium shrink-0">
+                              G{row.grade_level}
+                            </span>
+                            <span className="w-32 text-gray-700 font-medium truncate shrink-0">
+                              {row.section_name}
+                            </span>
+                            <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 font-semibold">
+                              ♂ {row.male}
+                            </span>
+                            <span className="text-pink-700 bg-pink-50 border border-pink-100 rounded px-1.5 py-0.5 font-semibold">
+                              ♀ {row.female}
+                            </span>
+                            <span className="text-gray-400">
+                              ({row.total}/{row.capacity})
+                            </span>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
 
@@ -1046,26 +1308,41 @@ export function SectionAssignment() {
                     </p>
                     <div className="space-y-1.5 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Eligible / proposed for special programs</span>
+                        <span className="text-gray-600">
+                          Eligible / proposed for special programs
+                        </span>
                         <span className="font-semibold text-purple-700">
-                          {rulesPlan.summary.by_program.ste + rulesPlan.summary.by_program.spfl}
+                          {rulesPlan.summary.by_program.ste +
+                            rulesPlan.summary.by_program.spfl}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600 pl-4">STE</span>
-                        <span className="font-semibold text-purple-700">{rulesPlan.summary.by_program.ste}</span>
+                        <span className="font-semibold text-purple-700">
+                          {rulesPlan.summary.by_program.ste}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600 pl-4">SPFL</span>
-                        <span className="font-semibold text-purple-700">{rulesPlan.summary.by_program.spfl}</span>
+                        <span className="font-semibold text-purple-700">
+                          {rulesPlan.summary.by_program.spfl}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Proposed / kept in Regular</span>
-                        <span className="font-semibold text-gray-700">{rulesPlan.summary.by_program.regular}</span>
+                        <span className="text-gray-600">
+                          Proposed / kept in Regular
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {rulesPlan.summary.by_program.regular}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-amber-600">Flagged for review (transfers)</span>
-                        <span className="font-semibold text-amber-700">{preview.filter(p => p.flagged).length}</span>
+                        <span className="text-amber-600">
+                          Flagged for review (transfers)
+                        </span>
+                        <span className="font-semibold text-amber-700">
+                          {preview.filter(p => p.flagged).length}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1081,29 +1358,59 @@ export function SectionAssignment() {
                           <input
                             type="checkbox"
                             checked={allFilteredSelected}
-                            ref={el => { if (el) el.indeterminate = someFilteredSelected; }}
+                            ref={el => {
+                              if (el) el.indeterminate = someFilteredSelected;
+                            }}
                             onChange={toggleSelectAll}
                             className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
                           />
                         </label>
                       </th>
-                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">#</th>
-                      <SortHeader label="Student" sortKey="name" active={previewBrowser.sortKey === "name"} dir={previewBrowser.sortDir} onToggle={previewBrowser.toggleSort} />
-                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">LRN</th>
-                      <SortHeader label="Grade" sortKey="grade_level" active={previewBrowser.sortKey === "grade_level"} dir={previewBrowser.sortDir} onToggle={previewBrowser.toggleSort} />
-                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Program / Notes</th>
-                      <SortHeader label="GA" sortKey="general_average" active={previewBrowser.sortKey === "general_average"} dir={previewBrowser.sortDir} onToggle={previewBrowser.toggleSort} />
-                      {activeTab === "placement" && (
-                        <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">Entrance Exam / Interview</th>
+                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                        #
+                      </th>
+                      <SortHeader
+                        label="Student"
+                        sortKey="name"
+                        active={previewBrowser.sortKey === 'name'}
+                        dir={previewBrowser.sortDir}
+                        onToggle={previewBrowser.toggleSort}
+                      />
+                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                        LRN
+                      </th>
+                      <SortHeader
+                        label="Grade"
+                        sortKey="grade_level"
+                        active={previewBrowser.sortKey === 'grade_level'}
+                        dir={previewBrowser.sortDir}
+                        onToggle={previewBrowser.toggleSort}
+                      />
+                      <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                        Program / Notes
+                      </th>
+                      <SortHeader
+                        label="GA"
+                        sortKey="general_average"
+                        active={previewBrowser.sortKey === 'general_average'}
+                        dir={previewBrowser.sortDir}
+                        onToggle={previewBrowser.toggleSort}
+                      />
+                      {activeTab === 'placement' && (
+                        <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          Entrance Exam / Interview
+                        </th>
                       )}
                       <th className="text-left px-4 py-3 text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
-                        {activeTab === "manual" ? "Assign Section" : "Section"}
+                        {activeTab === 'manual' ? 'Assign Section' : 'Section'}
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="">
                     {previewBrowser.slice.map((student, i) => (
-                      <tr key={student.student_id} className={`${(previewBrowser.startIndex + i) % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-indigo-50/50 transition-colors duration-150`}>
+                      <tr
+                        key={student.student_id}
+                        className={`${(previewBrowser.startIndex + i) % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-indigo-50/50 transition-colors duration-150`}>
                         <td className="px-4 py-3">
                           <label className="touch-target inline-flex items-center justify-center cursor-pointer">
                             <input
@@ -1114,19 +1421,27 @@ export function SectionAssignment() {
                             />
                           </label>
                         </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">{previewBrowser.startIndex + i + 1}</td>
+                        <td className="px-4 py-3 text-gray-400 text-xs">
+                          {previewBrowser.startIndex + i + 1}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0 shadow-sm">
                               {student.name.charAt(0)}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-800 text-sm">{student.name}</p>
-                              <p className="text-gray-400 text-xs font-mono">{student.student_display_id}</p>
+                              <p className="font-medium text-gray-800 text-sm">
+                                {student.name}
+                              </p>
+                              <p className="text-gray-400 text-xs font-mono">
+                                {student.student_display_id}
+                              </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs font-mono">{student.lrn}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs font-mono">
+                          {student.lrn}
+                        </td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-indigo-50/60 text-indigo-700 border border-indigo-100">
                             G{student.grade_level}
@@ -1134,17 +1449,25 @@ export function SectionAssignment() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs text-gray-500 font-medium">{PROGRAM_LABELS[student.program] || student.program}</span>
-                            {student.target_program && student.target_program !== student.program && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100">
-                                → {PROGRAM_LABELS[student.target_program] || student.target_program}
-                              </span>
-                            )}
+                            <span className="text-xs text-gray-500 font-medium">
+                              {PROGRAM_LABELS[student.program] ||
+                                student.program}
+                            </span>
+                            {student.target_program &&
+                              student.target_program !== student.program && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                  →{' '}
+                                  {PROGRAM_LABELS[student.target_program] ||
+                                    student.target_program}
+                                </span>
+                              )}
                           </div>
                           {student.classifications.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {student.classifications.map((c, ci) => (
-                                <span key={ci} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600 border border-purple-100">
+                                <span
+                                  key={ci}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600 border border-purple-100">
                                   {c}
                                 </span>
                               ))}
@@ -1153,62 +1476,96 @@ export function SectionAssignment() {
                           {student.flagged && (
                             <div className="mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px]">
                               <AlertTriangle size={12} className="shrink-0" />
-                              <span>{student.reason || "Flagged for review"}</span>
+                              <span>
+                                {student.reason || 'Flagged for review'}
+                              </span>
                             </div>
                           )}
-                          {!student.flagged && student.eligibility && !student.eligibility.eligible && (
-                            <div className="mt-1.5 px-2 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 text-[11px]">
-                              {student.eligibility.reasons.join("; ")}
-                            </div>
-                          )}
+                          {!student.flagged &&
+                            student.eligibility &&
+                            !student.eligibility.eligible && (
+                              <div className="mt-1.5 px-2 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 text-[11px]">
+                                {student.eligibility.reasons.join('; ')}
+                              </div>
+                            )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={clsx(
-                            "text-xs font-semibold",
-                            student.general_average != null
-                              ? student.general_average >= 85 ? "text-emerald-600" : student.general_average >= 75 ? "text-amber-600" : "text-red-600"
-                              : "text-gray-300"
-                          )}>
-                            {student.general_average != null ? student.general_average.toFixed(2) : "—"}
+                          <span
+                            className={clsx(
+                              'text-xs font-semibold',
+                              student.general_average != null
+                                ? student.general_average >= 85
+                                  ? 'text-emerald-600'
+                                  : student.general_average >= 75
+                                    ? 'text-amber-600'
+                                    : 'text-red-600'
+                                : 'text-gray-300'
+                            )}>
+                            {student.general_average != null
+                              ? student.general_average.toFixed(2)
+                              : '—'}
                           </span>
                         </td>
-                        {activeTab === "placement" && (
+                        {activeTab === 'placement' && (
                           <td className="px-4 py-3">
                             {(() => {
-                              const rec = admissions[student.enrollment_id || 0] || {};
+                              const rec =
+                                admissions[student.enrollment_id || 0] || {};
                               return (
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     disabled={savingEligibility}
-                                    onClick={() => toggleAdmission(student.enrollment_id!, "exam", rec.exam === true ? null : true)}
+                                    onClick={() =>
+                                      toggleAdmission(
+                                        student.enrollment_id!,
+                                        'exam',
+                                        rec.exam === true ? null : true
+                                      )
+                                    }
                                     title="Entrance exam passed?"
                                     className={clsx(
-                                      "min-h-11 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
+                                      'min-h-11 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50',
                                       rec.exam === true
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                         : rec.exam === false
-                                          ? "bg-red-50 text-red-600 border-red-200"
-                                          : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    Exam {rec.exam === null ? "?" : rec.exam ? "✓" : "✕"}
+                                          ? 'bg-red-50 text-red-600 border-red-200'
+                                          : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                                    )}>
+                                    Exam{' '}
+                                    {rec.exam === null
+                                      ? '?'
+                                      : rec.exam
+                                        ? '✓'
+                                        : '✕'}
                                   </button>
                                   <button
                                     disabled={savingEligibility}
-                                    onClick={() => toggleAdmission(student.enrollment_id!, "interview", rec.interview === true ? null : true)}
+                                    onClick={() =>
+                                      toggleAdmission(
+                                        student.enrollment_id!,
+                                        'interview',
+                                        rec.interview === true ? null : true
+                                      )
+                                    }
                                     title="Interview passed?"
                                     className={clsx(
-                                      "min-h-11 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50",
+                                      'min-h-11 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-50',
                                       rec.interview === true
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                         : rec.interview === false
-                                          ? "bg-red-50 text-red-600 border-red-200"
-                                          : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    Interview {rec.interview === null ? "?" : rec.interview ? "✓" : "✕"}
+                                          ? 'bg-red-50 text-red-600 border-red-200'
+                                          : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                                    )}>
+                                    Interview{' '}
+                                    {rec.interview === null
+                                      ? '?'
+                                      : rec.interview
+                                        ? '✓'
+                                        : '✕'}
                                   </button>
-                                  <span className="text-[10px] text-gray-300" title="Click a badge to record the result, then the preview regenerates automatically.">
+                                  <span
+                                    className="text-[10px] text-gray-300"
+                                    title="Click a badge to record the result, then the preview regenerates automatically.">
                                     ?
                                   </span>
                                 </div>
@@ -1217,15 +1574,20 @@ export function SectionAssignment() {
                           </td>
                         )}
                         <td className="px-4 py-3">
-                          {activeTab === "manual" ? (
-                            <SectionPicker student={student} currentSectionId={student.current_section_id} />
+                          {activeTab === 'manual' ? (
+                            <SectionPicker
+                              student={student}
+                              currentSectionId={student.current_section_id}
+                            />
                           ) : student.current_section_id != null ? (
                             <div className="flex items-center gap-2">
                               <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 {student.current_section_name}
                               </span>
-                              {activeTab === "carryover" && (
-                                <span className="text-[10px] text-gray-400 font-medium">(proposed)</span>
+                              {activeTab === 'carryover' && (
+                                <span className="text-[10px] text-gray-400 font-medium">
+                                  (proposed)
+                                </span>
                               )}
                             </div>
                           ) : (
@@ -1262,30 +1624,34 @@ export function SectionAssignment() {
                 <button
                   onClick={handleConfirm}
                   disabled={committing || selectedWithSection.length === 0}
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-                >
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm">
                   {committing ? (
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <Check size={16} />
                   )}
-                  Confirm {selectedWithSection.length} Assignment{selectedWithSection.length !== 1 ? "s" : ""}
+                  Confirm {selectedWithSection.length} Assignment
+                  {selectedWithSection.length !== 1 ? 's' : ''}
                 </button>
               </div>
 
               {selectedCount > 0 && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-xs text-indigo-700">
                   <span>
-                    <strong>{selectedWithSection.length}</strong> ready to confirm
+                    <strong>{selectedWithSection.length}</strong> ready to
+                    confirm
                     {selectedSkipped.length > 0 && (
-                      <span className="text-amber-600"> • {selectedSkipped.length} skipped (no section available)</span>
-                    )}
-                    {" "}of <strong>{selectedCount}</strong> selected
+                      <span className="text-amber-600">
+                        {' '}
+                        • {selectedSkipped.length} skipped (no section
+                        available)
+                      </span>
+                    )}{' '}
+                    of <strong>{selectedCount}</strong> selected
                   </span>
                   <button
                     onClick={() => setSelected(new Set())}
-                    className="font-medium text-indigo-600 hover:text-indigo-800 underline underline-offset-2"
-                  >
+                    className="font-medium text-indigo-600 hover:text-indigo-800 underline underline-offset-2">
                     Clear selection
                   </button>
                 </div>
@@ -1295,23 +1661,25 @@ export function SectionAssignment() {
 
           {/* ── Status messages ── */}
           {commitMsg && (
-            <div className={clsx(
-              "mt-4 p-4 rounded-xl border text-sm",
-              commitResults
-                ? commitResults.filter((r: any) => !r.ok).length > 0
-                  ? "bg-amber-50 border-amber-200 text-amber-800"
-                  : "bg-emerald-50 border-emerald-200 text-emerald-800"
-                : "bg-indigo-50 border-indigo-200 text-indigo-800"
-            )}>
+            <div
+              className={clsx(
+                'mt-4 p-4 rounded-xl border text-sm',
+                commitResults
+                  ? commitResults.filter((r: any) => !r.ok).length > 0
+                    ? 'bg-amber-50 border-amber-200 text-amber-800'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-indigo-50 border-indigo-200 text-indigo-800'
+              )}>
               <div className="flex items-start gap-3">
-                <div className={clsx(
-                  "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                  commitResults
-                    ? commitResults.filter((r: any) => !r.ok).length > 0
-                      ? "bg-amber-100"
-                      : "bg-emerald-100"
-                    : "bg-indigo-100"
-                )}>
+                <div
+                  className={clsx(
+                    'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                    commitResults
+                      ? commitResults.filter((r: any) => !r.ok).length > 0
+                        ? 'bg-amber-100'
+                        : 'bg-emerald-100'
+                      : 'bg-indigo-100'
+                  )}>
                   {commitResults ? (
                     commitResults.filter((r: any) => !r.ok).length > 0 ? (
                       <AlertTriangle size={16} className="text-amber-600" />
@@ -1327,15 +1695,17 @@ export function SectionAssignment() {
                   {commitResults && (
                     <ul className="mt-2 space-y-1 text-xs max-h-40 overflow-y-auto">
                       {commitResults.map((r: any, i: number) => (
-                        <li key={i} className={`flex items-center gap-1.5 ${r.ok ? "text-emerald-600" : "text-red-600"}`}>
+                        <li
+                          key={i}
+                          className={`flex items-center gap-1.5 ${r.ok ? 'text-emerald-600' : 'text-red-600'}`}>
                           {r.ok ? <Check size={12} /> : <X size={12} />}
                           {r.ok
                             ? r.section_id != null
-                              ? `${r.name || "Student"}: Assigned to ${r.section_name}`
+                              ? `${r.name || 'Student'}: Assigned to ${r.section_name}`
                               : r.prev_section_id != null
-                                ? `Returned to ${r.section_name ?? "previous section"}`
-                                : "Returned to pending queue (unassigned)"
-                            : `${r.name || "Enrollment"}: Failed — ${r.error}`}
+                                ? `Returned to ${r.section_name ?? 'previous section'}`
+                                : 'Returned to pending queue (unassigned)'
+                            : `${r.name || 'Enrollment'}: Failed — ${r.error}`}
                         </li>
                       ))}
                     </ul>
@@ -1349,16 +1719,25 @@ export function SectionAssignment() {
           {lastBatch && (
             <div className="mt-4 p-4 rounded-xl border border-red-100 bg-red-50/40 text-red-700 text-sm flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-medium">Assignments committed — you can undo this batch if it was a mistake.</p>
-                <p className="text-[11px] text-red-400 mt-0.5">Only the most recent batch can be undone; enrollments return to their previous section.</p>
+                <p className="font-medium">
+                  Assignments committed — you can undo this batch if it was a
+                  mistake.
+                </p>
+                <p className="text-[11px] text-red-400 mt-0.5">
+                  Only the most recent batch can be undone; enrollments return
+                  to their previous section.
+                </p>
               </div>
               <button
                 onClick={() => setConfirmUndoOpen(true)}
                 disabled={undoing}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-red-100 hover:bg-red-200 text-red-700 transition-colors disabled:opacity-50"
-              >
-                {undoing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                Undo last assignment{undoCount > 0 ? ` (${undoCount})` : ""}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-red-100 hover:bg-red-200 text-red-700 transition-colors disabled:opacity-50">
+                {undoing ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RotateCcw size={14} />
+                )}
+                Undo last assignment{undoCount > 0 ? ` (${undoCount})` : ''}
               </button>
             </div>
           )}
@@ -1369,28 +1748,30 @@ export function SectionAssignment() {
             onClose={() => setConfirmUndoOpen(false)}
             title="Undo last assignment batch?"
             description="Their enrollment returns to their previous section (or back to pending if they had none)."
-            maxWidth="max-w-sm"
-          >
+            maxWidth="max-w-sm">
             <p className="text-sm text-gray-600">
               This reverts the most recently confirmed assignment
-              {undoCount !== 1 ? "s" : ""} ({undoCount} student{undoCount !== 1 ? "s" : ""})
-              {undoCount !== 1 ? " were" : " was"} committed. You can re-assign them afterwards, but only this
-              latest batch can be undone.
+              {undoCount !== 1 ? 's' : ''} ({undoCount} student
+              {undoCount !== 1 ? 's' : ''}){undoCount !== 1 ? ' were' : ' was'}{' '}
+              committed. You can re-assign them afterwards, but only this latest
+              batch can be undone.
             </p>
             <div className="mt-5 flex gap-3">
               <button
                 onClick={() => setConfirmUndoOpen(false)}
                 disabled={undoing}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
-              >
+                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
                 Cancel
               </button>
               <button
                 onClick={handleUndo}
                 disabled={undoing}
-                className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-50"
-              >
-                {undoing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-50">
+                {undoing ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RotateCcw size={14} />
+                )}
                 Undo
               </button>
             </div>
@@ -1402,15 +1783,26 @@ export function SectionAssignment() {
               <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
                 <BarChart3 size={28} className="text-gray-300" />
               </div>
-              <p className="text-sm font-semibold text-gray-500">No preview generated yet</p>
-              <p className="text-xs mt-1 text-gray-400">Click <strong className="text-gray-500">Generate Preview</strong> to build a section assignment proposal.</p>
+              <p className="text-sm font-semibold text-gray-500">
+                No preview generated yet
+              </p>
+              <p className="text-xs mt-1 text-gray-400">
+                Click{' '}
+                <strong className="text-gray-500">Generate Preview</strong> to
+                build a section assignment proposal.
+              </p>
             </div>
           )}
 
           {generating && preview.length === 0 && (
             <div className="text-center py-14 text-gray-400">
-              <Loader2 size={28} className="mx-auto mb-3 animate-spin text-indigo-500" />
-              <p className="text-sm font-medium text-gray-500">Generating preview...</p>
+              <Loader2
+                size={28}
+                className="mx-auto mb-3 animate-spin text-indigo-500"
+              />
+              <p className="text-sm font-medium text-gray-500">
+                Generating preview...
+              </p>
             </div>
           )}
         </div>

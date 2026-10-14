@@ -1,45 +1,98 @@
-import React, { useState, useEffect } from "react";
-import { FileSpreadsheet, CheckCircle, Clock, Download, Search, FileText, Filter, RefreshCw, AlertTriangle, Inbox } from "lucide-react";
-import { documentsApi, DocumentRow } from "../../services/documents";
-import { subjectsApi, SubjectRow } from "../../services/subjects";
-import { useApp } from "../../context/AppContext";
-import { HybridTable } from "../../components/HybridTable";
+import React, { useState, useEffect } from 'react';
+import {
+  FileSpreadsheet,
+  CheckCircle,
+  Clock,
+  Download,
+  Search,
+  FileText,
+  Filter,
+  RefreshCw,
+  AlertTriangle,
+  Inbox
+} from 'lucide-react';
+import { documentsApi, DocumentRow } from '../../services/documents';
+import { subjectsApi, SubjectRow } from '../../services/subjects';
+import { useApp } from '../../context/AppContext';
+import { HybridTable } from '../../components/HybridTable';
 
 const STATUS_STYLE: Record<string, string> = {
-  validated: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  imported: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  pending: "bg-amber-100 text-amber-700 border-amber-200",
-  failed: "bg-red-100 text-red-700 border-red-200",
+  validated: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  imported: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  pending: 'bg-amber-100 text-amber-700 border-amber-200',
+  failed: 'bg-red-100 text-red-700 border-red-200'
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  validated: "Validated",
-  imported: "Imported",
-  pending: "Pending",
-  failed: "Failed",
+  validated: 'Validated',
+  imported: 'Imported',
+  pending: 'Pending',
+  failed: 'Failed'
 };
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   validated: <CheckCircle size={11} />,
   imported: <CheckCircle size={11} />,
   pending: <Clock size={11} />,
-  failed: <AlertTriangle size={11} />,
+  failed: <AlertTriangle size={11} />
 };
 
 // Card accent colors per status (used when the card is active)
-const STATUS_CARD: Record<string, { chip: string; ring: string; text: string }> = {
-  validated: { chip: "border-emerald-200 bg-emerald-50", ring: "ring-2 ring-emerald-400", text: "text-emerald-700" },
-  imported: { chip: "border-emerald-200 bg-emerald-50", ring: "ring-2 ring-emerald-400", text: "text-emerald-700" },
-  pending: { chip: "border-amber-200 bg-amber-50", ring: "ring-2 ring-amber-400", text: "text-amber-700" },
-  failed: { chip: "border-red-200 bg-red-50", ring: "ring-2 ring-red-400", text: "text-red-700" },
+const STATUS_CARD: Record<
+  string,
+  { chip: string; ring: string; text: string }
+> = {
+  validated: {
+    chip: 'border-emerald-200 bg-emerald-50',
+    ring: 'ring-2 ring-emerald-400',
+    text: 'text-emerald-700'
+  },
+  imported: {
+    chip: 'border-emerald-200 bg-emerald-50',
+    ring: 'ring-2 ring-emerald-400',
+    text: 'text-emerald-700'
+  },
+  pending: {
+    chip: 'border-amber-200 bg-amber-50',
+    ring: 'ring-2 ring-amber-400',
+    text: 'text-amber-700'
+  },
+  failed: {
+    chip: 'border-red-200 bg-red-50',
+    ring: 'ring-2 ring-red-400',
+    text: 'text-red-700'
+  }
 };
 
-function fileTypeBadge(ext: string): { label: string; cls: string; icon: React.ReactNode } {
+function fileTypeBadge(ext: string): {
+  label: string;
+  cls: string;
+  icon: React.ReactNode;
+} {
   const t = ext.toLowerCase();
-  if (t === "xlsx" || t === "xls") return { label: t.toUpperCase(), cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: <FileSpreadsheet size={11} /> };
-  if (t === "pdf") return { label: "PDF", cls: "bg-red-50 text-red-600 border-red-200", icon: <FileText size={11} /> };
-  if (t === "docx") return { label: "DOCX", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: <FileText size={11} /> };
-  return { label: t.toUpperCase(), cls: "bg-gray-50 text-gray-600 border-gray-200", icon: <FileText size={11} /> };
+  if (t === 'xlsx' || t === 'xls')
+    return {
+      label: t.toUpperCase(),
+      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      icon: <FileSpreadsheet size={11} />
+    };
+  if (t === 'pdf')
+    return {
+      label: 'PDF',
+      cls: 'bg-red-50 text-red-600 border-red-200',
+      icon: <FileText size={11} />
+    };
+  if (t === 'docx')
+    return {
+      label: 'DOCX',
+      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      icon: <FileText size={11} />
+    };
+  return {
+    label: t.toUpperCase(),
+    cls: 'bg-gray-50 text-gray-600 border-gray-200',
+    icon: <FileText size={11} />
+  };
 }
 
 export function DocumentManagement() {
@@ -48,51 +101,76 @@ export function DocumentManagement() {
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("All");
-  const [filterQuarter, setFilterQuarter] = useState<string>("All");
-  const [filterSubject, setFilterSubject] = useState<string>("All");
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [filterQuarter, setFilterQuarter] = useState<string>('All');
+  const [filterSubject, setFilterSubject] = useState<string>('All');
 
   const load = () => {
     setRefreshing(true);
-    documentsApi.myDocuments()
+    documentsApi
+      .myDocuments()
       .then(setDocuments)
-      .catch(err => showToast("error", "Failed to load documents: " + (err.detail?.error || err.message)))
-      .finally(() => { setLoading(false); setRefreshing(false); });
+      .catch(err =>
+        showToast(
+          'error',
+          'Failed to load documents: ' + (err.detail?.error || err.message)
+        )
+      )
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {
     load();
     // Subject filter lists only the teacher's assigned subjects.
-    subjectsApi.assigned()
+    subjectsApi
+      .assigned()
       .then(setSubjects)
-      .catch(() => { /* subject filter is optional — ignore failures */ });
+      .catch(() => {
+        /* subject filter is optional — ignore failures */
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleStatus = (status: string) => {
-    setFilterStatus(prev => prev === status ? "All" : status);
+    setFilterStatus(prev => (prev === status ? 'All' : status));
   };
 
   const filtered = documents.filter(d => {
-    const matchSearch = d.file_name.toLowerCase().includes(search.toLowerCase()) ||
-      (d.section_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (d.subject_name || "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "All" || d.status === filterStatus;
-    const matchQ = filterQuarter === "All" || (d.quarter && `Q${d.quarter}` === filterQuarter);
-    const matchSubject = filterSubject === "All" || d.subject_id === Number(filterSubject);
+    const matchSearch =
+      d.file_name.toLowerCase().includes(search.toLowerCase()) ||
+      (d.section_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (d.subject_name || '').toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === 'All' || d.status === filterStatus;
+    const matchQ =
+      filterQuarter === 'All' ||
+      (d.quarter && `Q${d.quarter}` === filterQuarter);
+    const matchSubject =
+      filterSubject === 'All' || d.subject_id === Number(filterSubject);
     return matchSearch && matchStatus && matchQ && matchSubject;
   });
 
-  const statusCounts = (status: string) => documents.filter(d => d.status === status).length;
+  const statusCounts = (status: string) =>
+    documents.filter(d => d.status === status).length;
 
-  const hasActiveFilters = search !== "" || filterStatus !== "All" || filterQuarter !== "All" || filterSubject !== "All";
+  const hasActiveFilters =
+    search !== '' ||
+    filterStatus !== 'All' ||
+    filterQuarter !== 'All' ||
+    filterSubject !== 'All';
 
   if (loading) {
     return (
       <div className="space-y-5 animate-pulse">
         <div className="h-16 bg-gray-200 rounded-2xl" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-200 rounded-2xl" />)}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-20 bg-gray-200 rounded-2xl" />
+          ))}
+        </div>
         <div className="h-12 bg-gray-200 rounded-2xl" />
         <div className="h-64 bg-gray-200 rounded-2xl" />
       </div>
@@ -105,35 +183,42 @@ export function DocumentManagement() {
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400" />
         <div className="p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center">
-              <FileSpreadsheet size={22} className="text-white" />
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 flex items-center justify-center">
+                <FileSpreadsheet size={22} className="text-white" />
+              </div>
+              <div>
+                <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">
+                  Document Management
+                </h2>
+                <p className="text-gray-500 text-sm">
+                  Your submitted grade files for your assigned subjects, with
+                  submission status
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-bold text-gray-900 text-lg tracking-[-0.02em]">Document Management</h2>
-              <p className="text-gray-500 text-sm">Your submitted grade files for your assigned subjects, with submission status</p>
-            </div>
+            <button
+              onClick={load}
+              disabled={refreshing}
+              className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
+              <RefreshCw
+                size={14}
+                className={refreshing ? 'animate-spin' : ''}
+              />
+              Refresh
+            </button>
           </div>
-          <button
-            onClick={load}
-            disabled={refreshing}
-            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            Refresh
-          </button>
-        </div>
         </div>
       </div>
 
       {/* Summary cards — click to filter */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Validated", key: "validated" },
-          { label: "Imported", key: "imported" },
-          { label: "Pending", key: "pending" },
-          { label: "Failed", key: "failed" },
+          { label: 'Validated', key: 'validated' },
+          { label: 'Imported', key: 'imported' },
+          { label: 'Pending', key: 'pending' },
+          { label: 'Failed', key: 'failed' }
         ].map(s => {
           const active = filterStatus === s.key;
           const card = STATUS_CARD[s.key];
@@ -141,10 +226,14 @@ export function DocumentManagement() {
             <button
               key={s.key}
               onClick={() => toggleStatus(s.key)}
-              className={`bg-white rounded-2xl border p-4 shadow-sm text-left transition ${active ? card.ring : "border-gray-200 hover:border-gray-300"} ${active ? card.chip : ""}`}
-            >
-              <p className="text-xs text-gray-500 mb-1">{s.label}{active && " ✓"}</p>
-              <p className={`text-2xl font-bold ${card.text}`}>{statusCounts(s.key)}</p>
+              className={`bg-white rounded-2xl border p-4 shadow-sm text-left transition ${active ? card.ring : 'border-gray-200 hover:border-gray-300'} ${active ? card.chip : ''}`}>
+              <p className="text-xs text-gray-500 mb-1">
+                {s.label}
+                {active && ' ✓'}
+              </p>
+              <p className={`text-2xl font-bold ${card.text}`}>
+                {statusCounts(s.key)}
+              </p>
               <p className="text-xs text-gray-400 mt-0.5">grade file(s)</p>
             </button>
           );
@@ -154,19 +243,33 @@ export function DocumentManagement() {
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search by filename, section, or subject..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Filter size={14} className="text-gray-400" />
-          <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)}
+          <select
+            value={filterSubject}
+            onChange={e => setFilterSubject(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
             <option value="All">All Subjects</option>
-            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {subjects.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
           </select>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
             <option value="All">All Status</option>
             <option value="validated">Validated</option>
@@ -174,7 +277,9 @@ export function DocumentManagement() {
             <option value="pending">Pending</option>
             <option value="failed">Failed</option>
           </select>
-          <select value={filterQuarter} onChange={e => setFilterQuarter(e.target.value)}
+          <select
+            value={filterQuarter}
+            onChange={e => setFilterQuarter(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
             <option value="All">All Quarters</option>
             <option>Q1</option>
@@ -187,12 +292,22 @@ export function DocumentManagement() {
       {/* Documents table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold text-gray-800 text-sm">Grade Submission Records</h3>
+          <h3 className="font-semibold text-gray-800 text-sm">
+            Grade Submission Records
+          </h3>
           <span className="text-xs text-gray-400">
             {filtered.length} of {documents.length} file(s)
             {hasActiveFilters && (
-              <button onClick={() => { setSearch(""); setFilterStatus("All"); setFilterQuarter("All"); setFilterSubject("All"); }}
-                className="ml-2 text-emerald-600 hover:underline">Clear filters</button>
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setFilterStatus('All');
+                  setFilterQuarter('All');
+                  setFilterSubject('All');
+                }}
+                className="ml-2 text-emerald-600 hover:underline">
+                Clear filters
+              </button>
             )}
           </span>
         </div>
@@ -200,14 +315,24 @@ export function DocumentManagement() {
           <div className="p-10 text-center text-gray-400 text-sm">
             <Inbox size={32} className="mx-auto mb-3 opacity-30" />
             <p>No grade documents uploaded yet.</p>
-            <p className="text-xs mt-1">Upload grades from the Upload Grades page.</p>
+            <p className="text-xs mt-1">
+              Upload grades from the Upload Grades page.
+            </p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-10 text-center text-gray-400 text-sm">
             <Search size={32} className="mx-auto mb-3 opacity-30" />
             <p>No documents match your filters.</p>
-            <button onClick={() => { setSearch(""); setFilterStatus("All"); setFilterQuarter("All"); setFilterSubject("All"); }}
-              className="text-emerald-600 hover:underline text-xs mt-2">Clear all filters</button>
+            <button
+              onClick={() => {
+                setSearch('');
+                setFilterStatus('All');
+                setFilterQuarter('All');
+                setFilterSubject('All');
+              }}
+              className="text-emerald-600 hover:underline text-xs mt-2">
+              Clear all filters
+            </button>
           </div>
         ) : (
           <HybridTable
@@ -216,50 +341,98 @@ export function DocumentManagement() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      {["File Name", "Section", "Subject", "Quarter", "Records", "Uploaded By", "Date", "Status", "Action"].map(h => (
-                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      {[
+                        'File Name',
+                        'Section',
+                        'Subject',
+                        'Quarter',
+                        'Records',
+                        'Uploaded By',
+                        'Date',
+                        'Status',
+                        'Action'
+                      ].map(h => (
+                        <th
+                          key={h}
+                          className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="">
                     {filtered.map(doc => {
                       const badge = fileTypeBadge(doc.file_type);
                       return (
                         <tr key={doc.id} className="hover:bg-gray-50/60">
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-2">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold ${badge.cls}`}>{badge.icon}{badge.label}</span>
-                              <span className="text-xs font-mono text-gray-700 truncate max-w-[160px]" title={doc.file_name}>{doc.file_name}</span>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold ${badge.cls}`}>
+                                {badge.icon}
+                                {badge.label}
+                              </span>
+                              <span
+                                className="text-xs font-mono text-gray-700 truncate max-w-[160px]"
+                                title={doc.file_name}>
+                                {doc.file_name}
+                              </span>
                             </div>
                           </td>
-                          <td className="px-5 py-3 text-gray-600 text-xs">{doc.section_name || "—"}</td>
+                          <td className="px-5 py-3 text-gray-600 text-xs">
+                            {doc.section_name || '—'}
+                          </td>
                           <td className="px-5 py-3">
                             <span className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded font-medium">
-                              {doc.subject_name || "—"}
+                              {doc.subject_name || '—'}
                             </span>
                           </td>
                           <td className="px-5 py-3">
                             <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded font-medium">
-                              {doc.quarter ? `Q${doc.quarter}` : "—"}
+                              {doc.quarter ? `Q${doc.quarter}` : '—'}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-gray-600 text-xs">{doc.record_count ?? "—"}</td>
-                          <td className="px-5 py-3 text-gray-500 text-xs">{doc.uploaded_by_name}</td>
+                          <td className="px-5 py-3 text-gray-600 text-xs">
+                            {doc.record_count ?? '—'}
+                          </td>
+                          <td className="px-5 py-3 text-gray-500 text-xs">
+                            {doc.uploaded_by_name}
+                          </td>
                           <td className="px-5 py-3 text-gray-400 text-xs whitespace-nowrap">
-                            {new Date(doc.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                            {new Date(doc.created_at).toLocaleDateString(
+                              'en-PH',
+                              {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              }
+                            )}
                           </td>
                           <td className="px-5 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLE[doc.status] || STATUS_STYLE.pending}`}>
-                              {STATUS_ICON[doc.status]}{STATUS_LABEL[doc.status] || doc.status}
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLE[doc.status] || STATUS_STYLE.pending}`}>
+                              {STATUS_ICON[doc.status]}
+                              {STATUS_LABEL[doc.status] || doc.status}
                             </span>
                           </td>
                           <td className="px-5 py-3">
-                            {doc.status !== "pending" && doc.status !== "failed" && (
-                              <button onClick={() => documentsApi.download(doc.id).catch(err => showToast("error", err?.message || "Download failed"))}
-                                className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline">
-                                <Download size={11} /> Download
-                              </button>
-                            )}
+                            {doc.status !== 'pending' &&
+                              doc.status !== 'failed' && (
+                                <button
+                                  onClick={() =>
+                                    documentsApi
+                                      .download(doc.id)
+                                      .catch(err =>
+                                        showToast(
+                                          'error',
+                                          err?.message || 'Download failed'
+                                        )
+                                      )
+                                  }
+                                  className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline">
+                                  <Download size={11} /> Download
+                                </button>
+                              )}
                           </td>
                         </tr>
                       );
@@ -269,7 +442,7 @@ export function DocumentManagement() {
               </div>
             }
             mobile={
-              <ul className="divide-y divide-gray-50">
+              <ul className="">
                 {filtered.map(doc => {
                   const badge = fileTypeBadge(doc.file_type);
                   return (
@@ -277,30 +450,64 @@ export function DocumentManagement() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold flex-shrink-0 ${badge.cls}`}>{badge.icon}{badge.label}</span>
-                            <span className="text-xs font-mono text-gray-700 break-all">{doc.file_name}</span>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold flex-shrink-0 ${badge.cls}`}>
+                              {badge.icon}
+                              {badge.label}
+                            </span>
+                            <span className="text-xs font-mono text-gray-700 break-all">
+                              {doc.file_name}
+                            </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                            <span className="bg-emerald-50 text-emerald-700 text-[11px] px-2 py-0.5 rounded font-medium">{doc.subject_name || "—"}</span>
-                            <span className="bg-gray-100 text-gray-600 text-[11px] px-2 py-0.5 rounded font-medium">{doc.quarter ? `Q${doc.quarter}` : "—"}</span>
-                            <span className="text-xs text-gray-500">{doc.section_name || "No section"}</span>
+                            <span className="bg-emerald-50 text-emerald-700 text-[11px] px-2 py-0.5 rounded font-medium">
+                              {doc.subject_name || '—'}
+                            </span>
+                            <span className="bg-gray-100 text-gray-600 text-[11px] px-2 py-0.5 rounded font-medium">
+                              {doc.quarter ? `Q${doc.quarter}` : '—'}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {doc.section_name || 'No section'}
+                            </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-400">
-                            <span>{doc.record_count ?? "—"} records</span>
-                            <span>by {doc.uploaded_by_name || "—"}</span>
-                            <span>{new Date(doc.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</span>
+                            <span>{doc.record_count ?? '—'} records</span>
+                            <span>by {doc.uploaded_by_name || '—'}</span>
+                            <span>
+                              {new Date(doc.created_at).toLocaleDateString(
+                                'en-PH',
+                                {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                }
+                              )}
+                            </span>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLE[doc.status] || STATUS_STYLE.pending}`}>
-                            {STATUS_ICON[doc.status]}{STATUS_LABEL[doc.status] || doc.status}
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLE[doc.status] || STATUS_STYLE.pending}`}>
+                            {STATUS_ICON[doc.status]}
+                            {STATUS_LABEL[doc.status] || doc.status}
                           </span>
-                          {doc.status !== "pending" && doc.status !== "failed" && (
-                            <button onClick={() => documentsApi.download(doc.id).catch(err => showToast("error", err?.message || "Download failed"))}
-                              className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline touch-target">
-                              <Download size={11} /> Download
-                            </button>
-                          )}
+                          {doc.status !== 'pending' &&
+                            doc.status !== 'failed' && (
+                              <button
+                                onClick={() =>
+                                  documentsApi
+                                    .download(doc.id)
+                                    .catch(err =>
+                                      showToast(
+                                        'error',
+                                        err?.message || 'Download failed'
+                                      )
+                                    )
+                                }
+                                className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline touch-target">
+                                <Download size={11} /> Download
+                              </button>
+                            )}
                         </div>
                       </div>
                     </li>
@@ -312,10 +519,14 @@ export function DocumentManagement() {
         )}
         <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
           <p className="text-xs text-gray-400">
-            <strong className="text-emerald-600">Validated</strong> — file uploaded and format validated. &nbsp;
-            <strong className="text-emerald-600">Imported</strong> — grades have been processed. &nbsp;
-            <strong className="text-amber-600">Pending</strong> — awaiting processing. &nbsp;
-            <strong className="text-red-600">Failed</strong> — validation or import error.
+            <strong className="text-emerald-600">Validated</strong> — file
+            uploaded and format validated. &nbsp;
+            <strong className="text-emerald-600">Imported</strong> — grades have
+            been processed. &nbsp;
+            <strong className="text-amber-600">Pending</strong> — awaiting
+            processing. &nbsp;
+            <strong className="text-red-600">Failed</strong> — validation or
+            import error.
           </p>
         </div>
       </div>

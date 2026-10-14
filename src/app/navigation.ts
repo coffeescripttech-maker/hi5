@@ -74,7 +74,8 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
           icon: Calendar,
           path: '/admin/academic-year'
         },
-        { key: 'admin_rooms', label: 'Room Management', icon: MapPin, path: '/admin/rooms' }
+        { key: 'admin_rooms', label: 'Room Management', icon: MapPin, path: '/admin/rooms' },
+        { key: 'admin_promote', label: 'Promotion & Graduation', icon: GraduationCap, path: '/admin/promote' }
       ]
     },
     {
@@ -160,6 +161,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { key: 'registrar_students', label: 'Student Search', icon: Search, path: '/registrar/students' },
         { key: 'registrar_section_assignment', label: 'Section Assignment', icon: Layers, path: '/registrar/section-assignment' },
         { key: 'registrar_promotions', label: 'Promotion Records', icon: GraduationCap, path: '/registrar/promotions' },
+        { key: 'registrar_promote', label: 'Promotion & Graduation', icon: GraduationCap, path: '/registrar/promote' },
         { key: 'registrar_graduates', label: 'Alumni / Graduates', icon: Award, path: '/registrar/graduates' },
         { key: 'registrar_subjects', label: 'Subject Directory', icon: BookOpen, path: '/registrar/subjects' }
       ]

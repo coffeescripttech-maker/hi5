@@ -184,8 +184,13 @@ export const enrollmentsApi = {
       `/enrollments/${enrollmentId}/requirements`,
       data
     ),
-  stats: (schoolYearId?: number) =>
-    api.get<DashboardStats>(`/enrollments/stats${schoolYearId ? `?school_year_id=${schoolYearId}` : ''}`),
+  stats: (schoolYearId?: number, sectionId?: number) => {
+    const params = new URLSearchParams();
+    if (schoolYearId) params.set('school_year_id', String(schoolYearId));
+    if (sectionId) params.set('section_id', String(sectionId));
+    const qs = params.toString();
+    return api.get<DashboardStats>(`/enrollments/stats${qs ? `?${qs}` : ''}`);
+  },
   flags: (schoolYearId?: number) =>
     api.get<EnrollmentFlagsResponse>(`/enrollments/flags${schoolYearId ? `?school_year_id=${schoolYearId}` : ''}`),
 };

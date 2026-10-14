@@ -161,7 +161,11 @@ const PROGRAM_BADGES: Record<
   string,
   { bg: string; text: string; label: string }
 > = {
-  regular: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Mainstream' },
+  regular: {
+    bg: 'bg-emerald-100',
+    text: 'text-emerald-700',
+    label: 'Mainstream'
+  },
   ste: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'STE' },
   spfl: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'SPFL' },
   open_high: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Open High' },
@@ -224,8 +228,7 @@ function AdmissionAssessment({
         </span>
         <div className="flex items-center gap-2">
           {['Passed', 'Failed'].map(opt => {
-            const active =
-              value.entrance_exam_passed === (opt === 'Passed');
+            const active = value.entrance_exam_passed === (opt === 'Passed');
             return (
               <button
                 key={opt}
@@ -237,7 +240,7 @@ function AdmissionAssessment({
                       value.entrance_exam_passed === (opt === 'Passed')
                         ? null
                         : opt === 'Passed'
-                      })
+                  })
                 }
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
                   active
@@ -250,9 +253,7 @@ function AdmissionAssessment({
           })}
           <button
             type="button"
-            onClick={() =>
-              onChange({ ...value, entrance_exam_passed: null })
-            }
+            onClick={() => onChange({ ...value, entrance_exam_passed: null })}
             className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
               value.entrance_exam_passed === null
                 ? 'border-gray-300 bg-white text-gray-600'
@@ -273,7 +274,10 @@ function AdmissionAssessment({
               const raw = e.target.value;
               onChange({
                 ...value,
-                entrance_exam_grade: raw === '' ? '' : String(Math.max(0, Math.min(100, parseFloat(raw) || 0)))
+                entrance_exam_grade:
+                  raw === ''
+                    ? ''
+                    : String(Math.max(0, Math.min(100, parseFloat(raw) || 0)))
               });
             }}
             className="w-32 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400"
@@ -314,9 +318,7 @@ function AdmissionAssessment({
           })}
           <button
             type="button"
-            onClick={() =>
-              onChange({ ...value, interview_passed: null })
-            }
+            onClick={() => onChange({ ...value, interview_passed: null })}
             className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
               value.interview_passed === null
                 ? 'border-gray-300 bg-white text-gray-600'
@@ -334,7 +336,12 @@ function AdmissionAssessment({
 // reference REQUIREMENTS_LIST keys. Classifications without an entry
 // (e.g. Non-Reader, Regular) only need the base list above.
 const CATEGORY_REQUIREMENTS: Record<string, string[]> = {
-  Transferee: ['previous_grade_card', 'good_moral', 'transcript', 'lrn_verification'],
+  Transferee: [
+    'previous_grade_card',
+    'good_moral',
+    'transcript',
+    'lrn_verification'
+  ],
   PWD: ['psa_birth_cert', 'medical_clearance'],
   '4Ps Beneficiary': ['psa_birth_cert', 'parent_consent', 'lrn_verification'],
   'Balik-aral': ['previous_grade_card', 'good_moral', 'lrn_verification']
@@ -351,7 +358,9 @@ function requiredReqKeysFor(classifications: string[]): Set<string> {
 
 // Which selected classifications require a given requirement key
 function categoriesRequiring(key: string, classifications: string[]): string[] {
-  return classifications.filter(c => (CATEGORY_REQUIREMENTS[c] || []).includes(key));
+  return classifications.filter(c =>
+    (CATEGORY_REQUIREMENTS[c] || []).includes(key)
+  );
 }
 
 // ── Landing-card illustrations (flat vector) ────────────────────────────
@@ -359,7 +368,11 @@ function categoriesRequiring(key: string, classifications: string[]): string[] {
 // assets, no external requests. Each shares a soft blob backdrop in its
 // accent hue and a small friendly character.
 
-function NewStudentIllustration({ className = 'w-full h-auto' }: { className?: string }) {
+function NewStudentIllustration({
+  className = 'w-full h-auto'
+}: {
+  className?: string;
+}) {
   return (
     <svg viewBox="0 0 440 320" className={className} aria-hidden="true">
       <defs>
@@ -370,7 +383,14 @@ function NewStudentIllustration({ className = 'w-full h-auto' }: { className?: s
       </defs>
       {/* backdrop */}
       <ellipse cx="220" cy="170" rx="196" ry="126" fill="url(#ns-bg)" />
-      <ellipse cx="220" cy="170" rx="150" ry="90" fill="#FFFFFF" opacity="0.55" />
+      <ellipse
+        cx="220"
+        cy="170"
+        rx="150"
+        ry="90"
+        fill="#FFFFFF"
+        opacity="0.55"
+      />
       {/* sun */}
       <circle cx="356" cy="60" r="26" fill="#FFD98A" />
       <circle cx="356" cy="60" r="17" fill="#FFE4A8" />
@@ -384,17 +404,52 @@ function NewStudentIllustration({ className = 'w-full h-auto' }: { className?: s
       {/* school building */}
       <g>
         <path d="M80 134 L163 80 L246 134 Z" fill="#7FB2FF" />
-        <rect x="92" y="134" width="142" height="112" rx="12" fill="#FFFFFF" stroke="#CBDFF8" strokeWidth="2" />
+        <rect
+          x="92"
+          y="134"
+          width="142"
+          height="112"
+          rx="12"
+          fill="#FFFFFF"
+          stroke="#CBDFF8"
+          strokeWidth="2"
+        />
         <path d="M112 122 L163 88 L214 122 Z" fill="#A9C9F8" opacity="0.6" />
         {/* flag */}
         <rect x="155" y="60" width="5" height="24" rx="2.5" fill="#A5C6F7" />
         <path d="M160 63 L186 70 L160 77 Z" fill="#4C8CFF" />
         {/* clock */}
-        <circle cx="163" cy="166" r="9" fill="#FFE4A8" stroke="#F2C463" strokeWidth="2" />
-        <path d="M163 161 v6 M163 166 l5 3" stroke="#C9973C" strokeWidth="2" strokeLinecap="round" />
+        <circle
+          cx="163"
+          cy="166"
+          r="9"
+          fill="#FFE4A8"
+          stroke="#F2C463"
+          strokeWidth="2"
+        />
+        <path
+          d="M163 161 v6 M163 166 l5 3"
+          stroke="#C9973C"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
         {/* windows */}
-        <circle cx="118" cy="168" r="11" fill="#EAF3FF" stroke="#A9CCF8" strokeWidth="2" />
-        <circle cx="208" cy="168" r="11" fill="#EAF3FF" stroke="#A9CCF8" strokeWidth="2" />
+        <circle
+          cx="118"
+          cy="168"
+          r="11"
+          fill="#EAF3FF"
+          stroke="#A9CCF8"
+          strokeWidth="2"
+        />
+        <circle
+          cx="208"
+          cy="168"
+          r="11"
+          fill="#EAF3FF"
+          stroke="#A9CCF8"
+          strokeWidth="2"
+        />
         <rect x="113" y="163" width="10" height="3" rx="1.5" fill="#BFDCFF" />
         <rect x="203" y="163" width="10" height="3" rx="1.5" fill="#BFDCFF" />
         {/* door */}
@@ -419,12 +474,29 @@ function NewStudentIllustration({ className = 'w-full h-auto' }: { className?: s
         {/* left arm + enrollment paper */}
         <rect x="266" y="194" width="15" height="42" rx="7.5" fill="#4C8CFF" />
         <circle cx="272" cy="238" r="8" fill="#FFC9A3" />
-        <rect x="256" y="210" width="24" height="32" rx="4" fill="#FFFFFF" stroke="#CBDFF8" strokeWidth="2" />
+        <rect
+          x="256"
+          y="210"
+          width="24"
+          height="32"
+          rx="4"
+          fill="#FFFFFF"
+          stroke="#CBDFF8"
+          strokeWidth="2"
+        />
         <rect x="261" y="217" width="14" height="3" rx="1.5" fill="#BFD9F5" />
         <rect x="261" y="224" width="14" height="3" rx="1.5" fill="#BFD9F5" />
         <rect x="261" y="231" width="9" height="3" rx="1.5" fill="#BFD9F5" />
         {/* right arm waving */}
-        <rect x="338" y="194" width="16" height="44" rx="8" fill="#4C8CFF" transform="rotate(12 346 216)" />
+        <rect
+          x="338"
+          y="194"
+          width="16"
+          height="44"
+          rx="8"
+          fill="#4C8CFF"
+          transform="rotate(12 346 216)"
+        />
         <circle cx="356" cy="192" r="8" fill="#FFC9A3" />
         {/* head */}
         <circle cx="316" cy="164" r="24" fill="#FFC9A3" />
@@ -432,19 +504,48 @@ function NewStudentIllustration({ className = 'w-full h-auto' }: { className?: s
         {/* face */}
         <circle cx="306" cy="167" r="2.8" fill="#33281F" />
         <circle cx="326" cy="167" r="2.8" fill="#33281F" />
-        <path d="M311 176 Q316 181 321 176" stroke="#33281F" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <ellipse cx="302" cy="173" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
-        <ellipse cx="330" cy="173" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+        <path
+          d="M311 176 Q316 181 321 176"
+          stroke="#33281F"
+          strokeWidth="2.5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        <ellipse
+          cx="302"
+          cy="173"
+          rx="4"
+          ry="2.5"
+          fill="#FFB59E"
+          opacity="0.85"
+        />
+        <ellipse
+          cx="330"
+          cy="173"
+          rx="4"
+          ry="2.5"
+          fill="#FFB59E"
+          opacity="0.85"
+        />
         {/* graduation cap */}
         <path d="M316 128 L344 140 L316 152 L288 140 Z" fill="#42508C" />
         <circle cx="316" cy="140" r="4" fill="#FFD98A" />
-        <path d="M344 140 q13 11 6 21" stroke="#FF9F6B" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <path
+          d="M344 140 q13 11 6 21"
+          stroke="#FF9F6B"
+          strokeWidth="3"
+          fill="none"
+          strokeLinecap="round"
+        />
         <circle cx="350" cy="161" r="3.5" fill="#FF9F6B" />
       </g>
       {/* floating */}
       <g>
         <path d="M96 98 l4 8 8 4 -8 4 -4 8 -4 -8 -8 -4 8 -4 z" fill="#7FB2FF" />
-        <path d="M356 252 l3.5 7 7 3.5 -7 3.5 -3.5 7 -3.5 -7 -7 -3.5 7 -3.5 z" fill="#FFD98A" />
+        <path
+          d="M356 252 l3.5 7 7 3.5 -7 3.5 -3.5 7 -3.5 -7 -7 -3.5 7 -3.5 z"
+          fill="#FFD98A"
+        />
         <g fill="#C8E0FC">
           <circle cx="58" cy="224" r="5" />
           <circle cx="398" cy="140" r="4" />
@@ -460,7 +561,11 @@ function NewStudentIllustration({ className = 'w-full h-auto' }: { className?: s
   );
 }
 
-function ReturningStudentIllustration({ className = 'w-full h-auto' }: { className?: string }) {
+function ReturningStudentIllustration({
+  className = 'w-full h-auto'
+}: {
+  className?: string;
+}) {
   return (
     <svg viewBox="0 0 440 320" className={className} aria-hidden="true">
       <defs>
@@ -471,7 +576,14 @@ function ReturningStudentIllustration({ className = 'w-full h-auto' }: { classNa
       </defs>
       {/* backdrop */}
       <ellipse cx="220" cy="170" rx="196" ry="126" fill="url(#rs-bg)" />
-      <ellipse cx="220" cy="170" rx="150" ry="90" fill="#FFFFFF" opacity="0.55" />
+      <ellipse
+        cx="220"
+        cy="170"
+        rx="150"
+        ry="90"
+        fill="#FFFFFF"
+        opacity="0.55"
+      />
       {/* clouds */}
       <g fill="#FFFFFF" opacity="0.95">
         <rect x="60" y="60" width="64" height="16" rx="8" />
@@ -483,7 +595,16 @@ function ReturningStudentIllustration({ className = 'w-full h-auto' }: { classNa
       <ellipse cx="222" cy="266" rx="96" ry="8" fill="#CFEEDD" />
       {/* laptop on the side */}
       <g>
-        <rect x="108" y="232" width="72" height="46" rx="7" fill="#E8F6EE" stroke="#9DBBA8" strokeWidth="2" />
+        <rect
+          x="108"
+          y="232"
+          width="72"
+          height="46"
+          rx="7"
+          fill="#E8F6EE"
+          stroke="#9DBBA8"
+          strokeWidth="2"
+        />
         <rect x="115" y="239" width="58" height="32" rx="4" fill="#A8E2C2" />
         <path d="M100 282 h88 l-12 10 h-64 z" fill="#9AA5B5" />
       </g>
@@ -493,8 +614,24 @@ function ReturningStudentIllustration({ className = 'w-full h-auto' }: { classNa
         <rect x="176" y="184" width="24" height="54" rx="12" fill="#2E9C63" />
         <rect x="180" y="196" width="16" height="24" rx="8" fill="#57BE85" />
         {/* legs walking */}
-        <rect x="198" y="238" width="15" height="28" rx="7.5" fill="#2E3A63" transform="rotate(7 205 252)" />
-        <rect x="228" y="238" width="15" height="28" rx="7.5" fill="#2E3A63" transform="rotate(-7 235 252)" />
+        <rect
+          x="198"
+          y="238"
+          width="15"
+          height="28"
+          rx="7.5"
+          fill="#2E3A63"
+          transform="rotate(7 205 252)"
+        />
+        <rect
+          x="228"
+          y="238"
+          width="15"
+          height="28"
+          rx="7.5"
+          fill="#2E3A63"
+          transform="rotate(-7 235 252)"
+        />
         {/* shoes */}
         <rect x="195" y="264" width="21" height="9" rx="4.5" fill="#1F2944" />
         <rect x="227" y="264" width="21" height="9" rx="4.5" fill="#1F2944" />
@@ -505,28 +642,73 @@ function ReturningStudentIllustration({ className = 'w-full h-auto' }: { classNa
         <rect x="184" y="186" width="16" height="42" rx="8" fill="#3EBB79" />
         <circle cx="190" cy="228" r="8" fill="#FFC9A3" />
         {/* right arm holding books */}
-        <rect x="242" y="186" width="16" height="44" rx="8" fill="#3EBB79" transform="rotate(-14 250 208)" />
+        <rect
+          x="242"
+          y="186"
+          width="16"
+          height="44"
+          rx="8"
+          fill="#3EBB79"
+          transform="rotate(-14 250 208)"
+        />
         <circle cx="256" cy="190" r="8" fill="#FFC9A3" />
         {/* books stack */}
         <g>
           <rect x="256" y="210" width="54" height="15" rx="5" fill="#F5C46B" />
           <rect x="261" y="196" width="48" height="14" rx="5" fill="#3EBB79" />
-          <rect x="266" y="184" width="40" height="13" rx="5" fill="#8FD9B0" transform="rotate(7 286 190)" />
+          <rect
+            x="266"
+            y="184"
+            width="40"
+            height="13"
+            rx="5"
+            fill="#8FD9B0"
+            transform="rotate(7 286 190)"
+          />
         </g>
         {/* head */}
         <circle cx="220" cy="148" r="24" fill="#FFC9A3" />
         <path d="M196 142 a24 24 0 0 1 48 0 l-4 7 h-40 z" fill="#5B4A2F" />
         <circle cx="211" cy="150" r="2.8" fill="#33281F" />
         <circle cx="229" cy="150" r="2.8" fill="#33281F" />
-        <path d="M215 159 Q220 164 225 159" stroke="#33281F" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <ellipse cx="207" cy="156" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
-        <ellipse cx="233" cy="156" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+        <path
+          d="M215 159 Q220 164 225 159"
+          stroke="#33281F"
+          strokeWidth="2.5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        <ellipse
+          cx="207"
+          cy="156"
+          rx="4"
+          ry="2.5"
+          fill="#FFB59E"
+          opacity="0.85"
+        />
+        <ellipse
+          cx="233"
+          cy="156"
+          rx="4"
+          ry="2.5"
+          fill="#FFB59E"
+          opacity="0.85"
+        />
       </g>
       {/* floating */}
       <g>
-        <path d="M362 92 l4 8 8 4 -8 4 -4 8 -4 -8 -8 -4 8 -4 z" fill="#3EBB79" />
-        <path d="M78 100 q12 -12 24 0 q-5 -15 -24 -15 q-19 0 -24 15 q12 -12 24 0 z" fill="#57BE85" />
-        <path d="M78 190 q9 -9 18 0 q-4 -11 -18 -11 q-14 0 -18 11 q9 -9 18 0 z" fill="#8FD9B0" />
+        <path
+          d="M362 92 l4 8 8 4 -8 4 -4 8 -4 -8 -8 -4 8 -4 z"
+          fill="#3EBB79"
+        />
+        <path
+          d="M78 100 q12 -12 24 0 q-5 -15 -24 -15 q-19 0 -24 15 q12 -12 24 0 z"
+          fill="#57BE85"
+        />
+        <path
+          d="M78 190 q9 -9 18 0 q-4 -11 -18 -11 q-14 0 -18 11 q9 -9 18 0 z"
+          fill="#8FD9B0"
+        />
         <g fill="#B8E7CD">
           <circle cx="52" cy="160" r="5" />
           <circle cx="398" cy="210" r="4" />
@@ -534,13 +716,22 @@ function ReturningStudentIllustration({ className = 'w-full h-auto' }: { classNa
         </g>
         {/* paper plane */}
         <path d="M332 258 l28 -15 -11 28 -7 -9 z" fill="#57BE85" />
-        <path d="M349 271 l11 -28" stroke="#2E9C63" strokeWidth="1.5" opacity="0.5" />
+        <path
+          d="M349 271 l11 -28"
+          stroke="#2E9C63"
+          strokeWidth="1.5"
+          opacity="0.5"
+        />
       </g>
     </svg>
   );
 }
 
-function DropStudentIllustration({ className = 'w-full h-auto' }: { className?: string }) {
+function DropStudentIllustration({
+  className = 'w-full h-auto'
+}: {
+  className?: string;
+}) {
   return (
     <svg viewBox="0 0 440 320" className={className} aria-hidden="true">
       <defs>
@@ -551,7 +742,14 @@ function DropStudentIllustration({ className = 'w-full h-auto' }: { className?: 
       </defs>
       {/* backdrop */}
       <ellipse cx="220" cy="170" rx="196" ry="126" fill="url(#ds-bg)" />
-      <ellipse cx="220" cy="170" rx="150" ry="90" fill="#FFFFFF" opacity="0.55" />
+      <ellipse
+        cx="220"
+        cy="170"
+        rx="150"
+        ry="90"
+        fill="#FFFFFF"
+        opacity="0.55"
+      />
       {/* counter */}
       <g>
         <rect x="64" y="214" width="312" height="30" rx="10" fill="#F2C9A4" />
@@ -569,17 +767,41 @@ function DropStudentIllustration({ className = 'w-full h-auto' }: { className?: 
           <rect x="153" y="135" width="9" height="7" rx="3" />
           <path d="M149 138 h2" />
         </g>
-        <path d="M145 149 Q151 153 157 149" stroke="#4C3B2E" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path
+          d="M145 149 Q151 153 157 149"
+          stroke="#4C3B2E"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+        />
       </g>
       {/* counter items */}
       <g>
-        <rect x="104" y="188" width="30" height="36" rx="4" fill="#FFFFFF" stroke="#F3D8C0" strokeWidth="1.5" />
+        <rect
+          x="104"
+          y="188"
+          width="30"
+          height="36"
+          rx="4"
+          fill="#FFFFFF"
+          stroke="#F3D8C0"
+          strokeWidth="1.5"
+        />
         <rect x="108" y="194" width="22" height="3" rx="1.5" fill="#F0CBB0" />
         <rect x="108" y="201" width="22" height="3" rx="1.5" fill="#F0CBB0" />
         <rect x="108" y="208" width="14" height="3" rx="1.5" fill="#F0CBB0" />
         {/* stamp */}
         <g>
-          <rect x="178" y="196" width="26" height="26" rx="5" fill="#FFE1A6" stroke="#F2C463" strokeWidth="2" />
+          <rect
+            x="178"
+            y="196"
+            width="26"
+            height="26"
+            rx="5"
+            fill="#FFE1A6"
+            stroke="#F2C463"
+            strokeWidth="2"
+          />
           <circle cx="191" cy="209" r="6" fill="#F5C46B" />
         </g>
       </g>
@@ -599,10 +821,27 @@ function DropStudentIllustration({ className = 'w-full h-auto' }: { className?: 
         <rect x="334" y="188" width="16" height="42" rx="8" fill="#FF8A5C" />
         <circle cx="342" cy="230" r="8" fill="#FFC9A3" />
         {/* right arm handing paper */}
-        <rect x="252" y="182" width="15" height="44" rx="7.5" fill="#FF8A5C" transform="rotate(-18 259 204)" />
+        <rect
+          x="252"
+          y="182"
+          width="15"
+          height="44"
+          rx="7.5"
+          fill="#FF8A5C"
+          transform="rotate(-18 259 204)"
+        />
         <circle cx="256" cy="184" r="8" fill="#FFC9A3" />
         {/* paper */}
-        <rect x="220" y="188" width="28" height="36" rx="4" fill="#FFFFFF" stroke="#F0CBB0" strokeWidth="1.5" />
+        <rect
+          x="220"
+          y="188"
+          width="28"
+          height="36"
+          rx="4"
+          fill="#FFFFFF"
+          stroke="#F0CBB0"
+          strokeWidth="1.5"
+        />
         <rect x="225" y="195" width="18" height="3" rx="1.5" fill="#F0CBB0" />
         <rect x="225" y="202" width="18" height="3" rx="1.5" fill="#F0CBB0" />
         <rect x="225" y="209" width="12" height="3" rx="1.5" fill="#F0CBB0" />
@@ -611,22 +850,70 @@ function DropStudentIllustration({ className = 'w-full h-auto' }: { className?: 
         <path d="M282 150 a24 24 0 0 1 48 0 l-4 7 h-40 z" fill="#3A2C24" />
         <circle cx="297" cy="158" r="2.8" fill="#33281F" />
         <circle cx="315" cy="158" r="2.8" fill="#33281F" />
-        <path d="M301 167 Q306 172 311 167" stroke="#33281F" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <ellipse cx="293" cy="164" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
-        <ellipse cx="319" cy="164" rx="4" ry="2.5" fill="#FFB59E" opacity="0.85" />
+        <path
+          d="M301 167 Q306 172 311 167"
+          stroke="#33281F"
+          strokeWidth="2.5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        <ellipse
+          cx="293"
+          cy="164"
+          rx="4"
+          ry="2.5"
+          fill="#FFB59E"
+          opacity="0.85"
+        />
+        <ellipse
+          cx="319"
+          cy="164"
+          rx="4"
+          ry="2.5"
+          fill="#FFB59E"
+          opacity="0.85"
+        />
       </g>
       {/* floating */}
       <g>
         {/* clipboard check */}
         <g>
-          <rect x="368" y="68" width="34" height="44" rx="6" fill="#FFFFFF" stroke="#F3D8C0" strokeWidth="2" />
+          <rect
+            x="368"
+            y="68"
+            width="34"
+            height="44"
+            rx="6"
+            fill="#FFFFFF"
+            stroke="#F3D8C0"
+            strokeWidth="2"
+          />
           <rect x="374" y="74" width="22" height="4" rx="2" fill="#F0CBB0" />
-          <path d="M382 94 l5 5 8 -10" stroke="#3EBB79" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M382 94 l5 5 8 -10"
+            stroke="#3EBB79"
+            strokeWidth="2.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </g>
         {/* clock */}
         <g>
-          <circle cx="72" cy="96" r="17" fill="#FFF7EF" stroke="#F0CBB0" strokeWidth="2" />
-          <path d="M72 96 v-8 M72 96 l6 4" stroke="#C9973C" strokeWidth="2" strokeLinecap="round" />
+          <circle
+            cx="72"
+            cy="96"
+            r="17"
+            fill="#FFF7EF"
+            stroke="#F0CBB0"
+            strokeWidth="2"
+          />
+          <path
+            d="M72 96 v-8 M72 96 l6 4"
+            stroke="#C9973C"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         </g>
         {/* padlock */}
         <g>
@@ -701,13 +988,17 @@ export function EnrollmentModule() {
     lrn_verification: false
   });
   const [gradeFile, setGradeFile] = useState<File | null>(null);
-  const [admission, setAdmission] = useState<AdmissionState>({ ...EMPTY_ADMISSION });
+  const [admission, setAdmission] = useState<AdmissionState>({
+    ...EMPTY_ADMISSION
+  });
 
   // Returning student state
   const [retStep, setRetStep] = useState<RetStep>(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [foundStudent, setFoundStudent] = useState<StudentRow | null>(null);
-  const [retGradeHistory, setRetGradeHistory] = useState<GradeHistoryYear[]>([]);
+  const [retGradeHistory, setRetGradeHistory] = useState<GradeHistoryYear[]>(
+    []
+  );
   const [retGrade, setRetGrade] = useState<number | null>(null);
   const [promoOverrideAccepted, setPromoOverrideAccepted] = useState(false);
   const [enrolledRet, setEnrolledRet] = useState(false);
@@ -961,9 +1252,12 @@ export function EnrollmentModule() {
   // Fetch the student's previous grades / academic history for review.
   const loadRetGradeHistory = (student: StudentRow) => {
     setRetGradeHistory([]);
-    gradesApi.history(student.id)
+    gradesApi
+      .history(student.id)
       .then(h => setRetGradeHistory(h.school_years || []))
-      .catch(() => { /* history display is optional */ });
+      .catch(() => {
+        /* history display is optional */
+      });
   };
 
   // Grade the student completed before this enrollment — shown as "Previous Grade"
@@ -1027,7 +1321,7 @@ export function EnrollmentModule() {
         avg: null,
         subsTotal: null,
         subsComplete: null,
-        gradeComplete: false,
+        gradeComplete: false
       };
     const prior =
       [...retGradeHistory]
@@ -1041,7 +1335,7 @@ export function EnrollmentModule() {
         avg: null,
         subsTotal: 0,
         subsComplete: 0,
-        gradeComplete: false,
+        gradeComplete: false
       };
     const subsComplete = subs.filter(
       s => s.q1 != null && s.q2 != null && s.q3 != null
@@ -1063,7 +1357,7 @@ export function EnrollmentModule() {
         avg: finalAvg,
         subsTotal: subs.length,
         subsComplete,
-        gradeComplete: false,
+        gradeComplete: false
       };
     if (finalAvg == null || finalAvg < passingGrade)
       return {
@@ -1072,7 +1366,7 @@ export function EnrollmentModule() {
         avg: finalAvg,
         subsTotal: subs.length,
         subsComplete,
-        gradeComplete: true,
+        gradeComplete: true
       };
     return {
       status: 'promotable' as const,
@@ -1080,7 +1374,7 @@ export function EnrollmentModule() {
       avg: finalAvg,
       subsTotal: subs.length,
       subsComplete,
-      gradeComplete: true,
+      gradeComplete: true
     };
   })();
 
@@ -1099,7 +1393,7 @@ export function EnrollmentModule() {
         bodyCls: 'text-emerald-700/90',
         pillCls: 'bg-emerald-100 text-emerald-700',
         chipCls: 'border-emerald-100 bg-white',
-        pill: 'Eligible',
+        pill: 'Eligible'
       },
       retained: {
         icon: AlertCircle,
@@ -1109,7 +1403,7 @@ export function EnrollmentModule() {
         bodyCls: 'text-red-700/90',
         pillCls: 'bg-red-100 text-red-700',
         chipCls: 'border-red-100 bg-white',
-        pill: 'At risk of retention',
+        pill: 'At risk of retention'
       },
       incomplete: {
         icon: AlertCircle,
@@ -1119,7 +1413,7 @@ export function EnrollmentModule() {
         bodyCls: 'text-amber-700/90',
         pillCls: 'bg-amber-100 text-amber-800',
         chipCls: 'border-amber-100 bg-white',
-        pill: 'Action needed',
+        pill: 'Action needed'
       },
       'no-grades': {
         icon: AlertCircle,
@@ -1129,7 +1423,7 @@ export function EnrollmentModule() {
         bodyCls: 'text-gray-500',
         pillCls: 'bg-gray-100 text-gray-500',
         chipCls: 'border-gray-100 bg-white',
-        pill: 'No grades',
+        pill: 'No grades'
       },
       'no-records': {
         icon: AlertCircle,
@@ -1139,8 +1433,8 @@ export function EnrollmentModule() {
         bodyCls: 'text-gray-500',
         pillCls: 'bg-gray-100 text-gray-500',
         chipCls: 'border-gray-100 bg-white',
-        pill: 'No records',
-      },
+        pill: 'No records'
+      }
     }[status];
 
     const borderCls =
@@ -1178,43 +1472,58 @@ export function EnrollmentModule() {
       {
         label: 'General Average',
         value: show(avg),
-        hint: avg != null ? `Passing grade is ${passingGrade}` : 'No average yet',
-        highlight: avg != null,
+        hint:
+          avg != null ? `Passing grade is ${passingGrade}` : 'No average yet',
+        highlight: avg != null
       },
       {
         label: 'Passing Grade',
         value: String(passingGrade),
         hint: 'Set in School Settings',
-        highlight: false,
+        highlight: false
       },
       {
         label: 'Subjects Graded',
         value: subsTotal != null ? `${subsComplete}/${subsTotal}` : '—',
         hint: 'Subjects with final grades',
-        highlight: false,
+        highlight: false
       },
       {
         label: 'Quarterly Complete',
-        value: subsTotal != null && subsComplete === subsTotal ? 'Yes' : subsTotal != null ? 'No' : '—',
+        value:
+          subsTotal != null && subsComplete === subsTotal
+            ? 'Yes'
+            : subsTotal != null
+              ? 'No'
+              : '—',
         hint: 'All 4 quarters per subject',
-        highlight: false,
-      },
+        highlight: false
+      }
     ];
 
     return (
-      <div className={`rounded-2xl border ${borderCls} shadow-sm px-4 sm:px-5 py-4 sm:py-5 space-y-4`}>
+      <div
+        className={`rounded-2xl border ${borderCls} shadow-sm px-4 sm:px-5 py-4 sm:py-5 space-y-4`}>
         <div className="flex items-start gap-3.5">
-          <div className={`w-11 h-11 rounded-xl ${meta.iconCls} shadow-lg flex items-center justify-center flex-shrink-0`}>
+          <div
+            className={`w-11 h-11 rounded-xl ${meta.iconCls} shadow-lg flex items-center justify-center flex-shrink-0`}>
             <Icon size={20} className={meta.iconColor} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className={`text-sm sm:text-[15px] font-bold ${meta.titleCls}`}>{heading}</p>
-              <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${meta.pillCls}`}>
+              <p
+                className={`text-sm sm:text-[15px] font-bold ${meta.titleCls}`}>
+                {heading}
+              </p>
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${meta.pillCls}`}>
                 {meta.pill}
               </span>
             </div>
-            <p className={`text-xs sm:text-[13px] mt-1 leading-relaxed ${meta.bodyCls}`}>{detail}</p>
+            <p
+              className={`text-xs sm:text-[13px] mt-1 leading-relaxed ${meta.bodyCls}`}>
+              {detail}
+            </p>
           </div>
         </div>
 
@@ -1223,7 +1532,9 @@ export function EnrollmentModule() {
             <div className="h-px bg-black/5" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
               {kpis.map(k => (
-                <div key={k.label} className={`rounded-xl border ${meta.chipCls} px-3 py-2.5 min-w-0`}>
+                <div
+                  key={k.label}
+                  className={`rounded-xl border ${meta.chipCls} px-3 py-2.5 min-w-0`}>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                     {k.label}
                   </p>
@@ -1238,7 +1549,8 @@ export function EnrollmentModule() {
               ))}
             </div>
             <p className="text-[10px] text-gray-400/90">
-              Based on {sy} grades · Passing grade can be adjusted in School Settings
+              Based on {sy} grades · Passing grade can be adjusted in School
+              Settings
             </p>
           </>
         )}
@@ -1354,7 +1666,9 @@ export function EnrollmentModule() {
     const categoryRequiredKeys = requiredReqKeysFor(newData.classifications);
     const missing = [...categoryRequiredKeys].filter(k => !requirements[k]);
     if (missing.length > 0) {
-      const labels = missing.map(k => REQUIREMENTS_LIST.find(r => r.key === k)?.label || k);
+      const labels = missing.map(
+        k => REQUIREMENTS_LIST.find(r => r.key === k)?.label || k
+      );
       showToast(
         'warning',
         `Enrollment will continue — required documents not yet checked: ${labels.join('; ')}`
@@ -1436,7 +1750,7 @@ export function EnrollmentModule() {
     if (submitting) return;
     if (!foundStudent || !retGrade) return;
     // Graduated students are soft-archived and cannot be re-enrolled.
-    if (foundStudent.status === "graduated") {
+    if (foundStudent.status === 'graduated') {
       showToast(
         'error',
         `${foundStudent.name} has already graduated and cannot be re-enrolled. Graduated records are archived.`
@@ -1565,12 +1879,11 @@ export function EnrollmentModule() {
     const closedCount = syEnrollments.filter(
       e => e.status === 'dropped' || e.status === 'transferred'
     ).length;
-    const recentEnrollmentsAll = [...syEnrollments]
-      .sort(
-        (a, b) =>
-          (b.enrollment_date || '').localeCompare(a.enrollment_date || '') ||
-          b.id - a.id
-      );
+    const recentEnrollmentsAll = [...syEnrollments].sort(
+      (a, b) =>
+        (b.enrollment_date || '').localeCompare(a.enrollment_date || '') ||
+        b.id - a.id
+    );
     // Show the 6 most recent unless the user expands the list.
     const recentEnrollments = showAllRecent
       ? recentEnrollmentsAll
@@ -1731,21 +2044,29 @@ export function EnrollmentModule() {
               key={s.label}
               className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
               {/* top accent bar */}
-              <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${s.bar}`} />
+              <div
+                className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${s.bar}`}
+              />
               {/* soft radial glow */}
-              <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${s.iconTile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`} />
+              <div
+                className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${s.iconTile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`}
+              />
               <div className="relative flex items-center justify-between gap-2 mb-3">
                 <span className="min-w-0 truncate text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
                   {s.label}
                 </span>
-                <div className={`hidden sm:flex w-9 h-9 rounded-xl bg-gradient-to-br ${s.iconTile} shadow-md ${s.tileShadow} items-center justify-center flex-shrink-0`}>
+                <div
+                  className={`hidden sm:flex w-9 h-9 rounded-xl bg-gradient-to-br ${s.iconTile} shadow-md ${s.tileShadow} items-center justify-center flex-shrink-0`}>
                   <s.icon size={16} className="text-white" />
                 </div>
               </div>
-              <p className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${s.valueCls}`}>
+              <p
+                className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${s.valueCls}`}>
                 {s.value}
               </p>
-              <p className="relative text-xs text-gray-400 mt-2 truncate">{s.hint}</p>
+              <p className="relative text-xs text-gray-400 mt-2 truncate">
+                {s.hint}
+              </p>
             </div>
           ))}
         </div>
@@ -1762,31 +2083,42 @@ export function EnrollmentModule() {
                 onClick={() => setFlow(card.flow)}
                 disabled={card.disabled}
                 className={`group relative w-full text-left bg-white rounded-3xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] hover:shadow-xl ${a.glow} hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col disabled:opacity-55 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_14px_rgba(15,23,42,0.06)] ${
-                  featured ? 'md:col-span-12 lg:col-span-6' : 'md:col-span-6 lg:col-span-3'
+                  featured
+                    ? 'md:col-span-12 lg:col-span-6'
+                    : 'md:col-span-6 lg:col-span-3'
                 } ${card.key === 'returning' ? 'lg:mt-6' : ''} ${card.key === 'drop' ? 'lg:mt-14' : ''}`}>
                 {/* Illustration band */}
-                <div className={`relative ${a.panelBg} flex items-center justify-center overflow-hidden ${featured ? 'h-40 sm:h-44 lg:h-52 p-4 sm:p-5' : 'h-28 sm:h-32 p-3.5 sm:p-4'}`}>
-                  <card.illustration className={featured ? 'w-full h-full' : undefined} />
+                <div
+                  className={`relative ${a.panelBg} flex items-center justify-center overflow-hidden ${featured ? 'h-40 sm:h-44 lg:h-52 p-4 sm:p-5' : 'h-28 sm:h-32 p-3.5 sm:p-4'}`}>
+                  <card.illustration
+                    className={featured ? 'w-full h-full' : undefined}
+                  />
                   <span className="absolute top-3.5 left-3.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/85 backdrop-blur border border-white/70 shadow-sm text-[10px] font-bold text-gray-600">
                     {card.code}
                   </span>
-                  <span className={`absolute top-3.5 right-3.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                    card.disabled
-                      ? 'bg-gray-100/90 text-gray-500 border-gray-200'
-                      : a.chip
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${card.disabled ? 'bg-gray-400' : a.dot} ${card.disabled ? '' : 'animate-pulse'}`} />
+                  <span
+                    className={`absolute top-3.5 right-3.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                      card.disabled
+                        ? 'bg-gray-100/90 text-gray-500 border-gray-200'
+                        : a.chip
+                    }`}>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${card.disabled ? 'bg-gray-400' : a.dot} ${card.disabled ? '' : 'animate-pulse'}`}
+                    />
                     {card.disabled ? card.statusClosed : card.statusOpen}
                   </span>
                 </div>
                 {/* Content */}
-                <div className={`flex flex-col flex-1 ${featured ? 'p-6 sm:p-7' : 'p-5 sm:p-6'}`}>
+                <div
+                  className={`flex flex-col flex-1 ${featured ? 'p-6 sm:p-7' : 'p-5 sm:p-6'}`}>
                   {featured && (
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r ${a.grad} text-white text-[10px] font-bold tracking-wide shadow-sm self-start`}>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r ${a.grad} text-white text-[10px] font-bold tracking-wide shadow-sm self-start`}>
                       <Sparkles size={11} /> Featured
                     </span>
                   )}
-                  <h3 className={`font-bold text-gray-900 tracking-[-0.01em] ${featured ? 'text-xl sm:text-2xl mt-3' : 'text-lg mt-2'}`}>
+                  <h3
+                    className={`font-bold text-gray-900 tracking-[-0.01em] ${featured ? 'text-xl sm:text-2xl mt-3' : 'text-lg mt-2'}`}>
                     {card.title}
                   </h3>
                   <p className={`text-sm font-semibold mt-0.5 ${a.text}`}>
@@ -1795,17 +2127,24 @@ export function EnrollmentModule() {
                   <p className="text-sm text-gray-400 mt-2 leading-relaxed flex-1">
                     {card.desc}
                   </p>
-                  <div className={`flex flex-wrap gap-2 ${featured ? 'mt-4' : 'mt-3'}`}>
+                  <div
+                    className={`flex flex-wrap gap-2 ${featured ? 'mt-4' : 'mt-3'}`}>
                     {card.chips.map(ch => (
-                      <span key={ch.label} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${a.chip}`}>
+                      <span
+                        key={ch.label}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${a.chip}`}>
                         <ch.icon size={12} />
                         {ch.label}
                       </span>
                     ))}
                   </div>
-                  <span className={`mt-5 inline-flex items-center justify-center gap-2 text-white text-sm font-semibold py-3 rounded-2xl bg-gradient-to-r ${a.grad} shadow-lg transition-all duration-200 group-hover:shadow-xl group-hover:brightness-105`}>
+                  <span
+                    className={`mt-5 inline-flex items-center justify-center gap-2 text-white text-sm font-semibold py-3 rounded-2xl bg-gradient-to-r ${a.grad} shadow-lg transition-all duration-200 group-hover:shadow-xl group-hover:brightness-105`}>
                     {card.action}
-                    <ChevronRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight
+                      size={15}
+                      className="group-hover:translate-x-0.5 transition-transform"
+                    />
                   </span>
                 </div>
               </button>
@@ -1836,9 +2175,10 @@ export function EnrollmentModule() {
               {recentEnrollmentsAll.length > 6 && (
                 <button
                   onClick={() => setShowAllRecent(v => !v)}
-                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 bg-emerald-50 px-2.5 py-1 rounded-full transition-colors"
-                >
-                  {showAllRecent ? 'Show less' : `Show all ${recentEnrollmentsAll.length}`}
+                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 bg-emerald-50 px-2.5 py-1 rounded-full transition-colors">
+                  {showAllRecent
+                    ? 'Show less'
+                    : `Show all ${recentEnrollmentsAll.length}`}
                 </button>
               )}
             </div>
@@ -1883,7 +2223,7 @@ export function EnrollmentModule() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="">
                       {recentEnrollments.map(e => (
                         <tr
                           key={e.id}
@@ -1952,7 +2292,7 @@ export function EnrollmentModule() {
                 </div>
               }
               mobile={
-                <ul className="divide-y divide-gray-50">
+                <ul className="">
                   {recentEnrollments.map(e => (
                     <li key={e.id} className="px-4 py-4">
                       <div className="flex items-start justify-between gap-3">
@@ -1984,7 +2324,9 @@ export function EnrollmentModule() {
                         )}
                       </div>
                       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-gray-600">Grade {e.grade_level}</span>
+                        <span className="text-xs text-gray-600">
+                          Grade {e.grade_level}
+                        </span>
                         {e.section_name ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/50">
                             {e.section_name}
@@ -2195,7 +2537,12 @@ export function EnrollmentModule() {
                   <input
                     type="text"
                     value={newData.firstName}
-                    onChange={e => updateNewField('firstName', capitalizeName(e.target.value))}
+                    onChange={e =>
+                      updateNewField(
+                        'firstName',
+                        capitalizeName(e.target.value)
+                      )
+                    }
                     className={`w-full border ${newErrors.firstName ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:border-emerald-400 focus:ring-emerald-100'} rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75`}
                     placeholder="Maria"
                   />
@@ -2213,7 +2560,12 @@ export function EnrollmentModule() {
                   <input
                     type="text"
                     value={newData.middleName}
-                    onChange={e => updateNewField('middleName', capitalizeName(e.target.value))}
+                    onChange={e =>
+                      updateNewField(
+                        'middleName',
+                        capitalizeName(e.target.value)
+                      )
+                    }
                     className="w-full border border-gray-200 focus:border-emerald-400 focus:ring-emerald-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75"
                     placeholder="Cruz"
                   />
@@ -2225,7 +2577,9 @@ export function EnrollmentModule() {
                   <input
                     type="text"
                     value={newData.lastName}
-                    onChange={e => updateNewField('lastName', capitalizeName(e.target.value))}
+                    onChange={e =>
+                      updateNewField('lastName', capitalizeName(e.target.value))
+                    }
                     className={`w-full border ${newErrors.lastName ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:border-emerald-400 focus:ring-emerald-100'} rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75`}
                     placeholder="Santos"
                   />
@@ -2388,10 +2742,22 @@ export function EnrollmentModule() {
                     {(() => {
                       const h = parseFloat(newData.height);
                       const w = parseFloat(newData.weight);
-                      if (!h || !w || h <= 0) return <span className="text-gray-400 font-normal">Enter height &amp; weight</span>;
+                      if (!h || !w || h <= 0)
+                        return (
+                          <span className="text-gray-400 font-normal">
+                            Enter height &amp; weight
+                          </span>
+                        );
                       const bmi = w / Math.pow(h / 100, 2);
                       const rounded = Math.round(bmi * 10) / 10;
-                      const cat = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
+                      const cat =
+                        bmi < 18.5
+                          ? 'Underweight'
+                          : bmi < 25
+                            ? 'Normal'
+                            : bmi < 30
+                              ? 'Overweight'
+                              : 'Obese';
                       return `${rounded} — ${cat}`;
                     })()}
                   </div>
@@ -2409,13 +2775,14 @@ export function EnrollmentModule() {
                     <button
                       key={opt.label}
                       type="button"
-                      onClick={() => updateNewField('guardian4ps', opt.value as any)}
+                      onClick={() =>
+                        updateNewField('guardian4ps', opt.value as any)
+                      }
                       className={`px-5 py-2 rounded-xl text-sm font-semibold border transition-all ${
                         newData.guardian4ps === opt.value
                           ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
                           : 'bg-white border-gray-200 text-gray-500 hover:border-emerald-300'
-                      }`}
-                    >
+                      }`}>
                       {opt.label}
                     </button>
                   ))}
@@ -2447,8 +2814,8 @@ export function EnrollmentModule() {
                   )}
                 </div>
                 <p className="mt-2.5 text-[11px] text-gray-400 leading-relaxed">
-                  Non-Reader is not selectable here — it is assigned manually from a
-                  recorded reading assessment, never at enrollment time.
+                  Non-Reader is not selectable here — it is assigned manually
+                  from a recorded reading assessment, never at enrollment time.
                 </p>
               </div>
             </div>
@@ -2650,9 +3017,14 @@ export function EnrollmentModule() {
                         className={`text-sm block ${requirements[r.key] ? 'text-emerald-800 font-medium' : 'text-gray-600'}`}>
                         {r.label}
                       </span>
-                      {categoriesRequiring(r.key, newData.classifications).length > 0 && (
+                      {categoriesRequiring(r.key, newData.classifications)
+                        .length > 0 && (
                         <span className="inline-block mt-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded-md uppercase tracking-wide">
-                          Required: {categoriesRequiring(r.key, newData.classifications).join(', ')}
+                          Required:{' '}
+                          {categoriesRequiring(
+                            r.key,
+                            newData.classifications
+                          ).join(', ')}
                         </span>
                       )}
                     </div>
@@ -2807,7 +3179,10 @@ export function EnrollmentModule() {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {REQUIREMENTS_LIST.map(r => {
-                    const reqCats = categoriesRequiring(r.key, newData.classifications);
+                    const reqCats = categoriesRequiring(
+                      r.key,
+                      newData.classifications
+                    );
                     return (
                       <span
                         key={r.key}
@@ -3218,34 +3593,61 @@ export function EnrollmentModule() {
                     </div>
                   ))}
                   {retGradeHistory.length > 0 && (
-<div className="pt-2 border-t border-emerald-100">
-                        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2">
-                          Previous Grades &amp; Academic History
+                    <div className="pt-2 border-t border-emerald-100">
+                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2">
+                        Previous Grades &amp; Academic History
+                      </p>
+                      {retGradeHistory.some(y =>
+                        y.subjects.some(
+                          sub =>
+                            sub.final_average != null &&
+                            sub.final_average < passingGrade
+                        )
+                      ) && (
+                        <p className="mb-2 text-[11px] font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                          <AlertCircle
+                            size={11}
+                            className="inline mr-1 -mt-0.5"
+                          />
+                          This student has failing grade(s) in a previous school
+                          year — review before enrolling.
                         </p>
-                        {retGradeHistory.some(y => y.subjects.some(sub => sub.final_average != null && sub.final_average < passingGrade)) && (
-                          <p className="mb-2 text-[11px] font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
-                            <AlertCircle size={11} className="inline mr-1 -mt-0.5" />
-                            This student has failing grade(s) in a previous school year — review before enrolling.
-                          </p>
-                        )}
+                      )}
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {retGradeHistory.map(y => (
-                          <div key={y.school_year_id} className="bg-white border border-emerald-100 rounded-lg px-3 py-2">
+                          <div
+                            key={y.school_year_id}
+                            className="bg-white border border-emerald-100 rounded-lg px-3 py-2">
                             <div className="flex justify-between items-center">
                               <span className="text-xs font-semibold text-gray-700">
-                                S.Y. {y.sy_label}{y.grade_level != null ? ` · Grade ${y.grade_level}` : ''}
+                                S.Y. {y.sy_label}
+                                {y.grade_level != null
+                                  ? ` · Grade ${y.grade_level}`
+                                  : ''}
                               </span>
-                              <span className={`text-xs font-bold ${
-                                y.general_average == null ? 'text-gray-400'
-                                  : y.general_average >= passingGrade ? 'text-emerald-700' : 'text-red-600'
-                              }`}>
-                                {y.general_average != null ? `Gen. Ave: ${y.general_average}` : 'No grades yet'}
+                              <span
+                                className={`text-xs font-bold ${
+                                  y.general_average == null
+                                    ? 'text-gray-400'
+                                    : y.general_average >= passingGrade
+                                      ? 'text-emerald-700'
+                                      : 'text-red-600'
+                                }`}>
+                                {y.general_average != null
+                                  ? `Gen. Ave: ${y.general_average}`
+                                  : 'No grades yet'}
                               </span>
                             </div>
                             {y.section_name && (
-                              <p className="text-[11px] text-gray-400 mt-0.5">Section: {y.section_name}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                Section: {y.section_name}
+                              </p>
                             )}
-                            {y.subjects.some(sub => sub.final_average != null && sub.final_average < passingGrade) && (
+                            {y.subjects.some(
+                              sub =>
+                                sub.final_average != null &&
+                                sub.final_average < passingGrade
+                            ) && (
                               <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded-md px-2 py-1 mt-1.5">
                                 <AlertCircle size={11} /> Has failing grade(s)
                               </p>
@@ -3276,23 +3678,39 @@ export function EnrollmentModule() {
                                   </thead>
                                   <tbody>
                                     {y.subjects.map((subject, idx) => (
-                                      <tr key={subject.subject_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/50'}>
+                                      <tr
+                                        key={subject.subject_id}
+                                        className={
+                                          idx % 2 === 0
+                                            ? 'bg-white'
+                                            : 'bg-emerald-50/50'
+                                        }>
                                         <td className="px-2 py-1 text-left text-[10px]">
                                           {subject.subject_name}
                                         </td>
-                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q1)}`}>
-                                          {subject.q1 !== null ? subject.q1 : '—'}
+                                        <td
+                                          className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q1)}`}>
+                                          {subject.q1 !== null
+                                            ? subject.q1
+                                            : '—'}
                                         </td>
-                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q2)}`}>
-                                          {subject.q2 !== null ? subject.q2 : '—'}
+                                        <td
+                                          className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q2)}`}>
+                                          {subject.q2 !== null
+                                            ? subject.q2
+                                            : '—'}
                                         </td>
-                                        <td className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q3)}`}>
-                                          {subject.q3 !== null ? subject.q3 : '—'}
+                                        <td
+                                          className={`px-2 py-1 text-center text-[10px] ${failingGradeCls(subject.q3)}`}>
+                                          {subject.q3 !== null
+                                            ? subject.q3
+                                            : '—'}
                                         </td>
-                                        <td className={`px-2 py-1 text-center text-[10px] font-semibold ${failingGradeCls(subject.final_average)}`}>
-                                          {subject.final_average !== null ?
-                                            `${subject.final_average}` :
-                                            '—'}
+                                        <td
+                                          className={`px-2 py-1 text-center text-[10px] font-semibold ${failingGradeCls(subject.final_average)}`}>
+                                          {subject.final_average !== null
+                                            ? `${subject.final_average}`
+                                            : '—'}
                                         </td>
                                       </tr>
                                     ))}
@@ -3397,26 +3815,32 @@ export function EnrollmentModule() {
 
                 {promoCheck && promoCheck.status !== 'promotable' && (
                   <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 flex gap-3">
-                    <AlertTriangle size={19} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle
+                      size={19}
+                      className="text-amber-600 flex-shrink-0 mt-0.5"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-amber-800">
                         Promotion status is not eligible
                       </p>
                       <p className="text-xs text-amber-700/90 mt-1 leading-relaxed">
-                        This student does not currently meet the year-end promotion criteria. You can
-                        still enroll them at their discretion, but continuing requires confirming that
-                        you have reviewed this status.
+                        This student does not currently meet the year-end
+                        promotion criteria. You can still enroll them at their
+                        discretion, but continuing requires confirming that you
+                        have reviewed this status.
                       </p>
                       <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={promoOverrideAccepted}
-                          onChange={e => setPromoOverrideAccepted(e.target.checked)}
+                          onChange={e =>
+                            setPromoOverrideAccepted(e.target.checked)
+                          }
                           className="mt-0.5 w-4 h-4 accent-amber-600"
                         />
                         <span className="text-xs text-amber-800 font-medium">
-                          I understand this student is not currently promotable and I confirm the
-                          enrollment should continue.
+                          I understand this student is not currently promotable
+                          and I confirm the enrollment should continue.
                         </span>
                       </label>
                     </div>
@@ -4235,20 +4659,26 @@ function ReturningGradePreview({
                     {y.subjects.map((subject, idx) => (
                       <tr
                         key={subject.subject_id}
-                        className={idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/50'}>
+                        className={
+                          idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/50'
+                        }>
                         <td className="px-2 py-1 text-left text-[10px]">
                           {subject.subject_name}
                         </td>
-                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q1)}`}>
+                        <td
+                          className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q1)}`}>
                           {subject.q1 !== null ? subject.q1 : '—'}
                         </td>
-                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q2)}`}>
+                        <td
+                          className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q2)}`}>
                           {subject.q2 !== null ? subject.q2 : '—'}
                         </td>
-                        <td className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q3)}`}>
+                        <td
+                          className={`px-2 py-1 text-center text-[10px] ${failingCls(subject.q3)}`}>
                           {subject.q3 !== null ? subject.q3 : '—'}
                         </td>
-                        <td className={`px-2 py-1 text-center text-[10px] font-semibold ${failingCls(subject.final_average)}`}>
+                        <td
+                          className={`px-2 py-1 text-center text-[10px] font-semibold ${failingCls(subject.final_average)}`}>
                           {subject.final_average !== null
                             ? `${subject.final_average}`
                             : '—'}

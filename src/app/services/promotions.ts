@@ -80,6 +80,53 @@ export interface PromotionPreview {
   students: PromotionPreviewStudent[];
 }
 
+/** A single enrolled student on the individual promotion/graduation roster. */
+export interface RosterStudent {
+  student_id: number;
+  student_code: string;
+  lrn: string;
+  name: string;
+  grade_level: number;
+  section_id: number | null;
+  section_name: string | null;
+  general_average: number | null;
+  grade_complete: boolean;
+  is_retained: boolean;
+  can_promote: boolean;
+  can_graduate: boolean;
+}
+
+export interface RosterResponse {
+  school_year_id: number;
+  section_id: number | null;
+  passing_mark: number;
+  total: number;
+  students: RosterStudent[];
+}
+
+export interface IndividualPromotionPayload {
+  student_id: number;
+  school_year_id: number;
+  action: "promote" | "graduate";
+  to_section_id?: number | null;
+  override?: boolean;
+  reason?: string;
+}
+
+export interface IndividualPromotionResponse {
+  message: string;
+  action: "promote" | "graduate";
+  student_id: number;
+  name: string;
+  student_code: string;
+  from_grade?: number;
+  to_grade?: number;
+  from_section?: string | null;
+  section_name?: string | null;
+  general_average: number | null;
+  override: boolean;
+}
+
 export interface BulkPromoteResponse {
   message: string;
   school_year_id: number;
@@ -109,4 +156,8 @@ export const promotionsApi = {
     ),
   bulkPromote: () =>
     api.post<BulkPromoteResponse>("/promotions/bulk-promote"),
+  roster: (params: { school_year_id: number; section_id?: number; search?: string }) =>
+    api.get<RosterResponse>("/promotions/roster", params),
+  promoteIndividual: (data: IndividualPromotionPayload) =>
+    api.post<IndividualPromotionResponse>("/promotions/individual", data),
 };

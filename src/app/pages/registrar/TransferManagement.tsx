@@ -266,10 +266,11 @@ export function TransferManagement() {
   /** Run the right schema for the visible branch and collect field errors. */
   const validateForm = (): Record<string, string> => {
     if (form.transfer_type === 'transfer_out') {
-      if (!form.student_id) return { student_id: 'Select the learner transferring out.' };
+      if (!form.student_id)
+        return { student_id: 'Select the learner transferring out.' };
       return validate(transferOutSchema, {
         reason: form.reason,
-        destination_school: form.destination_school,
+        destination_school: form.destination_school
       });
     }
     if (existingStudent) {
@@ -282,7 +283,7 @@ export function TransferManagement() {
       sex: form.sex,
       birthdate: form.birthdate,
       grade_level: form.grade_level,
-      previous_school: form.previous_school,
+      previous_school: form.previous_school
     });
   };
 
@@ -310,12 +311,10 @@ export function TransferManagement() {
       // filing under an existing LRN silently resolves to that learner instead.
       const lrn = form.lrn.trim();
       if (lrn && LRN_PATTERN.test(lrn)) {
-        const clash = students.find(
-          s => s.lrn.replace(/\s/g, '') === lrn
-        );
+        const clash = students.find(s => s.lrn.replace(/\s/g, '') === lrn);
         if (clash) {
           setErrors({
-            lrn: `LRN ${lrn} already belongs to ${clash.name} (${clash.student_id}). Tick "already exists in our records" to file a transfer for them.`,
+            lrn: `LRN ${lrn} already belongs to ${clash.name} (${clash.student_id}). Tick "already exists in our records" to file a transfer for them.`
           });
           showToast('error', 'That LRN already belongs to a learner on file.');
           return;
@@ -331,7 +330,7 @@ export function TransferManagement() {
         student_name: true,
         lrn: true,
         birthdate: true,
-        reason: true,
+        reason: true
       });
       showToast('error', 'Please correct the highlighted fields.');
       return;
@@ -507,7 +506,7 @@ export function TransferManagement() {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="">
             {rows.map(r => {
               const Icon = STATUS_ICON[r.status];
               return (
@@ -583,308 +582,296 @@ export function TransferManagement() {
         open={showForm}
         onClose={() => setShowForm(false)}
         maxWidth="max-w-2xl"
-        bodyClassName="p-0"
-      >
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-gray-900">
-                  File Transfer Request
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Sent to the Enrollment Committee for approval
-                </p>
-              </div>
+        bodyClassName="p-0">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-gray-900">
+              File Transfer Request
+            </h3>
+            <p className="text-xs text-gray-500">
+              Sent to the Enrollment Committee for approval
+            </p>
+          </div>
+          <button
+            onClick={() => setShowForm(false)}
+            className="touch-target inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {(['transfer_in', 'transfer_out'] as TransferType[]).map(t => (
               <button
-                onClick={() => setShowForm(false)}
-                className="touch-target inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
-                <X size={17} />
+                key={t}
+                onClick={() => set('transfer_type', t)}
+                className={`rounded-xl border-2 px-4 py-3 text-left transition ${
+                  form.transfer_type === t
+                    ? 'border-indigo-500 bg-indigo-50/50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                <span className="block text-sm font-semibold text-gray-900">
+                  {TYPE_LABEL[t]}
+                </span>
+                <span className="block text-[11px] text-gray-500 mt-0.5">
+                  {t === 'transfer_in'
+                    ? 'New learner from another school'
+                    : 'Learner leaving'}
+                </span>
               </button>
+            ))}
+          </div>
+
+          {form.transfer_type === 'transfer_out' ? (
+            <div>
+              <SearchableStudentSelect
+                label={`Learner leaving — ${years.find(y => y.id === syId)?.sy_label ?? 'selected year'}`}
+                accent="indigo"
+                value={form.student_id === '' ? '' : Number(form.student_id)}
+                onChange={id => set('student_id', id === '' ? '' : String(id))}
+                options={transferOutCandidates}
+                placeholder="Search the learner leaving by name, LRN, or ID…"
+                emptyMessage={
+                  activeEnrollments.length === 0
+                    ? 'No learner holds an active enrollment in this school year, so there is nobody to transfer out.'
+                    : 'No learner matches your search.'
+                }
+              />
+              {unassignedInYear > 0 && (
+                <p className="text-[11px] text-amber-600 mt-1.5 flex items-start gap-1">
+                  <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
+                  {unassignedInYear} learner
+                  {unassignedInYear !== 1 ? 's are' : ' is'} enrolled in this
+                  year but still awaiting a section, so{' '}
+                  {unassignedInYear !== 1 ? 'they have' : 'they has'} no seat to
+                  return. Assign {unassignedInYear !== 1 ? 'them' : 'them'} to a
+                  section first.
+                </p>
+              )}
+              <FieldError>{fieldError('student_id')}</FieldError>
             </div>
+          ) : (
+            <>
+              <label className="touch-target flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={existingStudent}
+                  onChange={e => {
+                    setExistingStudent(e.target.checked);
+                    // Clearing student_id/lrn matters here: leaving a stale
+                    // LRN behind would let a "new learner" filing silently
+                    // collide with the learner just unchecked.
+                    setForm(f => ({
+                      ...f,
+                      student_id: '',
+                      student_name: '',
+                      lrn: ''
+                    }));
+                    setErrors({});
+                    setTouched({});
+                  }}
+                  className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                />
+                This learner already exists in our records (e.g. returning from
+                a previous school year)
+              </label>
 
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {(['transfer_in', 'transfer_out'] as TransferType[]).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => set('transfer_type', t)}
-                    className={`rounded-xl border-2 px-4 py-3 text-left transition ${
-                      form.transfer_type === t
-                        ? 'border-indigo-500 bg-indigo-50/50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}>
-                    <span className="block text-sm font-semibold text-gray-900">
-                      {TYPE_LABEL[t]}
-                    </span>
-                    <span className="block text-[11px] text-gray-500 mt-0.5">
-                      {t === 'transfer_in'
-                        ? 'New learner from another school'
-                        : 'Learner leaving'}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {form.transfer_type === 'transfer_out' ? (
-                <div>
-                  <SearchableStudentSelect
-                    label={`Learner leaving — ${years.find(y => y.id === syId)?.sy_label ?? 'selected year'}`}
-                    accent="indigo"
-                    value={
-                      form.student_id === '' ? '' : Number(form.student_id)
-                    }
-                    onChange={id =>
-                      set('student_id', id === '' ? '' : String(id))
-                    }
-                    options={transferOutCandidates}
-                    placeholder="Search the learner leaving by name, LRN, or ID…"
-                    emptyMessage={
-                      activeEnrollments.length === 0
-                        ? 'No learner holds an active enrollment in this school year, so there is nobody to transfer out.'
-                        : 'No learner matches your search.'
-                    }
-                  />
-                  {unassignedInYear > 0 && (
-                    <p className="text-[11px] text-amber-600 mt-1.5 flex items-start gap-1">
-                      <AlertTriangle
-                        size={11}
-                        className="mt-0.5 flex-shrink-0"
-                      />
-                      {unassignedInYear} learner
-                      {unassignedInYear !== 1 ? 's are' : ' is'} enrolled in
-                      this year but still awaiting a section, so{' '}
-                      {unassignedInYear !== 1 ? 'they have' : 'they has'} no
-                      seat to return. Assign{' '}
-                      {unassignedInYear !== 1 ? 'them' : 'them'} to a section
-                      first.
-                    </p>
-                  )}
-                  <FieldError>{fieldError('student_id')}</FieldError>
-                </div>
-              ) : (
-                <>
-                  <label className="touch-target flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={existingStudent}
-                      onChange={e => {
-                        setExistingStudent(e.target.checked);
-                        // Clearing student_id/lrn matters here: leaving a stale
-                        // LRN behind would let a "new learner" filing silently
-                        // collide with the learner just unchecked.
-                        setForm(f => ({
-                          ...f,
-                          student_id: '',
-                          student_name: '',
-                          lrn: ''
-                        }));
-                        setErrors({});
-                        setTouched({});
-                      }}
-                      className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
-                    />
-                    This learner already exists in our records (e.g. returning
-                    from a previous school year)
-                  </label>
-
-                  {existingStudent ? (
-                    <SearchableStudentSelect
-                      label="Learner"
-                      accent="indigo"
-                      value={
-                        form.student_id === '' ? '' : Number(form.student_id)
-                      }
-                      onChange={id =>
-                        set('student_id', id === '' ? '' : String(id))
-                      }
-                      options={returningCandidates}
-                      placeholder="Search returning learners by name, LRN, or ID…"
-                    />
-                  ) : null}
-                  {form.transfer_type === 'transfer_in' && (
-                    <FieldError>{fieldError('student_id')}</FieldError>
-                  )}
-                  {!existingStudent ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
-                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                          Full Name
-                        </label>
-                        <input
-                          type="text"
-                          value={form.student_name}
-                          onChange={e => set('student_name', e.target.value)}
-                          onBlur={() => markTouched('student_name')}
-                          className={inputClass('student_name')}
-                        />
-                        {fieldError('student_name') && (
-                          <FieldError>{fieldError('student_name')}</FieldError>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                          LRN
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={12}
-                          value={form.lrn}
-                          onChange={e =>
-                            set('lrn', e.target.value.replace(/\D/g, ''))
-                          }
-                          onBlur={() => markTouched('lrn')}
-                          placeholder="12-digit LRN"
-                          className={inputClass('lrn')}
-                        />
-                        {fieldError('lrn') ? (
-                          <FieldError>{fieldError('lrn')}</FieldError>
-                        ) : (
-                          <p className="text-[11px] text-gray-400 mt-1">
-                            {form.lrn.length}/12 digits
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                          Sex
-                        </label>
-                        <select
-                          value={form.sex}
-                          onChange={e => set('sex', e.target.value)}
-                          className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
-                        >
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                          Birthdate
-                        </label>
-                        <input
-                          type="date"
-                          value={form.birthdate}
-                          max={new Date().toISOString().slice(0, 10)}
-                          onChange={e => set('birthdate', e.target.value)}
-                          onBlur={() => markTouched('birthdate')}
-                          className={inputClass('birthdate')}
-                        />
-                        {fieldError('birthdate') && (
-                          <FieldError>{fieldError('birthdate')}</FieldError>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                        Grade Level
-                      </label>
-                      <select
-                        value={form.grade_level}
-                        onChange={e => {
-                          set('grade_level', e.target.value);
-                          set('section_id', '');
-                        }}
-                        className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400">
-                        {GRADES.map(g => (
-                          <option key={g} value={g}>
-                            Grade {g}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                        Proposed Section (optional)
-                      </label>
-                      <select
-                        value={form.section_id}
-                        onChange={e => set('section_id', e.target.value)}
-                        className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400">
-                        <option value="">-- Let committee assign --</option>
-                        {sectionsForGrade.map(s => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} ({s.current_count}/{s.capacity})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
+              {existingStudent ? (
+                <SearchableStudentSelect
+                  label="Learner"
+                  accent="indigo"
+                  value={form.student_id === '' ? '' : Number(form.student_id)}
+                  onChange={id =>
+                    set('student_id', id === '' ? '' : String(id))
+                  }
+                  options={returningCandidates}
+                  placeholder="Search returning learners by name, LRN, or ID…"
+                />
+              ) : null}
+              {form.transfer_type === 'transfer_in' && (
+                <FieldError>{fieldError('student_id')}</FieldError>
+              )}
+              {!existingStudent ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                      Previous School
+                      Full Name
                     </label>
                     <input
                       type="text"
-                      value={form.previous_school}
-                      onChange={e => set('previous_school', e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                      value={form.student_name}
+                      onChange={e => set('student_name', e.target.value)}
+                      onBlur={() => markTouched('student_name')}
+                      className={inputClass('student_name')}
                     />
+                    {fieldError('student_name') && (
+                      <FieldError>{fieldError('student_name')}</FieldError>
+                    )}
                   </div>
-                </>
-              )}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                      LRN
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={12}
+                      value={form.lrn}
+                      onChange={e =>
+                        set('lrn', e.target.value.replace(/\D/g, ''))
+                      }
+                      onBlur={() => markTouched('lrn')}
+                      placeholder="12-digit LRN"
+                      className={inputClass('lrn')}
+                    />
+                    {fieldError('lrn') ? (
+                      <FieldError>{fieldError('lrn')}</FieldError>
+                    ) : (
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        {form.lrn.length}/12 digits
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                      Sex
+                    </label>
+                    <select
+                      value={form.sex}
+                      onChange={e => set('sex', e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400">
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                      Birthdate
+                    </label>
+                    <input
+                      type="date"
+                      value={form.birthdate}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={e => set('birthdate', e.target.value)}
+                      onBlur={() => markTouched('birthdate')}
+                      className={inputClass('birthdate')}
+                    />
+                    {fieldError('birthdate') && (
+                      <FieldError>{fieldError('birthdate')}</FieldError>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
-              {form.transfer_type === 'transfer_out' && (
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                    Destination School
+                    Grade Level
                   </label>
-                  <input
-                    type="text"
-                    value={form.destination_school}
-                    onChange={e => set('destination_school', e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
-                  />
+                  <select
+                    value={form.grade_level}
+                    onChange={e => {
+                      set('grade_level', e.target.value);
+                      set('section_id', '');
+                    }}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400">
+                    {GRADES.map(g => (
+                      <option key={g} value={g}>
+                        Grade {g}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                    Proposed Section (optional)
+                  </label>
+                  <select
+                    value={form.section_id}
+                    onChange={e => set('section_id', e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400">
+                    <option value="">-- Let committee assign --</option>
+                    {sectionsForGrade.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.current_count}/{s.capacity})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                  Reason <span className="text-red-500">*</span>
+                  Previous School
                 </label>
-                <textarea
-                  value={form.reason}
-                  onChange={e => set('reason', e.target.value)}
-                  onBlur={() => markTouched('reason')}
-                  rows={3}
-                  placeholder="Why is this learner transferring? This is shown to the Enrollment Committee."
-                  className={inputClass('reason')}
+                <input
+                  type="text"
+                  value={form.previous_school}
+                  onChange={e => set('previous_school', e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
                 />
-                {fieldError('reason') && (
-                  <FieldError>{fieldError('reason')}</FieldError>
-                )}
               </div>
+            </>
+          )}
 
-              <div className="flex items-start gap-2 bg-gray-50 rounded-xl px-3.5 py-3">
-                <AlertTriangle
-                  size={14}
-                  className="text-gray-400 mt-0.5 shrink-0"
-                />
-                <p className="text-[11px] text-gray-500 leading-relaxed">
-                  Approving a Transfer-In enrols the learner and assigns the
-                  section. If no section is proposed, the committee must choose
-                  one at approval time.
-                </p>
-              </div>
+          {form.transfer_type === 'transfer_out' && (
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                Destination School
+              </label>
+              <input
+                type="text"
+                value={form.destination_school}
+                onChange={e => set('destination_school', e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+              />
             </div>
+          )}
 
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
-              <button
-                onClick={() => setShowForm(false)}
-                className="rounded-xl border border-gray-200 px-4 py-2.5 min-h-11 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 min-h-11 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition">
-                {saving && <Loader2 size={15} className="animate-spin" />}
-                File Request
-              </button>
-            </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+              Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={form.reason}
+              onChange={e => set('reason', e.target.value)}
+              onBlur={() => markTouched('reason')}
+              rows={3}
+              placeholder="Why is this learner transferring? This is shown to the Enrollment Committee."
+              className={inputClass('reason')}
+            />
+            {fieldError('reason') && (
+              <FieldError>{fieldError('reason')}</FieldError>
+            )}
+          </div>
+
+          <div className="flex items-start gap-2 bg-gray-50 rounded-xl px-3.5 py-3">
+            <AlertTriangle
+              size={14}
+              className="text-gray-400 mt-0.5 shrink-0"
+            />
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              Approving a Transfer-In enrols the learner and assigns the
+              section. If no section is proposed, the committee must choose one
+              at approval time.
+            </p>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <button
+            onClick={() => setShowForm(false)}
+            className="rounded-xl border border-gray-200 px-4 py-2.5 min-h-11 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 min-h-11 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition">
+            {saving && <Loader2 size={15} className="animate-spin" />}
+            File Request
+          </button>
+        </div>
       </ModalShell>
     </PageContainer>
   );

@@ -8,11 +8,12 @@
  * - Type-safe request methods
  */
 
-export const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+export const API_BASE =
+  import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // ─── Token Management ───────────────────────────────────────────────────────
 
-const TOKEN_KEY = "hi5_portal_token";
+const TOKEN_KEY = 'hi5_portal_token';
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -46,7 +47,7 @@ export class ApiError extends Error {
 
   constructor(status: number, detail: ApiErrorDetail) {
     super(detail.error || `HTTP ${status}`);
-    this.name = "ApiError";
+    this.name = 'ApiError';
     this.status = status;
     this.detail = detail;
   }
@@ -79,27 +80,28 @@ interface RequestOptions {
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, headers = {}, noThrow = false } = opts;
+  const { method = 'GET', body, headers = {}, noThrow = false } = opts;
 
   const token = getToken();
 
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const isFormData =
+    typeof FormData !== 'undefined' && body instanceof FormData;
 
   const hdrs: Record<string, string> = { ...headers };
 
   // For FormData the browser must set Content-Type (with the multipart boundary) itself.
   if (!isFormData) {
-    hdrs["Content-Type"] = "application/json";
+    hdrs['Content-Type'] = 'application/json';
   }
 
   if (token) {
-    hdrs["Authorization"] = `Bearer ${token}`;
+    hdrs['Authorization'] = `Bearer ${token}`;
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: hdrs,
-    body: isFormData ? body : body ? JSON.stringify(body) : undefined,
+    body: isFormData ? body : body ? JSON.stringify(body) : undefined
   });
 
   if (!res.ok) {
@@ -116,7 +118,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     if (res.status === 401 && token) {
       clearToken();
       // Use replace so back button doesn't bounce
-      window.location.replace("/login");
+      window.location.replace('/login');
       // Throw to stop execution — the redirect will happen
       throw err;
     }
@@ -139,28 +141,42 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /** Build a query string from an object, omitting nullish values */
-function buildQuery(params?: Record<string, string | number | undefined>): string {
-  if (!params) return "";
-  const entries = Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== "");
-  if (entries.length === 0) return "";
-  return "?" + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
+function buildQuery(
+  params?: Record<string, string | number | undefined>
+): string {
+  if (!params) return '';
+  const entries = Object.entries(params).filter(
+    ([_, v]) => v !== undefined && v !== null && v !== ''
+  );
+  if (entries.length === 0) return '';
+  return (
+    '?' +
+    entries
+      .map(
+        ([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`
+      )
+      .join('&')
+  );
 }
 
 export const api = {
-  get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  get<T>(
+    path: string,
+    params?: Record<string, string | number | undefined>
+  ): Promise<T> {
     return request<T>(`${path}${buildQuery(params)}`);
   },
 
   post<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>(path, { method: "POST", body });
+    return request<T>(path, { method: 'POST', body });
   },
 
   put<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>(path, { method: "PUT", body });
+    return request<T>(path, { method: 'PUT', body });
   },
 
   del<T = { message: string }>(path: string): Promise<T> {
-    return request<T>(path, { method: "DELETE" });
+    return request<T>(path, { method: 'DELETE' });
   },
 
   /**
@@ -170,11 +186,14 @@ export const api = {
   /**
    * Get a raw Response for binary downloads (CSV, PDF, etc.)
    */
-  getBlob(path: string, params?: Record<string, string | number | undefined>): Promise<Response> {
+  getBlob(
+    path: string,
+    params?: Record<string, string | number | undefined>
+  ): Promise<Response> {
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers['Authorization'] = `Bearer ${token}`;
     }
     const qs = buildQuery(params);
     return fetch(`${API_BASE}${path}${qs}`, { headers });
@@ -186,14 +205,16 @@ export const api = {
    */
   postBlob(path: string, body: unknown): Promise<Response> {
     const token = getToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers['Authorization'] = `Bearer ${token}`;
     }
     return fetch(`${API_BASE}${path}`, {
-      method: "POST",
+      method: 'POST',
       headers,
-      body: JSON.stringify(body),
+      body: JSON.stringify(body)
     });
   },
 
@@ -201,14 +222,14 @@ export const api = {
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers['Authorization'] = `Bearer ${token}`;
     }
     return request<T>(path, {
-      method: "POST",
+      method: 'POST',
       body: formData,
-      headers,
+      headers
     });
-  },
+  }
 };
 
 // ─── Auth API ───────────────────────────────────────────────────────────────
@@ -225,7 +246,12 @@ export interface LoginResponse {
     username: string;
     name: string;
     email: string;
-    role: "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
+    role:
+      | 'admin'
+      | 'teacher'
+      | 'registrar'
+      | 'principal'
+      | 'enrollment_committee';
     status: string;
   };
 }
@@ -235,8 +261,13 @@ export interface UserProfile {
   username: string;
   name: string;
   email: string;
-  role: "admin" | "teacher" | "registrar" | "principal" | "enrollment_committee";
-  status: "active" | "idle" | "inactive";
+  role:
+    | 'admin'
+    | 'teacher'
+    | 'registrar'
+    | 'principal'
+    | 'enrollment_committee';
+  status: 'active' | 'idle' | 'inactive';
   phone: string | null;
   address: string | null;
   profile_photo_url: string | null;
@@ -249,15 +280,27 @@ export interface UserProfile {
 }
 
 export const authApi = {
-  login: (data: LoginPayload) => api.post<LoginResponse>("/auth/login", data),
-  me: () => api.get<UserProfile>("/auth/me"),
-  updateMe: (data: { name?: string; email?: string; phone?: string; address?: string; profile_photo_url?: string; employee_id?: string; designation?: string; date_hired?: string; end_of_contract?: string }) =>
-    api.put<UserProfile>("/auth/me", data),
+  login: (data: LoginPayload) => api.post<LoginResponse>('/auth/login', data),
+  me: () => api.get<UserProfile>('/auth/me'),
+  updateMe: (data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    profile_photo_url?: string;
+    employee_id?: string;
+    designation?: string;
+    date_hired?: string;
+    end_of_contract?: string;
+  }) => api.put<UserProfile>('/auth/me', data),
   changePassword: (data: { current_password: string; new_password: string }) =>
-    api.put<{ message: string }>("/auth/change-password", data),
-  logout: () => api.post<{ message: string }>("/auth/logout"),
+    api.put<{ message: string }>('/auth/change-password', data),
+  logout: () => api.post<{ message: string }>('/auth/logout'),
   forgotPassword: (data: { email: string }) =>
-    api.post<{ message: string; reset_link?: string; reset_expires?: string }>("/auth/forgot-password", data),
+    api.post<{ message: string; reset_link?: string; reset_expires?: string }>(
+      '/auth/forgot-password',
+      data
+    ),
   resetPassword: (data: { token: string; new_password: string }) =>
-    api.post<{ message: string }>("/auth/reset-password", data),
+    api.post<{ message: string }>('/auth/reset-password', data)
 };

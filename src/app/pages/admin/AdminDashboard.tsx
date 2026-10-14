@@ -1,7 +1,7 @@
 /**
  * Admin Dashboard — fetches live data from the API with fallback to static content.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Users,
@@ -12,7 +12,8 @@ import {
   History,
   Clock,
   School,
-  ArrowRight
+  ArrowRight,
+  Filter
 } from 'lucide-react';
 import {
   BarChart,
@@ -23,9 +24,10 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { studentsApi } from '../../services/students';
+import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { logsApi, ActivityLogRow } from '../../services/logs';
-import { sectionsApi } from '../../services/sections';
+import { sectionsApi, SectionRow } from '../../services/sections';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { usersApi } from '../../services/users';
 import { PageContainer } from '../../components/PageContainer';
 import { HybridTable } from '../../components/HybridTable';
@@ -33,56 +35,39 @@ import { HybridTable } from '../../components/HybridTable';
 export function AdminDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [totalStudents, setTotalStudents] = useState(0);
   const [totalSections, setTotalSections] = useState(0);
+  const [sections, setSections] = useState<SectionRow[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalTeachers, setTotalTeachers] = useState(0);
   const [totalInactiveTeachers, setTotalInactiveTeachers] = useState(0);
   const [totalCapacity, setTotalCapacity] = useState(0);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
-  // Chart data (populated from API where possible)
-  const [enrollmentByGender, setEnrollmentByGender] = useState<any[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
+  const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
+  // Dashboard scope — defaults to the current school year / all sections.
+  const [selectedSY, setSelectedSY] = useState<number | null>(null);
+  const [selectedSection, setSelectedSection] = useState<string>('all');
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      studentsApi
-        .list()
-        .then(students => {
+      enrollmentsApi.list().then(
+        rows => {
+          if (!cancelled) setEnrollments(rows);
+        },
+        () => {}
+      ),
+      sectionsApi.list().then(
+        rows => {
           if (cancelled) return;
-          setTotalStudents(students.length);
-          // Build gender distribution
-          const gradeMap: Record<string, { male: number; female: number }> = {};
-          students.forEach(s => {
-            const key = `Gr.${s.grade_level}`;
-            if (!gradeMap[key]) gradeMap[key] = { male: 0, female: 0 };
-            if (s.sex === 'male') gradeMap[key].male++;
-            else gradeMap[key].female++;
-          });
-          const grades = Object.entries(gradeMap).sort(([a], [b]) =>
-            a.localeCompare(b)
-          );
-          setEnrollmentByGender(
-            grades.map(([grade, data]) => ({
-              grade,
-              Male: data.male,
-              Female: data.female,
-              Total: data.male + data.female
-            }))
-          );
-        })
-        .catch(() => {}),
-      sectionsApi
-        .list()
-        .then(sections => {
-          if (cancelled) return;
-          setTotalSections(sections.length);
-          setTotalCapacity(sections.reduce((a, s) => a + s.capacity, 0));
-        })
-        .catch(() => {}),
-      usersApi
-        .list()
-        .then(users => {
+          setSections(rows);
+          setTotalSections(rows.length);
+          setTotalCapacity(rows.reduce((a, s) => a + s.capacity, 0));
+        },
+        () => {}
+      ),
+      usersApi.list().then(
+        users => {
           if (cancelled) return;
           setTotalUsers(users.length);
           const teacherAccounts = users.filter(u => u.role === 'teacher');
@@ -92,14 +77,24 @@ export function AdminDashboard() {
           setTotalInactiveTeachers(
             teacherAccounts.filter(u => u.status !== 'active').length
           );
-        })
-        .catch(() => {}),
-      logsApi
-        .list({ limit: 8 })
-        .then(logs => {
+        },
+        () => {}
+      ),
+      logsApi.list({ limit: 8 }).then(
+        logs => {
           if (!cancelled) setActivityLogs(logs);
-        })
-        .catch(() => {})
+        },
+        () => {}
+      ),
+      schoolYearsApi.list().then(
+        years => {
+          if (cancelled) return;
+          setSchoolYears(years);
+          const current = years.find(y => y.is_current === 1) ?? years[0];
+          if (current) setSelectedSY(current.id);
+        },
+        () => {}
+      )
     ]).finally(() => {
       if (!cancelled) setLoading(false);
     });
@@ -108,17 +103,74 @@ export function AdminDashboard() {
     };
   }, []);
 
+  // Enrollments scoped to the selected school year & section.
+  const scopedEnrollments = useMemo(
+    () =>
+      enrollments.filter(
+        e =>
+          e.status === 'enrolled' &&
+          (selectedSY == null || e.school_year_id === selectedSY) &&
+          (selectedSection === 'all' ||
+            e.section_id === Number(selectedSection))
+      ),
+    [enrollments, selectedSY, selectedSection]
+  );
+
+  const totalStudents = scopedEnrollments.length;
+  const selectedSYLabel =
+    schoolYears.find(y => y.id === selectedSY)?.sy_label ??
+    'the current school year';
+
+  // Gender distribution by grade, built from the scoped enrollments.
+  const enrollmentByGender = useMemo(() => {
+    const gradeMap: Record<string, { male: number; female: number }> = {};
+    scopedEnrollments.forEach(s => {
+      const key = `Gr.${s.grade_level}`;
+      if (!gradeMap[key]) gradeMap[key] = { male: 0, female: 0 };
+      if (s.sex === 'male') gradeMap[key].male++;
+      else if (s.sex === 'female') gradeMap[key].female++;
+    });
+    return Object.entries(gradeMap)
+      .sort(
+        ([a], [b]) =>
+          parseInt(a.replace(/\D/g, ''), 10) -
+          parseInt(b.replace(/\D/g, ''), 10)
+      )
+      .map(([grade, data]) => ({
+        grade,
+        Male: data.male,
+        Female: data.female,
+        Total: data.male + data.female
+      }));
+  }, [scopedEnrollments]);
+
   if (loading) {
     return (
       <PageContainer className="animate-pulse">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg
+              className="animate-spin w-5 h-5 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
           </div>
-          <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
+          <p className="text-gray-400 text-sm font-medium">
+            Loading dashboard data...
+          </p>
         </div>
       </PageContainer>
     );
@@ -128,7 +180,7 @@ export function AdminDashboard() {
     {
       label: 'Total Enrolled',
       value: totalStudents.toString(),
-      sub: 'Across all grades in the current school year.',
+      sub: `Across all grades in ${selectedSYLabel}.`,
       icon: Users,
       tile: 'from-blue-400 to-blue-600',
       tileShadow: 'shadow-blue-200/60',
@@ -179,8 +231,12 @@ export function AdminDashboard() {
               <BarChart2 size={22} className="text-white" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Admin Dashboard</h2>
-              <p className="text-gray-500 text-sm truncate">Live overview · enrollment, faculty & activity</p>
+              <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
+                Admin Dashboard
+              </h2>
+              <p className="text-gray-500 text-sm truncate">
+                Live overview · enrollment, faculty & activity
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -198,6 +254,45 @@ export function AdminDashboard() {
         </div>
       </div>
 
+      {/* SCOPE FILTERS */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
+          <Filter size={14} className="text-blue-500" /> Filter dashboard
+        </div>
+        <div className="flex flex-col sm:flex-row sm:ml-auto gap-3">
+          <label className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="whitespace-nowrap">School Year</span>
+            <select
+              value={selectedSY ?? ''}
+              onChange={e =>
+                setSelectedSY(e.target.value ? Number(e.target.value) : null)
+              }
+              className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400">
+              {schoolYears.map(y => (
+                <option key={y.id} value={y.id}>
+                  {y.sy_label}
+                  {y.is_current === 1 ? ' (Current)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="whitespace-nowrap">Section</span>
+            <select
+              value={selectedSection}
+              onChange={e => setSelectedSection(e.target.value)}
+              className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400">
+              <option value="all">All sections</option>
+              {sections.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} (Gr. {s.grade_level})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(card => {
@@ -206,20 +301,34 @@ export function AdminDashboard() {
             <div
               key={card.label}
               className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
-              <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${card.bar}`} />
-              <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${card.tile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`} />
+              <div
+                className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${card.bar}`}
+              />
+              <div
+                className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${card.tile} opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300`}
+              />
               <div className="relative flex items-center justify-between gap-2 mb-3">
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">{card.label}</span>
-                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${card.tile} shadow-md ${card.tileShadow} flex items-center justify-center flex-shrink-0`}>
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
+                  {card.label}
+                </span>
+                <div
+                  className={`w-9 h-9 rounded-xl bg-gradient-to-br ${card.tile} shadow-md ${card.tileShadow} flex items-center justify-center flex-shrink-0`}>
                   <Icon size={16} className="text-white" />
                 </div>
               </div>
-              <p className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${card.valueCls}`}>{card.value}</p>
+              <p
+                className={`relative text-2xl font-bold tracking-[-0.02em] leading-none ${card.valueCls}`}>
+                {card.value}
+              </p>
               <div className="relative flex items-start gap-1.5 mt-2">
                 {card.dot && (
-                  <span className={`w-1.5 h-1.5 rounded-full ${card.dot} mt-1 flex-shrink-0`} />
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${card.dot} mt-1 flex-shrink-0`}
+                  />
                 )}
-                <p className="relative text-xs text-gray-400 leading-snug">{card.sub}</p>
+                <p className="relative text-xs text-gray-400 leading-snug">
+                  {card.sub}
+                </p>
               </div>
             </div>
           );
@@ -236,7 +345,9 @@ export function AdminDashboard() {
                 <BarChart2 size={14} className="text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800">Enrollment by Grade Level</h3>
+                <h3 className="font-semibold text-gray-800">
+                  Enrollment by Grade Level
+                </h3>
                 <p className="text-gray-400 text-xs mt-0.5">
                   Male vs. Female distribution
                 </p>
@@ -248,37 +359,37 @@ export function AdminDashboard() {
           </div>
           {enrollmentByGender.length > 0 ? (
             <div className="h-56 sm:h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={enrollmentByGender} barCategoryGap="30%">
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#f0f0f0"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="grade"
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  width={32}
-                  tick={{ fontSize: 10, fill: '#6b7280' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    fontSize: '12px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}
-                />
-                <Bar dataKey="Male" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Female" fill="#93c5fd" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={enrollmentByGender} barCategoryGap="30%">
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#f0f0f0"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="grade"
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    width={32}
+                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  <Bar dataKey="Male" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Female" fill="#93c5fd" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div className="h-56 sm:h-72 flex items-center justify-center text-gray-400 text-sm">
@@ -290,7 +401,8 @@ export function AdminDashboard() {
               <span className="w-3 h-3 rounded bg-blue-600 inline-block" /> Male
             </span>
             <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <span className="w-3 h-3 rounded bg-blue-300 inline-block" /> Female
+              <span className="w-3 h-3 rounded bg-blue-300 inline-block" />{' '}
+              Female
             </span>
           </div>
         </div>
@@ -303,7 +415,9 @@ export function AdminDashboard() {
             </div>
             <div>
               <h3 className="font-semibold text-gray-800">Teacher Accounts</h3>
-              <p className="text-gray-400 text-xs mt-0.5">Active vs. inactive faculty</p>
+              <p className="text-gray-400 text-xs mt-0.5">
+                Active vs. inactive faculty
+              </p>
             </div>
           </div>
           <div className="flex-1 flex items-center gap-4 p-4 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-teal-50 to-white">
@@ -315,10 +429,13 @@ export function AdminDashboard() {
                 <span className="text-2xl font-bold leading-none text-emerald-700">
                   {totalTeachers}
                 </span>
-                <span className="text-xs font-medium text-emerald-600">active</span>
+                <span className="text-xs font-medium text-emerald-600">
+                  active
+                </span>
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                {totalInactiveTeachers} inactive · {totalTeachers + totalInactiveTeachers} total accounts
+                {totalInactiveTeachers} inactive ·{' '}
+                {totalTeachers + totalInactiveTeachers} total accounts
               </p>
             </div>
           </div>
@@ -340,8 +457,12 @@ export function AdminDashboard() {
                 <Users size={14} className="text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800">Grade-Level Enrollment</h3>
-                <p className="text-gray-400 text-xs mt-0.5">Student distribution per grade</p>
+                <h3 className="font-semibold text-gray-800">
+                  Grade-Level Enrollment
+                </h3>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  Student distribution per grade
+                </p>
               </div>
             </div>
           </div>
@@ -366,11 +487,11 @@ export function AdminDashboard() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="">
                       {enrollmentByGender.map((stat: any, idx: number) => (
                         <tr
                           key={stat.grade}
-                          className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-blue-50/50 transition-colors`}>
+                          className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-blue-50/50 transition-colors`}>
                           <td className="px-6 py-3.5 font-medium text-gray-800">
                             {stat.grade}
                           </td>
@@ -390,19 +511,25 @@ export function AdminDashboard() {
                 </div>
               }
               mobile={
-                <ul className="divide-y divide-gray-50">
+                <ul className="">
                   {enrollmentByGender.map((stat: any) => (
                     <li key={stat.grade} className="px-4 py-3.5">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-gray-800">{stat.grade}</p>
-                        <span className="text-sm font-bold text-blue-600 flex-shrink-0">{stat.Total}</span>
+                        <p className="text-sm font-semibold text-gray-800">
+                          {stat.grade}
+                        </p>
+                        <span className="text-sm font-bold text-blue-600 flex-shrink-0">
+                          {stat.Total}
+                        </span>
                       </div>
                       <div className="mt-1 flex items-center gap-4">
                         <span className="flex items-center gap-1.5 text-xs text-gray-600">
-                          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" /> Male: {stat.Male}
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />{' '}
+                          Male: {stat.Male}
                         </span>
                         <span className="flex items-center gap-1.5 text-xs text-gray-600">
-                          <span className="w-2.5 h-2.5 rounded-full bg-blue-300 inline-block" /> Female: {stat.Female}
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-300 inline-block" />{' '}
+                          Female: {stat.Female}
                         </span>
                       </div>
                     </li>
@@ -425,8 +552,12 @@ export function AdminDashboard() {
                 <History size={14} className="text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800">Recent System Activity</h3>
-                <p className="text-gray-400 text-xs mt-0.5">Latest actions across the system</p>
+                <h3 className="font-semibold text-gray-800">
+                  Recent System Activity
+                </h3>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  Latest actions across the system
+                </p>
               </div>
             </div>
             <button
@@ -435,14 +566,16 @@ export function AdminDashboard() {
               View all →
             </button>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="">
             {activityLogs.length === 0 ? (
               <div className="p-12 text-center text-gray-400 text-sm">
                 No recent activity
               </div>
             ) : (
               activityLogs.map(log => (
-                <div key={log.id} className="px-6 py-3.5 flex items-start gap-3">
+                <div
+                  key={log.id}
+                  className="px-6 py-3.5 flex items-start gap-3">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-sm">
                     <span className="text-xs font-bold">
                       {log.user_name?.charAt(0) || '?'}

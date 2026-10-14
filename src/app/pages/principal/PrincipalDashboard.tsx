@@ -1,15 +1,48 @@
-import React, { useState, useEffect } from "react";
-import { Users, Layers, TrendingUp, GraduationCap, BookOpen, Activity, School, AlertTriangle, BarChart3, PieChart as PieChartIcon, Target } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from "recharts";
-import { enrollmentsApi, EnrollmentRow } from "../../services/enrollments";
-import { sectionsApi, SectionRow } from "../../services/sections";
-import { gradesApi, GradeDistribution } from "../../services/grades";
-import { useApp } from "../../context/AppContext";
-import { StudentRiskOverview } from "../../components/StudentRiskOverview";
-import { PageContainer } from "../../components/PageContainer";
-import { HybridTable } from "../../components/HybridTable";
+import React, { useState, useEffect } from 'react';
+import {
+  Users,
+  Layers,
+  TrendingUp,
+  GraduationCap,
+  BookOpen,
+  Activity,
+  School,
+  AlertTriangle,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Target
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Legend
+} from 'recharts';
+import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { sectionsApi, SectionRow } from '../../services/sections';
+import { gradesApi, GradeDistribution } from '../../services/grades';
+import { useApp } from '../../context/AppContext';
+import { StudentRiskOverview } from '../../components/StudentRiskOverview';
+import { PageContainer } from '../../components/PageContainer';
+import { HybridTable } from '../../components/HybridTable';
 
-const COLORS = ["#9333ea", "#a855f7", "#c084fc", "#e9d5ff", "#7c3aed", "#d8b4fe"];
+const COLORS = [
+  '#9333ea',
+  '#a855f7',
+  '#c084fc',
+  '#e9d5ff',
+  '#7c3aed',
+  '#d8b4fe'
+];
 
 export function PrincipalDashboard() {
   const { showToast } = useApp();
@@ -18,59 +51,114 @@ export function PrincipalDashboard() {
   const [sections, setSections] = useState<SectionRow[]>([]);
   // Grade performance data (school-wide, current SY) for the analytics charts.
   // Optional: if it fails (no grades yet), the performance cards simply hide.
-  const [distribution, setDistribution] = useState<GradeDistribution | null>(null);
+  const [distribution, setDistribution] = useState<GradeDistribution | null>(
+    null
+  );
 
   useEffect(() => {
-    Promise.all([
-      enrollmentsApi.list(),
-      sectionsApi.list(),
-    ]).then(([enr, sec]) => {
-      setEnrollments(enr);
-      setSections(sec);
-    }).catch(err => {
-      showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
-    }).finally(() => setLoading(false));
+    Promise.all([enrollmentsApi.list(), sectionsApi.list()])
+      .then(([enr, sec]) => {
+        setEnrollments(enr);
+        setSections(sec);
+      })
+      .catch(err => {
+        showToast(
+          'error',
+          'Failed to load data: ' + (err.detail?.error || err.message)
+        );
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { schoolYearsApi } = await import("../../services/schoolYears");
+        const { schoolYearsApi } = await import('../../services/schoolYears');
         const years = await schoolYearsApi.list();
         const current = years.find(y => y.is_current === 1);
         if (!current) return;
-        const dist = await gradesApi.getDistribution({ school_year_id: current.id });
+        const dist = await gradesApi.getDistribution({
+          school_year_id: current.id
+        });
         if (!cancelled) setDistribution(dist);
-      } catch { /* performance analytics are optional */ }
+      } catch {
+        /* performance analytics are optional */
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const gradeLevels = [7, 8, 9, 10, 11, 12];
-  const totalEnrolled = enrollments.filter(e => e.status === "enrolled").length;
+  const totalEnrolled = enrollments.filter(e => e.status === 'enrolled').length;
   const totalSections = sections.length;
   const totalCapacity = sections.reduce((sum, s) => sum + s.capacity, 0);
-  const overallPercent = totalCapacity > 0 ? Math.round((totalEnrolled / totalCapacity) * 100) : 0;
+  const overallPercent =
+    totalCapacity > 0 ? Math.round((totalEnrolled / totalCapacity) * 100) : 0;
 
   const enrollmentByGrade = gradeLevels.map(g => ({
     grade: `Grade ${g}`,
-    enrolled: enrollments.filter(e => e.grade_level === g && e.status === "enrolled").length,
-    capacity: sections.filter(s => s.grade_level === g).reduce((sum, s) => sum + s.capacity, 0),
+    enrolled: enrollments.filter(
+      e => e.grade_level === g && e.status === 'enrolled'
+    ).length,
+    capacity: sections
+      .filter(s => s.grade_level === g)
+      .reduce((sum, s) => sum + s.capacity, 0)
   }));
 
   const sectionPopData = sections
     .sort((a, b) => b.current_count - a.current_count)
     .slice(0, 10)
-    .map(s => ({ name: `${s.name} (G${s.grade_level})`, value: s.current_count }));
+    .map(s => ({
+      name: `${s.name} (G${s.grade_level})`,
+      value: s.current_count
+    }));
 
   const programData = [
-    { name: "Regular", value: enrollments.filter(e => e.status === "enrolled" && e.program === "regular").length, color: "#9333ea" },
-    { name: "STE", value: enrollments.filter(e => e.status === "enrolled" && e.program === "ste").length, color: "#a855f7" },
-    { name: "SPFL", value: enrollments.filter(e => e.status === "enrolled" && e.program === "spfl").length, color: "#c084fc" },
-    { name: "Open High", value: enrollments.filter(e => e.status === "enrolled" && e.program === "open_high").length, color: "#e9d5ff" },
-    { name: "ALS-SHS", value: enrollments.filter(e => e.status === "enrolled" && e.program === "als_shs").length, color: "#7c3aed" },
-    { name: "ALS-JHS", value: enrollments.filter(e => e.status === "enrolled" && e.program === "als_jhs").length, color: "#6d28d9" },
+    {
+      name: 'Regular',
+      value: enrollments.filter(
+        e => e.status === 'enrolled' && e.program === 'regular'
+      ).length,
+      color: '#9333ea'
+    },
+    {
+      name: 'STE',
+      value: enrollments.filter(
+        e => e.status === 'enrolled' && e.program === 'ste'
+      ).length,
+      color: '#a855f7'
+    },
+    {
+      name: 'SPFL',
+      value: enrollments.filter(
+        e => e.status === 'enrolled' && e.program === 'spfl'
+      ).length,
+      color: '#c084fc'
+    },
+    {
+      name: 'Open High',
+      value: enrollments.filter(
+        e => e.status === 'enrolled' && e.program === 'open_high'
+      ).length,
+      color: '#e9d5ff'
+    },
+    {
+      name: 'ALS-SHS',
+      value: enrollments.filter(
+        e => e.status === 'enrolled' && e.program === 'als_shs'
+      ).length,
+      color: '#7c3aed'
+    },
+    {
+      name: 'ALS-JHS',
+      value: enrollments.filter(
+        e => e.status === 'enrolled' && e.program === 'als_jhs'
+      ).length,
+      color: '#6d28d9'
+    }
   ].filter(p => p.value > 0);
 
   // ── Principal analytics (charts added for at-a-glance school-wide insight) ──
@@ -78,7 +166,8 @@ export function PrincipalDashboard() {
   // Enrollment trend: enrolled students per school year, chronological.
   const trendData = Array.from(
     enrollments.reduce((map, e) => {
-      if (e.status === "enrolled") map.set(e.sy_label, (map.get(e.sy_label) || 0) + 1);
+      if (e.status === 'enrolled')
+        map.set(e.sy_label, (map.get(e.sy_label) || 0) + 1);
       return map;
     }, new Map<string, number>())
   )
@@ -86,21 +175,32 @@ export function PrincipalDashboard() {
     .sort((a, b) => a.sy.localeCompare(b.sy));
 
   // Male/female ratio across enrolled students (sex comes from enrollments list).
-  const maleCount = enrollments.filter(e => e.status === "enrolled" && (e.sex || "").toLowerCase() === "male").length;
-  const femaleCount = enrollments.filter(e => e.status === "enrolled" && (e.sex || "").toLowerCase() === "female").length;
+  const maleCount = enrollments.filter(
+    e => e.status === 'enrolled' && (e.sex || '').toLowerCase() === 'male'
+  ).length;
+  const femaleCount = enrollments.filter(
+    e => e.status === 'enrolled' && (e.sex || '').toLowerCase() === 'female'
+  ).length;
   const genderData = [
-    { name: "Male", value: maleCount, color: "#7c3aed" },
-    { name: "Female", value: femaleCount, color: "#f0abfc" },
+    { name: 'Male', value: maleCount, color: '#7c3aed' },
+    { name: 'Female', value: femaleCount, color: '#f0abfc' }
   ].filter(g => g.value > 0);
 
   // School-wide grade distribution: sum subject buckets per range.
   const distData = distribution
-    ? ["90-100", "85-89", "80-84", "75-79", "<75"].map(range => {
-        const color = distribution.subjects[0]?.buckets.find(b => b.range === range)?.color || "#9333ea";
+    ? ['90-100', '85-89', '80-84', '75-79', '<75'].map(range => {
+        const color =
+          distribution.subjects[0]?.buckets.find(b => b.range === range)
+            ?.color || '#9333ea';
         return {
           range,
-          count: distribution.subjects.reduce((sum, s) => sum + (Number(s.buckets.find(b => b.range === range)?.count) || 0), 0),
-          color,
+          count: distribution.subjects.reduce(
+            (sum, s) =>
+              sum +
+              (Number(s.buckets.find(b => b.range === range)?.count) || 0),
+            0
+          ),
+          color
         };
       })
     : [];
@@ -110,12 +210,28 @@ export function PrincipalDashboard() {
       <PageContainer>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg
+              className="animate-spin w-5 h-5 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
           </div>
-          <p className="text-gray-400 text-sm font-medium">Loading dashboard data...</p>
+          <p className="text-gray-400 text-sm font-medium">
+            Loading dashboard data...
+          </p>
         </div>
       </PageContainer>
     );
@@ -131,8 +247,12 @@ export function PrincipalDashboard() {
             <Activity size={22} className="text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">Principal Dashboard</h2>
-            <p className="text-gray-500 text-sm">School-wide overview — enrollment, sections, and key metrics</p>
+            <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
+              Principal Dashboard
+            </h2>
+            <p className="text-gray-500 text-sm">
+              School-wide overview — enrollment, sections, and key metrics
+            </p>
           </div>
         </div>
       </div>
@@ -143,41 +263,73 @@ export function PrincipalDashboard() {
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400" />
           <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
           <div className="relative flex items-center justify-between gap-2 mb-3">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Total Students</span>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-md shadow-purple-200/60 flex items-center justify-center flex-shrink-0"><Users size={16} className="text-white" /></div>
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
+              Total Students
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-md shadow-purple-200/60 flex items-center justify-center flex-shrink-0">
+              <Users size={16} className="text-white" />
+            </div>
           </div>
-          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-purple-600">{totalEnrolled}</p>
-          <p className="relative text-xs text-gray-400 mt-2">{overallPercent}% capacity</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-purple-600">
+            {totalEnrolled}
+          </p>
+          <p className="relative text-xs text-gray-400 mt-2">
+            {overallPercent}% capacity
+          </p>
         </div>
         <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400" />
           <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
           <div className="relative flex items-center justify-between gap-2 mb-3">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Sections</span>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-md shadow-blue-200/60 flex items-center justify-center flex-shrink-0"><Layers size={16} className="text-white" /></div>
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
+              Sections
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-md shadow-blue-200/60 flex items-center justify-center flex-shrink-0">
+              <Layers size={16} className="text-white" />
+            </div>
           </div>
-          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-blue-600">{totalSections}</p>
-          <p className="relative text-xs text-gray-400 mt-2">Across {gradeLevels.length} grade levels</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-blue-600">
+            {totalSections}
+          </p>
+          <p className="relative text-xs text-gray-400 mt-2">
+            Across {gradeLevels.length} grade levels
+          </p>
         </div>
         <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400" />
           <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
           <div className="relative flex items-center justify-between gap-2 mb-3">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Teachers</span>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 flex items-center justify-center flex-shrink-0"><GraduationCap size={16} className="text-white" /></div>
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
+              Teachers
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200/60 flex items-center justify-center flex-shrink-0">
+              <GraduationCap size={16} className="text-white" />
+            </div>
           </div>
-          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-emerald-600">{sections.filter(s => s.adviser_id).length}</p>
-          <p className="relative text-xs text-gray-400 mt-2">Advisers assigned</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-emerald-600">
+            {sections.filter(s => s.adviser_id).length}
+          </p>
+          <p className="relative text-xs text-gray-400 mt-2">
+            Advisers assigned
+          </p>
         </div>
         <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-[0_2px_14px_rgba(15,23,42,0.06)] p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400" />
           <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 opacity-[0.08] blur-2xl group-hover:opacity-[0.15] transition-opacity duration-300" />
           <div className="relative flex items-center justify-between gap-2 mb-3">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">Programs</span>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-md shadow-amber-200/60 flex items-center justify-center flex-shrink-0"><BookOpen size={16} className="text-white" /></div>
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em]">
+              Programs
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-md shadow-amber-200/60 flex items-center justify-center flex-shrink-0">
+              <BookOpen size={16} className="text-white" />
+            </div>
           </div>
-          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-amber-600">{programData.length}</p>
-          <p className="relative text-xs text-gray-400 mt-2 truncate">{programData.map(p => p.name).join(", ")}</p>
+          <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-amber-600">
+            {programData.length}
+          </p>
+          <p className="relative text-xs text-gray-400 mt-2 truncate">
+            {programData.map(p => p.name).join(', ')}
+          </p>
         </div>
       </div>
 
@@ -188,7 +340,9 @@ export function PrincipalDashboard() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
               <BarChart3 size={14} className="text-white" />
             </div>
-            <h3 className="font-semibold text-gray-800 text-sm">Enrollment per Grade Level</h3>
+            <h3 className="font-semibold text-gray-800 text-sm">
+              Enrollment per Grade Level
+            </h3>
           </div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={enrollmentByGrade}>
@@ -196,8 +350,18 @@ export function PrincipalDashboard() {
               <XAxis dataKey="grade" tick={{ fontSize: 12 }} interval={0} />
               <YAxis width={36} tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Bar dataKey="enrolled" fill="#9333ea" radius={[4, 4, 0, 0]} name="Enrolled" />
-              <Bar dataKey="capacity" fill="#f3e8ff" radius={[4, 4, 0, 0]} name="Capacity" />
+              <Bar
+                dataKey="enrolled"
+                fill="#9333ea"
+                radius={[4, 4, 0, 0]}
+                name="Enrolled"
+              />
+              <Bar
+                dataKey="capacity"
+                fill="#f3e8ff"
+                radius={[4, 4, 0, 0]}
+                name="Capacity"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -206,11 +370,19 @@ export function PrincipalDashboard() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
               <PieChartIcon size={14} className="text-white" />
             </div>
-            <h3 className="font-semibold text-gray-800 text-sm">Enrollment by Program</h3>
+            <h3 className="font-semibold text-gray-800 text-sm">
+              Enrollment by Program
+            </h3>
           </div>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={programData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%"
+              <Pie
+                data={programData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius="70%"
                 label={false}>
                 {programData.map((_entry, idx) => (
                   <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
@@ -230,23 +402,41 @@ export function PrincipalDashboard() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-sm flex items-center justify-center flex-shrink-0">
               <TrendingUp size={14} className="text-white" />
             </div>
-            <h3 className="font-semibold text-gray-800 text-sm">Enrollment Trend</h3>
+            <h3 className="font-semibold text-gray-800 text-sm">
+              Enrollment Trend
+            </h3>
           </div>
           {trendData.length > 1 ? (
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="sy" tick={{ fontSize: 11 }} />
-                <YAxis width={36} tick={{ fontSize: 12 }} allowDecimals={false} />
+                <YAxis
+                  width={36}
+                  tick={{ fontSize: 12 }}
+                  allowDecimals={false}
+                />
                 <Tooltip />
-                <Line type="monotone" dataKey="students" stroke="#4f46e5" strokeWidth={3} dot={{ fill: "#4f46e5", r: 5 }} name="Enrolled" />
+                <Line
+                  type="monotone"
+                  dataKey="students"
+                  stroke="#4f46e5"
+                  strokeWidth={3}
+                  dot={{ fill: '#4f46e5', r: 5 }}
+                  name="Enrolled"
+                />
               </LineChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-[260px] flex flex-col items-center justify-center text-gray-400">
               <TrendingUp size={28} className="mb-2 opacity-40" />
-              <p className="text-sm font-medium">Trend needs multiple school years</p>
-              <p className="text-xs mt-1">Enrolled: {trendData[0]?.students ?? 0} in {trendData[0]?.sy ?? "—"}</p>
+              <p className="text-sm font-medium">
+                Trend needs multiple school years
+              </p>
+              <p className="text-xs mt-1">
+                Enrolled: {trendData[0]?.students ?? 0} in{' '}
+                {trendData[0]?.sy ?? '—'}
+              </p>
             </div>
           )}
         </div>
@@ -258,14 +448,20 @@ export function PrincipalDashboard() {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
                   <BarChart3 size={14} className="text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-800 text-sm">Grade Distribution (School-wide)</h3>
+                <h3 className="font-semibold text-gray-800 text-sm">
+                  Grade Distribution (School-wide)
+                </h3>
               </div>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={distData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="range" tick={{ fontSize: 11 }} />
-                  <YAxis width={36} tick={{ fontSize: 12 }} allowDecimals={false} />
-                  <Tooltip formatter={(v: number) => [String(v), "Students"]} />
+                  <YAxis
+                    width={36}
+                    tick={{ fontSize: 12 }}
+                    allowDecimals={false}
+                  />
+                  <Tooltip formatter={(v: number) => [String(v), 'Students']} />
                   <Bar dataKey="count" name="Grades" radius={[4, 4, 0, 0]}>
                     {distData.map((d, idx) => (
                       <Cell key={idx} fill={d.color} />
@@ -280,12 +476,21 @@ export function PrincipalDashboard() {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
                   <Users size={14} className="text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-800 text-sm">Male / Female Ratio</h3>
+                <h3 className="font-semibold text-gray-800 text-sm">
+                  Male / Female Ratio
+                </h3>
               </div>
               {genderData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
-                    <Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={false}>
+                    <Pie
+                      data={genderData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius="70%"
+                      label={false}>
                       {genderData.map((g, idx) => (
                         <Cell key={idx} fill={g.color} />
                       ))}
@@ -306,27 +511,54 @@ export function PrincipalDashboard() {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm flex items-center justify-center flex-shrink-0">
                   <Target size={14} className="text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-800 text-sm">Overall Performance</h3>
+                <h3 className="font-semibold text-gray-800 text-sm">
+                  Overall Performance
+                </h3>
               </div>
               <div className="h-[260px] flex flex-col items-center justify-center gap-4">
                 <svg width="180" height="180" viewBox="0 0 180 180">
-                  <circle cx="90" cy="90" r="70" fill="none" stroke="#f3e8ff" strokeWidth="16" />
                   <circle
-                    cx="90" cy="90" r="70" fill="none"
-                    stroke={distribution!.overall_pass_rate >= 75 ? "#22c55e" : "#ef4444"}
-                    strokeWidth="16" strokeLinecap="round"
+                    cx="90"
+                    cy="90"
+                    r="70"
+                    fill="none"
+                    stroke="#f3e8ff"
+                    strokeWidth="16"
+                  />
+                  <circle
+                    cx="90"
+                    cy="90"
+                    r="70"
+                    fill="none"
+                    stroke={
+                      distribution!.overall_pass_rate >= 75
+                        ? '#22c55e'
+                        : '#ef4444'
+                    }
+                    strokeWidth="16"
+                    strokeLinecap="round"
                     strokeDasharray={`${(distribution!.overall_pass_rate / 100) * 439.8} 439.8`}
                     transform="rotate(-90 90 90)"
                   />
-                  <text x="90" y="86" textAnchor="middle" style={{ fill: "#111827", fontSize: 32, fontWeight: 800 }}>
+                  <text
+                    x="90"
+                    y="86"
+                    textAnchor="middle"
+                    style={{ fill: '#111827', fontSize: 32, fontWeight: 800 }}>
                     {distribution!.overall_pass_rate}%
                   </text>
-                  <text x="90" y="112" textAnchor="middle" style={{ fill: "#9ca3af", fontSize: 12, fontWeight: 600 }}>
+                  <text
+                    x="90"
+                    y="112"
+                    textAnchor="middle"
+                    style={{ fill: '#9ca3af', fontSize: 12, fontWeight: 600 }}>
                     Passing Rate
                   </text>
                 </svg>
                 <p className="text-xs text-gray-400 text-center max-w-[240px]">
-                  Average pass rate across {distribution!.subjects.length} learning area{distribution!.subjects.length === 1 ? "" : "s"} · {distribution!.total_students} students graded
+                  Average pass rate across {distribution!.subjects.length}{' '}
+                  learning area{distribution!.subjects.length === 1 ? '' : 's'}{' '}
+                  · {distribution!.total_students} students graded
                 </p>
               </div>
             </div>
@@ -335,7 +567,10 @@ export function PrincipalDashboard() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 lg:col-span-2">
             <div className="h-[120px] flex flex-col items-center justify-center text-gray-400">
               <BarChart3 size={24} className="mb-2 opacity-40" />
-              <p className="text-sm font-medium">Grade analytics appear once grades are encoded for the current school year</p>
+              <p className="text-sm font-medium">
+                Grade analytics appear once grades are encoded for the current
+                school year
+              </p>
             </div>
           </div>
         )}
@@ -351,9 +586,13 @@ export function PrincipalDashboard() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-sm flex items-center justify-center flex-shrink-0">
               <Layers size={14} className="text-white" />
             </div>
-            <h3 className="font-semibold text-gray-800 text-sm">Top Sections by Population</h3>
+            <h3 className="font-semibold text-gray-800 text-sm">
+              Top Sections by Population
+            </h3>
           </div>
-          <span className="text-xs text-gray-400">{sectionPopData.length} sections</span>
+          <span className="text-xs text-gray-400">
+            {sectionPopData.length} sections
+          </span>
         </div>
         <HybridTable
           desktop={
@@ -361,24 +600,39 @@ export function PrincipalDashboard() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/80">
                   <tr>
-                    {["Section", "Students", "Progress"].map(h => (
+                    {['Section', 'Students', 'Progress'].map(h => (
                       <th key={h} className="text-left px-5 py-3.5">
-                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</span>
+                        <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-[0.06em]">
+                          {h}
+                        </span>
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="">
                   {sectionPopData.map((s, idx) => (
-                    <tr key={s.name} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-purple-50/50 transition-colors`}>
-                      <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
+                    <tr
+                      key={s.name}
+                      className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-purple-50/50 transition-colors`}>
+                      <td className="px-5 py-3.5 font-medium text-gray-800">
+                        {s.name}
+                      </td>
                       <td className="px-5 py-3.5">
-                        <span className="font-semibold text-gray-900">{s.value}</span>
-                        <span className="text-xs text-gray-400 ml-1">students</span>
+                        <span className="font-semibold text-gray-900">
+                          {s.value}
+                        </span>
+                        <span className="text-xs text-gray-400 ml-1">
+                          students
+                        </span>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="w-full max-w-[200px] bg-gray-100 rounded-full h-2">
-                          <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${Math.min(100, (s.value / 50) * 100)}%` }} />
+                          <div
+                            className="bg-purple-500 h-2 rounded-full"
+                            style={{
+                              width: `${Math.min(100, (s.value / 50) * 100)}%`
+                            }}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -388,15 +642,24 @@ export function PrincipalDashboard() {
             </div>
           }
           mobile={
-            <ul className="divide-y divide-gray-50">
+            <ul className="">
               {sectionPopData.map(s => (
                 <li key={s.name} className="px-4 py-3.5">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{s.name}</p>
-                    <span className="text-xs font-bold text-gray-700 flex-shrink-0">{s.value} students</span>
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {s.name}
+                    </p>
+                    <span className="text-xs font-bold text-gray-700 flex-shrink-0">
+                      {s.value} students
+                    </span>
                   </div>
                   <div className="mt-1.5 bg-gray-100 rounded-full h-1.5">
-                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, (s.value / 50) * 100)}%` }} />
+                    <div
+                      className="bg-purple-500 h-1.5 rounded-full"
+                      style={{
+                        width: `${Math.min(100, (s.value / 50) * 100)}%`
+                      }}
+                    />
                   </div>
                 </li>
               ))}

@@ -617,7 +617,7 @@ export function StudentList() {
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody className="">
                         {paginated.map((s, idx) => {
                           const studentId =
                             s.student_id ||
@@ -689,7 +689,9 @@ export function StudentList() {
                               </td>
                               <td className="px-6 py-3.5">
                                 <span className="text-sm text-gray-700 font-medium">
-                                  {s.status === 'graduated' ? 'Graduated' : `Grade ${s.grade_level}`}
+                                  {s.status === 'graduated'
+                                    ? 'Graduated'
+                                    : `Grade ${s.grade_level}`}
                                 </span>
                               </td>
                               <td className="px-6 py-3.5">
@@ -745,7 +747,7 @@ export function StudentList() {
                   </div>
                 }
                 mobile={
-                  <ul className="divide-y divide-gray-50">
+                  <ul className="">
                     {paginated.map(s => {
                       const studentId =
                         s.student_id || `STU-${String(s.id).padStart(3, '0')}`;
@@ -812,7 +814,9 @@ export function StudentList() {
                               </p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                                 <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">
-                                  {s.status === 'graduated' ? 'Graduated' : `Grade ${s.grade_level}`}
+                                  {s.status === 'graduated'
+                                    ? 'Graduated'
+                                    : `Grade ${s.grade_level}`}
                                 </span>
                                 <span className="text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md capitalize">
                                   {s.sex}

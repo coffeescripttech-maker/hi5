@@ -39,8 +39,19 @@ import { useApp } from '../../context/AppContext';
 import { HybridTable } from '../../components/HybridTable';
 import { ModalShell } from '../../components/ModalShell';
 
-type UserRole = 'admin' | 'teacher' | 'registrar' | 'principal' | 'enrollment_committee';
-const ROLES: UserRole[] = ['admin', 'teacher', 'registrar', 'principal', 'enrollment_committee'];
+type UserRole =
+  | 'admin'
+  | 'teacher'
+  | 'registrar'
+  | 'principal'
+  | 'enrollment_committee';
+const ROLES: UserRole[] = [
+  'admin',
+  'teacher',
+  'registrar',
+  'principal',
+  'enrollment_committee'
+];
 
 /* ── Zod Validation Schema ─────────────────────────── */
 const MIN_PASSWORD = 8;
@@ -577,7 +588,7 @@ export function UserManagement() {
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="">
                       {filteredUsers.length === 0 ? (
                         <tr>
                           <td
@@ -624,12 +635,16 @@ export function UserManagement() {
                               </td>
                               <td className="px-4 py-4">
                                 {(() => {
-                                  const p = PRESENCE_META[user.presence] || PRESENCE_META.offline;
+                                  const p =
+                                    PRESENCE_META[user.presence] ||
+                                    PRESENCE_META.offline;
                                   return (
                                     <span
                                       title={lastActiveLabel(user)}
                                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${p.cls}`}>
-                                      <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full ${p.dot}`}
+                                      />
                                       {p.label}
                                     </span>
                                   );
@@ -686,7 +701,7 @@ export function UserManagement() {
                     No users found.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-gray-50">
+                  <ul className="">
                     {filteredUsers.map(user => {
                       const RoleIcon = roleIcons[user.role] || User;
                       return (
@@ -730,12 +745,16 @@ export function UserManagement() {
                               {ROLE_LABELS[user.role] || user.role}
                             </span>
                             {(() => {
-                              const p = PRESENCE_META[user.presence] || PRESENCE_META.offline;
+                              const p =
+                                PRESENCE_META[user.presence] ||
+                                PRESENCE_META.offline;
                               return (
                                 <span
                                   title={lastActiveLabel(user)}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${p.cls}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${p.dot}`}
+                                  />
                                   {p.label}
                                 </span>
                               );
@@ -778,85 +797,80 @@ export function UserManagement() {
 
       {/* ── Assign Subjects Prompt Modal ── */}
       {showAssignPrompt !== null && (
-      <ModalShell
-        open
-        onClose={() => setShowAssignPrompt(null)}
-        maxWidth="max-w-sm"
-        bodyClassName="p-6">
-        <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <BookOpen size={22} className="text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900">
-                  Assign Subjects Now?
-                </h3>
-                <p className="text-gray-500 text-xs">
-                  Finish setting up this teacher
-                </p>
-              </div>
+        <ModalShell
+          open
+          onClose={() => setShowAssignPrompt(null)}
+          maxWidth="max-w-sm"
+          bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <BookOpen size={22} className="text-emerald-600" />
             </div>
-            <p className="text-sm text-gray-600 mb-5">
-              Teacher <strong>{showAssignPrompt}</strong> was created
-              successfully. Would you like to assign subjects to this teacher
-              now?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowAssignPrompt(null)}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-                Later
-              </button>
-              <button
-                onClick={() => {
-                  setShowAssignPrompt(null);
-                  window.location.href = '/admin/subjects';
-                }}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
-                Assign Subjects
-              </button>
+            <div>
+              <h3 className="font-bold text-gray-900">Assign Subjects Now?</h3>
+              <p className="text-gray-500 text-xs">
+                Finish setting up this teacher
+              </p>
             </div>
-      </ModalShell>
+          </div>
+          <p className="text-sm text-gray-600 mb-5">
+            Teacher <strong>{showAssignPrompt}</strong> was created
+            successfully. Would you like to assign subjects to this teacher now?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowAssignPrompt(null)}
+              className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+              Later
+            </button>
+            <button
+              onClick={() => {
+                setShowAssignPrompt(null);
+                window.location.href = '/admin/subjects';
+              }}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+              Assign Subjects
+            </button>
+          </div>
+        </ModalShell>
       )}
 
       {/* ── Delete Confirm Modal ── */}
       {showDeleteConfirm !== null && (
-      <ModalShell
-        open
-        onClose={() => setShowDeleteConfirm(null)}
-        maxWidth="max-w-sm"
-        bodyClassName="p-6">
-        <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <AlertTriangle size={22} className="text-red-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900">Delete User Account</h3>
-                <p className="text-gray-500 text-xs">
-                  This action cannot be undone.
-                </p>
-              </div>
+        <ModalShell
+          open
+          onClose={() => setShowDeleteConfirm(null)}
+          maxWidth="max-w-sm"
+          bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+              <AlertTriangle size={22} className="text-red-600" />
             </div>
-            <p className="text-sm text-gray-600 mb-5">
-              Are you sure you want to permanently delete the account for{' '}
-              <strong>
-                {users.find(u => u.id === showDeleteConfirm)?.name}
-              </strong>
-              ?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(showDeleteConfirm)}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
-                Delete Account
-              </button>
+            <div>
+              <h3 className="font-bold text-gray-900">Delete User Account</h3>
+              <p className="text-gray-500 text-xs">
+                This action cannot be undone.
+              </p>
             </div>
-      </ModalShell>
+          </div>
+          <p className="text-sm text-gray-600 mb-5">
+            Are you sure you want to permanently delete the account for{' '}
+            <strong>{users.find(u => u.id === showDeleteConfirm)?.name}</strong>
+            ?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteConfirm(null)}
+              className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+              Cancel
+            </button>
+            <button
+              onClick={() => handleDelete(showDeleteConfirm)}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+              Delete Account
+            </button>
+          </div>
+        </ModalShell>
       )}
 
       {/* ── Create / Edit User Modal ── */}
@@ -868,348 +882,344 @@ export function UserManagement() {
         }}
         maxWidth="max-w-xl"
         bodyClassName="p-0">
-          <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Users size={18} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white">
-                    {editUser ? 'Edit User Account' : 'Create New User'}
-                  </h3>
-                  <p className="text-blue-200 text-xs">
-                    {editUser
-                      ? 'Update user info and role assignment'
-                      : 'Set up a new system user'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditUser(null);
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
-                <X size={18} />
-              </button>
+        <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <Users size={18} className="text-white" />
             </div>
+            <div>
+              <h3 className="font-bold text-white">
+                {editUser ? 'Edit User Account' : 'Create New User'}
+              </h3>
+              <p className="text-blue-200 text-xs">
+                {editUser
+                  ? 'Update user info and role assignment'
+                  : 'Set up a new system user'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setShowModal(false);
+              setEditUser(null);
+            }}
+            className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+            <X size={18} />
+          </button>
+        </div>
 
-            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+        <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+              Full Name
+            </label>
+            <div className="relative">
+              <User
+                size={15}
+                className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.name ? 'text-red-400' : 'text-gray-400'}`}
+              />
+              <input
+                type="text"
+                value={formValue('name')}
+                onChange={e => handleChange('name', e.target.value)}
+                onBlur={e => validateField('name', e.target.value)}
+                className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
+                  fieldErrors.name
+                    ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
+                    : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
+                }`}
+                placeholder={
+                  formValue('role') === 'teacher'
+                    ? 'e.g. Teacher Maria Santos'
+                    : formValue('role') === 'registrar'
+                      ? 'e.g. Registrar Juan Cruz'
+                      : formValue('role') === 'principal'
+                        ? 'e.g. Dr. Ana Reyes'
+                        : 'e.g. Admin User'
+                }
+              />
+            </div>
+            {fieldErrors.name && (
+              <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                <AlertCircle size={12} className="flex-shrink-0" />
+                {fieldErrors.name}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                Username
+              </label>
+              <div className="relative">
+                <Key
+                  size={15}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.username ? 'text-red-400' : 'text-gray-400'}`}
+                />
+                <input
+                  type="text"
+                  value={formValue('username')}
+                  onChange={e => handleChange('username', e.target.value)}
+                  onBlur={e => validateField('username', e.target.value)}
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white font-mono ${
+                    fieldErrors.username
+                      ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
+                      : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
+                  }`}
+                  placeholder={
+                    formValue('role') === 'teacher'
+                      ? 'e.g. teacher.santos'
+                      : formValue('role') === 'registrar'
+                        ? 'e.g. registrar.cruz'
+                        : formValue('role') === 'principal'
+                          ? 'e.g. principal.reyes'
+                          : 'e.g. admin.user'
+                  }
+                />
+              </div>
+              {fieldErrors.username && (
+                <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                  <AlertCircle size={12} className="flex-shrink-0" />
+                  {fieldErrors.username}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail
+                  size={15}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.email ? 'text-red-400' : 'text-gray-400'}`}
+                />
+                <input
+                  type="email"
+                  value={formValue('email')}
+                  onChange={e => handleChange('email', e.target.value)}
+                  onBlur={e => validateField('email', e.target.value)}
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
+                    fieldErrors.email
+                      ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
+                      : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
+                  }`}
+                  placeholder="user@school.edu.ph"
+                />
+              </div>
+              {fieldErrors.email && (
+                <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                  <AlertCircle size={12} className="flex-shrink-0" />
+                  {fieldErrors.email}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {!editUser && (
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <Lock
+                  size={15}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.password ? 'text-red-400' : 'text-gray-400'}`}
+                />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => {
+                    setPassword(e.target.value);
+                    if (fieldErrors.password)
+                      setFieldErrors(p => ({ ...p, password: '' }));
+                  }}
+                  onBlur={e => validateField('password', e.target.value)}
+                  className={`w-full pl-9 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
+                    fieldErrors.password
+                      ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
+                      : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
+                  }`}
+                  placeholder="Minimum 8 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition touch-target inline-flex items-center justify-center">
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              {fieldErrors.password && (
+                <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                  <AlertCircle size={12} className="flex-shrink-0" />
+                  {fieldErrors.password}
+                </p>
+              )}
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Leave blank to use the default temporary password.
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+              Role Assignment
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {ROLES.map(r => {
+                const RoleIcon = roleIcons[r];
+                const isSelected = formValue('role') === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => handleChange('role', r)}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition text-xs font-semibold ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:bg-blue-50/50'
+                    }`}>
+                    <RoleIcon size={18} />
+                    {ROLE_LABELS[r]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="border border-gray-200 rounded-xl p-4">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-3">
+              Employment Information{' '}
+              <span className="text-[10px] text-gray-400 font-normal normal-case">
+                (optional — shows on the user's profile)
+              </span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                  Full Name
+                  Employee ID
                 </label>
                 <div className="relative">
-                  <User
+                  <BadgeCheck
                     size={15}
-                    className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.name ? 'text-red-400' : 'text-gray-400'}`}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                   />
                   <input
                     type="text"
-                    value={formValue('name')}
-                    onChange={e => handleChange('name', e.target.value)}
-                    onBlur={e => validateField('name', e.target.value)}
-                    className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
-                      fieldErrors.name
-                        ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
-                        : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
-                    }`}
+                    value={formValue('employee_id')}
+                    onChange={e => handleChange('employee_id', e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
                     placeholder={
                       formValue('role') === 'teacher'
-                        ? 'e.g. Teacher Maria Santos'
+                        ? 'e.g. TCH-2026-001'
                         : formValue('role') === 'registrar'
-                          ? 'e.g. Registrar Juan Cruz'
+                          ? 'e.g. REG-2026-001'
                           : formValue('role') === 'principal'
-                            ? 'e.g. Dr. Ana Reyes'
-                            : 'e.g. Admin User'
+                            ? 'e.g. PRIN-2026-001'
+                            : 'e.g. ADM-2026-001'
                     }
                   />
                 </div>
-                {fieldErrors.name && (
-                  <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
-                    <AlertCircle size={12} className="flex-shrink-0" />
-                    {fieldErrors.name}
-                  </p>
-                )}
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <Key
-                      size={15}
-                      className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.username ? 'text-red-400' : 'text-gray-400'}`}
-                    />
-                    <input
-                      type="text"
-                      value={formValue('username')}
-                      onChange={e => handleChange('username', e.target.value)}
-                      onBlur={e => validateField('username', e.target.value)}
-                      className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white font-mono ${
-                        fieldErrors.username
-                          ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
-                          : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
-                      }`}
-                      placeholder={
-                        formValue('role') === 'teacher'
-                          ? 'e.g. teacher.santos'
-                          : formValue('role') === 'registrar'
-                            ? 'e.g. registrar.cruz'
-                            : formValue('role') === 'principal'
-                              ? 'e.g. principal.reyes'
-                              : 'e.g. admin.user'
-                      }
-                    />
-                  </div>
-                  {fieldErrors.username && (
-                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
-                      <AlertCircle size={12} className="flex-shrink-0" />
-                      {fieldErrors.username}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail
-                      size={15}
-                      className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.email ? 'text-red-400' : 'text-gray-400'}`}
-                    />
-                    <input
-                      type="email"
-                      value={formValue('email')}
-                      onChange={e => handleChange('email', e.target.value)}
-                      onBlur={e => validateField('email', e.target.value)}
-                      className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
-                        fieldErrors.email
-                          ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
-                          : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
-                      }`}
-                      placeholder="user@school.edu.ph"
-                    />
-                  </div>
-                  {fieldErrors.email && (
-                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
-                      <AlertCircle size={12} className="flex-shrink-0" />
-                      {fieldErrors.email}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {!editUser && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock
-                      size={15}
-                      className={`absolute left-3 top-1/2 -translate-y-1/2 ${fieldErrors.password ? 'text-red-400' : 'text-gray-400'}`}
-                    />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={e => {
-                        setPassword(e.target.value);
-                        if (fieldErrors.password)
-                          setFieldErrors(p => ({ ...p, password: '' }));
-                      }}
-                      onBlur={e => validateField('password', e.target.value)}
-                      className={`w-full pl-9 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 bg-white ${
-                        fieldErrors.password
-                          ? 'border border-red-300 focus:ring-red-100 focus:border-red-400'
-                          : 'border border-gray-200 focus:ring-blue-100 focus:border-blue-400'
-                      }`}
-                      placeholder="Minimum 8 characters"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition touch-target inline-flex items-center justify-center">
-                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                  {fieldErrors.password && (
-                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
-                      <AlertCircle size={12} className="flex-shrink-0" />
-                      {fieldErrors.password}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-gray-400 mt-1.5">
-                    Leave blank to use the default temporary password.
-                  </p>
-                </div>
-              )}
-
               <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                  Role Assignment
+                <label className="font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                  Designation
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {ROLES.map(r => {
-                    const RoleIcon = roleIcons[r];
-                    const isSelected = formValue('role') === r;
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => handleChange('role', r)}
-                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition text-xs font-semibold ${
-                          isSelected
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:bg-blue-50/50'
-                        }`}>
-                        <RoleIcon size={18} />
-                        {ROLE_LABELS[r]}
-                      </button>
-                    );
-                  })}
+
+                <div className="relative">
+                  <Briefcase
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    value={formValue('designation')}
+                    onChange={e => handleChange('designation', e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
+                    placeholder="e.g. Mathematics Teacher"
+                  />
                 </div>
               </div>
-
-              <div className="border border-gray-200 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-3">
-                  Employment Information{' '}
-                  <span className="text-[10px] text-gray-400 font-normal normal-case">
-                    (optional — shows on the user's profile)
-                  </span>
-                </p>
+              <div className="sm:col-span-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                      Employee ID
+                      Date Hired
                     </label>
                     <div className="relative">
-                      <BadgeCheck
+                      <Calendar
                         size={15}
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                       />
                       <input
-                        type="text"
-                        value={formValue('employee_id')}
+                        type="date"
+                        value={toDateInput(formValue('date_hired'))}
                         onChange={e =>
-                          handleChange('employee_id', e.target.value)
+                          handleChange('date_hired', e.target.value)
                         }
                         className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
-                        placeholder={
-                          formValue('role') === 'teacher'
-                            ? 'e.g. TCH-2026-001'
-                            : formValue('role') === 'registrar'
-                              ? 'e.g. REG-2026-001'
-                              : formValue('role') === 'principal'
-                                ? 'e.g. PRIN-2026-001'
-                                : 'e.g. ADM-2026-001'
-                        }
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                      Designation
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                      End of Contract
                     </label>
-
                     <div className="relative">
-                      <Briefcase
+                      <Calendar
                         size={15}
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                       />
                       <input
-                        type="text"
-                        value={formValue('designation')}
+                        type="date"
+                        value={toDateInput(formValue('end_of_contract'))}
                         onChange={e =>
-                          handleChange('designation', e.target.value)
+                          handleChange('end_of_contract', e.target.value)
                         }
                         className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
-                        placeholder="e.g. Mathematics Teacher"
                       />
-                    </div>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                          Date Hired
-                        </label>
-                        <div className="relative">
-                          <Calendar
-                            size={15}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                          />
-                          <input
-                            type="date"
-                            value={toDateInput(formValue('date_hired'))}
-                            onChange={e =>
-                              handleChange('date_hired', e.target.value)
-                            }
-                            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                          End of Contract
-                        </label>
-                        <div className="relative">
-                          <Calendar
-                            size={15}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                          />
-                          <input
-                            type="date"
-                            value={toDateInput(formValue('end_of_contract'))}
-                            onChange={e =>
-                              handleChange('end_of_contract', e.target.value)
-                            }
-                            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
-                          />
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.04em] mb-2">
-                  {ROLE_LABELS[currentRole]} Permissions Preview
-                </p>
-                <ul className="space-y-1">
-                  {PERMISSIONS[currentRole]?.map(p => (
-                    <li
-                      key={p}
-                      className="flex items-start gap-2 text-xs text-blue-700">
-                      <CheckCircle
-                        size={11}
-                        className="text-blue-500 mt-0.5 flex-shrink-0"
-                      />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
+          </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditUser(null);
-                }}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
-                {editUser ? 'Save Changes' : 'Create User Account'}
-              </button>
-            </div>
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+            <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-[0.04em] mb-2">
+              {ROLE_LABELS[currentRole]} Permissions Preview
+            </p>
+            <ul className="space-y-1">
+              {PERMISSIONS[currentRole]?.map(p => (
+                <li
+                  key={p}
+                  className="flex items-start gap-2 text-xs text-blue-700">
+                  <CheckCircle
+                    size={11}
+                    className="text-blue-500 mt-0.5 flex-shrink-0"
+                  />
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+          <button
+            onClick={() => {
+              setShowModal(false);
+              setEditUser(null);
+            }}
+            className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+            {editUser ? 'Save Changes' : 'Create User Account'}
+          </button>
+        </div>
       </ModalShell>
     </div>
   );

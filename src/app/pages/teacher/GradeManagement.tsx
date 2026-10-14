@@ -1,70 +1,92 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import {
-  BookOpen, Lock, Save, CheckCircle, Info, MessageSquare, Send, X, AlertTriangle,
-  Users, GraduationCap, Loader2, UserCheck, Search, FileText, ExternalLink,
-} from "lucide-react";
-import { studentsApi, StudentRow } from "../../services/students";
-import { gradesApi } from "../../services/grades";
-import { subjectsApi, SubjectRow } from "../../services/subjects";
-import { atRiskApi, StudentRiskTrend } from "../../services/atRisk";
-import { settingsApi } from "../../services/settings";
-import { useApp } from "../../context/AppContext";
-import { PageContainer } from "../../components/PageContainer";
-import { HybridTable } from "../../components/HybridTable";
-import { ModalShell } from "../../components/ModalShell";
+  BookOpen,
+  Lock,
+  Save,
+  CheckCircle,
+  Info,
+  MessageSquare,
+  Send,
+  X,
+  AlertTriangle,
+  Users,
+  GraduationCap,
+  Loader2,
+  UserCheck,
+  Search,
+  FileText,
+  ExternalLink
+} from 'lucide-react';
+import { studentsApi, StudentRow } from '../../services/students';
+import { gradesApi } from '../../services/grades';
+import { subjectsApi, SubjectRow } from '../../services/subjects';
+import { atRiskApi, StudentRiskTrend } from '../../services/atRisk';
+import { settingsApi } from '../../services/settings';
+import { useApp } from '../../context/AppContext';
+import { PageContainer } from '../../components/PageContainer';
+import { HybridTable } from '../../components/HybridTable';
+import { ModalShell } from '../../components/ModalShell';
 
 type GradeEntry = {
   subject: string;
   subject_id: number;
   /** subjects.subject_group — rows sharing a key report under one heading. */
   subject_group?: string | null;
-  q1: number | "";
-  q2: number | "";
-  q3: number | "";
+  q1: number | '';
+  q2: number | '';
+  q3: number | '';
   grade_ids: (number | null)[];
 };
 
-const toNum = (v: number | ""): number => (v === "" ? 0 : Number(v));
+const toNum = (v: number | ''): number => (v === '' ? 0 : Number(v));
 
 const avg = (row: GradeEntry): string => {
-  const vals = [row.q1, row.q2, row.q3].filter(v => v !== "");
-  if (vals.length === 0) return "—";
+  const vals = [row.q1, row.q2, row.q3].filter(v => v !== '');
+  if (vals.length === 0) return '—';
   const sum = vals.reduce((a, b) => toNum(a) + toNum(b), 0);
   return (sum / vals.length).toFixed(2);
 };
 
 const allAvg = (rows: GradeEntry[]): string => {
-  const avgs = rows.map(r => {
-    const vals = [r.q1, r.q2, r.q3].filter(v => v !== "");
-    if (vals.length === 0) return null;
-    const sum = vals.reduce((a, b) => toNum(a) + toNum(b), 0);
-    return sum / vals.length;
-  }).filter(Boolean) as number[];
-  if (avgs.length === 0) return "—";
+  const avgs = rows
+    .map(r => {
+      const vals = [r.q1, r.q2, r.q3].filter(v => v !== '');
+      if (vals.length === 0) return null;
+      const sum = vals.reduce((a, b) => toNum(a) + toNum(b), 0);
+      return sum / vals.length;
+    })
+    .filter(Boolean) as number[];
+  if (avgs.length === 0) return '—';
   return (avgs.reduce((a, b) => a + b, 0) / avgs.length).toFixed(2);
 };
 
 const getDescriptor = (val: string): { label: string; color: string } => {
   const n = parseFloat(val);
-  if (isNaN(n)) return { label: "—", color: "text-gray-400" };
-  if (n >= 90) return { label: "Outstanding", color: "text-emerald-600" };
-  if (n >= 85) return { label: "Very Satisfactory", color: "text-emerald-600" };
-  if (n >= 80) return { label: "Satisfactory", color: "text-emerald-600" };
-  if (n >= 75) return { label: "Fairly Satisfactory", color: "text-yellow-600" };
-  return { label: "Did Not Meet Expectations", color: "text-red-500" };
+  if (isNaN(n)) return { label: '—', color: 'text-gray-400' };
+  if (n >= 90) return { label: 'Outstanding', color: 'text-emerald-600' };
+  if (n >= 85) return { label: 'Very Satisfactory', color: 'text-emerald-600' };
+  if (n >= 80) return { label: 'Satisfactory', color: 'text-emerald-600' };
+  if (n >= 75)
+    return { label: 'Fairly Satisfactory', color: 'text-yellow-600' };
+  return { label: 'Did Not Meet Expectations', color: 'text-red-500' };
 };
 
 /** Canonical DepEd order for MAPEH component subjects. */
-const MAPEH_ORDER = ["Music", "Arts", "Physical Education", "Health"];
+const MAPEH_ORDER = ['Music', 'Arts', 'Physical Education', 'Health'];
 
 const descBadge = (label: string) =>
-  label === "Outstanding" ? "bg-emerald-50 text-emerald-700" :
-  label === "Very Satisfactory" ? "bg-emerald-50 text-emerald-700" :
-  label === "Satisfactory" ? "bg-emerald-50 text-emerald-700" :
-  label === "Fairly Satisfactory" ? "bg-yellow-50 text-yellow-700" :
-  label === "Did Not Meet Expectations" ? "bg-red-50 text-red-700" :
-  "bg-gray-50 text-gray-400";
+  label === 'Outstanding'
+    ? 'bg-emerald-50 text-emerald-700'
+    : label === 'Very Satisfactory'
+      ? 'bg-emerald-50 text-emerald-700'
+      : label === 'Satisfactory'
+        ? 'bg-emerald-50 text-emerald-700'
+        : label === 'Fairly Satisfactory'
+          ? 'bg-yellow-50 text-yellow-700'
+          : label === 'Did Not Meet Expectations'
+            ? 'bg-red-50 text-red-700'
+            : 'bg-gray-50 text-gray-400';
 
 /**
  * Render rows for the grades table. MAPEH components (Music, Arts, PE, Health)
@@ -72,11 +94,11 @@ const descBadge = (label: string) =>
  * "MAPEH" header, in canonical order, with a live MAPEH average in the header.
  */
 type DisplayItem =
-  | { kind: "header"; label: string; final: string }
-  | { kind: "grade"; row: GradeEntry; idx: number };
+  | { kind: 'header'; label: string; final: string }
+  | { kind: 'grade'; row: GradeEntry; idx: number };
 
 /** Heading each collapsed subject_group reports under. */
-const GROUP_HEADINGS: Record<string, string> = { tle: "TLE/EPP", tvl: "TVL" };
+const GROUP_HEADINGS: Record<string, string> = { tle: 'TLE/EPP', tvl: 'TVL' };
 
 /** True when the row belongs to a collapsed block (MAPEH or a subject_group). */
 const inGroup = (g: GradeEntry): boolean =>
@@ -91,7 +113,9 @@ const inGroup = (g: GradeEntry): boolean =>
 function buildDisplayRows(grades: GradeEntry[]): DisplayItem[] {
   const groups = new Map<string, { members: GradeEntry[]; firstPos: number }>();
   grades.forEach((g, i) => {
-    const key = MAPEH_ORDER.includes(g.subject) ? "MAPEH" : g.subject_group ?? null;
+    const key = MAPEH_ORDER.includes(g.subject)
+      ? 'MAPEH'
+      : (g.subject_group ?? null);
     if (!key) return;
     const entry = groups.get(key) ?? { members: [], firstPos: i };
     entry.members.push(g);
@@ -100,27 +124,30 @@ function buildDisplayRows(grades: GradeEntry[]): DisplayItem[] {
 
   // Nothing grouped — render rows exactly as-is
   if (groups.size === 0) {
-    return grades.map((row, idx) => ({ kind: "grade", row, idx }));
+    return grades.map((row, idx) => ({ kind: 'grade', row, idx }));
   }
 
   const emitted = new Set<string>();
   const rows: DisplayItem[] = [];
   for (let i = 0; i < grades.length; i++) {
     const g = grades[i];
-    const key = MAPEH_ORDER.includes(g.subject) ? "MAPEH" : g.subject_group ?? null;
+    const key = MAPEH_ORDER.includes(g.subject)
+      ? 'MAPEH'
+      : (g.subject_group ?? null);
     if (!key) {
-      rows.push({ kind: "grade", row: g, idx: i });
+      rows.push({ kind: 'grade', row: g, idx: i });
       continue;
     }
     if (emitted.has(key)) continue;
     emitted.add(key);
     const { members } = groups.get(key)!;
     rows.push({
-      kind: "header",
-      label: key === "MAPEH" ? "MAPEH" : GROUP_HEADINGS[key] ?? key,
-      final: allAvg(members),
+      kind: 'header',
+      label: key === 'MAPEH' ? 'MAPEH' : (GROUP_HEADINGS[key] ?? key),
+      final: allAvg(members)
     });
-    for (const m of members) rows.push({ kind: "grade", row: m, idx: grades.indexOf(m) });
+    for (const m of members)
+      rows.push({ kind: 'grade', row: m, idx: grades.indexOf(m) });
   }
   return rows;
 }
@@ -130,12 +157,16 @@ export function GradeManagement() {
   const navigate = useNavigate();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(
+    null
+  );
   const [grades, setGrades] = useState<GradeEntry[]>([]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   // Subject-level scope: which subject IDs this teacher may encode grades for.
   // The teacher can *view* all subjects but can only *edit* their assigned ones.
-  const [assignedSubjectIds, setAssignedSubjectIds] = useState<Set<number>>(new Set());
+  const [assignedSubjectIds, setAssignedSubjectIds] = useState<Set<number>>(
+    new Set()
+  );
   // True when the assigned-subjects API failed — lets us show a distinct banner
   // (editing is still locked, matching the strict backend behavior).
   const [assignedLoadFailed, setAssignedLoadFailed] = useState(false);
@@ -146,15 +177,17 @@ export function GradeManagement() {
   const [loadingGrades, setLoadingGrades] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
-  const [correctionSubject, setCorrectionSubject] = useState("");
-  const [correctionQuarter, setCorrectionQuarter] = useState("");
-  const [correctionJustification, setCorrectionJustification] = useState("");
-  const [correctionMistake, setCorrectionMistake] = useState("");
-  const [correctionOther, setCorrectionOther] = useState("");
+  const [correctionSubject, setCorrectionSubject] = useState('');
+  const [correctionQuarter, setCorrectionQuarter] = useState('');
+  const [correctionJustification, setCorrectionJustification] = useState('');
+  const [correctionMistake, setCorrectionMistake] = useState('');
+  const [correctionOther, setCorrectionOther] = useState('');
   const [correctionSubmitted, setCorrectionSubmitted] = useState(false);
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
   const [schoolYearId, setSchoolYearId] = useState(1);
-  const [riskMap, setRiskMap] = useState<Map<number, StudentRiskTrend>>(new Map());
+  const [riskMap, setRiskMap] = useState<Map<number, StudentRiskTrend>>(
+    new Map()
+  );
   // Grade security: when the school's grade-edit deadline has passed,
   // teachers get read-only access (Registrar can still unlock/amend).
   const [deadlinePassed, setDeadlinePassed] = useState(false);
@@ -164,7 +197,6 @@ export function GradeManagement() {
   // disabled so the teacher never types something that will only fail on submit.
   const canEditSubject = (subjectId: number): boolean =>
     assignedSubjectIds.has(subjectId);
-
 
   // Fetch teacher-scoped students + subjects + assigned subject IDs + SY
   useEffect(() => {
@@ -185,32 +217,41 @@ export function GradeManagement() {
       }), // assigned subjects (optional)
       (async () => {
         try {
-          const { schoolYearsApi } = await import("../../services/schoolYears");
+          const { schoolYearsApi } = await import('../../services/schoolYears');
           const years = await schoolYearsApi.list();
           const current = years.find(y => y.is_current === 1);
           return current ? current.id : null;
-        } catch { return null; }
-      })(),
-    ]).then(([studs, subs, assigned, sy]) => {
-      setStudents(studs);
-      setSubjects(subs);
-      setAssignedSubjectIds(new Set(assigned.map(s => s.id)));
-      setSchoolYearId(sy ?? 1);
-      // If opened from a student profile (?student_id=...), pre-select that student
-      const params = new URLSearchParams(window.location.search);
-      const preselectedId = params.get("student_id");
-      const match = preselectedId
-        ? studs.find(s => s.id === Number(preselectedId))
-        : undefined;
-      if (match) setSelectedStudent(match);
-      else if (studs.length > 0) setSelectedStudent(studs[0]);
-      else if (preselectedId) showToast("info", "Selected student is not in your current roster.");
-    }).catch(err => {
-      showToast("error", "Failed to load data: " + (err.detail?.error || err.message));
-    }).finally(() => {
-      setLoading(false);
-    });
-    }, []);
+        } catch {
+          return null;
+        }
+      })()
+    ])
+      .then(([studs, subs, assigned, sy]) => {
+        setStudents(studs);
+        setSubjects(subs);
+        setAssignedSubjectIds(new Set(assigned.map(s => s.id)));
+        setSchoolYearId(sy ?? 1);
+        // If opened from a student profile (?student_id=...), pre-select that student
+        const params = new URLSearchParams(window.location.search);
+        const preselectedId = params.get('student_id');
+        const match = preselectedId
+          ? studs.find(s => s.id === Number(preselectedId))
+          : undefined;
+        if (match) setSelectedStudent(match);
+        else if (studs.length > 0) setSelectedStudent(studs[0]);
+        else if (preselectedId)
+          showToast('info', 'Selected student is not in your current roster.');
+      })
+      .catch(err => {
+        showToast(
+          'error',
+          'Failed to load data: ' + (err.detail?.error || err.message)
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   // Optional: load the linear-regression risk classification for suggestion
 
@@ -218,80 +259,102 @@ export function GradeManagement() {
   // chips. Never fatal — if it fails, students just show no chip.
   useEffect(() => {
     let cancelled = false;
-    atRiskApi.trends({ school_year_id: schoolYearId })
+    atRiskApi
+      .trends({ school_year_id: schoolYearId })
       .then(res => {
         if (cancelled) return;
         const map = new Map<number, StudentRiskTrend>();
         res.students.forEach(t => map.set(t.student_id, t));
         setRiskMap(map);
       })
-      .catch(() => { /* risk indicators are optional — ignore failures */ });
-    return () => { cancelled = true; };
+      .catch(() => {
+        /* risk indicators are optional — ignore failures */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [schoolYearId]);
 
   // Grade security: check the configured encoding deadline.
   useEffect(() => {
     let cancelled = false;
-    settingsApi.get()
+    settingsApi
+      .get()
       .then(s => {
         if (cancelled) return;
         const enabled = s.grade_deadline_enabled === 1;
-        const deadline = s.grade_edit_deadline ? new Date(s.grade_edit_deadline).getTime() : 0;
-        if (enabled && deadline && deadline < Date.now()) setDeadlinePassed(true);
+        const deadline = s.grade_edit_deadline
+          ? new Date(s.grade_edit_deadline).getTime()
+          : 0;
+        if (enabled && deadline && deadline < Date.now())
+          setDeadlinePassed(true);
       })
-      .catch(() => { /* read-only guard is informational — backend enforces anyway */ });
-    return () => { cancelled = true; };
+      .catch(() => {
+        /* read-only guard is informational — backend enforces anyway */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const riskInfo = (studentId: number): { dot: string; label: string } => {
     const t = riskMap.get(studentId);
-    if (!t || t.risk_level === null) return { dot: "bg-gray-400", label: "No data" };
-    return t.risk_level === "at_risk"
-      ? { dot: "bg-red-500", label: "At-Risk" }
-      : t.risk_level === "needs_monitoring"
-        ? { dot: "bg-amber-500", label: "Needs Monitoring" }
-        : { dot: "bg-emerald-500", label: "On Track" };
+    if (!t || t.risk_level === null)
+      return { dot: 'bg-gray-400', label: 'No data' };
+    return t.risk_level === 'at_risk'
+      ? { dot: 'bg-red-500', label: 'At-Risk' }
+      : t.risk_level === 'needs_monitoring'
+        ? { dot: 'bg-amber-500', label: 'Needs Monitoring' }
+        : { dot: 'bg-emerald-500', label: 'On Track' };
   };
 
   // ── Autosearch: filter suggestions as user types ──
   const searchRef = useRef<HTMLDivElement>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const suggestions = searchQuery.length >= 1
-    ? students.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.lrn.includes(searchQuery) ||
-        s.student_id.includes(searchQuery)
-      ).slice(0, 6)
-    : [];
+  const suggestions =
+    searchQuery.length >= 1
+      ? students
+          .filter(
+            s =>
+              s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              s.lrn.includes(searchQuery) ||
+              s.student_id.includes(searchQuery)
+          )
+          .slice(0, 6)
+      : [];
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node))
         setShowSuggestions(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const selectStudent = (s: StudentRow) => {
     setSelectedStudent(s);
-    setSearchQuery(s.lrn + " — " + s.name);
+    setSearchQuery(s.lrn + ' — ' + s.name);
     setShowSuggestions(false);
   };
 
   // Keep the search box in sync with the selected student (incl. pre-selected from profile)
   useEffect(() => {
-    if (selectedStudent) setSearchQuery(selectedStudent.lrn + " — " + selectedStudent.name);
+    if (selectedStudent)
+      setSearchQuery(selectedStudent.lrn + ' — ' + selectedStudent.name);
   }, [selectedStudent]);
 
   // Fetch grades when student changes
   useEffect(() => {
     if (!selectedStudent) return;
     setLoadingGrades(true);
-    const subs = subjects.filter(s => s.grade_level === selectedStudent.grade_level);
-    gradesApi.list({ student_id: selectedStudent.id, school_year_id: schoolYearId })
+    const subs = subjects.filter(
+      s => s.grade_level === selectedStudent.grade_level
+    );
+    gradesApi
+      .list({ student_id: selectedStudent.id, school_year_id: schoolYearId })
       .then((apiGrades: any) => {
         // Backend returns pivoted format when student_id is provided:
         // { student_id, enrollment, subjects: [{ subject_id, subject_name, q1, q2, q3, is_locked }] }
@@ -301,29 +364,37 @@ export function GradeManagement() {
 
         const entries: GradeEntry[] = subs.map(sub => {
           if (isPivoted) {
-            const found = subjectsData.find((s: any) => s.subject_id === sub.id);
+            const found = subjectsData.find(
+              (s: any) => s.subject_id === sub.id
+            );
             return {
               subject: sub.name,
               subject_id: sub.id,
               subject_group: sub.subject_group,
-              q1: found?.q1 != null ? Number(found.q1) : "",
-              q2: found?.q2 != null ? Number(found.q2) : "",
-              q3: found?.q3 != null ? Number(found.q3) : "",
-              grade_ids: [null, null, null],
+              q1: found?.q1 != null ? Number(found.q1) : '',
+              q2: found?.q2 != null ? Number(found.q2) : '',
+              q3: found?.q3 != null ? Number(found.q3) : '',
+              grade_ids: [null, null, null]
             };
           }
           // Flat array format: find individual quarter records
-          const q1g = subjectsData.find((g: any) => g.subject_id === sub.id && g.quarter === 1);
-          const q2g = subjectsData.find((g: any) => g.subject_id === sub.id && g.quarter === 2);
-          const q3g = subjectsData.find((g: any) => g.subject_id === sub.id && g.quarter === 3);
+          const q1g = subjectsData.find(
+            (g: any) => g.subject_id === sub.id && g.quarter === 1
+          );
+          const q2g = subjectsData.find(
+            (g: any) => g.subject_id === sub.id && g.quarter === 2
+          );
+          const q3g = subjectsData.find(
+            (g: any) => g.subject_id === sub.id && g.quarter === 3
+          );
           return {
             subject: sub.name,
             subject_id: sub.id,
             subject_group: sub.subject_group,
-            q1: q1g?.grade != null ? Number(q1g.grade) : "",
-            q2: q2g?.grade != null ? Number(q2g.grade) : "",
-            q3: q3g?.grade != null ? Number(q3g.grade) : "",
-            grade_ids: [q1g?.id ?? null, q2g?.id ?? null, q3g?.id ?? null],
+            q1: q1g?.grade != null ? Number(q1g.grade) : '',
+            q2: q2g?.grade != null ? Number(q2g.grade) : '',
+            q3: q3g?.grade != null ? Number(q3g.grade) : '',
+            grade_ids: [q1g?.id ?? null, q2g?.id ?? null, q3g?.id ?? null]
           };
         });
         setGrades(entries);
@@ -337,9 +408,13 @@ export function GradeManagement() {
       .catch(() => {
         // Initialize empty
         const entries: GradeEntry[] = subs.map(sub => ({
-          subject: sub.name, subject_id: sub.id, subject_group: sub.subject_group,
-          q1: "", q2: "", q3: "",
-          grade_ids: [null, null, null],
+          subject: sub.name,
+          subject_id: sub.id,
+          subject_group: sub.subject_group,
+          q1: '',
+          q2: '',
+          q3: '',
+          grade_ids: [null, null, null]
         }));
         setGrades(entries);
         setLocked(false);
@@ -347,22 +422,37 @@ export function GradeManagement() {
       .finally(() => setLoadingGrades(false));
   }, [selectedStudent, schoolYearId]);
 
-  const updateGrade = (idx: number, quarter: "q1" | "q2" | "q3", value: string) => {
+  const updateGrade = (
+    idx: number,
+    quarter: 'q1' | 'q2' | 'q3',
+    value: string
+  ) => {
     // Subject-level grade security: only assigned subjects may be edited.
     const subject = grades[idx];
     if (subject && !canEditSubject(subject.subject_id)) return;
     if (locked || deadlinePassed) return;
     const parsed = parseFloat(value);
-    const num = value === "" ? "" : Math.min(100, Math.max(0, isNaN(parsed) ? 0 : parsed));
-    setGrades(g => g.map((row, i) => i === idx ? { ...row, [quarter]: num } : row));
+    const num =
+      value === ''
+        ? ''
+        : Math.min(100, Math.max(0, isNaN(parsed) ? 0 : parsed));
+    setGrades(g =>
+      g.map((row, i) => (i === idx ? { ...row, [quarter]: num } : row))
+    );
     setSaved(false);
   };
 
   const handleSave = async () => {
     if (!selectedStudent) return;
     // Subject-level scope guard: nothing to save if no subjects are assigned.
-    if (assignedSubjectIds.size === 0 || grades.every(g => !canEditSubject(g.subject_id))) {
-      showToast("info", "You are not assigned to any of this student's subjects — nothing to save.");
+    if (
+      assignedSubjectIds.size === 0 ||
+      grades.every(g => !canEditSubject(g.subject_id))
+    ) {
+      showToast(
+        'info',
+        "You are not assigned to any of this student's subjects — nothing to save."
+      );
       return;
     }
     setSaving(true);
@@ -370,26 +460,29 @@ export function GradeManagement() {
       for (const entry of grades) {
         // Subject-level scope: only persist grades for assigned subjects.
         if (!canEditSubject(entry.subject_id)) continue;
-        const quarters: ("q1" | "q2" | "q3")[] = ["q1", "q2", "q3"];
+        const quarters: ('q1' | 'q2' | 'q3')[] = ['q1', 'q2', 'q3'];
         for (const q of quarters) {
           const qi = quarters.indexOf(q) + 1;
           const val = entry[q];
-          if (val !== "") {
+          if (val !== '') {
             await gradesApi.upsert({
               student_id: selectedStudent.id,
               subject_id: entry.subject_id,
               school_year_id: schoolYearId,
               quarter: qi,
-              grade: val as number,
+              grade: val as number
             });
           }
         }
       }
-      showToast("success", "Grades saved successfully.");
+      showToast('success', 'Grades saved successfully.');
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
-      showToast("error", err.detail?.error || err.message || "Failed to save grades");
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to save grades'
+      );
     } finally {
       setSaving(false);
     }
@@ -399,12 +492,21 @@ export function GradeManagement() {
     if (!selectedStudent) return;
     setLocking(true);
     try {
-      await gradesApi.lock({ student_id: selectedStudent.id, school_year_id: schoolYearId });
+      await gradesApi.lock({
+        student_id: selectedStudent.id,
+        school_year_id: schoolYearId
+      });
       setLocked(true);
       setShowLockModal(false);
-      showToast("success", "Grades locked. A correction request can be submitted for registrar approval.");
+      showToast(
+        'success',
+        'Grades locked. A correction request can be submitted for registrar approval.'
+      );
     } catch (err: any) {
-      showToast("error", err.detail?.error || err.message || "Failed to lock grades");
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to lock grades'
+      );
     } finally {
       setLocking(false);
     }
@@ -422,12 +524,16 @@ export function GradeManagement() {
         quarter: correctionQuarter ? Number(correctionQuarter) : null,
         justification: correctionJustification,
         common_mistake: correctionMistake || null,
-        other_mistake: correctionMistake === "Other" ? correctionOther.trim() || null : null,
+        other_mistake:
+          correctionMistake === 'Other' ? correctionOther.trim() || null : null
       });
       setCorrectionSubmitted(true);
-      showToast("success", "Correction request submitted for review.");
+      showToast('success', 'Correction request submitted for review.');
     } catch (err: any) {
-      showToast("error", err.detail?.error || err.message || "Failed to submit correction");
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to submit correction'
+      );
     } finally {
       setSubmittingCorrection(false);
     }
@@ -458,7 +564,9 @@ export function GradeManagement() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="h-12 bg-gray-50" />
           <div className="space-y-2 p-4">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-gray-50 rounded-lg" />)}
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-12 bg-gray-50 rounded-lg" />
+            ))}
           </div>
         </div>
       </div>
@@ -467,7 +575,6 @@ export function GradeManagement() {
 
   return (
     <PageContainer className="pb-10">
-
       {/* ── Header ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
@@ -477,8 +584,12 @@ export function GradeManagement() {
               <BookOpen size={22} className="text-emerald-700" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Grade Management</h2>
-              <p className="text-sm text-gray-400 truncate">Encode and manage student grades per subject and quarter</p>
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">
+                Grade Management
+              </h2>
+              <p className="text-sm text-gray-400 truncate">
+                Encode and manage student grades per subject and quarter
+              </p>
             </div>
           </div>
         </div>
@@ -493,7 +604,9 @@ export function GradeManagement() {
           <div className="text-sm text-amber-800">
             <p className="font-bold mb-1">No Students Assigned</p>
             <p className="text-amber-700 text-xs leading-relaxed">
-              You don't have any students assigned to your sections yet. Students appear here once they are enrolled in sections where you are the adviser.
+              You don't have any students assigned to your sections yet.
+              Students appear here once they are enrolled in sections where you
+              are the adviser.
             </p>
           </div>
         </div>
@@ -505,8 +618,11 @@ export function GradeManagement() {
           <div className="text-sm text-emerald-800">
             <p className="font-bold mb-1">How to Encode Grades</p>
             <p className="text-emerald-700 text-xs leading-relaxed">
-              Select a student from the dropdown, enter grades (0–100) for each subject and quarter. When complete, <strong>Lock & Finalize</strong> to prevent further changes.
-              Locked grades can only be corrected via a <strong>Correction Request</strong> approved by the Registrar.
+              Select a student from the dropdown, enter grades (0–100) for each
+              subject and quarter. When complete,{' '}
+              <strong>Lock & Finalize</strong> to prevent further changes.
+              Locked grades can only be corrected via a{' '}
+              <strong>Correction Request</strong> approved by the Registrar.
             </p>
           </div>
         </div>
@@ -517,22 +633,35 @@ export function GradeManagement() {
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm transition-shadow duration-200 relative z-10">
           <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
           <div className="p-4 sm:p-5">
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.05em]">Select Student</label>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-[0.05em]">
+              Select Student
+            </label>
             <div className="relative" ref={searchRef}>
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                onFocus={() => { if (searchQuery.length >= 1) setShowSuggestions(true); }}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (searchQuery.length >= 1) setShowSuggestions(true);
+                }}
                 placeholder="Search by name, LRN, or Student ID..."
                 className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
               />
               {searchQuery && (
                 <button
-                  onClick={() => { setSearchQuery(""); setSelectedStudent(null); setShowSuggestions(false); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-                >
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedStudent(null);
+                    setShowSuggestions(false);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
                   <X size={14} />
                 </button>
               )}
@@ -544,8 +673,7 @@ export function GradeManagement() {
                     <button
                       key={s.id}
                       onClick={() => selectStudent(s)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50/60 transition border-b border-gray-50 last:border-0"
-                    >
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50/60 transition border-b border-gray-50 last:border-0">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center flex-shrink-0">
                         <UserCheck size={14} className="text-emerald-700" />
                       </div>
@@ -558,7 +686,8 @@ export function GradeManagement() {
                           <span className="truncate">{s.name}</span>
                         </p>
                         <p className="text-xs text-gray-400">
-                          {s.lrn} · Grade {s.grade_level} · {s.sex === "male" ? "Male" : "Female"}
+                          {s.lrn} · Grade {s.grade_level} ·{' '}
+                          {s.sex === 'male' ? 'Male' : 'Female'}
                         </p>
                       </div>
                     </button>
@@ -574,15 +703,23 @@ export function GradeManagement() {
                   <UserCheck size={14} className="text-emerald-700" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-gray-800 truncate">{selectedStudent.name}</p>
-                  <p className="text-[11px] text-gray-500">{selectedStudent.lrn} · Grade {selectedStudent.grade_level} · {selectedStudent.sex === "male" ? "Male" : "Female"}</p>
+                  <p className="text-sm font-bold text-gray-800 truncate">
+                    {selectedStudent.name}
+                  </p>
+                  <p className="text-[11px] text-gray-500">
+                    {selectedStudent.lrn} · Grade {selectedStudent.grade_level}{' '}
+                    · {selectedStudent.sex === 'male' ? 'Male' : 'Female'}
+                  </p>
                 </div>
-                <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Selected</span>
+                <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
+                  Selected
+                </span>
               </div>
             )}
 
             <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
-              <Users size={11} /> {students.length} student{students.length !== 1 ? "s" : ""} under your advisorship
+              <Users size={11} /> {students.length} student
+              {students.length !== 1 ? 's' : ''} under your advisorship
             </p>
           </div>
         </div>
@@ -594,13 +731,16 @@ export function GradeManagement() {
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
                 <GraduationCap size={13} className="text-emerald-700" />
               </div>
-              <p className="text-xs text-gray-500 font-semibold uppercase tracking-[0.04em]">General Average</p>
+              <p className="text-xs text-gray-500 font-semibold uppercase tracking-[0.04em]">
+                General Average
+              </p>
             </div>
-            <p className={`text-3xl font-extrabold tracking-tight ${descriptor.color}`}>
-              {loadingGrades ? "..." : overallAvg}
+            <p
+              className={`text-3xl font-extrabold tracking-tight ${descriptor.color}`}>
+              {loadingGrades ? '...' : overallAvg}
             </p>
             <p className={`text-xs font-semibold ${descriptor.color} mt-0.5`}>
-              {loadingGrades ? "Calculating..." : descriptor.label}
+              {loadingGrades ? 'Calculating...' : descriptor.label}
             </p>
           </div>
         </div>
@@ -614,21 +754,30 @@ export function GradeManagement() {
               <Lock size={14} className="text-blue-600 flex-shrink-0 mt-0.5" />
               {assignedLoadFailed ? (
                 <p className="text-xs text-blue-800 leading-relaxed">
-                  We couldn't verify your subject assignments, so grade encoding is <strong>temporarily disabled</strong>. Please refresh the page to retry.
+                  We couldn't verify your subject assignments, so grade encoding
+                  is <strong>temporarily disabled</strong>. Please refresh the
+                  page to retry.
                 </p>
               ) : (
                 <p className="text-xs text-blue-800 leading-relaxed">
-                  You are not assigned to any subjects for this school year — grade encoding is <strong>disabled</strong>. You can still view grades. Contact the Administrator to update your subject assignments.
+                  You are not assigned to any subjects for this school year —
+                  grade encoding is <strong>disabled</strong>. You can still
+                  view grades. Contact the Administrator to update your subject
+                  assignments.
                 </p>
               )}
             </div>
           )}
           {deadlinePassed && (
             <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-start gap-2">
-              <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle
+                size={14}
+                className="text-amber-600 flex-shrink-0 mt-0.5"
+              />
               <p className="text-xs text-amber-800 leading-relaxed">
-                The grade editing deadline has passed — grades are now <strong>read-only</strong>.
-                Contact the Registrar to request a correction or unlock.
+                The grade editing deadline has passed — grades are now{' '}
+                <strong>read-only</strong>. Contact the Registrar to request a
+                correction or unlock.
               </p>
             </div>
           )}
@@ -640,9 +789,13 @@ export function GradeManagement() {
               <div>
                 <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
                   {selectedStudent.name}
-                  <span className="bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-md">Grade {selectedStudent.grade_level}</span>
+                  <span className="bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                    Grade {selectedStudent.grade_level}
+                  </span>
                 </h3>
-                <p className="text-[11px] text-gray-400">LRN: {selectedStudent.lrn}</p>
+                <p className="text-[11px] text-gray-400">
+                  LRN: {selectedStudent.lrn}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -661,7 +814,10 @@ export function GradeManagement() {
 
           {loadingGrades ? (
             <div className="p-12 text-center">
-              <Loader2 size={24} className="animate-spin text-emerald-500 mx-auto mb-2" />
+              <Loader2
+                size={24}
+                className="animate-spin text-emerald-500 mx-auto mb-2"
+              />
               <p className="text-sm text-gray-400">Loading grades...</p>
             </div>
           ) : (
@@ -670,88 +826,132 @@ export function GradeManagement() {
                 desktop={
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm min-w-[700px]">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-emerald-50/80 via-emerald-50/80 to-emerald-50/50 border-b border-emerald-100">
-                      {["Subject", "Q1", "Q2", "Q3", "Final", "Remarks"].map(h => (
-                        <th key={h} className={`${h === "Subject" ? "text-left pl-5" : "text-center px-3"} py-3.5 text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]`}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {displayRows.map(item => {
-                      // Grouped learning-area header (MAPEH, TLE specializations, …)
-                      if (item.kind === "header") {
-                        const desc = getDescriptor(item.final);
-                        return (
-                          <tr key={`group-header-${item.label}`} className="bg-emerald-50/70 border-y border-emerald-100">
-                            <td colSpan={4} className="pl-5 pr-3 py-2.5 font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">
-                              {item.label}
-                            </td>
-                            <td className="px-3 py-2.5 text-center font-bold text-gray-800 text-sm">
-                              {item.final}
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
-                              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${descBadge(desc.label)}`}>
-                                {desc.label}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      const { row, idx } = item;
-                      const finalGrade = avg(row);
-                      const desc = getDescriptor(finalGrade);
-                      const isGrouped = inGroup(row);
-                      return (
-                        <tr key={row.subject} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"} hover:bg-emerald-50/40 transition-colors duration-150`}>
-                          <td className={`pr-3 py-3 text-sm ${isGrouped ? "pl-8 font-medium text-gray-600" : "pl-5 font-semibold text-gray-700"}`}>
-                            <span className="flex items-center gap-2">
-                              {row.subject}
-                              {!canEditSubject(row.subject_id) && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full" title="Read-only — not your assigned subject">
-                                  <Lock size={9} /> Read-only
-                                </span>
-                              )}
-                            </span>
-                          </td>
-                          {(["q1", "q2", "q3"] as const).map(q => (
-                            <td key={q} className="px-3 py-2.5 text-center">
-                              <input
-                                type="number" min="0" max="100" step="0.01"
-                                value={row[q]}
-                                onChange={e => updateGrade(idx, q, e.target.value)}
-                                disabled={locked || deadlinePassed || !canEditSubject(row.subject_id)} 
-                                className={`w-20 text-center border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
-                                  (locked || !canEditSubject(row.subject_id)) ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "border-gray-200 bg-white"
-                                }`}
-                              />
-                            </td>
+                      <thead>
+                        <tr className="bg-gradient-to-r from-emerald-50/80 via-emerald-50/80 to-emerald-50/50 border-b border-emerald-100">
+                          {[
+                            'Subject',
+                            'Q1',
+                            'Q2',
+                            'Q3',
+                            'Final',
+                            'Remarks'
+                          ].map(h => (
+                            <th
+                              key={h}
+                              className={`${h === 'Subject' ? 'text-left pl-5' : 'text-center px-3'} py-3.5 text-[11px] font-semibold text-gray-500 uppercase tracking-[0.06em]`}>
+                              {h}
+                            </th>
                           ))}
-                          <td className="px-3 py-3 text-center font-extrabold text-gray-800 text-base">{finalGrade}</td>
-                          <td className="px-3 py-3 text-center">
-                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${descBadge(desc.label)}`}>
-                              {desc.label}
-                            </span>
-                          </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="">
+                        {displayRows.map(item => {
+                          // Grouped learning-area header (MAPEH, TLE specializations, …)
+                          if (item.kind === 'header') {
+                            const desc = getDescriptor(item.final);
+                            return (
+                              <tr
+                                key={`group-header-${item.label}`}
+                                className="bg-emerald-50/70 border-y border-emerald-100">
+                                <td
+                                  colSpan={4}
+                                  className="pl-5 pr-3 py-2.5 font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">
+                                  {item.label}
+                                </td>
+                                <td className="px-3 py-2.5 text-center font-bold text-gray-800 text-sm">
+                                  {item.final}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span
+                                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${descBadge(desc.label)}`}>
+                                    {desc.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          const { row, idx } = item;
+                          const finalGrade = avg(row);
+                          const desc = getDescriptor(finalGrade);
+                          const isGrouped = inGroup(row);
+                          return (
+                            <tr
+                              key={row.subject}
+                              className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-emerald-50/40 transition-colors duration-150`}>
+                              <td
+                                className={`pr-3 py-3 text-sm ${isGrouped ? 'pl-8 font-medium text-gray-600' : 'pl-5 font-semibold text-gray-700'}`}>
+                                <span className="flex items-center gap-2">
+                                  {row.subject}
+                                  {!canEditSubject(row.subject_id) && (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full"
+                                      title="Read-only — not your assigned subject">
+                                      <Lock size={9} /> Read-only
+                                    </span>
+                                  )}
+                                </span>
+                              </td>
+                              {(['q1', 'q2', 'q3'] as const).map(q => (
+                                <td key={q} className="px-3 py-2.5 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={row[q]}
+                                    onChange={e =>
+                                      updateGrade(idx, q, e.target.value)
+                                    }
+                                    disabled={
+                                      locked ||
+                                      deadlinePassed ||
+                                      !canEditSubject(row.subject_id)
+                                    }
+                                    className={`w-20 text-center border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
+                                      locked || !canEditSubject(row.subject_id)
+                                        ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'
+                                        : 'border-gray-200 bg-white'
+                                    }`}
+                                  />
+                                </td>
+                              ))}
+                              <td className="px-3 py-3 text-center font-extrabold text-gray-800 text-base">
+                                {finalGrade}
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <span
+                                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${descBadge(desc.label)}`}>
+                                  {desc.label}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 }
                 mobile={
-                  <ul className="divide-y divide-gray-50">
+                  <ul className="">
                     {displayRows.map(item => {
-                      if (item.kind === "header") {
+                      if (item.kind === 'header') {
                         const desc = getDescriptor(item.final);
                         return (
-                          <li key="mapeh-header" className="bg-emerald-50/70 border-y border-emerald-100 px-4 py-2.5 flex items-center justify-between gap-2">
-                            <span className="font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">{item.label}</span>
+                          <li
+                            key="mapeh-header"
+                            className="bg-emerald-50/70 border-y border-emerald-100 px-4 py-2.5 flex items-center justify-between gap-2">
+                            <span className="font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">
+                              {item.label}
+                            </span>
                             <span className="flex items-center gap-2">
-                              <span className="font-bold text-gray-800 text-sm">{item.final}</span>
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${descBadge(desc.label)}`}>{desc.label}</span>
+                              <span className="font-bold text-gray-800 text-sm">
+                                {item.final}
+                              </span>
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${descBadge(desc.label)}`}>
+                                {desc.label}
+                              </span>
                             </span>
                           </li>
                         );
@@ -763,37 +963,60 @@ export function GradeManagement() {
                       return (
                         <li key={row.subject} className="px-4 py-3.5">
                           <div className="flex items-center justify-between gap-2">
-                            <p className={`text-sm ${isGrouped ? "pl-3 font-medium text-gray-600" : "font-semibold text-gray-700"}`}>
+                            <p
+                              className={`text-sm ${isGrouped ? 'pl-3 font-medium text-gray-600' : 'font-semibold text-gray-700'}`}>
                               {row.subject}
                               {!canEditSubject(row.subject_id) && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1" title="Read-only">
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1"
+                                  title="Read-only">
                                   <Lock size={9} /> Read-only
                                 </span>
                               )}
                             </p>
-                            <span className="text-xs font-extrabold text-gray-800 flex-shrink-0">Final: {finalGrade}</span>
+                            <span className="text-xs font-extrabold text-gray-800 flex-shrink-0">
+                              Final: {finalGrade}
+                            </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 mt-2">
-                            {(["q1", "q2", "q3"] as const).map((q, qi) => (
+                            {(['q1', 'q2', 'q3'] as const).map((q, qi) => (
                               <div key={q}>
-                                <label className="block text-center text-[10px] font-semibold text-gray-400 uppercase mb-1">Q{qi + 1}</label>
+                                <label className="block text-center text-[10px] font-semibold text-gray-400 uppercase mb-1">
+                                  Q{qi + 1}
+                                </label>
                                 <input
-                                  type="number" min="0" max="100" step="0.01"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
                                   value={row[q]}
-                                  onChange={e => updateGrade(idx, q, e.target.value)}
-                                  disabled={locked || deadlinePassed || !canEditSubject(row.subject_id)} 
+                                  onChange={e =>
+                                    updateGrade(idx, q, e.target.value)
+                                  }
+                                  disabled={
+                                    locked ||
+                                    deadlinePassed ||
+                                    !canEditSubject(row.subject_id)
+                                  }
                                   inputMode="decimal"
                                   className={`w-full text-center border rounded-lg px-1 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
-                                    (locked || !canEditSubject(row.subject_id)) ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "border-gray-200 bg-white"
+                                    locked || !canEditSubject(row.subject_id)
+                                      ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'
+                                      : 'border-gray-200 bg-white'
                                   }`}
                                 />
                               </div>
                             ))}
                           </div>
                           <div className="mt-2 flex items-center justify-between">
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${descBadge(desc.label)}`}>{desc.label}</span>
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${descBadge(desc.label)}`}>
+                              {desc.label}
+                            </span>
                             {locked && (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 font-medium"><Lock size={10} /> Locked</span>
+                              <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 font-medium">
+                                <Lock size={10} /> Locked
+                              </span>
                             )}
                           </div>
                         </li>
@@ -808,8 +1031,12 @@ export function GradeManagement() {
                   <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
                     <BookOpen size={28} className="text-gray-300" />
                   </div>
-                  <p className="text-gray-500 text-sm font-semibold">No subjects configured</p>
-                  <p className="text-gray-400 text-xs mt-1">No subjects found for Grade {selectedStudent.grade_level}.</p>
+                  <p className="text-gray-500 text-sm font-semibold">
+                    No subjects configured
+                  </p>
+                  <p className="text-gray-400 text-xs mt-1">
+                    No subjects found for Grade {selectedStudent.grade_level}.
+                  </p>
                 </div>
               )}
 
@@ -819,25 +1046,41 @@ export function GradeManagement() {
                   <>
                     <button
                       onClick={handleSave}
-                      disabled={saving || deadlinePassed || assignedSubjectIds.size === 0}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
-                    >
-                      {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                      {saving ? "Saving..." : "Save Grades"}
+                      disabled={
+                        saving ||
+                        deadlinePassed ||
+                        assignedSubjectIds.size === 0
+                      }
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none">
+                      {saving ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <Save size={15} />
+                      )}
+                      {saving ? 'Saving...' : 'Save Grades'}
                     </button>
                     <button
                       onClick={() => setShowLockModal(true)}
-                      disabled={saving || deadlinePassed || assignedSubjectIds.size === 0}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none"
-                    >
+                      disabled={
+                        saving ||
+                        deadlinePassed ||
+                        assignedSubjectIds.size === 0
+                      }
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none">
                       <Lock size={15} /> Lock & Finalize
                     </button>
                   </>
                 ) : (
                   <button
-                    onClick={() => { setShowCorrectionModal(true); setCorrectionSubject(""); setCorrectionJustification(""); setCorrectionMistake(""); setCorrectionOther(""); setCorrectionSubmitted(false); }}
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
-                  >
+                    onClick={() => {
+                      setShowCorrectionModal(true);
+                      setCorrectionSubject('');
+                      setCorrectionJustification('');
+                      setCorrectionMistake('');
+                      setCorrectionOther('');
+                      setCorrectionSubmitted(false);
+                    }}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
                     <MessageSquare size={15} /> Request Grade Correction
                   </button>
                 )}
@@ -845,10 +1088,14 @@ export function GradeManagement() {
                 {/* ── SF9 Report Card Button (always visible when a student is selected) ── */}
                 {selectedStudent && (
                   <button
-                    onClick={() => navigate(`/teacher/forms/sf9?student_id=${selectedStudent.id}&school_year_id=${schoolYearId}`)}
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto"
-                  >
-                    <FileText size={15} /> <span>SF9 Report Card</span> <ExternalLink size={12} />
+                    onClick={() =>
+                      navigate(
+                        `/teacher/forms/sf9?student_id=${selectedStudent.id}&school_year_id=${schoolYearId}`
+                      )
+                    }
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto">
+                    <FileText size={15} /> <span>SF9 Report Card</span>{' '}
+                    <ExternalLink size={12} />
                   </button>
                 )}
               </div>
@@ -859,60 +1106,73 @@ export function GradeManagement() {
 
       {/* ── Lock Confirmation Modal ── */}
       {showLockModal && selectedStudent && (
-      <ModalShell
-        open
-        onClose={() => setShowLockModal(false)}
-        maxWidth="max-w-md"
-        className="animate-in zoom-in-95"
-        bodyClassName="p-6"
-      >
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shadow-sm">
-            <AlertTriangle size={22} className="text-amber-600" />
+        <ModalShell
+          open
+          onClose={() => setShowLockModal(false)}
+          maxWidth="max-w-md"
+          className="animate-in zoom-in-95"
+          bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shadow-sm">
+              <AlertTriangle size={22} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">
+                Lock & Finalize Grades
+              </h3>
+              <p className="text-gray-400 text-xs">
+                This action will prevent further edits
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-gray-900">Lock & Finalize Grades</h3>
-            <p className="text-gray-400 text-xs">This action will prevent further edits</p>
-          </div>
-        </div>
 
-        <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-xl p-4 text-sm space-y-3 mb-5">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500">Student:</span>
-            <span className="font-bold text-gray-800">{selectedStudent.name}</span>
+          <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-xl p-4 text-sm space-y-3 mb-5">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Student:</span>
+              <span className="font-bold text-gray-800">
+                {selectedStudent.name}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Grade Level:</span>
+              <span className="font-semibold">
+                Grade {selectedStudent.grade_level}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+              <span className="text-gray-500">General Average:</span>
+              <span className={`font-bold text-lg ${descriptor.color}`}>
+                {overallAvg}
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500">Grade Level:</span>
-            <span className="font-semibold">Grade {selectedStudent.grade_level}</span>
-          </div>
-          <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-            <span className="text-gray-500">General Average:</span>
-            <span className={`font-bold text-lg ${descriptor.color}`}>{overallAvg}</span>
-          </div>
-        </div>
 
-        <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-          Once locked, grades cannot be edited directly. If changes are needed, you must submit a <strong>Correction Request</strong> to the Registrar for approval.
-        </p>
+          <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+            Once locked, grades cannot be edited directly. If changes are
+            needed, you must submit a <strong>Correction Request</strong> to the
+            Registrar for approval.
+          </p>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowLockModal(false)}
-            disabled={locking}
-            className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleLock}
-            disabled={locking}
-            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
-          >
-            {locking ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
-            {locking ? "Locking..." : "Yes, Lock Grades"}
-          </button>
-        </div>
-      </ModalShell>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowLockModal(false)}
+              disabled={locking}
+              className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
+              Cancel
+            </button>
+            <button
+              onClick={handleLock}
+              disabled={locking}
+              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2">
+              {locking ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Lock size={14} />
+              )}
+              {locking ? 'Locking...' : 'Yes, Lock Grades'}
+            </button>
+          </div>
+        </ModalShell>
       )}
 
       {/* ── Correction Request Modal ── */}
@@ -920,8 +1180,7 @@ export function GradeManagement() {
         open={showCorrectionModal}
         onClose={() => setShowCorrectionModal(false)}
         maxWidth="max-w-md"
-        bodyClassName="p-0"
-      >
+        bodyClassName="p-0">
         <div className="px-6 py-5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-400 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -929,10 +1188,14 @@ export function GradeManagement() {
             </div>
             <div>
               <h3 className="font-bold text-white">Grade Correction Request</h3>
-              <p className="text-white/70 text-xs">Submit for Registrar approval</p>
+              <p className="text-white/70 text-xs">
+                Submit for Registrar approval
+              </p>
             </div>
           </div>
-          <button onClick={() => setShowCorrectionModal(false)} className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+          <button
+            onClick={() => setShowCorrectionModal(false)}
+            className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
             <X size={18} />
           </button>
         </div>
@@ -940,23 +1203,27 @@ export function GradeManagement() {
           <>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Subject</label>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
+                  Subject
+                </label>
                 <select
                   value={correctionSubject}
                   onChange={e => setCorrectionSubject(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
-                >
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition">
                   <option value="">All subjects</option>
-                  {grades.map(g => <option key={g.subject}>{g.subject}</option>)}
+                  {grades.map(g => (
+                    <option key={g.subject}>{g.subject}</option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Quarter</label>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
+                  Quarter
+                </label>
                 <select
                   value={correctionQuarter}
                   onChange={e => setCorrectionQuarter(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
-                >
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition">
                   <option value="">All quarters</option>
                   <option value="1">1st Quarter</option>
                   <option value="2">2nd Quarter</option>
@@ -965,13 +1232,16 @@ export function GradeManagement() {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
-                  Common Mistake <span className="text-gray-300">(optional)</span>
+                  Common Mistake{' '}
+                  <span className="text-gray-300">(optional)</span>
                 </label>
                 <select
                   value={correctionMistake}
-                  onChange={e => { setCorrectionMistake(e.target.value); if (e.target.value !== "Other") setCorrectionOther(""); }}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition"
-                >
+                  onChange={e => {
+                    setCorrectionMistake(e.target.value);
+                    if (e.target.value !== 'Other') setCorrectionOther('');
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition">
                   <option value="">Select a reason...</option>
                   <option value="Wrong item count">Wrong item count</option>
                   <option value="Transposed score">Transposed score</option>
@@ -981,23 +1251,29 @@ export function GradeManagement() {
                   <option value="Other">Other</option>
                 </select>
               </div>
-              {correctionMistake === "Other" && (
+              {correctionMistake === 'Other' && (
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Describe the mistake</label>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
+                    Describe the mistake
+                  </label>
                   <textarea
                     value={correctionOther}
                     onChange={e => setCorrectionOther(e.target.value)}
-                    rows={2} placeholder="Briefly describe what went wrong..."
+                    rows={2}
+                    placeholder="Briefly describe what went wrong..."
                     className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
                   />
                 </div>
               )}
               <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">Justification</label>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
+                  Justification
+                </label>
                 <textarea
                   value={correctionJustification}
                   onChange={e => setCorrectionJustification(e.target.value)}
-                  rows={4} placeholder="Explain why the grade needs to be corrected..."
+                  rows={4}
+                  placeholder="Explain why the grade needs to be corrected..."
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition resize-none"
                 />
               </div>
@@ -1006,17 +1282,19 @@ export function GradeManagement() {
               <button
                 onClick={() => setShowCorrectionModal(false)}
                 disabled={submittingCorrection}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
-              >
+                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
                 Cancel
               </button>
               <button
                 onClick={handleSubmitCorrection}
                 disabled={!correctionJustification || submittingCorrection}
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all inline-flex items-center justify-center gap-2"
-              >
-                {submittingCorrection ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                {submittingCorrection ? "Submitting..." : "Submit Request"}
+                className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all inline-flex items-center justify-center gap-2">
+                {submittingCorrection ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Send size={14} />
+                )}
+                {submittingCorrection ? 'Submitting...' : 'Submit Request'}
               </button>
             </div>
           </>
@@ -1025,12 +1303,16 @@ export function GradeManagement() {
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
               <CheckCircle size={32} className="text-emerald-600" />
             </div>
-            <h3 className="font-bold text-gray-900 text-lg mb-1">Request Submitted</h3>
-            <p className="text-sm text-gray-500 mb-5">Your correction request has been forwarded to the Registrar for review.</p>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">
+              Request Submitted
+            </h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Your correction request has been forwarded to the Registrar for
+              review.
+            </p>
             <button
               onClick={() => setShowCorrectionModal(false)}
-              className="w-full bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
-            >
+              className="w-full bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition shadow-sm">
               Done
             </button>
           </div>

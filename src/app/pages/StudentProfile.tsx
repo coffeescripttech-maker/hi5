@@ -210,7 +210,10 @@ function DocumentChecklist({
         requirements: [{ requirement_key: key, label, is_submitted: next }]
       });
       setRows(updated);
-      showToast('success', next ? 'Marked as Submitted' : 'Marked as Not Submitted');
+      showToast(
+        'success',
+        next ? 'Marked as Submitted' : 'Marked as Not Submitted'
+      );
     } catch (err: any) {
       showToast(
         'error',
@@ -436,9 +439,7 @@ export function StudentProfile() {
   // checklist — this mirrors the backend PUT /enrollments/:id/requirements
   // permission. Other roles (teacher, principal) view it read-only.
   const canEditChecklist =
-    role === 'admin' ||
-    role === 'registrar' ||
-    role === 'enrollment_committee';
+    role === 'admin' || role === 'registrar' || role === 'enrollment_committee';
 
   // Graduation details for graduated students — the class year comes from the
   // SY they completed (e.g. "2030-2031" → Class of 2031).
@@ -971,7 +972,7 @@ export function StudentProfile() {
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="">
                           {enrollments.map((e, idx) => {
                             const badge = STATUS_BADGE[e.status] || {
                               bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
@@ -1169,7 +1170,7 @@ export function StudentProfile() {
                                       ))}
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-gray-50">
+                                  <tbody className="">
                                     {sy.subjects.map(sub => {
                                       const desc = getDescriptor(
                                         sub.final_average
@@ -1206,7 +1207,7 @@ export function StudentProfile() {
                               </div>
                             }
                             mobile={
-                              <ul className="divide-y divide-gray-50">
+                              <ul className="">
                                 {sy.subjects.map(sub => {
                                   const desc = getDescriptor(sub.final_average);
                                   return (
@@ -1226,8 +1227,8 @@ export function StudentProfile() {
                                         className={`text-[10px] font-medium mt-0.5 ${desc.color}`}>
                                         {desc.label}
                                       </p>
-<div className="grid grid-cols-3 gap-2 mt-1.5">
-                                         {[sub.q1, sub.q2, sub.q3].map(
+                                      <div className="grid grid-cols-3 gap-2 mt-1.5">
+                                        {[sub.q1, sub.q2, sub.q3].map(
                                           (q, qi) => (
                                             <div
                                               key={qi}

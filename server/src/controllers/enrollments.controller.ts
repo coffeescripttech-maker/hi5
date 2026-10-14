@@ -22,35 +22,65 @@ const DEFAULT_REQUIREMENT_LABELS: Record<string, string> = {
 
 /**
  * GET /api/enrollments/stats — Dashboard aggregation stats
- * Query: ?school_year_id=1
- * Returns gender breakdown per grade + classification totals
+ * Query: ?school_year_id=1&section_id=3
+ * Returns gender breakdown per grade + classification totals, scoped to a
+ * single school year (defaults to the current SY) and optionally a section.
  */
 export async function getDashboardStats(req: Request, res: Response): Promise<void> {
   try {
-    const { school_year_id } = req.query;
-    const syFilter = school_year_id ? "AND e.school_year_id = ?" : "";
-    const syParams: any[] = school_year_id ? [parseInt(school_year_id as string)] : [];
+    const { school_year_id, section_id } = req.query;
+
+    // Default to the current school year so dashboards never aggregate across
+    // multiple years, which double-counts students promoted between SYs.
+    let schoolYearId: number | null = school_year_id
+      ? parseInt(school_year_id as string)
+      : null;
+    if (!schoolYearId) {
+      const current = await query<RowDataPacket[]>(
+        "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+      );
+      schoolYearId = current[0]?.id ?? null;
+    }
+    const sectionId: number | null = section_id
+      ? parseInt(section_id as string)
+      : null;
+
+    const conditions: string[] = ["e.status = 'enrolled'"];
+    const params: any[] = [];
+    if (schoolYearId) {
+      conditions.push("e.school_year_id = ?");
+      params.push(schoolYearId);
+    }
+    if (sectionId) {
+      conditions.push("e.section_id = ?");
+      params.push(sectionId);
+    }
+    const where = "WHERE " + conditions.join(" AND ");
 
     // Gender breakdown per grade level
     const genderStats = await query<RowDataPacket[]>(
       `SELECT s.grade_level, s.sex, COUNT(*) AS count
        FROM enrollments e
        JOIN students s ON e.student_id = s.id
-       WHERE e.status = 'enrolled' ${syFilter}
+       ${where}
        GROUP BY s.grade_level, s.sex
        ORDER BY s.grade_level ASC`,
-      syParams
+      params
     );
 
-    // Classification totals across all enrolled students
+    // Classification totals across the scoped enrolled students
+    const classifParams: any[] = [];
+    if (schoolYearId) classifParams.push(schoolYearId);
+    if (sectionId) classifParams.push(sectionId);
     const classificationStats = await query<RowDataPacket[]>(
       `SELECT sc.classification, COUNT(DISTINCT sc.student_id) AS count
        FROM student_classifications sc
        JOIN enrollments e ON e.student_id = sc.student_id AND e.status = 'enrolled'
-       ${school_year_id ? "AND e.school_year_id = ?" : ""}
+       ${schoolYearId ? "AND e.school_year_id = ?" : ""}
+       ${sectionId ? "AND e.section_id = ?" : ""}
        GROUP BY sc.classification
        ORDER BY count DESC`,
-      syParams
+      classifParams
     );
 
     // Build gender breakdown by grade
