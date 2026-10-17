@@ -28,7 +28,7 @@ function initialsFor(username: string): string {
 }
 
 export function ProfileDropdown() {
-  const { role, username, profilePhoto, logout } = useApp();
+  const { role, username, profilePhoto, logout, darkMode } = useApp();
   const accent = useRoleAccent();
   const navigate = useNavigate();
 
@@ -78,7 +78,7 @@ export function ProfileDropdown() {
             <p className="truncate text-sm font-semibold text-gray-800 dark:text-slate-100">
               {displayName}
             </p>
-            <p className="truncate text-xs" style={{ color: accent.chartHex }}>
+            <p className="truncate text-xs" style={{ color: darkMode ? accent.chartHexDark : accent.chartHex }}>
               {ROLE_LABELS[roleKey]}
             </p>
           </div>

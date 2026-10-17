@@ -55,6 +55,11 @@ export const newLearnerSchema = z.object({
     .int()
     .min(7, 'Junior high school runs from Grade 7 to Grade 12')
     .max(12, 'Junior high school runs from Grade 7 to Grade 12'),
+  reason: z
+    .string()
+    .trim()
+    .min(3, 'A reason is required for every transfer request')
+    .max(500, 'Reason is too long (max 500 characters)'),
   previous_school: z
     .string()
     .trim()

@@ -25,6 +25,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { ModalShell } from '../../components/ModalShell';
 import {
   sectioningApi,
@@ -296,6 +297,8 @@ export function SectionAssignment() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [years, setYears] = useState<SchoolYearRow[]>([]);
+  const [syId, setSyId] = useState<number | null>(null);
 
   // ── Carry-over state ──
   const [carryOverGrade, setCarryOverGrade] = useState(12);
@@ -395,21 +398,21 @@ export function SectionAssignment() {
   }[] = [
     {
       key: 'random',
-      label: 'Random Distribution',
+      label: 'Random (Gender-Balanced)',
       icon: Shuffle,
-      desc: 'Distribute JHS Regular students evenly by GA'
+      desc: 'Randomly and evenly distribute JHS Regular students into gender-balanced sections (no GA sorting)'
     },
     {
       key: 'placement',
-      label: 'Placement Assistance',
+      label: 'STE/SPFL (Eligibility)',
       icon: Sparkles,
-      desc: 'Assign STE, SPFL students based on classifications'
+      desc: 'Assign STE and SPFL based on program eligibility (exam/interview, program subjects; no GA band)'
     },
     {
       key: 'carryover',
-      label: 'Carry-Over (G11→G12)',
+      label: 'Carry-Over (Prior Section)',
       icon: GraduationCap,
-      desc: 'Carry G11 students to their matching G12 section'
+      desc: 'Return G11→G12 students to their prior section if eligible; STE/SPFL re-validated'
     },
     {
       key: 'manual',
@@ -426,7 +429,8 @@ export function SectionAssignment() {
     try {
       const data = await sectioningApi.getPendingQueue({
         grade_level: filterGrade || undefined,
-        program: filterProgram || undefined
+        program: filterProgram || undefined,
+        school_year_id: syId ?? undefined
       });
       setQueue(data.queue);
       setSections(data.sections);
@@ -459,11 +463,26 @@ export function SectionAssignment() {
     } finally {
       setLoading(false);
     }
-  }, [filterGrade, filterProgram]);
+  }, [filterGrade, filterProgram, syId]);
 
   useEffect(() => {
     loadQueue();
   }, [loadQueue]);
+
+  /* ── School years (for the SY selector) ── */
+  useEffect(() => {
+    schoolYearsApi
+      .list()
+      .then(list => {
+        setYears(list);
+        setSyId(prev => {
+          if (prev != null) return prev;
+          const cur = list.find(y => y.is_current === 1);
+          return cur ? cur.id : null;
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   /* ── Pending queue counts per grade ── */
   const gradeCounts: PendingCount[] = React.useMemo(() => {
@@ -822,6 +841,26 @@ export function SectionAssignment() {
               students to sections
             </p>
           </div>
+          {years.length > 0 && (
+            <label className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-[0.05em] hidden sm:inline">
+                School Year
+              </span>
+              <select
+                value={syId ?? ''}
+                onChange={e =>
+                  setSyId(e.target.value ? parseInt(e.target.value, 10) : null)
+                }
+                className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-colors">
+                {years.map(y => (
+                  <option key={y.id} value={y.id}>
+                    SY {y.sy_label}
+                    {y.is_current === 1 ? ' · current' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button
             onClick={loadQueue}
             disabled={loading}

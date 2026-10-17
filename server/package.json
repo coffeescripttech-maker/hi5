@@ -11,7 +11,7 @@
     "seed": "tsx src/config/seed.ts",
     "db:setup": "npm run migrate && npm run seed",
     "db:reset": "tsx src/config/reset.ts",
-    "test": "tsx --test src/utils/linearRegression.test.ts",
+    "test": "tsx --test src/utils/linearRegression.test.ts src/services/sectioningRules.test.ts",
     "test:api": "tsx scripts/smokeCommittee.ts",
     "test:e2e": "node e2e-sf-forms.cjs"
   },

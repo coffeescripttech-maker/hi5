@@ -1,0 +1,508 @@
+{
+  "captured_at": "2026-10-16T05:39:09.628Z",
+  "current_sy": {
+    "id": 3,
+    "sy_label": "2027-2028",
+    "is_current": 1,
+    "enrollment_open": 1
+  },
+  "next_sy": {
+    "id": 4,
+    "sy_label": "2028-2029",
+    "is_current": 0,
+    "enrollment_open": 0
+  },
+  "years": [
+    {
+      "id": 1,
+      "sy_label": "2025-2026",
+      "is_current": 0,
+      "enrollment_open": 0
+    },
+    {
+      "id": 2,
+      "sy_label": "2026-2027",
+      "is_current": 0,
+      "enrollment_open": 0
+    },
+    {
+      "id": 3,
+      "sy_label": "2027-2028",
+      "is_current": 1,
+      "enrollment_open": 1
+    },
+    {
+      "id": 4,
+      "sy_label": "2028-2029",
+      "is_current": 0,
+      "enrollment_open": 0
+    },
+    {
+      "id": 5,
+      "sy_label": "2029-2030",
+      "is_current": 0,
+      "enrollment_open": 0
+    },
+    {
+      "id": 6,
+      "sy_label": "2030-2031",
+      "is_current": 0,
+      "enrollment_open": 0
+    },
+    {
+      "id": 7,
+      "sy_label": "2031-2032",
+      "is_current": 0,
+      "enrollment_open": 0
+    },
+    {
+      "id": 8,
+      "sy_label": "2032-2033",
+      "is_current": 0,
+      "enrollment_open": 0
+    },
+    {
+      "id": 9,
+      "sy_label": "2033-2034",
+      "is_current": 0,
+      "enrollment_open": 0
+    }
+  ],
+  "current_sections": [
+    {
+      "id": 15,
+      "name": "7-Hero",
+      "grade_level": 7,
+      "section_type": "regular",
+      "current_count": 11,
+      "enrolled_now": 7
+    },
+    {
+      "id": 16,
+      "name": "7-Ilang-Ilang",
+      "grade_level": 7,
+      "section_type": "spfl",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 28,
+      "name": "7-Mabuini",
+      "grade_level": 7,
+      "section_type": "ste",
+      "current_count": 1,
+      "enrolled_now": 0
+    },
+    {
+      "id": 13,
+      "name": "7-Pogi",
+      "grade_level": 7,
+      "section_type": "regular",
+      "current_count": 12,
+      "enrolled_now": 7
+    },
+    {
+      "id": 2,
+      "name": "7-Rose",
+      "grade_level": 7,
+      "section_type": "ste",
+      "current_count": 3,
+      "enrolled_now": 0
+    },
+    {
+      "id": 1,
+      "name": "7-Sampaguita",
+      "grade_level": 7,
+      "section_type": "ste",
+      "current_count": 2,
+      "enrolled_now": 0
+    },
+    {
+      "id": 3,
+      "name": "8-Mabini",
+      "grade_level": 8,
+      "section_type": "ste",
+      "current_count": 4,
+      "enrolled_now": 0
+    },
+    {
+      "id": 4,
+      "name": "8-Mahinhin",
+      "grade_level": 8,
+      "section_type": "ste",
+      "current_count": 1,
+      "enrolled_now": 0
+    },
+    {
+      "id": 17,
+      "name": "8-Masipag",
+      "grade_level": 8,
+      "section_type": "regular",
+      "current_count": 2,
+      "enrolled_now": 1
+    },
+    {
+      "id": 18,
+      "name": "8-Matibay",
+      "grade_level": 8,
+      "section_type": "regular",
+      "current_count": 2,
+      "enrolled_now": 1
+    },
+    {
+      "id": 29,
+      "name": "8-QA35889",
+      "grade_level": 8,
+      "section_type": "regular",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 30,
+      "name": "8-QAS09706",
+      "grade_level": 8,
+      "section_type": "ste",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 19,
+      "name": "8-Rosal",
+      "grade_level": 8,
+      "section_type": "spfl",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 22,
+      "name": "9-Ilang-Ilang",
+      "grade_level": 9,
+      "section_type": "spfl",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 5,
+      "name": "9-Mabait",
+      "grade_level": 9,
+      "section_type": "ste",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 21,
+      "name": "9-Maithin",
+      "grade_level": 9,
+      "section_type": "regular",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 20,
+      "name": "9-Masigasig",
+      "grade_level": 9,
+      "section_type": "regular",
+      "current_count": 1,
+      "enrolled_now": 1
+    },
+    {
+      "id": 6,
+      "name": "9-Masino",
+      "grade_level": 9,
+      "section_type": "ste",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 7,
+      "name": "10-Maalaga",
+      "grade_level": 10,
+      "section_type": "ste",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 23,
+      "name": "10-Masaya",
+      "grade_level": 10,
+      "section_type": "regular",
+      "current_count": 1,
+      "enrolled_now": 1
+    },
+    {
+      "id": 24,
+      "name": "10-Masipag",
+      "grade_level": 10,
+      "section_type": "regular",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 25,
+      "name": "10-Rosal",
+      "grade_level": 10,
+      "section_type": "spfl",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 8,
+      "name": "11-Maasahan",
+      "grade_level": 11,
+      "section_type": "ste",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 26,
+      "name": "11-Matatag",
+      "grade_level": 11,
+      "section_type": "regular",
+      "current_count": 6,
+      "enrolled_now": 4
+    },
+    {
+      "id": 11,
+      "name": "12-Maayos",
+      "grade_level": 12,
+      "section_type": "ste",
+      "current_count": 0,
+      "enrolled_now": 0
+    },
+    {
+      "id": 9,
+      "name": "12-Magraduate",
+      "grade_level": 12,
+      "section_type": "ste",
+      "current_count": 1,
+      "enrolled_now": 0
+    },
+    {
+      "id": 27,
+      "name": "12-Masipag",
+      "grade_level": 12,
+      "section_type": "regular",
+      "current_count": 1,
+      "enrolled_now": 0
+    }
+  ],
+  "current_by_section": [
+    {
+      "section_id": 20,
+      "c": 1
+    },
+    {
+      "section_id": 23,
+      "c": 1
+    },
+    {
+      "section_id": 13,
+      "c": 7
+    },
+    {
+      "section_id": 15,
+      "c": 7
+    },
+    {
+      "section_id": 17,
+      "c": 1
+    },
+    {
+      "section_id": 18,
+      "c": 1
+    },
+    {
+      "section_id": 26,
+      "c": 4
+    },
+    {
+      "section_id": null,
+      "c": 6
+    }
+  ],
+  "current_null_section": [
+    {
+      "c": 6
+    }
+  ],
+  "next_null_section": [
+    {
+      "c": 1
+    }
+  ],
+  "next_enrolled_total": [
+    {
+      "c": 24
+    }
+  ],
+  "next_by_grade": [
+    {
+      "grade_level": 7,
+      "c": 13
+    },
+    {
+      "grade_level": 8,
+      "c": 4
+    },
+    {
+      "grade_level": 9,
+      "c": 2
+    },
+    {
+      "grade_level": 10,
+      "c": 1
+    },
+    {
+      "grade_level": 11,
+      "c": 4
+    }
+  ],
+  "students_by_grade": [
+    {
+      "grade_level": 7,
+      "c": 30
+    },
+    {
+      "grade_level": 8,
+      "c": 15
+    },
+    {
+      "grade_level": 9,
+      "c": 9
+    },
+    {
+      "grade_level": 10,
+      "c": 6
+    },
+    {
+      "grade_level": 11,
+      "c": 5
+    },
+    {
+      "grade_level": 12,
+      "c": 8
+    }
+  ],
+  "recent_promotions": [
+    {
+      "id": 53,
+      "section_id": 15,
+      "section_name": "7-Hero",
+      "to_grade_level": 8,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T23:25:32.000Z",
+      "student_count": 6,
+      "retained": 0,
+      "pending_section": 6
+    },
+    {
+      "id": 52,
+      "section_id": 26,
+      "section_name": "11-Matatag",
+      "to_grade_level": 12,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:47:07.000Z",
+      "student_count": 4,
+      "retained": 0,
+      "pending_section": 4
+    },
+    {
+      "id": 51,
+      "section_id": 23,
+      "section_name": "10-Masaya",
+      "to_grade_level": 11,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:47:06.000Z",
+      "student_count": 1,
+      "retained": 0,
+      "pending_section": 1
+    },
+    {
+      "id": 50,
+      "section_id": 20,
+      "section_name": "9-Masigasig",
+      "to_grade_level": 10,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:47:05.000Z",
+      "student_count": 1,
+      "retained": 0,
+      "pending_section": 1
+    },
+    {
+      "id": 49,
+      "section_id": 18,
+      "section_name": "8-Matibay",
+      "to_grade_level": 9,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:47:04.000Z",
+      "student_count": 1,
+      "retained": 0,
+      "pending_section": 1
+    },
+    {
+      "id": 48,
+      "section_id": 17,
+      "section_name": "8-Masipag",
+      "to_grade_level": 9,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:47:02.000Z",
+      "student_count": 1,
+      "retained": 0,
+      "pending_section": 1
+    },
+    {
+      "id": 47,
+      "section_id": 13,
+      "section_name": "7-Pogi",
+      "to_grade_level": 8,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:46:56.000Z",
+      "student_count": 8,
+      "retained": 1,
+      "pending_section": 7
+    },
+    {
+      "id": 46,
+      "section_id": 15,
+      "section_name": "7-Hero",
+      "to_grade_level": 8,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:46:52.000Z",
+      "student_count": 6,
+      "retained": 0,
+      "pending_section": 6
+    },
+    {
+      "id": 45,
+      "section_id": 11,
+      "section_name": "12-Maayos",
+      "to_grade_level": 12,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:16:34.000Z",
+      "student_count": 1,
+      "retained": 0,
+      "pending_section": 1
+    },
+    {
+      "id": 44,
+      "section_id": 15,
+      "section_name": "7-Hero",
+      "to_grade_level": 8,
+      "school_year_id": 3,
+      "status": "completed",
+      "created_at": "2026-10-14T22:15:37.000Z",
+      "student_count": 6,
+      "retained": 0,
+      "pending_section": 6
+    }
+  ]
+}

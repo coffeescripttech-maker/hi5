@@ -175,7 +175,7 @@ Enroll new or returning students (separate page, accessed from dashboard quick a
 | Feature | Details |
 |---|---|
 | **Student Selector** | Choose student by section and name |
-| **Grade Encoding Sheet** | 8+ subjects × 4 quarters with input fields |
+| **Grade Encoding Sheet** | 8+ subjects × 3 quarters with input fields |
 | **Real-Time Averages** | Per-subject averages and overall general average update on each keystroke |
 | **Grade Descriptors** | Auto-computed: Outstanding (90+), Very Satisfactory (85–89), Satisfactory (80–84), Fairly Satisfactory (75–79), Did Not Meet (<75) |
 | **Lock/Unlock** | Toggle to prevent further edits after submission |

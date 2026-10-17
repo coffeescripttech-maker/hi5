@@ -283,6 +283,7 @@ export function TransferManagement() {
       sex: form.sex,
       birthdate: form.birthdate,
       grade_level: form.grade_level,
+      reason: form.reason,
       previous_school: form.previous_school
     });
   };

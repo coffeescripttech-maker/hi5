@@ -169,7 +169,8 @@ export function NotificationsDropdown() {
     markAllRead: ctxMarkAllRead,
     markOneRead: ctxMarkOneRead,
     securityNotifs,
-    showToast
+    showToast,
+    darkMode
   } = useApp();
   const accent = useRoleAccent();
   const [open, setOpen] = useState(false);
@@ -331,7 +332,7 @@ export function NotificationsDropdown() {
                   className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                   style={{
                     backgroundColor: `${accent.chartHex}1a`,
-                    color: accent.chartHex
+                    color: darkMode ? accent.chartHexDark : accent.chartHex
                   }}>
                   {unreadCount} new
                 </span>
@@ -339,7 +340,7 @@ export function NotificationsDropdown() {
               <button
                 onClick={handleMarkAllRead}
                 className="text-xs font-medium transition-colors hover:underline"
-                style={{ color: accent.chartHex }}>
+                style={{ color: darkMode ? accent.chartHexDark : accent.chartHex }}>
                 Mark all read
               </button>
             </div>

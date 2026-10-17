@@ -955,7 +955,7 @@ export function StudentProfile() {
                     <div className="overflow-x-auto rounded-xl border border-gray-100">
                       <table className="w-full min-w-[600px]">
                         <thead>
-                          <tr className="bg-gradient-to-r from-gray-50 to-gray-50/80">
+                          <tr className="bg-gray-50/80">
                             {[
                               'School Year',
                               'Grade Level',

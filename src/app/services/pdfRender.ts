@@ -16,6 +16,7 @@ import {
   fetchAsBase64,
   inlineRemoteImages,
   replaceFormControls,
+  withLightTheme,
 } from "./pdfExport";
 import tinosRegular from "../../assets/fonts/Tinos-Regular.ttf";
 import tinosBold from "../../assets/fonts/Tinos-Bold.ttf";
@@ -486,8 +487,13 @@ export async function serializeElementForPdf(
   const printCss = opts.printCss ?? collectPrintCss();
 
   try {
-    await inlineComputedStylesForChromium(clone);
-    replaceFormControls(clone);
+    // Capture colours in light mode: a dark-themed clone would serialize its
+    // dark backgrounds straight into the PDF *and* into the screen-media
+    // FormPrintPreview iframe (where the @media print reset never applies).
+    await withLightTheme(async () => {
+      await inlineComputedStylesForChromium(clone);
+      replaceFormControls(clone);
+    });
     await inlineRemoteImages(clone);
     fixRootForPrint(clone);
     return await buildPdfDocumentHtml(clone.outerHTML, opts, printCss);

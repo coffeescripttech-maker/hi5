@@ -113,7 +113,7 @@ export async function markAllAsRead(req: Request, res: Response): Promise<void> 
 
     // Get unread notifications for this user
     const unread = await query<RowDataPacket[]>(
-      `SELECT id FROM notifications n
+      `SELECT n.id FROM notifications n
        LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = ?
        WHERE (n.user_id = ? OR n.user_id IS NULL) AND nr.id IS NULL`,
       [userId, userId]

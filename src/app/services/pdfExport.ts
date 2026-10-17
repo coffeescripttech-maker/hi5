@@ -533,6 +533,33 @@ function ensureSerifFont(): Promise<void> {
 /* ── Main export ── */
 
 /**
+ * Run `fn` while the app is temporarily forced into light mode.
+ *
+ * Both serializers capture *computed* styles from a live clone, so whatever
+ * theme the app is in gets baked into the exported document. Dark mode is
+ * driven entirely by the `.dark` class on `<html>`, so removing it for the
+ * duration of the capture makes the export byte-for-byte identical to a
+ * light-mode export — the same colours the browser's Print Preview shows —
+ * regardless of the user's theme. The class is always restored, even if `fn`
+ * throws.
+ *
+ * This exists because the `@media print` reset in index.css only applies while
+ * printing: it cannot cover the on-screen FormPrintPreview iframe, and it is a
+ * moving target against the dark-mode remaps. Making the source colours light
+ * fixes every consumer at once.
+ */
+export async function withLightTheme<T>(fn: () => T | Promise<T>): Promise<T> {
+  const root = document.documentElement;
+  const hadDark = root.classList.contains("dark");
+  if (hadDark) root.classList.remove("dark");
+  try {
+    return await fn();
+  } finally {
+    if (hadDark) root.classList.add("dark");
+  }
+}
+
+/**
  * Export an HTML element to PDF by converting it to a pdfmake document.
  * Tables split across pages automatically; orientation/format control the
  * page size.
@@ -559,10 +586,14 @@ export async function exportToPdf({
   (element.parentNode ?? document.body).insertBefore(clone, element);
 
   try {
-    // Inline computed styles, drop no-print content, materialise inputs, and
-    // make images embeddable — then serialize to HTML for html-to-pdfmake.
-    inlineComputedStyles(clone);
-    replaceFormControls(clone);
+    // Inline computed styles and materialise inputs while the app is forced to
+    // light mode, so dark-theme colours are never baked into the PDF.
+    await withLightTheme(() => {
+      inlineComputedStyles(clone);
+      replaceFormControls(clone);
+    });
+    // Images and fonts are theme-independent, so do them outside the light
+    // window — their network waits would otherwise hold the app out of dark.
     await inlineRemoteImages(clone);
     await ensureSerifFont();
 

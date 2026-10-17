@@ -113,17 +113,17 @@
 .dark .text-black, .dark .text-gray-900, .dark .text-gray-800 { color: #F9FAFB !important; }
 .dark .text-gray-700 { color: #E5E7EB !important; }
 .dark .text-gray-600 { color: #D1D5DB !important; }
-.dark .text-gray-500 { color: #9CA3AF !important; }
-.dark .text-gray-400 { color: #8A93A5 !important; }
+.dark .text-gray-500 { color: #C9D6EC !important; } /* brighter for legibility */
+.dark .text-gray-400 { color: #A3B4D6 !important; }
 .dark .text-gray-300 { color: #6B7280 !important; }
 .dark .text-gray-100, .dark .text-gray-50 { color: #F9FAFB !important; }
 .dark .text-white { color: #F9FAFB !important; }
 .dark .text-slate-900, .dark .text-slate-800 { color: #F9FAFB !important; }
 .dark .text-slate-700 { color: #E5E7EB !important; }
 .dark .text-slate-600 { color: #D1D5DB !important; }
-.dark .text-slate-500 { color: #9CA3AF !important; }
-.dark .text-slate-400 { color: #8A93A5 !important; }
-.dark .placeholder-gray-400::placeholder { color: #6B7280 !important; }
+.dark .text-slate-500 { color: #C9D6EC !important; }
+.dark .text-slate-400 { color: #A3B4D6 !important; }
+.dark .placeholder-gray-400::placeholder { color: #A3B4D6 !important; }
 .dark .bg-gray-700 { background: #374151 !important; }
 .dark .bg-gray-800 { background: #1F2937 !important; }
 .dark .border-gray-700, .dark .border-gray-900 { border-color: #4B5563 !important; }
@@ -135,6 +135,11 @@
 .dark .hover\:bg-gray-200:hover, .dark .hover\:bg-gray-300:hover { background-color: #374151 !important; }
 .dark .hover\:bg-white:hover { background-color: #111827 !important; }
 .dark [class*="hover:bg-gray-50/"], .dark [class*="hover:bg-gray-100/"] { background-color: rgb(255 255 255 / 0.06) !important; }
+/* group-hover neutral surfaces (list rows, info tiles) would flash white otherwise */
+.dark .group:hover .group-hover\:bg-white { background-color: #1F2937 !important; }
+.dark .group:hover .group-hover\:bg-gray-50 { background-color: #1F2937 !important; }
+.dark .group:hover .group-hover\:bg-gray-100 { background-color: #374151 !important; }
+.dark .group:hover [class*="group-hover:bg-white/"] { background-color: rgb(255 255 255 / 0.08) !important; }
 .dark .hover\:text-gray-600:hover, .dark .hover\:text-gray-700:hover { color: #D1D5DB !important; }
 .dark .hover\:text-gray-800:hover, .dark .hover\:text-gray-900:hover, .dark .hover\:text-black:hover { color: #F9FAFB !important; }
 .dark .focus\:bg-gray-50:focus, .dark .focus\:bg-white:focus { background-color: #1F2937 !important; }
@@ -237,6 +242,64 @@
 .dark .to-gray-50 { --tw-gradient-to: #0B1120 !important; }
 .dark .from-gray-200 { --tw-gradient-from: #1F2937 !important; }
 .dark .to-gray-200 { --tw-gradient-to: #1F2937 !important; }
+/* Opacity variants (e.g. from-gray-50/80, to-white/60) are separate classes,
+   so the exact-class rules above miss them — leaving light stops that make
+   remapped light text unreadable. Map them to the elevated card tone. */
+.dark [class*="from-gray-50/"], .dark [class*="from-gray-100/"] { --tw-gradient-from: #1F2937 !important; }
+.dark [class*="to-gray-50/"],   .dark [class*="to-gray-100/"]   { --tw-gradient-to: #1F2937 !important; }
+.dark [class*="via-gray-50/"] { --tw-gradient-via: #1F2937 !important; }
+.dark [class*="from-white/"] { --tw-gradient-from: #111827 !important; }
+.dark [class*="to-white/"]   { --tw-gradient-to: #111827 !important; }
+
+/* Coloured tint opacity variants (from-emerald-50/50, via-blue-50/70, …) are
+   emitted as literal hex+alpha too, so the exact-class tint rules can't reach
+   them. Map each stop to the same translucent tint used by the bg-*-50/ block
+   so tinted panels/table heads stay subtle instead of glowing light. */
+.dark [class*="from-emerald-50/"], .dark [class*="from-emerald-100/"] { --tw-gradient-from: rgb(16 185 129 / 0.12) !important; }
+.dark [class*="from-green-50/"],   .dark [class*="from-green-100/"]   { --tw-gradient-from: rgb(34 197 94 / 0.12) !important; }
+.dark [class*="from-teal-50/"],    .dark [class*="from-teal-100/"]    { --tw-gradient-from: rgb(20 184 166 / 0.12) !important; }
+.dark [class*="from-cyan-50/"],    .dark [class*="from-cyan-100/"]    { --tw-gradient-from: rgb(6 182 212 / 0.12) !important; }
+.dark [class*="from-sky-50/"],     .dark [class*="from-sky-100/"]     { --tw-gradient-from: rgb(14 165 233 / 0.12) !important; }
+.dark [class*="from-blue-50/"],    .dark [class*="from-blue-100/"]    { --tw-gradient-from: rgb(59 130 246 / 0.12) !important; }
+.dark [class*="from-indigo-50/"],  .dark [class*="from-indigo-100/"]  { --tw-gradient-from: rgb(99 102 241 / 0.12) !important; }
+.dark [class*="from-violet-50/"],  .dark [class*="from-violet-100/"]  { --tw-gradient-from: rgb(139 92 246 / 0.12) !important; }
+.dark [class*="from-purple-50/"],  .dark [class*="from-purple-100/"]  { --tw-gradient-from: rgb(168 85 247 / 0.12) !important; }
+.dark [class*="from-pink-50/"],    .dark [class*="from-pink-100/"]    { --tw-gradient-from: rgb(236 72 153 / 0.12) !important; }
+.dark [class*="from-rose-50/"],    .dark [class*="from-rose-100/"]    { --tw-gradient-from: rgb(244 63 94 / 0.12) !important; }
+.dark [class*="from-red-50/"],     .dark [class*="from-red-100/"]     { --tw-gradient-from: rgb(239 68 68 / 0.12) !important; }
+.dark [class*="from-orange-50/"],  .dark [class*="from-orange-100/"]  { --tw-gradient-from: rgb(249 115 22 / 0.12) !important; }
+.dark [class*="from-amber-50/"],   .dark [class*="from-amber-100/"]   { --tw-gradient-from: rgb(245 158 11 / 0.12) !important; }
+.dark [class*="from-yellow-50/"],  .dark [class*="from-yellow-100/"]  { --tw-gradient-from: rgb(234 179 8 / 0.12) !important; }
+.dark [class*="via-emerald-50/"], .dark [class*="via-emerald-100/"] { --tw-gradient-via: rgb(16 185 129 / 0.12) !important; }
+.dark [class*="via-green-50/"],   .dark [class*="via-green-100/"]   { --tw-gradient-via: rgb(34 197 94 / 0.12) !important; }
+.dark [class*="via-teal-50/"],    .dark [class*="via-teal-100/"]    { --tw-gradient-via: rgb(20 184 166 / 0.12) !important; }
+.dark [class*="via-cyan-50/"],    .dark [class*="via-cyan-100/"]    { --tw-gradient-via: rgb(6 182 212 / 0.12) !important; }
+.dark [class*="via-sky-50/"],     .dark [class*="via-sky-100/"]     { --tw-gradient-via: rgb(14 165 233 / 0.12) !important; }
+.dark [class*="via-blue-50/"],    .dark [class*="via-blue-100/"]    { --tw-gradient-via: rgb(59 130 246 / 0.12) !important; }
+.dark [class*="via-indigo-50/"],  .dark [class*="via-indigo-100/"]  { --tw-gradient-via: rgb(99 102 241 / 0.12) !important; }
+.dark [class*="via-violet-50/"],  .dark [class*="via-violet-100/"]  { --tw-gradient-via: rgb(139 92 246 / 0.12) !important; }
+.dark [class*="via-purple-50/"],  .dark [class*="via-purple-100/"]  { --tw-gradient-via: rgb(168 85 247 / 0.12) !important; }
+.dark [class*="via-pink-50/"],    .dark [class*="via-pink-100/"]    { --tw-gradient-via: rgb(236 72 153 / 0.12) !important; }
+.dark [class*="via-rose-50/"],    .dark [class*="via-rose-100/"]    { --tw-gradient-via: rgb(244 63 94 / 0.12) !important; }
+.dark [class*="via-red-50/"],     .dark [class*="via-red-100/"]     { --tw-gradient-via: rgb(239 68 68 / 0.12) !important; }
+.dark [class*="via-orange-50/"],  .dark [class*="via-orange-100/"]  { --tw-gradient-via: rgb(249 115 22 / 0.12) !important; }
+.dark [class*="via-amber-50/"],   .dark [class*="via-amber-100/"]   { --tw-gradient-via: rgb(245 158 11 / 0.12) !important; }
+.dark [class*="via-yellow-50/"],  .dark [class*="via-yellow-100/"]  { --tw-gradient-via: rgb(234 179 8 / 0.12) !important; }
+.dark [class*="to-emerald-50/"], .dark [class*="to-emerald-100/"] { --tw-gradient-to: rgb(16 185 129 / 0.12) !important; }
+.dark [class*="to-green-50/"],   .dark [class*="to-green-100/"]   { --tw-gradient-to: rgb(34 197 94 / 0.12) !important; }
+.dark [class*="to-teal-50/"],    .dark [class*="to-teal-100/"]    { --tw-gradient-to: rgb(20 184 166 / 0.12) !important; }
+.dark [class*="to-cyan-50/"],    .dark [class*="to-cyan-100/"]    { --tw-gradient-to: rgb(6 182 212 / 0.12) !important; }
+.dark [class*="to-sky-50/"],     .dark [class*="to-sky-100/"]     { --tw-gradient-to: rgb(14 165 233 / 0.12) !important; }
+.dark [class*="to-blue-50/"],    .dark [class*="to-blue-100/"]    { --tw-gradient-to: rgb(59 130 246 / 0.12) !important; }
+.dark [class*="to-indigo-50/"],  .dark [class*="to-indigo-100/"]  { --tw-gradient-to: rgb(99 102 241 / 0.12) !important; }
+.dark [class*="to-violet-50/"],  .dark [class*="to-violet-100/"]  { --tw-gradient-to: rgb(139 92 246 / 0.12) !important; }
+.dark [class*="to-purple-50/"],  .dark [class*="to-purple-100/"]  { --tw-gradient-to: rgb(168 85 247 / 0.12) !important; }
+.dark [class*="to-pink-50/"],    .dark [class*="to-pink-100/"]    { --tw-gradient-to: rgb(236 72 153 / 0.12) !important; }
+.dark [class*="to-rose-50/"],    .dark [class*="to-rose-100/"]    { --tw-gradient-to: rgb(244 63 94 / 0.12) !important; }
+.dark [class*="to-red-50/"],     .dark [class*="to-red-100/"]     { --tw-gradient-to: rgb(239 68 68 / 0.12) !important; }
+.dark [class*="to-orange-50/"],  .dark [class*="to-orange-100/"]  { --tw-gradient-to: rgb(249 115 22 / 0.12) !important; }
+.dark [class*="to-amber-50/"],   .dark [class*="to-amber-100/"]   { --tw-gradient-to: rgb(245 158 11 / 0.12) !important; }
+.dark [class*="to-yellow-50/"],  .dark [class*="to-yellow-100/"]  { --tw-gradient-to: rgb(234 179 8 / 0.12) !important; }
 
 /* Shadows read as heavy halos on a dark background */
 .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
@@ -361,6 +424,7 @@ html {
   #cert-enrollment-content,
   #cert-goodmoral-content,
   #system-guide-pdf,
+  #enrollment-report-content,
   .sf1-sheet {
     background: #fff !important;
     color: #000 !important;
@@ -380,6 +444,7 @@ html {
   #cert-enrollment-content *,
   #cert-goodmoral-content *,
   #system-guide-pdf *,
+  #enrollment-report-content *,
   .sf1-sheet * {
     color: #000 !important;
     border-color: #000 !important;

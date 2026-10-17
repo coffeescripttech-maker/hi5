@@ -1310,7 +1310,7 @@ export function EnrollmentModule() {
     v != null && v < passingGrade ? 'text-red-600 font-bold' : '';
 
   // Promotion-readiness check for a returning student — mirrors the backend's
-  // promotion rule: grades must be complete (every subject with all 4 quarters)
+  // promotion rule: grades must be complete (every subject with all 3 quarters)
   // AND the general average must be at or above the passing grade.
   const promoCheck = (() => {
     if (!foundStudent) return null;
@@ -1461,7 +1461,7 @@ export function EnrollmentModule() {
         : status === 'retained'
           ? `The general average of ${show(avg)} falls below the passing grade of ${passingGrade} in ${sy}. The student may need to repeat ${prevGradeLevel != null ? `Grade ${prevGradeLevel}` : 'the grade'}.`
           : status === 'incomplete'
-            ? `${subsComplete} of ${subsTotal} subjects have all 4 quarterly grades for ${sy}. Complete the remaining grades before the year-end promotion decision.`
+            ? `${subsComplete} of ${subsTotal} subjects have all 3 quarterly grades for ${sy}. Complete the remaining grades before the year-end promotion decision.`
             : status === 'no-grades'
               ? `No grades are recorded for ${sy}. Enter grades before the year-end promotion decision can be made.`
               : 'No previous grade records were found for this student yet. Grades must be encoded before the year-end promotion decision can be made.';
@@ -1496,7 +1496,7 @@ export function EnrollmentModule() {
             : subsTotal != null
               ? 'No'
               : '—',
-        hint: 'All 4 quarters per subject',
+        hint: 'All 3 quarters per subject',
         highlight: false
       }
     ];

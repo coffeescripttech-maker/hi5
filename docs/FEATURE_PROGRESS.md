@@ -85,7 +85,7 @@
 | 3.19 | Submit forms to LIS Officer | ✅ Done | Server-side CSV generation + download page at `/admin/lis-export` |
 | 3.20 | Import DepEd SF files (Excel/PDF) | ✅ Done | [UploadGrades.tsx](../src/app/pages/teacher/UploadGrades.tsx) — real Excel parsing/validation (`.xlsx`/`.xls` via SheetJS) with per-row preview; PDF/DOCX uploads are tracked as documents but not parsed |
 | 3.21 | Bulk promotion for advisory section | ✅ Done | [BulkPromotion.tsx](../src/app/pages/teacher/BulkPromotion.tsx) — per-section failures surfaced with specific errors; success screen reports promoted / retained / incomplete honestly (incl. "No Students Promoted" state) |
-| 3.22 | GA < 75 → Retained; incomplete grades → held back | ✅ Done | Promotions controller threshold check + `grade_complete` guard (every subject must have all 4 quarters before judging by average) |
+| 3.22 | GA < 75 → Retained; incomplete grades → held back | ✅ Done | Promotions controller threshold check + `grade_complete` guard (every subject must have all 3 quarters before judging by average) |
 | 3.23 | Grade 12 → Completers | ✅ Done | `completeSection` endpoint + `BulkPromotion.tsx` completers flow + `enrollments.status='completed'` |
 | 3.24 | AI at-risk prediction | ✅ Done | [AtRiskDetection.tsx](../src/app/pages/teacher/AtRiskDetection.tsx) — live regression (no manual run needed), shared [StudentRiskList.tsx](../src/app/components/StudentRiskList.tsx) |
 | 3.25 | Color-coded badges (On Track / Needs Monitoring / At-Risk) | ✅ Done | RISK_CONFIG styling |

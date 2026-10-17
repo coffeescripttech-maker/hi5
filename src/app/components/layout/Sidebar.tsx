@@ -130,13 +130,13 @@ export function Sidebar({
             <div key={group.group}>
               {isIcons ? (
                 <>
-                  <p className="mb-2 select-none px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/40 md:hidden">
+                  <p className="mb-2 select-none px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/60 md:hidden">
                     {group.group}
                   </p>
                   <div className="mx-2 mb-2 hidden h-px bg-white/10 md:block" />
                 </>
               ) : (
-                <p className="mb-2 select-none px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">
+                <p className="mb-2 select-none px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">
                   {group.group}
                 </p>
               )}
@@ -164,7 +164,7 @@ export function Sidebar({
                           ? 'cursor-not-allowed opacity-40'
                           : active
                             ? 'bg-white/15 text-white shadow-sm'
-                            : 'text-white/60 hover:bg-white/10 hover:text-white'
+                            : 'text-white/75 hover:bg-white/10 hover:text-white'
                       }`}>
                       {active && (
                         <span
@@ -180,7 +180,7 @@ export function Sidebar({
                             ? 'text-white/40'
                             : active
                               ? 'text-white'
-                              : 'text-white/50 group-hover:text-white'
+                              : 'text-white/70 group-hover:text-white'
                         }`}
                       />
                       <span

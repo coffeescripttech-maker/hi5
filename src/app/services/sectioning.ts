@@ -86,12 +86,21 @@ export interface PendingQueueStudent {
   entrance_exam_grade?: number | null;
   entrance_exam_passed?: number | null;
   interview_passed?: number | null;
+  /** Present on the teacher-scoped queue — the SY the student is pending in. */
+  school_year_id?: number;
+  sy_label?: string;
 }
 
 export interface PendingQueueData {
   school_year: { id: number; sy_label: string };
   queue: PendingQueueStudent[];
   sections: SectioningSection[];
+  total_pending: number;
+}
+
+/** Teacher-scoped, read-only view of the Pending Section Queue (no sections). */
+export interface MyPendingQueueData {
+  queue: PendingQueueStudent[];
   total_pending: number;
 }
 
@@ -159,6 +168,8 @@ export interface BalanceRow {
 export interface RulesPlan {
   school_year: { id: number; sy_label: string };
   scope: string;
+  /** RNG seed used for the strictly-random run (re-run with it to reproduce). */
+  seed: number;
   proposals: RulesProposal[];
   sections: SectioningSection[];
   summary: {
@@ -176,6 +187,8 @@ export interface GenerateRulesPayload {
   scope?: "regular" | "special" | "carryover" | "all";
   grade_level?: number;
   program?: string;
+  /** Optional RNG seed; omit for a fresh random run. */
+  seed?: number;
 }
 
 export interface EligibilityPayload {
@@ -190,8 +203,15 @@ export const sectioningApi = {
   getPending: () => api.get<SectioningData>("/sectioning/pending"),
 
   /** Get the Pending Section Queue (enrolled students awaiting section assignment) */
-  getPendingQueue: (params?: { grade_level?: number; program?: string }) =>
-    api.get<PendingQueueData>("/sectioning/pending-queue", params),
+  getPendingQueue: (params?: {
+    grade_level?: number;
+    program?: string;
+    school_year_id?: number;
+  }) => api.get<PendingQueueData>("/sectioning/pending-queue", params),
+
+  /** Teacher-scoped, read-only Pending Queue (their advisees / students they enrolled) */
+  getMyPendingQueue: () =>
+    api.get<MyPendingQueueData>("/sectioning/my-pending-queue"),
 
   /** Confirm and commit section assignments */
   confirmAssignments: (data: ConfirmAssignPayload) =>

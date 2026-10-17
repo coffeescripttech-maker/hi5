@@ -40,6 +40,11 @@ export interface RoleAccent {
   chartHex: string;
   /** Secondary hex for charts (e.g. gender pie, capacity bars) */
   chartHexSoft: string;
+  /** Dark-mode-safe accent hex for accent TEXT on dark surfaces.
+   *  The 600-weight chartHex is too dark to read on the dark shell, so
+   *  text that uses the accent inline (breadcrumb, dropdowns) switches to
+   *  this lighter shade when dark mode is on. */
+  chartHexDark: string;
 }
 
 export const ROLE_ACCENTS: Record<Role, RoleAccent> = {
@@ -58,6 +63,7 @@ export const ROLE_ACCENTS: Record<Role, RoleAccent> = {
     spinnerArc: "border-t-blue-600",
     chartHex: "#2563eb",
     chartHexSoft: "#93c5fd",
+    chartHexDark: "#60a5fa",
   },
   teacher: {
     gradient: "from-emerald-500 via-emerald-600 to-emerald-400",
@@ -74,6 +80,7 @@ export const ROLE_ACCENTS: Record<Role, RoleAccent> = {
     spinnerArc: "border-t-emerald-600",
     chartHex: "#10b981",
     chartHexSoft: "#6ee7b7",
+    chartHexDark: "#34d399",
   },
   registrar: {
     gradient: "from-indigo-500 via-indigo-600 to-indigo-400",
@@ -90,6 +97,7 @@ export const ROLE_ACCENTS: Record<Role, RoleAccent> = {
     spinnerArc: "border-t-indigo-600",
     chartHex: "#6366f1",
     chartHexSoft: "#a5b4fc",
+    chartHexDark: "#818cf8",
   },
   principal: {
     gradient: "from-purple-500 via-purple-600 to-purple-400",
@@ -106,6 +114,7 @@ export const ROLE_ACCENTS: Record<Role, RoleAccent> = {
     spinnerArc: "border-t-purple-600",
     chartHex: "#9333ea",
     chartHexSoft: "#d8b4fe",
+    chartHexDark: "#c084fc",
   },
   enrollment_committee: {
     gradient: "from-sky-500 via-sky-600 to-sky-400",
@@ -122,6 +131,7 @@ export const ROLE_ACCENTS: Record<Role, RoleAccent> = {
     spinnerArc: "border-t-sky-600",
     chartHex: "#0284c7",
     chartHexSoft: "#7dd3fc",
+    chartHexDark: "#38bdf8",
   },
 };
 

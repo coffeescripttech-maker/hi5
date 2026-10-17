@@ -21,7 +21,7 @@ import { generateRulesPlan, RuleScope } from "../services/sectioningRules";
  */
 export async function generateRules(req: Request, res: Response): Promise<void> {
   try {
-    const { school_year_id, scope, grade_level, program } = req.body;
+    const { school_year_id, scope, grade_level, program, seed } = req.body;
 
     if (!school_year_id) {
       res.status(400).json({ error: "school_year_id is required." });
@@ -33,11 +33,12 @@ export async function generateRules(req: Request, res: Response): Promise<void> 
       scope: (scope as RuleScope) || "all",
       gradeLevel: grade_level !== undefined ? parseInt(String(grade_level), 10) : undefined,
       program: program || undefined,
+      seed: seed !== undefined ? parseInt(String(seed), 10) : undefined,
     });
 
     await logActivity(
       req.user!.userId,
-      `Auto-sectioning: generated ${plan.summary.total} proposals (${plan.summary.flagged} flagged, ${plan.summary.unassigned} unassigned)`,
+      `Auto-sectioning: generated ${plan.summary.total} proposals (${plan.summary.flagged} flagged, ${plan.summary.unassigned} unassigned) — seed ${plan.seed}`,
       "enrollments",
       null
     );
@@ -276,16 +277,32 @@ export async function getPendingStudents(req: Request, res: Response): Promise<v
  */
 export async function getPendingQueue(req: Request, res: Response): Promise<void> {
   try {
-    const { grade_level, program } = req.query;
+    const { grade_level, program, school_year_id } = req.query;
 
-    const currentSY = await query<RowDataPacket[]>(
-      "SELECT id, sy_label FROM school_years WHERE is_current = 1 LIMIT 1"
-    );
-    if (currentSY.length === 0) {
-      res.status(400).json({ error: "No current school year set." });
-      return;
+    // View the queue for a specific school year (e.g. the upcoming SY after a
+    // year-end promotion), or default to the current one.
+    let schoolYear: { id: number; sy_label: string };
+    if (school_year_id) {
+      const sy = await query<RowDataPacket[]>(
+        "SELECT id, sy_label FROM school_years WHERE id = ? LIMIT 1",
+        [parseInt(school_year_id as string, 10)]
+      );
+      if (sy.length === 0) {
+        res.status(404).json({ error: "School year not found." });
+        return;
+      }
+      schoolYear = sy[0] as { id: number; sy_label: string };
+    } else {
+      const currentSY = await query<RowDataPacket[]>(
+        "SELECT id, sy_label FROM school_years WHERE is_current = 1 LIMIT 1"
+      );
+      if (currentSY.length === 0) {
+        res.status(400).json({ error: "No current school year set." });
+        return;
+      }
+      schoolYear = currentSY[0] as { id: number; sy_label: string };
     }
-    const schoolYearId = currentSY[0].id;
+    const schoolYearId = schoolYear.id;
 
     let sql = `
       SELECT e.id AS enrollment_id, e.student_id, e.program, e.enrollment_date, e.created_at AS queued_at,
@@ -352,7 +369,7 @@ export async function getPendingQueue(req: Request, res: Response): Promise<void
     );
 
     res.json({
-      school_year: currentSY[0],
+      school_year: schoolYear,
       queue,
       sections,
       total_pending: queue.length,
@@ -360,6 +377,75 @@ export async function getPendingQueue(req: Request, res: Response): Promise<void
   } catch (error) {
     console.error("Get pending queue error:", error);
     res.status(500).json({ error: "Failed to fetch pending queue." });
+  }
+}
+
+/**
+ * GET /api/sectioning/my-pending-queue — Read-only Pending Section Queue scoped
+ * to the signed-in TEACHER: students still awaiting a section who either
+ * (a) the teacher enrolled themselves, or (b) came from a section the teacher
+ * advises (i.e. the teacher promoted them, and their new-school-year enrollment
+ * is sitting in the Pending Section Queue). Teachers may view only — assignment
+ * stays with the Registrar / Enrollment Committee.
+ */
+export async function getMyPendingQueue(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    const mySections = await query<RowDataPacket[]>(
+      "SELECT id FROM sections WHERE adviser_id = ? AND is_active = 1",
+      [userId]
+    );
+    const sectionIds = mySections.map((s: any) => s.id);
+
+    let sql = `
+      SELECT e.id AS enrollment_id, e.student_id, e.program, e.enrollment_date,
+             e.created_at AS queued_at, e.school_year_id, sy.sy_label,
+             s.id, s.student_id AS student_display_id, s.lrn, s.name,
+             s.grade_level, s.sex, u.name AS enrolled_by_name
+      FROM enrollments e
+      JOIN students s ON e.student_id = s.id
+      JOIN users u ON e.enrolled_by = u.id
+      JOIN school_years sy ON sy.id = e.school_year_id
+      WHERE e.section_id IS NULL AND e.status = 'enrolled'
+        AND (
+          e.enrolled_by = ?
+    `;
+    const params: any[] = [userId];
+
+    if (sectionIds.length > 0) {
+      const ph = sectionIds.map(() => "?").join(",");
+      sql += ` OR EXISTS (
+            SELECT 1 FROM promotion_students ps
+            WHERE ps.student_id = e.student_id
+              AND ps.from_section_id IN (${ph})
+              AND ps.promotion_id = (
+                SELECT MAX(ps2.promotion_id) FROM promotion_students ps2
+                WHERE ps2.student_id = e.student_id
+              )
+          )`;
+      params.push(...sectionIds);
+    }
+    sql += `)
+      ORDER BY s.grade_level ASC, s.name ASC`;
+
+    const queue = await query<RowDataPacket[]>(sql, params);
+
+    if (queue.length > 0) {
+      const studentIds = queue.map((r: any) => r.student_id);
+      const avgMap = await fetchGeneralAverageMap(studentIds, queue[0].school_year_id);
+      for (const row of queue) {
+        (row as any).general_average = avgMap.get(row.student_id) ?? null;
+      }
+    }
+
+    res.json({
+      queue,
+      total_pending: queue.length,
+    });
+  } catch (error) {
+    console.error("Get my pending queue error:", error);
+    res.status(500).json({ error: "Failed to fetch your pending queue." });
   }
 }
 
@@ -810,7 +896,10 @@ export async function getCarryOverPreview(req: Request, res: Response): Promise<
 /**
  * POST /api/sectioning/assign — Run auto-sectioning assignments (legacy)
  * Body: { school_year_id: number, assignments: Array<{ student_id: number, section_id: number }> }
- * Used by the teacher AutoSectioning component for pending students.
+ *
+ * Legacy: accepts explicit student→section assignments only. New sectioning
+ * goes through POST /sectioning/rules/generate (random, gender-balanced) and
+ * POST /sectioning/confirm-assignments.
  */
 export async function runAutoSectioning(req: Request, res: Response): Promise<void> {
   try {

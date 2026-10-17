@@ -103,7 +103,7 @@ export function TopBar({
               Home
             </button>
             <ChevronRight size={11} className="flex-shrink-0" />
-            <span className="truncate" style={{ color: accent.chartHex }}>
+            <span className="truncate" style={{ color: darkMode ? accent.chartHexDark : accent.chartHex }}>
               {breadcrumbLabel}
             </span>
           </nav>

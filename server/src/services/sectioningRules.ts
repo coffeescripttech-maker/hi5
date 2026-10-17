@@ -9,17 +9,22 @@ import { RowDataPacket } from "mysql2";
 // POST /api/sectioning/confirm-assignments.
 //
 // Rules (per client specification):
-//  - Regular & Streamline: no minimum grades / entrance exams; target a
-//    50/50 male-to-female split per section (proportional when exact is
-//    mathematically impossible).
-//  - STE applicants: GWA >= 85 and within the school-defined STE band;
-//    no grade below 85; Science & Mathematics >= 85; passed the entrance
-//    examination and the interview.
-//  - SPFL applicants: no grade below 85; English & Filipino >= 85; passed
-//    the entrance examination and the interview.
+//  - Regular & Streamline: no minimum grades / entrance exams, and general
+//    average / academic performance is NEVER used to sort or group students.
+//    Students are distributed STRICTLY AT RANDOM (a seeded Fisher–Yates
+//    shuffle; the seed is reported so a run can be reproduced), while keeping
+//    each section's male-to-female ratio balanced (as close to 50/50 as the
+//    cohort and capacities allow, counting students already in the section).
+//  - STE applicants: GWA >= 85; Science & Mathematics >= 85; passed the
+//    entrance examination and the interview.
+//  - SPFL applicants: English & Filipino >= 85; passed the entrance
+//    examination and the interview (no GWA requirement).
 //  - Continuing (maintenance) eligibility for students already in STE/SPFL:
-//    they must keep the minimum academic requirements or they are flagged
-//    for transfer to a Regular section.
+//    STE must keep GWA >= 85 and Science/Mathematics >= 85; SPFL must keep
+//    English/Filipino >= 85. Students who fail are flagged for transfer to a
+//    Regular section.
+//  - Only the program's own subjects are floored at 85 — no other subjects
+//    (e.g. MAPEH/TLE) and no per-grade config band influence eligibility.
 //  - Grade 11 -> 12 (and in general returning students): carry over the
 //    student's previous section where applicable; STE/SPFL students must
 //    still satisfy the applicable continuing eligibility requirements.
@@ -32,6 +37,8 @@ export interface RuleOptions {
   scope?: RuleScope;
   gradeLevel?: number;
   program?: string;
+  /** Optional RNG seed. Omit for a fresh random run; the seed used is returned. */
+  seed?: number;
 }
 
 export interface SectionInfo {
@@ -46,15 +53,7 @@ export interface SectionInfo {
   is_active: number;
 }
 
-export interface ThresholdConfig {
-  id: number;
-  section_type: string;
-  grade_level: number;
-  min_average: number;
-  max_average: number;
-}
-
-interface CohortStudent {
+export interface CohortStudent {
   enrollment_id: number;
   student_id: number;
   student_display_id: string;
@@ -67,8 +66,6 @@ interface CohortStudent {
   general_average: number | null;
   subject_finals: Record<string, number>;
   has_grades: boolean;
-  min_subject_grade: number | null;
-  min_subject_name: string | null;
   science: number | null;
   math: number | null;
   english: number | null;
@@ -112,6 +109,8 @@ export interface Proposal {
 export interface GeneratedPlan {
   school_year: { id: number; sy_label: string };
   scope: string;
+  /** RNG seed used for this run — re-run with the same seed to reproduce it. */
+  seed: number;
   proposals: Proposal[];
   sections: SectionInfo[];
   summary: {
@@ -151,6 +150,30 @@ const SUBJECT_MATCHERS: Record<"science" | "math" | "english" | "filipino", RegE
 function isSpecialSectionType(type: string | null | undefined): boolean {
   if (!type) return false;
   return SPECIAL_TYPES.includes(type.toLowerCase());
+}
+
+// ------------------------------------------------------------------
+// Randomization — seeded Fisher–Yates so distribution is strictly random yet
+// reproducible from the reported seed (mulberry32 PRNG).
+// ------------------------------------------------------------------
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle<T>(items: T[], rng: () => number): T[] {
+  const arr = items.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 // ------------------------------------------------------------------
@@ -299,21 +322,11 @@ async function loadCohort(schoolYearId: number): Promise<CohortStudent[]> {
   return rows.map((r: any) => {
     const finals = subjectFinalsMap.get(r.student_id) || {};
     const prev = prevMap.get(r.student_id);
-    let minGrade: number | null = null;
-    let minSubject: string | null = null;
-    for (const [k, v] of Object.entries(finals)) {
-      if (minGrade === null || v < minGrade) {
-        minGrade = v;
-        minSubject = k;
-      }
-    }
     return {
       ...r,
       general_average: avgMap.get(r.student_id) ?? null,
       subject_finals: finals,
       has_grades: Object.keys(finals).length > 0,
-      min_subject_grade: minGrade,
-      min_subject_name: minSubject,
       science: pickGrade(finals, SUBJECT_MATCHERS.science),
       math: pickGrade(finals, SUBJECT_MATCHERS.math),
       english: pickGrade(finals, SUBJECT_MATCHERS.english),
@@ -346,12 +359,30 @@ export async function loadActiveSections(): Promise<SectionInfo[]> {
   return rows as unknown as SectionInfo[];
 }
 
-async function loadThresholds(): Promise<ThresholdConfig[]> {
+/**
+ * Male/female head-count already seated in each section for the school year.
+ * Used so gender balancing accounts for students who are already in a section
+ * (not just the students being placed by this run).
+ */
+async function loadSectionGenderCounts(
+  schoolYearId: number
+): Promise<Map<number, { male: number; female: number }>> {
+  const map = new Map<number, { male: number; female: number }>();
   const rows = await query<RowDataPacket[]>(
-    `SELECT id, section_type, grade_level, min_average, max_average
-     FROM section_type_config`
+    `SELECT e.section_id, s.sex, COUNT(*) AS n
+     FROM enrollments e
+     JOIN students s ON e.student_id = s.id
+     WHERE e.school_year_id = ? AND e.section_id IS NOT NULL AND e.status = 'enrolled'
+     GROUP BY e.section_id, s.sex`,
+    [schoolYearId]
   );
-  return rows as unknown as ThresholdConfig[];
+  for (const r of rows as any[]) {
+    const cur = map.get(r.section_id) || { male: 0, female: 0 };
+    if (r.sex === "male") cur.male += Number(r.n);
+    else if (r.sex === "female") cur.female += Number(r.n);
+    map.set(r.section_id, cur);
+  }
+  return map;
 }
 
 function pickGrade(finals: Record<string, number>, matcher: RegExp): number | null {
@@ -369,108 +400,88 @@ function pushReason(reasons: string[], cond: boolean, message: string) {
   if (!cond) reasons.push(message);
 }
 
-function evalEntranceEligibility(
+export type ProgramType = "ste" | "spfl";
+
+/** Subjects floored at 85 per special program — only these, no other subjects. */
+const SPECIAL_REQUIRED_SUBJECTS: Record<
+  ProgramType,
+  Array<{ key: "science" | "math" | "english" | "filipino"; label: string }>
+> = {
+  ste: [
+    { key: "science", label: "Science" },
+    { key: "math", label: "Mathematics" },
+  ],
+  spfl: [
+    { key: "english", label: "English" },
+    { key: "filipino", label: "Filipino" },
+  ],
+};
+
+/**
+ * STE/SPFL eligibility.
+ *  - mode "entrance": new applicant. Exam + interview always required; academic
+ *    checks apply once grade records exist (GWA >= 85 for STE, program subjects
+ *    >= 85 for both). Applicants with no grades yet are judged on exam +
+ *    interview alone so fresh enrollees aren't prematurely sent to Regular.
+ *  - mode "continuing": current/returning member. Must keep the program's own
+ *    subjects at >= 85 (STE also GWA >= 85) or they are flagged for transfer to
+ *    Regular. A missing subject grade is tolerated; only a recorded grade below
+ *    the passing mark breaks continuity.
+ * Only the program's own subjects are floored at 85 — no other subjects
+ * (e.g. MAPEH/TLE) and no per-grade config band influence eligibility.
+ */
+export function evalProgramEligibility(
   student: CohortStudent,
-  requiredSubjects: Array<{ key: "science" | "math" | "english" | "filipino"; label: string }>,
-  bandMin: number | null
+  sectionType: ProgramType,
+  mode: "entrance" | "continuing"
 ): EligibilityResult {
   const reasons: string[] = [];
   const ga = student.general_average;
+  const subjects = SPECIAL_REQUIRED_SUBJECTS[sectionType];
 
-  // Lenient path: applicants with no grades on record yet (e.g. incoming Grade 7
-  // entrants) are admitted on exam + interview alone. Academic-standing checks
-  // apply only once grade records exist — otherwise fresh enrollees would always
-  // be pushed to Regular just because teachers haven't keyed grades yet.
-  if (!student.has_grades) {
-    // academic-standing checks skipped
-  } else {
-    pushReason(reasons, ga !== null, ga === null ? "No general average on record" : "");
-    if (ga !== null) {
-      pushReason(reasons, ga >= PASS_MARK, `GWA ${ga.toFixed(2)} below ${PASS_MARK}`);
-      if (bandMin !== null) {
-        pushReason(reasons, ga >= bandMin, `GWA ${ga.toFixed(2)} below the ${bandMin} program band`);
+  const checkAcademics = mode === "continuing" || student.has_grades;
+
+  if (checkAcademics) {
+    if (sectionType === "ste") {
+      pushReason(reasons, ga !== null, ga === null ? "No general average on record" : "");
+      if (ga !== null) {
+        pushReason(reasons, ga >= PASS_MARK, `GWA ${ga.toFixed(2)} below ${PASS_MARK}`);
       }
     }
 
-    pushReason(
-      reasons,
-      student.min_subject_grade !== null,
-      student.min_subject_grade === null ? "No subject grades on record" : ""
-    );
-    if (student.min_subject_grade !== null) {
-      pushReason(
-        reasons,
-        student.min_subject_grade >= PASS_MARK,
-        `Grade in ${student.min_subject_name} (${student.min_subject_grade}) below ${PASS_MARK}`
-      );
-    }
-
-    for (const { key, label } of requiredSubjects) {
+    for (const { key, label } of subjects) {
       const grade = student[key];
-      pushReason(reasons, grade !== null, `${label} grade not on record`);
-      if (grade !== null) {
-        pushReason(reasons, grade >= PASS_MARK, `${label} grade (${grade}) below ${PASS_MARK}`);
+      if (mode === "continuing") {
+        if (grade !== null && grade < PASS_MARK) {
+          reasons.push(`${label} grade (${grade}) below ${PASS_MARK}`);
+        }
+      } else {
+        pushReason(reasons, grade !== null, `${label} grade not on record`);
+        if (grade !== null) {
+          pushReason(reasons, grade >= PASS_MARK, `${label} grade (${grade}) below ${PASS_MARK}`);
+        }
       }
     }
   }
 
-  // Admission gates: NULL counts as not recorded -> not eligible.
-  pushReason(
-    reasons,
-    student.entrance_exam_passed === true,
-    student.entrance_exam_passed === null
-      ? "Entrance examination result not recorded"
-      : "Entrance examination not passed"
-  );
-  pushReason(
-    reasons,
-    student.interview_passed === true,
-    student.interview_passed === null
-      ? "Interview result not recorded"
-      : "Interview not passed"
-  );
-
-  return { eligible: reasons.length === 0, reasons };
-}
-
-function evalContinuingEligibility(
-  student: CohortStudent,
-  sectionType: string,
-  bandMin: number | null
-): EligibilityResult {
-  const reasons: string[] = [];
-  const ga = student.general_average;
-  const required =
-    sectionType === "ste"
-      ? ([
-          { key: "science" as const, label: "Science" },
-          { key: "math" as const, label: "Mathematics" },
-        ] as const)
-      : ([
-          { key: "english" as const, label: "English" },
-          { key: "filipino" as const, label: "Filipino" },
-        ] as const);
-
-  pushReason(reasons, ga !== null, ga === null ? "No general average on record" : "");
-  if (ga !== null) {
-    pushReason(reasons, ga >= PASS_MARK, `GWA ${ga.toFixed(2)} below ${PASS_MARK}`);
-    if (bandMin !== null) {
-      pushReason(reasons, ga >= bandMin, `GWA ${ga.toFixed(2)} below the ${bandMin} program band`);
-    }
-  }
-  if (student.min_subject_grade !== null) {
+  if (mode === "entrance") {
+    // Admission gates: NULL counts as not recorded -> not eligible.
     pushReason(
       reasons,
-      student.min_subject_grade >= PASS_MARK,
-      `Grade in ${student.min_subject_name} (${student.min_subject_grade}) below ${PASS_MARK}`
+      student.entrance_exam_passed === true,
+      student.entrance_exam_passed === null
+        ? "Entrance examination result not recorded"
+        : "Entrance examination not passed"
+    );
+    pushReason(
+      reasons,
+      student.interview_passed === true,
+      student.interview_passed === null
+        ? "Interview result not recorded"
+        : "Interview not passed"
     );
   }
-  for (const { key, label } of required) {
-    const grade = student[key];
-    if (grade !== null && grade < PASS_MARK) {
-      reasons.push(`${label} grade (${grade}) below ${PASS_MARK}`);
-    }
-  }
+
   return { eligible: reasons.length === 0, reasons };
 }
 
@@ -478,74 +489,122 @@ function evalContinuingEligibility(
 // Placement helpers
 // ------------------------------------------------------------------
 
-function largestRemainder(count: number, weights: number[]): number[] {
-  const quota = weights.map(w => count * w);
-  const floors = quota.map(q => Math.floor(q));
-  let remainderTotal = count - floors.reduce((a, b) => a + b, 0);
-  const decimals = quota
-    .map((q, i) => ({ i, d: q - floors[i] }))
-    .sort((a, b) => b.d - a.d);
-  for (let k = 0; k < remainderTotal; k++) {
-    floors[decimals[k % decimals.length].i] += 1;
-  }
-  return floors;
+interface BalanceContext {
+  /** Male/female already seated per section for the school year. */
+  existing: Map<number, { male: number; female: number }>;
+  /** Seats consumed by this run, per section (all genders). */
+  extraCount: Map<number, number>;
+  /** Gender split of this run's placements, per section. */
+  planGender: Map<number, { male: number; female: number }>;
+}
+
+function freeCapacity(section: SectionInfo, ctx: BalanceContext): number {
+  return (
+    (section.capacity || 0) -
+    (section.current_count || 0) -
+    (ctx.extraCount.get(section.id) || 0)
+  );
+}
+
+function totalGender(
+  sectionId: number,
+  ctx: BalanceContext
+): { male: number; female: number } {
+  const e = ctx.existing.get(sectionId) || { male: 0, female: 0 };
+  const p = ctx.planGender.get(sectionId) || { male: 0, female: 0 };
+  return { male: e.male + p.male, female: e.female + p.female };
 }
 
 /**
- * Target a 50/50 male–female split. When an exact split is mathematically
- * impossible (unequal totals / odd numbers / capacities), distribute both
- * genders as evenly and proportionally as possible across all sections.
+ * Distribute `students` across `sections`, respecting capacity.
+ *
+ * Two competing goals are honoured together:
+ *  1. **Even section sizes** — each section is pre-assigned a seat quota
+ *     (largest-remainder, proportional to its free seats).
+ *  2. **Gender balance** — among sections that still owe seats, the one whose
+ *     resulting male/female split is closest to even is chosen, factoring in
+ *     the students already seated and this run's earlier placements.
+ *
+ * Students arrive pre-shuffled, so placement order is random and no grade-based
+ * ordering is applied.
  */
 function assignBalanced(
   students: CohortStudent[],
   sections: SectionInfo[],
-  runningCounts: Map<number, number>
+  ctx: BalanceContext
 ): Map<number, CohortStudent[]> {
   const result = new Map<number, CohortStudent[]>();
-  if (sections.length === 0) return result;
+  for (const s of sections) if (!result.has(s.id)) result.set(s.id, []);
 
-  const freeOf = (s: SectionInfo) =>
-    s.capacity - (s.current_count || 0) - (runningCounts.get(s.id) || 0);
+  const open = sections.filter((s) => freeCapacity(s, ctx) > 0);
+  if (open.length === 0) return result;
 
-  const usable = sections
-    .map(s => ({ s, free: freeOf(s) }))
-    .filter(x => x.free > 0);
+  const freeOf = (s: SectionInfo) => freeCapacity(s, ctx);
+  const totalFree = open.reduce((sum, s) => sum + freeOf(s), 0);
+  const seats = Math.min(students.length, totalFree);
 
-  if (usable.length === 0) return result;
-
-  const totalFree = usable.reduce((a, x) => a + x.free, 0);
-  const weights = usable.map(x => x.free / totalFree);
-  const males = students.filter(s => s.sex === "male");
-  const females = students.filter(s => s.sex === "female");
-
-  for (const section of sections) result.set(section.id, []);
-
-  const maleQuotas = largestRemainder(males.length, weights);
-  const femaleQuotas = largestRemainder(females.length, weights);
-
-  usable.forEach(({ s }, i) => {
-    const maleCount = Math.min(Math.max(maleQuotas[i] ?? 0, 0), freeOf(s));
-    const femaleCount = Math.min(Math.max(femaleQuotas[i] ?? 0, 0), freeOf(s) - maleCount);
-    result.set(s.id, [
-      ...males.splice(0, maleCount),
-      ...females.splice(0, femaleCount),
-    ]);
-    for (const student of result.get(s.id)!) {
-      runningCounts.set(s.id, (runningCounts.get(s.id) || 0) + 1);
-    }
+  // 1) Largest-remainder seat quotas, capped at each section's free seats.
+  const quota = new Map<number, number>(open.map((s) => [s.id, 0]));
+  const exact = open.map((s) => {
+    const v = (seats * freeOf(s)) / totalFree;
+    return { id: s.id, base: Math.floor(v), frac: v - Math.floor(v), free: freeOf(s) };
   });
+  let assigned = 0;
+  for (const e of exact) {
+    quota.set(e.id, e.base);
+    assigned += e.base;
+  }
+  const order = exact.slice().sort((a, b) => b.frac - a.frac || b.free - a.free);
+  let idx = 0;
+  let guard = 0;
+  const maxSteps = order.length * order.length + order.length;
+  while (assigned < seats && guard < maxSteps) {
+    const e = order[idx % order.length];
+    if (quota.get(e.id)! < e.free) {
+      quota.set(e.id, quota.get(e.id)! + 1);
+      assigned++;
+    }
+    idx++;
+    guard++;
+  }
 
-  // Any remaining students (rounding overflow / odd counts) — spill to the
-  // next section that still has room, alternating to preserve balance.
-  const leftovers = [...males, ...females];
-  for (const student of leftovers) {
-    const candidates = sections
-      .filter(s => freeOf(s) > 0)
-      .sort((a, b) => freeOf(a) - freeOf(b));
-    if (candidates.length === 0) break;
-    const target = candidates[0];
-    result.get(target.id)!.push(student);
-    runningCounts.set(target.id, (runningCounts.get(target.id) || 0) + 1);
+  // 2) Place students, favouring sections that still owe quota.
+  const owed = new Map(quota);
+  for (const student of students) {
+    let best: SectionInfo | null = null;
+    let bestOwed = -1;
+    let bestImbalance = Infinity;
+    let bestFree = -1;
+
+    for (const s of open) {
+      const free = freeOf(s);
+      if (free <= 0) continue;
+      const owe = owed.get(s.id)!;
+      const g = totalGender(s.id, ctx);
+      const m = g.male + (student.sex === "male" ? 1 : 0);
+      const f = g.female + (student.sex === "female" ? 1 : 0);
+      const imbalance = Math.abs(m - f);
+      if (
+        owe > bestOwed ||
+        (owe === bestOwed && imbalance < bestImbalance) ||
+        (owe === bestOwed && imbalance === bestImbalance && free > bestFree)
+      ) {
+        best = s;
+        bestOwed = owe;
+        bestImbalance = imbalance;
+        bestFree = free;
+      }
+    }
+
+    if (!best) break; // every section is full
+
+    result.get(best.id)!.push(student);
+    ctx.extraCount.set(best.id, (ctx.extraCount.get(best.id) || 0) + 1);
+    const pg = ctx.planGender.get(best.id) || { male: 0, female: 0 };
+    if (student.sex === "male") pg.male += 1;
+    else pg.female += 1;
+    ctx.planGender.set(best.id, pg);
+    owed.set(best.id, owed.get(best.id)! - 1);
   }
 
   return result;
@@ -558,10 +617,17 @@ function assignBalanced(
 export async function generateRulesPlan(options: RuleOptions): Promise<GeneratedPlan> {
   const { schoolYearId, scope = "all" } = options;
 
-  const [syRows, thresholds, sections] = await Promise.all([
+  // Strictly-random placement: a fresh seed each run unless one is supplied.
+  const seed =
+    options.seed !== undefined
+      ? options.seed >>> 0
+      : Math.floor(Math.random() * 0xffffffff) >>> 0;
+  const rng = mulberry32(seed);
+
+  const [syRows, sections, existingGender] = await Promise.all([
     query<RowDataPacket[]>("SELECT id, sy_label FROM school_years WHERE id = ?", [schoolYearId]),
-    loadThresholds(),
     loadActiveSections(),
+    loadSectionGenderCounts(schoolYearId),
   ]);
   if (syRows.length === 0) {
     throw new Error("School year not found.");
@@ -569,12 +635,12 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
 
   const cohort = await loadCohort(schoolYearId);
 
-  const bandFor = (type: string, gradeLevel: number): number | null =>
-    thresholds.find(t => t.section_type === type && t.grade_level === gradeLevel)?.min_average ??
-    null;
-
   const proposals: Proposal[] = [];
-  const runningCounts = new Map<number, number>();
+  const ctx: BalanceContext = {
+    existing: existingGender,
+    extraCount: new Map<number, number>(),
+    planGender: new Map<number, { male: number; female: number }>(),
+  };
 
   // Only consider non-special (regular/streamline-like) students that are
   // not yet sectioned OR every pending student for the chosen scope.
@@ -593,7 +659,11 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
     }
   };
 
-  const considered = cohort.filter(inScope);
+  // Shuffle the in-scope cohort before any assignment so distribution is
+  // strictly random — no name / grade / average ordering survives.
+  const considered = shuffle(cohort.filter(inScope), rng);
+  const consideredById = new Map<number, CohortStudent>();
+  for (const c of considered) consideredById.set(c.student_id, c);
 
   // ── Phase 1: decide placement intent per student ──────────────────
   for (const student of considered) {
@@ -614,8 +684,7 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
         const prevType = student.prev_section_type;
         kind = "carryover";
         if (isSpecialSectionType(prevType)) {
-          const band = bandFor(prevType, student.grade_level);
-          const cont = evalContinuingEligibility(student, prevType, band);
+          const cont = evalProgramEligibility(student, prevType as ProgramType, "continuing");
           if (cont.eligible) {
             target = prevType === "ste" ? "ste" : "spfl";
             eligibility = { eligible: true, reasons: [] };
@@ -632,12 +701,8 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
         }
       } else if (applicantSpecial) {
         // NEW STE/SPFL applicant — entrance eligibility (exam + interview).
-        const myType = student.program as "ste" | "spfl";
-        const band = bandFor(myType, student.grade_level);
-        eligibility =
-          myType === "ste"
-            ? evalEntranceEligibility(student, [{ key: "science", label: "Science" }, { key: "math", label: "Mathematics" }], band)
-            : evalEntranceEligibility(student, [{ key: "english", label: "English" }, { key: "filipino", label: "Filipino" }], band);
+        const myType = student.program as ProgramType;
+        eligibility = evalProgramEligibility(student, myType, "entrance");
         if (eligibility.eligible) {
           target = myType;
           reason = `${myType.toUpperCase()} applicant met eligibility requirements`;
@@ -653,10 +718,13 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
       }
     } else if (isSpecialSectionType(student.current_section_type)) {
       // ── Phase 1b: maintenance check for ALREADY-SECTIONED students ──
-      // Only performed for the carryover scope so a normal daily run does not
-      // churn finalized sections.
-      const band = bandFor(student.current_section_type!, student.grade_level);
-      const cont = evalContinuingEligibility(student, student.current_section_type!, band);
+      // STE/SPFL members who no longer meet the program's minimum academic
+      // requirements are flagged for transfer to a Regular section.
+      const cont = evalProgramEligibility(
+        student,
+        student.current_section_type as ProgramType,
+        "continuing"
+      );
       if (cont.eligible) {
         continue; // stays in place.
       }
@@ -705,17 +773,40 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
     sectionsByGrade.set(s.grade_level, list);
   }
 
-  const hasRoom = (s: SectionInfo): boolean => {
-    return (s.current_count || 0) + (runningCounts.get(s.id) || 0) < s.capacity;
-  };
+  // Assign a batch of proposals across a set of sections using the random,
+  // gender-balanced placer. When `fallbackFrom` is set, each placed student is
+  // flagged with the reason they could not stay in their preferred section.
+  const applyAssignments = (
+    batch: Proposal[],
+    targetSections: SectionInfo[],
+    fallbackFrom: string | null = null
+  ): void => {
+    if (batch.length === 0 || targetSections.length === 0) return;
 
-  const assignTo = (p: Proposal, s: SectionInfo | undefined): void => {
-    if (!s || !hasRoom(s)) {
-      return;
+    const propByStudent = new Map<number, Proposal>();
+    const pool: CohortStudent[] = [];
+    for (const p of batch) {
+      propByStudent.set(p.student_id, p);
+      const c = consideredById.get(p.student_id);
+      if (c) pool.push(c);
     }
-    p.proposed_section_id = s.id;
-    p.proposed_section_name = s.name;
-    runningCounts.set(s.id, (runningCounts.get(s.id) || 0) + 1);
+
+    const bySection = assignBalanced(pool, targetSections, ctx);
+
+    for (const [sectionId, members] of bySection) {
+      if (members.length === 0) continue;
+      const section = targetSections.find(s => s.id === sectionId);
+      for (const m of members) {
+        const p = propByStudent.get(m.student_id);
+        if (!p) continue;
+        p.proposed_section_id = sectionId;
+        p.proposed_section_name = section?.name ?? null;
+        if (fallbackFrom) {
+          p.flagged = true;
+          p.reason = `${p.reason}; ${fallbackFrom} — placed in ${section?.name ?? sectionId}`;
+        }
+      }
+    }
   };
 
   const specialSection = (gradeLevel: number, type: "ste" | "spfl") => {
@@ -752,95 +843,48 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
     const regularProposals = list.filter(
       p => p.target_program === "regular" && p.kind !== "transfer"
     );
-    const transferProposals = list.filter(p => p.target_program === "regular" && p.kind === "transfer");
+    const transferProposals = list.filter(
+      p => p.target_program === "regular" && p.kind === "transfer"
+    );
 
-    // STE first (smallest cohorts, most restrictive).
-    for (const p of steProposals) {
-      const preferred = specialSection(grade, "ste").find(s => hasRoom(s));
-      if (preferred) {
-        assignTo(p, preferred);
-        continue;
-      }
-      // No STE room -> fall back to a regular section, flagged.
-      const fallback = regularSection(grade).find(s => hasRoom(s));
-      assignTo(p, fallback);
-      if (p.proposed_section_id !== null) {
-        p.flagged = true;
-        p.reason = `${p.reason}; no STE section capacity — placed in ${p.proposed_section_name}`;
-      }
-    }
-
-    for (const p of spflProposals) {
-      const preferred = specialSection(grade, "spfl").find(s => hasRoom(s));
-      if (preferred) {
-        assignTo(p, preferred);
-        continue;
-      }
-      const fallback = regularSection(grade).find(s => hasRoom(s));
-      assignTo(p, fallback);
-      if (p.proposed_section_id !== null) {
-        p.flagged = true;
-        p.reason = `${p.reason}; no SPFL section capacity — placed in ${p.proposed_section_name}`;
-      }
-    }
-
-    // Balanced 50/50 gender distribution for regular placements.
-    const regularStudents = regularProposals
-      .map(p => considered.find(c => c.student_id === p.student_id))
-      .filter((s): s is CohortStudent => Boolean(s));
     const regularSections = regularSection(grade);
-    const balance = assignBalanced(regularStudents, regularSections, runningCounts);
 
-    for (const p of regularProposals) {
-      const student = considered.find(c => c.student_id === p.student_id);
-      if (!student || p.proposed_section_id === null) {
-        for (const [secId, members] of balance) {
-          if (student && members.includes(student)) {
-            p.proposed_section_id = secId;
-            p.proposed_section_name =
-              sections.find(s => s.id === secId)?.name ?? null;
-            break;
-          }
-        }
-      }
-    }
+    // STE applicants first (smallest cohorts, most restrictive) — fill the
+    // STE sections using the random, gender-balanced placer.
+    applyAssignments(steProposals, specialSection(grade, "ste"));
+    const steOverflow = steProposals.filter(p => p.proposed_section_id === null);
 
-    // Transfers to Regular get straight assignment to the least-loaded section.
-    for (const p of transferProposals) {
-      const candidates = regularSection(grade)
-        .filter(s => hasRoom(s))
-        .sort(
-          (a, b) =>
-            (a.current_count || 0) + (runningCounts.get(a.id) || 0) -
-            ((b.current_count || 0) + (runningCounts.get(b.id) || 0))
-        );
-      assignTo(p, candidates[0]);
-    }
+    // SPFL applicants — fill the SPFL sections the same way.
+    applyAssignments(spflProposals, specialSection(grade, "spfl"));
+    const spflOverflow = spflProposals.filter(p => p.proposed_section_id === null);
+
+    // Any special-program overflow lands in regular sections, flagged.
+    applyAssignments(steOverflow, regularSections, "no STE section capacity");
+    applyAssignments(spflOverflow, regularSections, "no SPFL section capacity");
+
+    // Regular/Streamline + transfers — random, gender-balanced across regular.
+    applyAssignments(regularProposals, regularSections);
+    applyAssignments(transferProposals, regularSections);
   }
 
   // ── Phase 3: balance + summary ────────────────────────────────────
+  // Report each section's full male/female split (students already seated plus
+  // this run's placements) so the balance reflects the section as a whole.
   const balanceSections: BalanceSummary["sections"] = sections.map(s => {
-    const memberCounts = runningCounts.get(s.id) || 0;
+    const g = totalGender(s.id, ctx);
     return {
       section_id: s.id,
       section_name: s.name,
       grade_level: s.grade_level,
       section_type: s.section_type,
-      male: 0,
-      female: 0,
-      total: memberCounts,
+      male: g.male,
+      female: g.female,
+      total: g.male + g.female,
       capacity: s.capacity,
     };
   });
 
   const assigned = proposals.filter(p => p.proposed_section_id !== null);
-  assigned.forEach(p => {
-    const row = balanceSections.find(b => b.section_id === p.proposed_section_id);
-    if (row) {
-      if (p.sex === "male") row.male += 1;
-      else row.female += 1;
-    }
-  });
 
   const byProgram: Record<string, number> = {};
   for (const p of proposals) {
@@ -850,6 +894,7 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
   const plan: GeneratedPlan = {
     school_year: { id: syRows[0].id, sy_label: syRows[0].sy_label },
     scope,
+    seed,
     proposals,
     sections,
     summary: {

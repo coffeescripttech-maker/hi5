@@ -14,7 +14,10 @@ import { getAcademicThresholds } from "../services/schoolConfig";
  * 2. Compute each student's general average
  * 3. Students with GA >= passing mark promoted; below it retained
  *    (passing mark is configurable in School Settings, default 75)
- * 4. Auto-assign promoted students to sections in next grade
+ * 4. Promoted/retained students are queued as "Pending Section"
+ *    (section_id = NULL) for the next school year — no auto-assignment by GA.
+ *    The Registrar assigns sections later via Section Assignment
+ *    (random, gender-balanced).
  */
 export async function promoteSection(req: Request, res: Response): Promise<void> {
   try {
@@ -84,8 +87,7 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
       req.user!.userId,
       section,
       school_year_id,
-      nextSchoolYearId,
-      { enrollRetained: false }
+      nextSchoolYearId
     );
 
     await logActivity(
@@ -95,7 +97,7 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
       promotionId
     );
 
-    const promotedCount = results.filter(r => r.to_section_id != null).length;
+    const promotedCount = results.filter(r => r.promoted).length;
     const retainedCount = results.filter(r => r.is_retained).length;
     const incompleteCount = results.filter(r => !r.grade_complete).length;
     const plural = (n: number) => (n === 1 ? "student" : "students");
@@ -103,8 +105,8 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
     res.status(201).json({
       message:
         promotedCount === results.length && results.length > 0
-          ? `Promotion completed. ${results.length} ${plural(results.length)} promoted to Grade ${processedGrade}.`
-          : `Promotion processed ${results.length} ${plural(results.length)}: ${promotedCount} promoted, ${retainedCount} retained, ${incompleteCount} incomplete (grades not complete).`,
+          ? `Promotion completed. ${results.length} ${plural(results.length)} promoted to Grade ${processedGrade} and placed in the Pending Section Queue.`
+          : `Promotion processed ${results.length} ${plural(results.length)}: ${promotedCount} promoted, ${retainedCount} retained, ${incompleteCount} incomplete (grades not complete). All are placed in the Pending Section Queue for the next school year.`,
       promotion_id: promotionId,
       from_section: section.name,
       from_grade: section.grade_level,
@@ -179,7 +181,7 @@ export async function previewSection(req: Request, res: Response): Promise<void>
       return {
         student_id: s.student_id,
         name: s.name,
-        general_average: gradeComplete ? s.general_average : null,
+        general_average: gradeComplete && s.general_average != null ? parseFloat(s.general_average) : null,
         grade_complete: gradeComplete,
         is_retained: isRetained,
         promoted: gradeComplete && !isRetained,
@@ -212,8 +214,7 @@ async function promoteSectionCore(
   userId: number,
   section: RowDataPacket,
   schoolYearId: number,
-  nextSchoolYearId: number,
-  opts: { enrollRetained: boolean } = { enrollRetained: false }
+  nextSchoolYearId: number
 ): Promise<{ promotionId: number; toGrade: number; results: any[] }> {
   const toGrade = section.grade_level + 1;
   const { passing_grade: passingMark } = await getAcademicThresholds();
@@ -229,9 +230,9 @@ async function promoteSectionCore(
   }
 
   // Get enrolled students with their averages + grade completeness.
-  // grade_complete = every subject has all 4 quarters of grades entered.
+  // grade_complete = every subject has all 3 quarters (Q1-Q3) of grades entered.
   const students = await query<RowDataPacket[]>(
-    `SELECT e.id AS enrollment_id, e.student_id,
+    `SELECT e.id AS enrollment_id, e.student_id, e.program,
             COALESCE(ROUND(AVG(ss.subject_avg), 2), NULL) AS general_average,
             COUNT(ss.subject_key) AS subject_count,
             COALESCE(MIN(ss.quarters_present), 0) AS min_quarters
@@ -257,16 +258,6 @@ async function promoteSectionCore(
     throw new Error(`No enrolled students found in section "${section.name}".`);
   }
 
-  // Get available sections for the next grade level
-  const targetSections = await query<RowDataPacket[]>(
-    `SELECT * FROM sections WHERE grade_level = ? AND is_active = 1 ORDER BY min_average DESC`,
-    [toGrade]
-  );
-
-  if (targetSections.length === 0) {
-    throw new Error(`No active sections found for grade ${toGrade}. Create sections first.`);
-  }
-
   // Create promotion record
   const promoResult = await query<ResultSetHeader>(
     `INSERT INTO promotions (section_id, to_grade_level, school_year_id, promoted_by, status)
@@ -288,123 +279,75 @@ async function promoteSectionCore(
     const subjectCount = parseInt(s.subject_count || "0", 10);
     const minQuarters = parseInt(s.min_quarters || "0", 10);
     const gradeComplete = subjectCount > 0 && minQuarters >= 3;
-    const isIncomplete = !gradeComplete;
     // Only students with complete grades are judged by their average
-    const isRetained = isIncomplete ? 0 : (avg < passingMark ? 1 : 0);
+    const isRetained = gradeComplete ? (avg < passingMark ? 1 : 0) : 0;
 
-    // Find target section based on average (only for complete, non-retained students)
-    let targetSectionId: number | null = null;
-    if (gradeComplete && !isRetained) {
-      // Find the highest section type their average qualifies for
-      for (const tSec of targetSections) {
-        if (avg >= parseFloat(tSec.min_average)) {
-          // Check if section has capacity
-          if (tSec.current_count < tSec.capacity) {
-            targetSectionId = tSec.id;
-            break;
-          }
-        }
-      }
+    // Eligibility — only students with complete grades are judged by their
+    // average. NOTE: no section is chosen here. Under the Auto-Sectioning
+    // Policy (Grades 7–12) students are never grouped by General Average:
+    // promoted/retained/incomplete students are queued as "Pending Section"
+    // (section_id = NULL) and assigned later by the Section Assignment
+    // auto-sectioning engine (random, gender-balanced).
+    const promoted = gradeComplete && !isRetained;
 
-      // Fallback: find any section with capacity
-      if (!targetSectionId) {
-        for (const tSec of targetSections) {
-          if (tSec.current_count < tSec.capacity) {
-            targetSectionId = tSec.id;
-            break;
-          }
-        }
-      }
-    }
-
-    // Insert promotion_student record
+    // Insert promotion_student record — to_section_id stays NULL until the
+    // student is assigned a section for the next grade level.
     await query<ResultSetHeader>(
       `INSERT INTO promotion_students (promotion_id, student_id, from_section_id, to_section_id, general_average, is_retained, grade_complete)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [promotionId, s.student_id, section.id, targetSectionId, gradeComplete ? avg : null, isRetained, gradeComplete ? 1 : 0]
+       VALUES (?, ?, ?, NULL, ?, ?, ?)`,
+      [promotionId, s.student_id, section.id, gradeComplete ? avg : null, isRetained, gradeComplete ? 1 : 0]
     );
 
-    // Promoted: move to next grade and enroll in the next SY
-    if (targetSectionId) {
+    // Advance the student's grade level only when they actually pass.
+    if (promoted) {
       await query<ResultSetHeader>(
         "UPDATE students SET grade_level = ? WHERE id = ?",
         [toGrade, s.student_id]
       );
-
-      // Check if already enrolled in the target school year. In the normal
-      // year-end flow this is a fresh (next) school year with no enrollment,
-      // so a new one is created. When promotion runs against a school year the
-      // student is already enrolled in (e.g. no next SY exists yet), the
-      // existing enrollment must be MOVED into the promoted section — otherwise
-      // grade_level and the enrollment's section fall out of sync (student
-      // shows as Grade 11 while still listed under a Grade 10 section).
-      const existingEnroll = await query<RowDataPacket[]>(
-        "SELECT id, section_id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
-        [s.student_id, nextSchoolYearId]
-      );
-
-      if (existingEnroll.length === 0) {
-        await query<ResultSetHeader>(
-          `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status)
-           VALUES (?, ?, ?, CURDATE(), ?, 'enrolled')`,
-          [s.student_id, targetSectionId, nextSchoolYearId, userId]
-        );
-        // Update section counts
-        await query<ResultSetHeader>(
-          "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
-          [targetSectionId]
-        );
-      } else if (existingEnroll[0].section_id !== targetSectionId) {
-        // Move the existing enrollment into the promoted section and rebalance
-        // both sections' stored counts (the target was not counted yet).
-        await query<ResultSetHeader>(
-          "UPDATE enrollments SET section_id = ?, status = 'enrolled' WHERE id = ?",
-          [targetSectionId, existingEnroll[0].id]
-        );
-        if (existingEnroll[0].section_id != null) {
-          await query<ResultSetHeader>(
-            "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
-            [existingEnroll[0].section_id]
-          );
-        }
-        await query<ResultSetHeader>(
-          "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",
-          [targetSectionId]
-        );
-      }
-      // else: already enrolled in the target section — section and counts are
-      // already correct, so nothing further to do.
-
-      // The student has been promoted out of their previous section — that
-      // (earlier) enrollment is no longer their current one, so tag it
-      // "completed" instead of "enrolled". Only their newest 'enrolled' row
-      // stays current.
-      await query<ResultSetHeader>(
-        `UPDATE enrollments SET status = 'completed'
-         WHERE student_id = ? AND status = 'enrolled'
-           AND school_year_id < (
-             SELECT current_sy FROM (
-               SELECT MAX(school_year_id) AS current_sy
-               FROM enrollments
-               WHERE student_id = ? AND status = 'enrolled'
-             ) t
-           )`,
-        [s.student_id, s.student_id]
-      );
-    } else if (opts.enrollRetained && (isRetained || isIncomplete)) {
-      // Retained or incomplete students stay in the SAME section for the next school year
-      const existingEnroll = await query<RowDataPacket[]>(
-        "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
-        [s.student_id, nextSchoolYearId]
-      );
-      if (existingEnroll.length === 0) {
-        await query<ResultSetHeader>(
-          `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status)
-           VALUES (?, ?, ?, CURDATE(), ?, 'enrolled')`,
-          [s.student_id, section.id, nextSchoolYearId, userId]
-        );
-      }
     }
+
+    // Ensure a next-school-year enrollment exists, sitting in the Pending
+    // Section Queue (section_id = NULL). Retained and incomplete students are
+    // queued too, so the Registrar places every student in a single pass.
+    const existingEnroll = await query<RowDataPacket[]>(
+      "SELECT id, section_id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
+      [s.student_id, nextSchoolYearId]
+    );
+
+    if (existingEnroll.length === 0) {
+      await query<ResultSetHeader>(
+        `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status, program)
+         VALUES (?, NULL, ?, CURDATE(), ?, 'enrolled', ?)`,
+        [s.student_id, nextSchoolYearId, userId, s.program || 'regular']
+      );
+    } else if (existingEnroll[0].section_id != null) {
+      // An enrollment already exists (e.g. a promotion re-run) — move it into
+      // the Pending Section Queue and rebalance the section it was pulled from.
+      await query<ResultSetHeader>(
+        "UPDATE enrollments SET section_id = NULL, status = 'enrolled' WHERE id = ?",
+        [existingEnroll[0].id]
+      );
+      await query<ResultSetHeader>(
+        "UPDATE sections SET current_count = GREATEST(current_count - 1, 0) WHERE id = ?",
+        [existingEnroll[0].section_id]
+      );
+    }
+    // else: already sitting in the Pending Section Queue — nothing to do.
+
+    // The school year being promoted out of is now over for this student — tag
+    // its enrollment "completed" so only the new (pending) row stays current.
+    await query<ResultSetHeader>(
+      `UPDATE enrollments SET status = 'completed'
+       WHERE student_id = ? AND status = 'enrolled'
+         AND school_year_id < (
+           SELECT current_sy FROM (
+             SELECT MAX(school_year_id) AS current_sy
+             FROM enrollments
+             WHERE student_id = ? AND status = 'enrolled'
+           ) t
+         )`,
+      [s.student_id, s.student_id]
+    );
 
     results.push({
       student_id: s.student_id,
@@ -412,7 +355,8 @@ async function promoteSectionCore(
       general_average: gradeComplete ? avg : null,
       is_retained: isRetained === 1,
       grade_complete: gradeComplete,
-      to_section_id: targetSectionId,
+      promoted,
+      to_section_id: null,
     });
   }
 
@@ -432,8 +376,10 @@ async function promoteSectionCore(
  * Promotes every grade 7-11 section (GA >= passing mark promoted, below it
  * retained; the passing mark is configurable in School Settings, default 75)
  * and marks grade 12 sections as completers. Creates/uses the next school year
- * for the new enrollments. Individual section failures are collected and
- * reported rather than aborting the whole run.
+ * for the new enrollments. Promoted and retained students are placed in the
+ * Pending Section Queue (section_id = NULL) — sections are assigned later via
+ * Section Assignment. Individual section failures are collected and reported
+ * rather than aborting the whole run.
  */
 export async function bulkPromote(req: Request, res: Response): Promise<void> {
   try {
@@ -543,8 +489,7 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
             req.user!.userId,
             section,
             schoolYearId,
-            nextSchoolYearId,
-            { enrollRetained: true }
+            nextSchoolYearId
           );
           byGrade[g].students_processed += results.length;
           for (const r of results) {
@@ -575,7 +520,7 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
     // Real-time notification: bulk promotion finished (SSE push, no refresh).
     createNotification({
       title: "Bulk Promotion",
-      message: `Bulk year-end promotion completed — ${sections.length} sections processed (${sections.length - failures.length} succeeded${failures.length ? `, ${failures.length} failed` : ""}).`,
+      message: `Bulk year-end promotion completed — ${sections.length} sections processed (${sections.length - failures.length} succeeded${failures.length ? `, ${failures.length} failed` : ""}). Students are in the Pending Section Queue for the next school year.`,
       type: failures.length ? "warning" : "success",
     });
 

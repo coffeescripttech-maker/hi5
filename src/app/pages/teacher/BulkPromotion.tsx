@@ -11,13 +11,17 @@ import {
   ListOrdered,
   GraduationCap,
   Undo2,
-  User
+  User,
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { sectionsApi, SectionRow } from '../../services/sections';
+import { sectioningApi, PendingQueueStudent } from '../../services/sectioning';
 import {
   promotionsApi,
   PromotionRow,
-  PromotionPreview
+  PromotionPreview,
+  PromotionPreviewStudent
 } from '../../services/promotions';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
@@ -28,7 +32,7 @@ import { IndividualPromotionPanel } from '../../components/IndividualPromotionPa
 
 export function BulkPromotion() {
   const { role, showToast } = useApp();
-  const [mode, setMode] = useState<'bulk' | 'individual'>('bulk');
+  const [mode, setMode] = useState<'bulk' | 'individual' | 'pending'>('bulk');
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [promotions, setPromotions] = useState<PromotionRow[]>([]);
   const [selectedSectionId, setSelectedSectionId] = useState<string>('');
@@ -47,6 +51,14 @@ export function BulkPromotion() {
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackSuccess, setRollbackSuccess] = useState(false);
   const [rollbackData, setRollbackData] = useState<any>(null);
+  const [showStudentList, setShowStudentList] = useState(false);
+  const [listFilter, setListFilter] = useState<
+    'all' | 'promoted' | 'retained' | 'incomplete'
+  >('all');
+  const [myPendingQueue, setMyPendingQueue] = useState<PendingQueueStudent[]>(
+    []
+  );
+  const [myPendingLoading, setMyPendingLoading] = useState(false);
 
   // Teachers promote their own sections; admins/registrars see every section.
   const loadSections =
@@ -81,6 +93,21 @@ export function BulkPromotion() {
       })
       .catch(() => {});
   };
+
+  // Teacher-scoped, read-only Pending Section Queue — the students this teacher
+  // promoted (from their advisory section) or enrolled who are awaiting a section.
+  const loadMyPendingQueue = () => {
+    setMyPendingLoading(true);
+    sectioningApi
+      .getMyPendingQueue()
+      .then(d => setMyPendingQueue(d.queue))
+      .catch(() => setMyPendingQueue([]))
+      .finally(() => setMyPendingLoading(false));
+  };
+
+  useEffect(() => {
+    if (role === 'teacher' && mode === 'pending') loadMyPendingQueue();
+  }, [role, mode]);
 
   const selectedSection = sections.find(
     s => s.id === parseInt(selectedSectionId)
@@ -138,6 +165,23 @@ export function BulkPromotion() {
     ].join(', ');
     return { promoted, retained, incomplete, total, breakdown };
   })();
+
+  // Student-list modal helpers — shown from the Promotion Preview panel so the
+  // numbers can be drilled into (who exactly will be promoted/retained/held).
+  const previewStudents = preview?.students ?? [];
+  const filteredPreviewStudents = previewStudents.filter(s => {
+    if (listFilter === 'promoted') return s.promoted;
+    if (listFilter === 'retained') return s.is_retained;
+    if (listFilter === 'incomplete') return !s.grade_complete;
+    return true;
+  });
+  const previewStudentBadge = (s: PromotionPreviewStudent) => {
+    if (!s.grade_complete)
+      return { label: 'Incomplete', cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+    if (s.is_retained)
+      return { label: 'Retained', cls: 'bg-red-50 text-red-600 border-red-200' };
+    return { label: 'To Promote', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  };
 
   // Load a real promotion preview for the selected section — the counts shown in
   // the preview panel come from the backend's grade-completeness computation so
@@ -294,6 +338,18 @@ export function BulkPromotion() {
               }`}>
               <User size={15} /> Individual
             </button>
+            {role === 'teacher' && (
+              <button
+                type="button"
+                onClick={() => setMode('pending')}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                  mode === 'pending'
+                    ? 'bg-white text-emerald-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                <ListOrdered size={15} /> Pending Queue
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -304,6 +360,118 @@ export function BulkPromotion() {
           syId={syId}
           onChanged={refreshAfterIndividual}
         />
+      )}
+
+      {mode === 'pending' && role === 'teacher' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200">
+          <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400" />
+          <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-100 flex items-center justify-center shadow-xs">
+                <ListOrdered size={15} className="text-emerald-700" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">
+                  Pending Section Queue
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Students you promoted or enrolled — awaiting a section from the
+                  Registrar
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={loadMyPendingQueue}
+              disabled={myPendingLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition disabled:opacity-60 flex-shrink-0">
+              {myPendingLoading ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+              Refresh
+            </button>
+          </div>
+
+          <div className="p-5 sm:p-6">
+            {myPendingLoading ? (
+              <div className="flex items-center justify-center py-14 text-gray-400 gap-2 text-sm">
+                <Loader2 size={16} className="animate-spin" /> Loading…
+              </div>
+            ) : myPendingQueue.length === 0 ? (
+              <div className="text-center py-14">
+                <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                  <ListOrdered size={20} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-medium text-gray-600">
+                  No pending students
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Students you promote from your advisory section will appear
+                  here once they're queued for the next school year.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+                    {myPendingQueue.length} awaiting section
+                  </span>
+                </div>
+                <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                  <table className="w-full min-w-[640px] text-sm">
+                    <thead>
+                      <tr className="bg-gray-50/70 text-left text-[11px] uppercase tracking-[0.05em] text-gray-500">
+                        <th className="px-4 py-2.5 font-semibold">Student</th>
+                        <th className="px-4 py-2.5 font-semibold">Grade</th>
+                        <th className="px-4 py-2.5 font-semibold">Program</th>
+                        <th className="px-4 py-2.5 font-semibold">Gen. Ave</th>
+                        <th className="px-4 py-2.5 font-semibold">S.Y.</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {myPendingQueue.map(s => (
+                        <tr
+                          key={s.enrollment_id}
+                          className="hover:bg-gray-50/60">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-800">
+                              {s.name}
+                            </p>
+                            <p className="text-[11px] text-gray-400">
+                              {s.lrn || s.student_display_id}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {s.grade_level}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="capitalize text-gray-600">
+                              {s.program}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 tabular-nums">
+                            {s.general_average != null
+                              ? Number(s.general_average).toFixed(2)
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 text-xs">
+                            {s.sy_label ?? '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-3">
+                  Read-only. Sections are assigned by the Registrar on the
+                  Section Assignment page.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {mode === 'bulk' && (
@@ -348,9 +516,11 @@ export function BulkPromotion() {
               in that section as <strong>Promoted</strong> to the next grade
               level. Students with a general average below 75 will be flagged as{' '}
               <strong>Retained</strong> and excluded from promotion
-              automatically. Promoted students are auto-assigned to appropriate
-              sections in the next grade based on their average. This action is
-              recorded and visible in the Registrar's Promotion Records.
+              automatically. Promoted students are placed in the{' '}
+              <strong>Pending Section Queue</strong> for the next school year —
+              the Registrar assigns sections later via Section Assignment
+              (random, gender-balanced). This action is recorded and visible in
+              the Registrar's Promotion Records.
             </p>
           )}
         </div>
@@ -488,40 +658,67 @@ export function BulkPromotion() {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs mb-4">
-                  <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs">
-                    <p className="text-emerald-700 font-bold text-xl">
-                      {preview ? preview.total : selectedSection.current_count}
-                    </p>
-                    <p className="text-gray-500 font-medium mt-0.5">
-                      Total Enrolled
-                    </p>
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs mb-3">
+                    <button
+                      type="button"
+                      onClick={() => { setListFilter('all'); setShowStudentList(true); }}
+                      disabled={!preview}
+                      className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs hover:border-emerald-300 hover:shadow-sm transition disabled:opacity-60 disabled:cursor-default">
+                      <p className="text-emerald-700 font-bold text-xl">
+                        {preview ? preview.total : selectedSection.current_count}
+                      </p>
+                      <p className="text-gray-500 font-medium mt-0.5">
+                        Total Enrolled
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setListFilter('promoted'); setShowStudentList(true); }}
+                      disabled={!preview}
+                      className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs hover:border-emerald-300 hover:shadow-sm transition disabled:opacity-60 disabled:cursor-default">
+                      <p className="text-emerald-600 font-bold text-xl">
+                        {previewLoading ? '…' : (preview?.promoted ?? 0)}
+                      </p>
+                      <p className="text-gray-500 font-medium mt-0.5">
+                        For Promotion
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setListFilter('retained'); setShowStudentList(true); }}
+                      disabled={!preview}
+                      className="bg-white rounded-xl p-3 border border-red-100 shadow-xs hover:border-red-300 hover:shadow-sm transition disabled:opacity-60 disabled:cursor-default">
+                      <p className="text-red-500 font-bold text-xl">
+                        {previewLoading ? '…' : (preview?.retained ?? 0)}
+                      </p>
+                      <p className="text-gray-500 font-medium mt-0.5">
+                        For Retention
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setListFilter('incomplete'); setShowStudentList(true); }}
+                      disabled={!preview}
+                      className="bg-white rounded-xl p-3 border border-amber-100 shadow-xs hover:border-amber-300 hover:shadow-sm transition disabled:opacity-60 disabled:cursor-default">
+                      <p className="text-amber-600 font-bold text-xl">
+                        {previewLoading ? '…' : (preview?.incomplete ?? 0)}
+                      </p>
+                      <p className="text-gray-500 font-medium mt-0.5">
+                        Incomplete
+                      </p>
+                    </button>
                   </div>
-                  <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-xs">
-                    <p className="text-emerald-600 font-bold text-xl">
-                      {previewLoading ? '…' : (preview?.promoted ?? 0)}
-                    </p>
-                    <p className="text-gray-500 font-medium mt-0.5">
-                      For Promotion
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 border border-red-100 shadow-xs">
-                    <p className="text-red-500 font-bold text-xl">
-                      {previewLoading ? '…' : (preview?.retained ?? 0)}
-                    </p>
-                    <p className="text-gray-500 font-medium mt-0.5">
-                      For Retention
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 border border-amber-100 shadow-xs">
-                    <p className="text-amber-600 font-bold text-xl">
-                      {previewLoading ? '…' : (preview?.incomplete ?? 0)}
-                    </p>
-                    <p className="text-gray-500 font-medium mt-0.5">
-                      Incomplete
-                    </p>
-                  </div>
-                </div>
+                  {previewStudents.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setListFilter('all'); setShowStudentList(true); }}
+                      className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition">
+                      <ListOrdered size={13} /> View student list (
+                      {previewStudents.length})
+                    </button>
+                  )}
+                </>
               )}
 
               {isCompleters ? (
@@ -533,9 +730,10 @@ export function BulkPromotion() {
               ) : (
                 <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2.5">
                   <AlertTriangle size={13} className="flex-shrink-0" />
-                  Students are promoted only if every subject has all 4 quarters
-                  of grades. An average below 75 means retention; incomplete
-                  grades hold a student back until their record is complete.
+                  Students are promoted only if every subject has all 3 quarters
+                  (Q1–Q3) of grades. An average below 75 means retention;
+                  incomplete grades hold a student back until their record is
+                  complete.
                 </div>
               )}
             </div>
@@ -893,8 +1091,9 @@ export function BulkPromotion() {
               <>
                 <p className="text-xs text-gray-500 mb-4 leading-relaxed">
                   This promotion will process all students with grades. Students
-                  below 75 will be retained. Promoted students will be
-                  auto-assigned to appropriate sections in Grade {toGrade}.
+                  below 75 will be retained. Promoted students will be placed in
+                  the Pending Section Queue for Grade {toGrade} — the Registrar
+                  assigns sections later.
                 </p>
                 {preview && preview.incomplete > 0 && (
                   <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2.5 mb-5">
@@ -1150,7 +1349,7 @@ export function BulkPromotion() {
                   successOutcome.incomplete > 0 && (
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2 mb-5">
                       Incomplete students stay in their current grade until all
-                      4 quarters of grades are entered.
+                      3 quarters of grades are entered.
                     </p>
                   )}
               </>
@@ -1177,7 +1376,7 @@ export function BulkPromotion() {
                 }>
                 {isCompleters
                   ? "This completion is now visible in the Registrar's Promotion Records."
-                  : "This promotion is now visible in the Registrar's Promotion Records."}
+                  : "This promotion is now visible in the Registrar's Promotion Records. Promoted students are in the Pending Section Queue — the Registrar assigns their sections."}
               </p>
             </div>
 
@@ -1190,6 +1389,93 @@ export function BulkPromotion() {
               }`}>
               Done
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Promotion Preview Student List Modal ── */}
+      {showStudentList && preview && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowStudentList(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col animate-in zoom-in-95"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">
+                  {preview.section_name} — Promotion Preview
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Grade {preview.grade_level} → Grade {preview.grade_level + 1}{' '}
+                  · {preview.total} students
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStudentList(false)}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 transition flex-shrink-0">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 px-5 py-3 border-b border-gray-50">
+              {(
+                [
+                  { key: 'all', label: 'All', count: preview.total, active: 'bg-gray-900 text-white', idle: 'bg-gray-100 text-gray-600' },
+                  { key: 'promoted', label: 'To Promote', count: preview.promoted, active: 'bg-emerald-600 text-white', idle: 'bg-emerald-50 text-emerald-700' },
+                  { key: 'retained', label: 'Retained', count: preview.retained, active: 'bg-red-500 text-white', idle: 'bg-red-50 text-red-600' },
+                  { key: 'incomplete', label: 'Incomplete', count: preview.incomplete, active: 'bg-amber-500 text-white', idle: 'bg-amber-50 text-amber-700' }
+                ] as const
+              ).map(t => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setListFilter(t.key)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${listFilter === t.key ? t.active : t.idle}`}>
+                  {t.label}
+                  <span
+                    className={`px-1.5 rounded-full text-[10px] font-bold ${listFilter === t.key ? 'bg-white/25' : 'bg-white/70'}`}>
+                    {t.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="overflow-y-auto px-3 py-2">
+              {filteredPreviewStudents.length === 0 ? (
+                <p className="text-center text-xs text-gray-400 py-10">
+                  No students in this group.
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-50">
+                  {filteredPreviewStudents.map(s => {
+                    const badge = previewStudentBadge(s);
+                    return (
+                      <li
+                        key={s.student_id}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">
+                            {s.name}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            General Average:{' '}
+                            {s.general_average != null
+                              ? Number(s.general_average).toFixed(2)
+                              : '—'}
+                          </p>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold flex-shrink-0 ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       )}

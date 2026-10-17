@@ -269,12 +269,13 @@ export async function createTransfer(req: Request, res: Response): Promise<void>
         `SELECT COUNT(*) AS c FROM students WHERE student_id LIKE ?`,
         [`${year}-%`]
       );
-      const nextSeq = String(Number(seq[0].c) + 1).padStart(4, "0");
+      const nextSeq = String(Number(seq.c) + 1).padStart(4, "0");
+      const displayId = `${year}-${String(grade_level).padStart(2, "0")}-${nextSeq}`;
 
       const inserted = await query<ResultSetHeader>(
         `INSERT INTO students (student_id, lrn, name, grade_level, sex, birthdate, status)
          VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-        [`${year}-${nextSeq}`, lrnText, nameText, grade_level, sex, birthdate]
+        [displayId, lrnText, nameText, grade_level, sex, birthdate]
       );
       targetStudentId = inserted.insertId;
 

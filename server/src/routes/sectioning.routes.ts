@@ -4,6 +4,7 @@ import { authorize } from "../middleware/roleGuard";
 import {
   getPendingStudents,
   getPendingQueue,
+  getMyPendingQueue,
   confirmAssignments,
   undoAssignments,
   getCarryOverPreview,
@@ -23,6 +24,8 @@ router.post("/assign", authorize("admin", "enrollment_committee"), runAutoSectio
 
 // New: Pending Section Queue (enrolled but section_id IS NULL)
 router.get("/pending-queue", authorize("admin", "registrar", "enrollment_committee"), getPendingQueue);
+// Teacher-scoped, read-only view of their advisees sitting in the Pending Queue
+router.get("/my-pending-queue", authorize("teacher"), getMyPendingQueue);
 router.post("/confirm-assignments", authorize("admin", "registrar", "enrollment_committee"), confirmAssignments);
 router.post("/undo", authorize("admin", "registrar", "enrollment_committee"), undoAssignments);
 router.get("/carry-over-preview", authorize("admin", "registrar", "enrollment_committee"), getCarryOverPreview);
