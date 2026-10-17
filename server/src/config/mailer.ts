@@ -67,11 +67,20 @@ function getTransport(): Transporter {
 
 /** Sender address for Resend — must be a verified domain on resend.com.
  *  gmail.com can never be verified there, so never fall back to GMAIL_USER. */
+const VALID_SENDER_RE = /^(?:"[^"]+"|[^<>,@]+)\s*<[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>$|^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/;
+
 function resendFrom(): string {
-  const override = process.env.RESEND_FROM;
-  if (override) return override;
+  const override = process.env.RESEND_FROM?.trim();
+  if (override && VALID_SENDER_RE.test(override)) {
+    return override;
+  }
+  if (override) {
+    console.warn(
+      `[mailer] Ignoring invalid RESEND_FROM="${override}"; expected "email@domain" or "Name <email@domain>". Falling back to onboarding@resend.dev.`
+    );
+  }
   const fromName = process.env.RESEND_FROM_NAME || process.env.GMAIL_FROM_NAME || "HI5 Portal";
-  return `"${fromName}" <onboarding@resend.dev>`;
+  return `${fromName} <onboarding@resend.dev>`;
 }
 
 /** Send via the Resend HTTP API (no SDK dependency). */

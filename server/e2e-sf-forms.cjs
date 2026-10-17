@@ -63,7 +63,7 @@ function pageCount(buf) {
 
   // ── login ──
   await page.goto(`${FRONT}/login`, { waitUntil: "networkidle0" });
-  const uInput = await page.waitForSelector('input[placeholder="Enter your username"]', { timeout: 20000 });
+  const uInput = await page.waitForSelector('input[placeholder="Enter your username or email"]', { timeout: 20000 });
   await uInput.type("registrar01");
   const pInput = await page.waitForSelector('input[placeholder="Enter your password"]');
   await pInput.type("password123");

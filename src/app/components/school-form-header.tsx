@@ -119,7 +119,7 @@ export function SchoolFormHeader({
           label="School Name"
           value={header.schoolName}
           onChange={(v) => onChange("schoolName", v)}
-          boxClass="w-72"
+          boxClass="w-[30rem]"
         />
         <HeaderField
           label="School Year"

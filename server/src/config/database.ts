@@ -15,6 +15,13 @@ const pool: Pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   connectTimeout: 10_000,
+  // Return DATE columns as plain "YYYY-MM-DD" strings instead of JS Dates.
+  // A DATE is a calendar date with no time / timezone; mysql2's default decodes
+  // it to a local-midnight Date that JSON-serializes to a UTC-shifted ISO string
+  // (e.g. 2018-03-05 -> "2018-03-04T16:00:00.000Z" in UTC+8), which both shows
+  // the wrong day and is rejected by MySQL when posted back. dateStrings keeps
+  // the round-trip lossless. DATETIME/TIMESTAMP columns are unaffected.
+  dateStrings: ["DATE"],
   // TLS for a remote managed MySQL (Railway/cloud): DB_SSL=require.
   ssl: process.env.DB_SSL === "require" ? { rejectUnauthorized: false } : undefined,
 });

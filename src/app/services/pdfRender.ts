@@ -109,8 +109,13 @@ function isDenied(prop: string): boolean {
   return false;
 }
 
-/** Width/height utilities that should stay fixed (e.g. w-64, sm:w-20). */
-const SIZE_UTILITY_RE = /(?:^|\s)(?:[a-z]+:)?[wh]-[a-z0-9/]+/;
+/**
+ * Width/height utilities that should stay fixed (e.g. `w-64`, `sm:w-20`),
+ * including absolute-value arbitrary utilities (`w-[30rem]`, `h-[3px]`).
+ * Percentage/calc arbitrary values (`w-[38%]`, `w-[calc(100%-2rem)]`) are
+ * deliberately excluded so they keep reflowing to the print page width.
+ */
+const SIZE_UTILITY_RE = /(?:^|\s)(?:[a-z]+:)?[wh]-(?:\[[^\]%]+\]|[a-z0-9/]+)/;
 /** Fluid width/height utilities that must reflow, not stay fixed. */
 const FLUID_SIZE_RE = /(?:^|\s)(?:[a-z]+:)?[wh]-(?:full|screen|fit|max|min)/;
 /** min-w-* / max-w-* / min-h-* / max-h-* utilities. */
@@ -126,6 +131,25 @@ const MINMAX_RE = /(?:^|\s)(?:[a-z]+:)?(?:min|max)-[wh]-/;
  * SF5/SF9 exports.
  */
 const LOGICAL_SIZE_RE = /^(min-|max-)?(block|inline)-size$/;
+
+/**
+ * Chrome reports `grid-template-columns` as the *used* pixel sizes
+ * (e.g. "236px 236px 236px 236px"), never the authored
+ * `repeat(n, minmax(0, 1fr))`. Inlining those pixels pins the columns to the
+ * width measured on screen; when the standalone print page lays the grid out
+ * at a different width the fixed tracks no longer line up and later cells
+ * (e.g. SF9's marking table) paint on top of the blocks that follow it (the
+ * AO/SO/RO/NO legend). Rewrite an all-pixel track list to proportional `fr`
+ * so it reflows to the page width. Lists that contain non-pixel tracks
+ * (auto / minmax / fit-content) are JS layout hints and are left untouched.
+ */
+function relativizeGridTracks(value: string): string {
+  const tokens = value.trim().split(/\s+/);
+  if (!tokens.length || !tokens.every((t) => /^\d+(?:\.\d+)?px$/.test(t))) {
+    return value;
+  }
+  return tokens.map((t) => t.replace(/px$/, "fr")).join(" ");
+}
 
 /**
  * Whether an element's laid-out width/height should be preserved verbatim.
@@ -230,6 +254,27 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
         if (isDenied(prop)) continue;
 
         const value = cs.getPropertyValue(prop);
+
+        // Grid tracks are the one layout metric Chrome resolves to absolute
+        // pixels that the width/height guard below never sees. Reflow column
+        // tracks to `fr` and drop row/auto tracks (content-sized), otherwise
+        // grids stay pinned to their on-screen width and overlap following
+        // blocks (e.g. SF9's marking legend painted over the values table).
+        if (!pinSize) {
+          if (prop === "grid-template-columns") {
+            const tracks = relativizeGridTracks(value);
+            if (tracks !== value) {
+              hEl.style.setProperty(prop, tracks);
+              continue;
+            }
+          } else if (
+            prop === "grid-template-rows" ||
+            prop === "grid-auto-columns" ||
+            prop === "grid-auto-rows"
+          ) {
+            continue;
+          }
+        }
 
         // Pixel widths/heights on reflowing blocks are skipped so content
         // re-wraps to the letter page width, like the Print Preview. The

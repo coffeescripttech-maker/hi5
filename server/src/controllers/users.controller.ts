@@ -25,6 +25,24 @@ interface UserRow extends RowDataPacket {
   updated_at: Date;
 }
 
+/**
+ * Coerce a client-supplied date to the plain "YYYY-MM-DD" a MySQL DATE column
+ * accepts. Returns null for empty/invalid input. ISO strings that carry a
+ * timezone (legacy clients) are reduced to their leading date part.
+ */
+function toDateOnly(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 // Presence thresholds (mirror the client-friendly description in the migration):
 //   online   → last_seen_at within 2 minutes
 //   idle     → last_seen_at 2–15 minutes ago
@@ -127,7 +145,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     const result = await query<ResultSetHeader>(
       `INSERT INTO users (username, password_hash, name, email, role, phone, address, employee_id, designation, date_hired, end_of_contract)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [username, passwordHash, name, email, role, phone || null, address || null, employee_id || null, designation || null, date_hired || null, end_of_contract || null]
+      [username, passwordHash, name, email, role, phone || null, address || null, employee_id || null, designation || null, toDateOnly(date_hired), toDateOnly(end_of_contract)]
     );
 
     await logActivity(req.user!.userId, `Created user "${username}" (${role})`, "users", result.insertId);
@@ -209,8 +227,8 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     if (profile_photo_url !== undefined) { fields.push("profile_photo_url = ?"); params.push(profile_photo_url); }
     if (employee_id !== undefined) { fields.push("employee_id = ?"); params.push(employee_id); }
     if (designation !== undefined) { fields.push("designation = ?"); params.push(designation); }
-    if (date_hired !== undefined) { fields.push("date_hired = ?"); params.push(date_hired); }
-    if (end_of_contract !== undefined) { fields.push("end_of_contract = ?"); params.push(end_of_contract); }
+    if (date_hired !== undefined) { fields.push("date_hired = ?"); params.push(toDateOnly(date_hired)); }
+    if (end_of_contract !== undefined) { fields.push("end_of_contract = ?"); params.push(toDateOnly(end_of_contract)); }
     if (password !== undefined) {
       const passwordHash = await bcrypt.hash(password, 10);
       fields.push("password_hash = ?"); params.push(passwordHash);

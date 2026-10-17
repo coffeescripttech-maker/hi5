@@ -35,7 +35,7 @@ import depedSeal from '../../../assets/7bbc1fa74b8ecc07e723d0d3864673c9601cbba5.
 type Leaf = { key: string; width: string };
 
 const LEAF_COLUMNS: Leaf[] = [
-  { key: 'lrn', width: '6%' },
+  { key: 'lrn', width: '10%' },
   { key: 'name', width: '24%' },
   { key: 'average', width: '10%' },
   { key: 'action', width: '14%' },
@@ -816,7 +816,7 @@ export function SF5Report() {
                     <tr>
                       <th
                         rowSpan={2}
-                        style={{ width: '6%' }}
+                        style={{ width: '10%' }}
                         className="border border-black px-1 py-1 align-middle font-bold">
                         LRN
                       </th>
