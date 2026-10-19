@@ -488,31 +488,54 @@ export async function reviewTransfer(req: Request, res: Response): Promise<void>
         return;
       }
 
+      // One enrollment row per student per school year (uk_student_sy). A
+      // learner who left earlier in the SAME year keeps a non-active row
+      // (transferred/dropped/completed) — approving the Transfer-In reactivates
+      // that row into the target section instead of tripping the unique key.
+      // Only an already-active enrollment is a real duplicate.
       const dup = await query<RowDataPacket[]>(
-        "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ?",
+        "SELECT id, status FROM enrollments WHERE student_id = ? AND school_year_id = ? LIMIT 1",
         [tr.student_id, tr.school_year_id]
       );
-      if (dup.length > 0) {
+      if (dup.length > 0 && dup[0].status === "enrolled") {
         res.status(409).json({
           error: "This learner already has an enrollment for that school year.",
         });
         return;
       }
 
-      const created = await query<ResultSetHeader>(
-        `INSERT INTO enrollments
-           (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status, remarks, assigned_at, assigned_by)
-         VALUES (?, ?, ?, CURDATE(), ?, 'enrolled', ?, NOW(), ?)`,
-        [
-          tr.student_id,
-          targetSectionId,
-          tr.school_year_id,
-          req.user!.userId,
-          "Transfer-In approved by Enrollment Committee",
-          req.user!.userId,
-        ]
-      );
-      enrollmentId = created.insertId;
+      const transferRemarks = "Transfer-In approved by Enrollment Committee";
+      if (dup.length > 0) {
+        await query<ResultSetHeader>(
+          `UPDATE enrollments
+              SET section_id = ?, status = 'enrolled', enrolled_by = ?,
+                  enrollment_date = CURDATE(), assigned_at = NOW(), assigned_by = ?, remarks = ?
+            WHERE id = ?`,
+          [
+            targetSectionId,
+            req.user!.userId,
+            req.user!.userId,
+            transferRemarks,
+            dup[0].id,
+          ]
+        );
+        enrollmentId = dup[0].id;
+      } else {
+        const created = await query<ResultSetHeader>(
+          `INSERT INTO enrollments
+             (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status, remarks, assigned_at, assigned_by)
+           VALUES (?, ?, ?, CURDATE(), ?, 'enrolled', ?, NOW(), ?)`,
+          [
+            tr.student_id,
+            targetSectionId,
+            tr.school_year_id,
+            req.user!.userId,
+            transferRemarks,
+            req.user!.userId,
+          ]
+        );
+        enrollmentId = created.insertId;
+      }
 
       await query<ResultSetHeader>(
         "UPDATE sections SET current_count = current_count + 1 WHERE id = ?",

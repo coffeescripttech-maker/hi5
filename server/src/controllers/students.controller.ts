@@ -59,8 +59,8 @@ export async function listStudents(req: Request, res: Response): Promise<void> {
     }
 
     // Privacy: a teacher may only see learners in sections they advise or are
-    // assigned to, plus pending-queue learners they personally enrolled — never
-    // the whole school roster. Other staff roles keep school-wide read access.
+    // assigned to — never the whole school roster, and never the pending
+    // ("Awaiting Section") queue. Other staff roles keep school-wide read access.
     if (req.user?.role === "teacher") {
       const userId = req.user.userId;
       conditions.push(`s.id IN (
@@ -68,10 +68,9 @@ export async function listStudents(req: Request, res: Response): Promise<void> {
         LEFT JOIN sections sec ON en.section_id = sec.id
         WHERE en.status = 'enrolled'
           AND (sec.adviser_id = ?
-            OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
-            OR (en.enrolled_by = ? AND en.section_id IS NULL))
+            OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
       )`);
-      params.push(userId, userId, userId);
+      params.push(userId, userId);
     }
 
     if (conditions.length > 0) {
@@ -109,11 +108,25 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
 
     const schoolYearId = currentSY[0].id;
 
-    // Find sections where this user is the adviser
+    // Sections this teacher advises OR is assigned to teach a subject in —
+    // the same scope the rest of the teacher-facing APIs use. Learners in the
+    // pending ("Awaiting Section") queue are deliberately NOT included: they
+    // belong to the registrar/committee workflow, not to a teacher's roster.
     const sections = await query<RowDataPacket[]>(
-      "SELECT id, name, grade_level FROM sections WHERE adviser_id = ? AND is_active = 1",
-      [userId]
+      `SELECT DISTINCT sec.id, sec.name, sec.grade_level
+       FROM sections sec
+       WHERE sec.is_active = 1
+         AND (sec.adviser_id = ?
+           OR EXISTS (
+             SELECT 1 FROM teacher_section_assignments tsa
+             WHERE tsa.section_id = sec.id AND tsa.teacher_id = ?))`,
+      [userId, userId]
     );
+
+    if (sections.length === 0) {
+      res.json([]);
+      return;
+    }
 
     // Graduated students keep an enrollment row in the current school year but with
     // status 'completed'. By default we only return the live roster ('enrolled');
@@ -125,8 +138,10 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
       ? "AND e.status IN ('enrolled', 'completed')"
       : "AND e.status = 'enrolled'";
 
-    // Build query: students in teacher's sections OR students they enrolled (pending queue)
-    let sql = `
+    const sectionIds = sections.map((s: any) => s.id);
+    const ph = sectionIds.map(() => "?").join(",");
+
+    const sql = `
       SELECT s.*, e.section_id, sec.name AS section_name, e.status AS enrollment_status,
              e.enrollment_date, e.program
       FROM students s
@@ -134,25 +149,9 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
       LEFT JOIN sections sec ON e.section_id = sec.id
       WHERE e.school_year_id = ?
         ${enrollmentStatusFilter}
-        AND (
-    `;
-    const params: any[] = [schoolYearId];
-    const orConditions: string[] = [];
-
-    if (sections.length > 0) {
-      const sectionIds = sections.map((s: any) => s.id);
-      const ph = sectionIds.map(() => "?").join(",");
-      orConditions.push(`e.section_id IN (${ph})`);
-      params.push(...sectionIds);
-    }
-
-    // Also include pending-queue students enrolled by this teacher
-    orConditions.push("(e.enrolled_by = ? AND e.section_id IS NULL)");
-    params.push(userId);
-
-    sql += orConditions.join(" OR ");
-    sql += `)
+        AND e.section_id IN (${ph})
       ORDER BY COALESCE(sec.grade_level, 0) ASC, sec.name ASC, s.name ASC`;
+    const params: any[] = [schoolYearId, ...sectionIds];
 
     const students = await query<RowDataPacket[]>(sql, params);
     res.json(students);
@@ -222,10 +221,9 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
          LEFT JOIN sections sec ON en.section_id = sec.id
          WHERE en.student_id = ? AND en.status = 'enrolled'
            AND (sec.adviser_id = ?
-             OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
-             OR (en.enrolled_by = ? AND en.section_id IS NULL))
+             OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
          LIMIT 1`,
-        [id, userId, userId, userId]
+        [id, userId, userId]
       );
       if (allowed.length === 0) {
         res.status(403).json({ error: "Access denied. This learner is not in your section." });

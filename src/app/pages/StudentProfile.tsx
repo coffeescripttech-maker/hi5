@@ -36,7 +36,12 @@ import {
   BadgeCheck,
   Bookmark,
   Users,
-  Target
+  Target,
+  Ruler,
+  Weight,
+  Pencil,
+  Save,
+  X
 } from 'lucide-react';
 import { studentsApi, StudentDetail } from '../services/students';
 import {
@@ -111,6 +116,24 @@ interface DetailRowProps {
   value: string;
   highlight?: boolean;
   copyable?: boolean;
+}
+
+/**
+ * Body Mass Index from the learner's measurements: BMI = weight(kg) / height(m)².
+ * Always derived on the fly so the profile can never show a stale BMI after a
+ * new height/weight reading is saved.
+ */
+function calcBmi(heightCm?: number | null, weightKg?: number | null): number | null {
+  if (!heightCm || !weightKg || heightCm <= 0 || weightKg <= 0) return null;
+  return Math.round((weightKg / (heightCm / 100) ** 2) * 10) / 10;
+}
+
+/** Read-out band for the BMI value (adult WHO cut-offs). */
+function bmiBand(bmi: number): { label: string; cls: string } {
+  if (bmi < 18.5) return { label: 'Underweight', cls: 'bg-amber-50 text-amber-700 border-amber-200/60' };
+  if (bmi < 25) return { label: 'Normal', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200/60' };
+  if (bmi < 30) return { label: 'Overweight', cls: 'bg-orange-50 text-orange-700 border-orange-200/60' };
+  return { label: 'Obese', cls: 'bg-red-50 text-red-700 border-red-200/60' };
 }
 
 /** Student Profile — Document Checklist tab.
@@ -440,6 +463,65 @@ export function StudentProfile() {
   // permission. Other roles (teacher, principal) view it read-only.
   const canEditChecklist =
     role === 'admin' || role === 'registrar' || role === 'enrollment_committee';
+
+  // Height/weight editing is limited to the roles allowed to PUT /students/:id.
+  const canEditMeasurements = canEditChecklist;
+
+  const [measureOpen, setMeasureOpen] = useState(false);
+  const [mHeight, setMHeight] = useState('');
+  const [mWeight, setMWeight] = useState('');
+  const [savingMeasure, setSavingMeasure] = useState(false);
+
+  // BMI is always recomputed from the current measurements (never stored), so
+  // saving a new reading immediately reflects on the profile.
+  const bmi = calcBmi(student?.height_cm, student?.weight_kg);
+  const bmiInfo = bmi !== null ? bmiBand(bmi) : null;
+
+  const openMeasurements = () => {
+    setMHeight(student?.height_cm != null ? String(student.height_cm) : '');
+    setMWeight(student?.weight_kg != null ? String(student.weight_kg) : '');
+    setMeasureOpen(true);
+  };
+
+  const handleSaveMeasurements = async () => {
+    if (!student) return;
+    const h = parseFloat(mHeight);
+    const w = parseFloat(mWeight);
+    if (!Number.isFinite(h) || h < 30 || h > 250) {
+      showToast('error', 'Enter a height between 30 and 250 cm.');
+      return;
+    }
+    if (!Number.isFinite(w) || w < 5 || w > 300) {
+      showToast('error', 'Enter a weight between 5 and 300 kg.');
+      return;
+    }
+    setSavingMeasure(true);
+    try {
+      const updated = await studentsApi.update(student.id, {
+        height_cm: h,
+        weight_kg: w
+      });
+      // Merge the response but keep the values we just saved, so the BMI is
+      // guaranteed to match the latest reading even if the API echoes an
+      // older row.
+      setStudent(prev =>
+        prev ? { ...prev, ...updated, height_cm: h, weight_kg: w } : prev
+      );
+      setMeasureOpen(false);
+      const recalculated = calcBmi(h, w)!;
+      showToast(
+        'success',
+        `Measurements saved — BMI ${recalculated} (${bmiBand(recalculated).label}).`
+      );
+    } catch (err: any) {
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to update measurements.'
+      );
+    } finally {
+      setSavingMeasure(false);
+    }
+  };
 
   // Graduation details for graduated students — the class year comes from the
   // SY they completed (e.g. "2030-2031" → Class of 2031).
@@ -905,6 +987,157 @@ export function StudentProfile() {
                     value={statusBadge?.label || student.status}
                   />
                 </div>
+              </div>
+
+              {/* Physical Measurements — height, weight and the BMI derived
+                  from them. Updated whenever new readings are recorded. */}
+              <div className="lg:col-span-2 bg-gradient-to-br from-gray-50/80 to-white border border-gray-100 rounded-xl overflow-hidden transition-shadow duration-200 hover:shadow-sm">
+                <div className="flex items-center gap-2.5 px-5 pt-5 pb-3 border-b border-gray-100">
+                  <div
+                    className={`w-8 h-8 rounded-lg bg-gradient-to-br ${accent.softTile} flex items-center justify-center shadow-xs`}>
+                    <Activity size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-800">
+                      Physical Measurements
+                    </h4>
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      Height, weight and auto-calculated BMI
+                    </p>
+                  </div>
+                  {canEditMeasurements && !measureOpen && (
+                    <button
+                      type="button"
+                      onClick={openMeasurements}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50">
+                      <Pencil size={12} /> Update
+                    </button>
+                  )}
+                </div>
+
+                {measureOpen ? (
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">
+                          Height (cm)
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={30}
+                          max={250}
+                          step="0.1"
+                          value={mHeight}
+                          onChange={e => setMHeight(e.target.value)}
+                          placeholder="e.g. 165"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-gray-400 focus:outline-none"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">
+                          Weight (kg)
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={5}
+                          max={300}
+                          step="0.1"
+                          value={mWeight}
+                          onChange={e => setMWeight(e.target.value)}
+                          placeholder="e.g. 55"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-gray-400 focus:outline-none"
+                        />
+                      </label>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <div
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                          bmiInfo
+                            ? bmiInfo.cls
+                            : 'bg-gray-50 text-gray-500 border-gray-200/60'
+                        }`}>
+                        <Activity size={12} />
+                        BMI {bmi ?? '—'}
+                        {bmiInfo ? ` · ${bmiInfo.label}` : ''}
+                      </div>
+                      <div className="ml-auto flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMeasureOpen(false)}
+                          disabled={savingMeasure}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50">
+                          <X size={12} /> Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveMeasurements}
+                          disabled={savingMeasure}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50 ${accent.button}`}>
+                          {savingMeasure ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Save size={12} />
+                          )}
+                          {savingMeasure ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+                    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white/70 px-4 py-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100/70">
+                        <Ruler size={14} className="text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">
+                          Height
+                        </p>
+                        <p className="text-sm font-bold text-gray-800">
+                          {student.height_cm != null
+                            ? `${student.height_cm} cm`
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white/70 px-4 py-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100/70">
+                        <Weight size={14} className="text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">
+                          Weight
+                        </p>
+                        <p className="text-sm font-bold text-gray-800">
+                          {student.weight_kg != null
+                            ? `${student.weight_kg} kg`
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white/70 px-4 py-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100/70">
+                        <Activity size={14} className="text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">
+                          Body Mass Index
+                        </p>
+                        <p className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                          {bmi ?? '—'}
+                          {bmiInfo && (
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${bmiInfo.cls}`}>
+                              {bmiInfo.label}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

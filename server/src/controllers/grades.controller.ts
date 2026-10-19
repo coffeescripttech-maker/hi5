@@ -44,21 +44,19 @@ async function getTeacherSectionIds(
 }
 
 /**
- * Grade-read privacy: a teacher may only read grades for learners they advise,
- * teach in an assigned section, or personally enrolled into the pending queue —
- * exactly the roster /api/students and /api/enrollments already expose to them.
- * Returns a `student_id` predicate for filtering bulk reads, or NULL when the
- * caller already has school-wide access (non-teacher roles).
+ * Grade-read privacy: a teacher may only read grades for learners they advise
+ * or teach in an assigned section — exactly the roster /api/students and
+ * /api/enrollments already expose to them (no pending "Awaiting Section"
+ * queue). Returns a `student_id` predicate for filtering bulk reads.
  */
 function teacherStudentScopeSql(studentIdExpr: string, teacherId: number, params: any[]): string {
-  params.push(teacherId, teacherId, teacherId);
+  params.push(teacherId, teacherId);
   return `${studentIdExpr} IN (
     SELECT en.student_id FROM enrollments en
     LEFT JOIN sections sec ON en.section_id = sec.id
     WHERE en.status = 'enrolled'
       AND (sec.adviser_id = ?
-        OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
-        OR (en.enrolled_by = ? AND en.section_id IS NULL))
+        OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
   )`;
 }
 
@@ -74,11 +72,10 @@ async function teacherMayReadGrades(
        LEFT JOIN sections sec ON en.section_id = sec.id
        WHERE en.status = 'enrolled'
          AND (sec.adviser_id = ?
-           OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
-           OR (en.enrolled_by = ? AND en.section_id IS NULL))
+           OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
      )
      LIMIT 1`,
-    [studentId, teacherId, teacherId, teacherId]
+    [studentId, teacherId, teacherId]
   );
   return rows.length > 0;
 }

@@ -80,7 +80,6 @@ export function StudentList() {
 
   const STATUSES = [
     'all',
-    'awaiting_section',
     'enrolled',
     'pending',
     'dropped',
@@ -179,11 +178,8 @@ export function StudentList() {
 
     if (filterGrade !== 'all')
       data = data.filter(s => s.grade_level === filterGrade);
-    if (filterStatus === 'awaiting_section') {
-      data = data.filter(s => s.status === 'enrolled' && s.section_id == null);
-    } else if (filterStatus !== 'all') {
+    if (filterStatus !== 'all')
       data = data.filter(s => s.status === filterStatus);
-    }
     if (filterSex !== 'all') data = data.filter(s => s.sex === filterSex);
 
     data.sort((a, b) => {
@@ -476,9 +472,7 @@ export function StudentList() {
                   const label =
                     st === 'all'
                       ? 'All'
-                      : st === 'awaiting_section'
-                        ? 'Awaiting Section'
-                        : st.charAt(0).toUpperCase() + st.slice(1);
+                      : st.charAt(0).toUpperCase() + st.slice(1);
                   return filterChip(label, filterStatus === st, () =>
                     setFilterStatus(filterStatus === st ? 'all' : st)
                   );
@@ -648,18 +642,10 @@ export function StudentList() {
                             }
                           };
                           const hasSection = s.section_id != null;
-                          // Show "Awaiting Section" instead of "Enrolled" when student has no section yet
-                          const isEnrolledPending =
-                            s.status === 'enrolled' && !hasSection;
-                          const badgeInfo = isEnrolledPending
-                            ? {
-                                bg: 'bg-amber-50 text-amber-700 border-amber-200/50',
-                                label: 'Awaiting Section'
-                              }
-                            : statusBadge[s.status] || {
-                                bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
-                                label: s.status
-                              };
+                          const badgeInfo = statusBadge[s.status] || {
+                            bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
+                            label: s.status
+                          };
                           const riskTrend = riskMap.get(s.id);
                           const riskKey = riskTrend?.risk_level ?? 'no_data';
                           const riskInfo = RISK_BADGE[riskKey];
@@ -777,17 +763,10 @@ export function StudentList() {
                         }
                       };
                       const hasSection = s.section_id != null;
-                      const isEnrolledPending =
-                        s.status === 'enrolled' && !hasSection;
-                      const badgeInfo = isEnrolledPending
-                        ? {
-                            bg: 'bg-amber-50 text-amber-700 border-amber-200/50',
-                            label: 'Awaiting Section'
-                          }
-                        : statusBadge[s.status] || {
-                            bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
-                            label: s.status
-                          };
+                      const badgeInfo = statusBadge[s.status] || {
+                        bg: 'bg-gray-50 text-gray-500 border-gray-200/50',
+                        label: s.status
+                      };
                       const riskTrend = riskMap.get(s.id);
                       const riskKey = riskTrend?.risk_level ?? 'no_data';
                       const riskInfo = RISK_BADGE[riskKey];

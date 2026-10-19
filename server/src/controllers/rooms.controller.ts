@@ -113,3 +113,25 @@ export async function updateRoom(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: "Failed to update room." });
   }
 }
+
+/**
+ * DELETE /api/rooms/:id — Delete room (admin/registrar)
+ * Schedules referencing the room keep working: schedules.room_id is
+ * ON DELETE SET NULL, so the room link is cleared instead of failing the delete.
+ */
+export async function deleteRoom(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const existing = await query<RoomRow[]>("SELECT id, name FROM rooms WHERE id = ?", [id]);
+    if (existing.length === 0) {
+      res.status(404).json({ error: "Room not found." });
+      return;
+    }
+    await query<ResultSetHeader>("DELETE FROM rooms WHERE id = ?", [id]);
+    await logActivity(req.user!.userId, `Deleted room "${existing[0].name}"`, "rooms", Number(id));
+    res.json({ message: "Room deleted." });
+  } catch (error) {
+    console.error("Delete room error:", error);
+    res.status(500).json({ error: "Failed to delete room." });
+  }
+}

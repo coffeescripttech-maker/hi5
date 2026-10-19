@@ -34,6 +34,11 @@ export function ProfileDropdown() {
 
   if (!role) return null;
   const roleKey = role as Role;
+  // The committee's pages live under /committee, but its Profile reuses the
+  // admin page (the sidebar links there too) — `/${roleKey}/profile` would
+  // resolve to /enrollment_committee/profile and 404.
+  const profilePath =
+    roleKey === 'enrollment_committee' ? '/admin/profile' : `/${roleKey}/profile`;
   const displayName = (username.split(' – ')[0] || username).trim() || username;
   const initials = initialsFor(username);
 
@@ -84,7 +89,7 @@ export function ProfileDropdown() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate(`/${roleKey}/profile`)}>
+        <DropdownMenuItem onSelect={() => navigate(profilePath)}>
           <User /> Profile
         </DropdownMenuItem>
         {roleKey === 'admin' && (
