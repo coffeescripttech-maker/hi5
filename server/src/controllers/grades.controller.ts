@@ -43,6 +43,46 @@ async function getTeacherSectionIds(
   return new Set(rows.map(r => r.id as number));
 }
 
+/**
+ * Grade-read privacy: a teacher may only read grades for learners they advise,
+ * teach in an assigned section, or personally enrolled into the pending queue —
+ * exactly the roster /api/students and /api/enrollments already expose to them.
+ * Returns a `student_id` predicate for filtering bulk reads, or NULL when the
+ * caller already has school-wide access (non-teacher roles).
+ */
+function teacherStudentScopeSql(studentIdExpr: string, teacherId: number, params: any[]): string {
+  params.push(teacherId, teacherId, teacherId);
+  return `${studentIdExpr} IN (
+    SELECT en.student_id FROM enrollments en
+    LEFT JOIN sections sec ON en.section_id = sec.id
+    WHERE en.status = 'enrolled'
+      AND (sec.adviser_id = ?
+        OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+        OR (en.enrolled_by = ? AND en.section_id IS NULL))
+  )`;
+}
+
+/** True when this teacher may read a single learner's grades. */
+async function teacherMayReadGrades(
+  teacherId: number,
+  studentId: number | string
+): Promise<boolean> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT 1 FROM students stu
+     WHERE stu.id = ? AND stu.id IN (
+       SELECT en.student_id FROM enrollments en
+       LEFT JOIN sections sec ON en.section_id = sec.id
+       WHERE en.status = 'enrolled'
+         AND (sec.adviser_id = ?
+           OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+           OR (en.enrolled_by = ? AND en.section_id IS NULL))
+     )
+     LIMIT 1`,
+    [studentId, teacherId, teacherId, teacherId]
+  );
+  return rows.length > 0;
+}
+
 /** Section id a student is enrolled in for a school year (or null). */
 async function getStudentSectionId(
   studentId: number,
@@ -107,6 +147,13 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
 
     // Single student grades (pivoted by quarter)
     if (student_id) {
+      // Privacy: a teacher may only read grades for learners in their own
+      // sections — IDs of other students must not be usable as an oracle.
+      if (req.user!.role === "teacher" && !(await teacherMayReadGrades(req.user!.userId, String(student_id)))) {
+        res.status(403).json({ error: "Access denied. This learner is not in your section." });
+        return;
+      }
+
       const params: any[] = [student_id];
       let syFilter = "";
       if (school_year_id) {
@@ -137,17 +184,35 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         gradeParams
       );
 
+      // A subject that already has a saved grade row for this learner must always
+      // be returned, even when it falls outside the current scope (inactive
+      // subject, different program/strand, or the learner's grade_level has since
+      // drifted). Otherwise a saved grade becomes invisible in Grade Management
+      // while At-Risk / Grade History still show it.
+      const savedGradeExists = school_year_id
+        ? "EXISTS (SELECT 1 FROM grades g2 WHERE g2.subject_id = s.id AND g2.student_id = ? AND g2.school_year_id = ?)"
+        : "EXISTS (SELECT 1 FROM grades g2 WHERE g2.subject_id = s.id AND g2.student_id = ?)";
+      if (school_year_id) {
+        gradeParams.push(student_id, school_year_id);
+      } else {
+        gradeParams.push(student_id);
+      }
+
       const grades = await query<RowDataPacket[]>(
         `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type,
                 MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
                 MAX(CASE WHEN g.quarter = 2 THEN g.grade END) AS q2,
                 MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
                 ROUND(AVG(g.grade), 2) AS final_average,
-                MAX(g.is_locked) AS is_locked
+                MAX(g.is_locked) AS is_locked,
+                MAX(CASE WHEN g.quarter = 1 THEN g.is_locked ELSE 0 END) AS q1_locked,
+                MAX(CASE WHEN g.quarter = 2 THEN g.is_locked ELSE 0 END) AS q2_locked,
+                MAX(CASE WHEN g.quarter = 3 THEN g.is_locked ELSE 0 END) AS q3_locked
          FROM subjects s
          JOIN students stu ON stu.id = ?
          LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
-         WHERE s.grade_level = stu.grade_level AND s.is_active = 1${scopeWhere}
+         WHERE (s.grade_level = stu.grade_level AND s.is_active = 1${scopeWhere})
+            OR ${savedGradeExists}
          GROUP BY s.id, s.name, s.subject_type
          ORDER BY s.name ASC`,
         gradeParams
@@ -175,6 +240,16 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
 
     // Gradebook for a section (all students × subjects)
     if (section_id && school_year_id) {
+      if (req.user!.role === "teacher") {
+        const ownSections = await getTeacherSectionIds(
+          req.user!.userId,
+          parseInt(school_year_id as string)
+        );
+        if (!ownSections.has(parseInt(section_id as string))) {
+          res.status(403).json({ error: "Access denied. This section is not yours." });
+          return;
+        }
+      }
       const grades = await query<RowDataPacket[]>(
         `SELECT st.id AS student_id, st.name AS student_name, st.student_id,
                 s.id AS subject_id, s.name AS subject_name,
@@ -209,6 +284,10 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
     if (school_year_id) { conditions.push("g.school_year_id = ?"); params.push(school_year_id); }
     if (subject_id) { conditions.push("g.subject_id = ?"); params.push(subject_id); }
     if (quarter) { conditions.push("g.quarter = ?"); params.push(quarter); }
+    // Privacy: bulk grade reads are filtered to a teacher's own roster.
+    if (req.user!.role === "teacher") {
+      conditions.push(teacherStudentScopeSql("g.student_id", req.user!.userId, params));
+    }
 
     if (conditions.length > 0) sql += " WHERE " + conditions.join(" AND ");
     sql += " ORDER BY g.school_year_id DESC, g.student_id ASC, g.subject_id ASC, g.quarter ASC";
@@ -518,6 +597,12 @@ export async function getGradeHistory(req: Request, res: Response): Promise<void
     const student_id = parseInt(req.query.student_id as string);
     if (!student_id || isNaN(student_id)) {
       res.status(400).json({ error: "student_id is required." });
+      return;
+    }
+
+    // Privacy: teachers may only read history for their own learners.
+    if (req.user!.role === "teacher" && !(await teacherMayReadGrades(req.user!.userId, student_id))) {
+      res.status(403).json({ error: "Access denied. This learner is not in your section." });
       return;
     }
 

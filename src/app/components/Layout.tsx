@@ -18,6 +18,22 @@ import { TopBar } from './layout/TopBar';
 import { BottomNav } from './layout/BottomNav';
 import { registerNativeBackHandler } from '../services/nativeBack';
 
+/**
+ * Which roles may open each top-level route segment. Typing another role's URL
+ * must not render their page just because the shell is shared — the menu-key
+ * guard below only covers modules that appear in the *current* role's nav, so a
+ * path that isn't in this role's nav used to slip through. `/student/:id` is
+ * deliberately absent (a shared read-only profile view for any signed-in role).
+ */
+const ROLE_PREFIX_ACCESS: Record<string, Role[]> = {
+  admin: ['admin', 'enrollment_committee'],
+  teacher: ['teacher'],
+  registrar: ['registrar'],
+  committee: ['enrollment_committee', 'admin'],
+  principal: ['principal'],
+};
+
+
 export function Layout() {
   const { role, darkMode } = useApp();
   const accent = useRoleAccent();
@@ -90,10 +106,15 @@ export function Layout() {
 
   const isActive = (path: string) => location.pathname === path;
   const currentNavItem = fullNavItems.find(n => isActive(n.path));
+  // Role → route-segment guard: block manually-typed URLs for another role.
+  const prefix = location.pathname.split('/').filter(Boolean)[0] ?? '';
+  const prefixAccess = ROLE_PREFIX_ACCESS[prefix];
+  const pathRoleDenied = !!prefixAccess && !prefixAccess.includes(roleKey);
   const accessDenied =
-    role !== 'admin' &&
-    !!currentNavItem &&
-    !(allowedKeys ? allowedKeys.has(currentNavItem.key) : true);
+    pathRoleDenied ||
+    (role !== 'admin' &&
+      !!currentNavItem &&
+      !(allowedKeys ? allowedKeys.has(currentNavItem.key) : true));
   const currentLabel = currentNavItem?.label || 'Dashboard';
   const activeGroup = fullNavGroups.find(g =>
     g.items.some(item => isActive(item.path))

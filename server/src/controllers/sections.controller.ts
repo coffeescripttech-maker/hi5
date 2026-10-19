@@ -66,6 +66,15 @@ export async function listSections(req: Request, res: Response): Promise<void> {
       params.push(parseInt(is_active as string));
     }
 
+    // Privacy: a teacher only sees sections they advise or are assigned to.
+    if (req.user?.role === "teacher") {
+      const userId = req.user.userId;
+      conditions.push(
+        "(s.adviser_id = ? OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))"
+      );
+      params.push(userId, userId);
+    }
+
     if (conditions.length > 0) {
       sql += " WHERE " + conditions.join(" AND ");
     }
@@ -122,6 +131,23 @@ export async function getSectionById(req: Request, res: Response): Promise<void>
     if (sections.length === 0) {
       res.status(404).json({ error: "Section not found." });
       return;
+    }
+
+    // Privacy: teachers may only open sections they advise or are assigned to.
+    if (req.user?.role === "teacher") {
+      const userId = req.user.userId;
+      const allowed = await query<RowDataPacket[]>(
+        `SELECT 1 FROM sections s
+         WHERE s.id = ?
+           AND (s.adviser_id = ?
+             OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
+         LIMIT 1`,
+        [id, userId, userId]
+      );
+      if (allowed.length === 0) {
+        res.status(403).json({ error: "Access denied. This section is not yours." });
+        return;
+      }
     }
 
     // Get adviser details

@@ -159,8 +159,18 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     );
 
     res.status(201).json(newUser[0]);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Create user error:", error);
+    if (error?.code === "ER_DUP_ENTRY") {
+      res.status(409).json({ error: "That email or username is already in use." });
+      return;
+    }
+    if (error?.code === "ER_DATA_TOO_LONG") {
+      res.status(400).json({
+        error: "One of the values is too long for the database. Please shorten it and try again.",
+      });
+      return;
+    }
     res.status(500).json({ error: "Failed to create user." });
   }
 }
@@ -181,6 +191,26 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
     const fields: string[] = [];
     const params: any[] = [];
+
+    // Column limits (VARCHAR widths) — surface them as 400s instead of letting
+    // MySQL throw ER_DATA_TOO_LONG and fall through to a generic 500.
+    const MAX_LENGTH: Record<string, { label: string; max: number }> = {
+      name: { label: "Name", max: 150 },
+      email: { label: "Email", max: 100 },
+      employee_id: { label: "Employee ID", max: 30 },
+      designation: { label: "Designation", max: 100 },
+      phone: { label: "Phone", max: 20 },
+      profile_photo_url: { label: "Profile photo URL", max: 255 },
+    };
+    for (const [key, rule] of Object.entries(MAX_LENGTH)) {
+      const value = (req.body as Record<string, unknown>)[key];
+      if (typeof value === "string" && value.length > rule.max) {
+        res.status(400).json({
+          error: `${rule.label} must be ${rule.max} characters or fewer.`,
+        });
+        return;
+      }
+    }
 
     if (name !== undefined) { fields.push("name = ?"); params.push(name); }
     if (email !== undefined) { fields.push("email = ?"); params.push(email); }
@@ -256,8 +286,18 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     );
 
     res.json(updated[0]);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Update user error:", error);
+    if (error?.code === "ER_DUP_ENTRY") {
+      res.status(409).json({ error: "That email or username is already in use." });
+      return;
+    }
+    if (error?.code === "ER_DATA_TOO_LONG") {
+      res.status(400).json({
+        error: "One of the values is too long for the database. Please shorten it and try again.",
+      });
+      return;
+    }
     res.status(500).json({ error: "Failed to update user." });
   }
 }

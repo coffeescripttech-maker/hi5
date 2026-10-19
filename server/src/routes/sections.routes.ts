@@ -15,14 +15,14 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/', listSections);
-router.get('/teachers', listTeachers);
+router.get('/', authorize('admin', 'registrar', 'principal', 'enrollment_committee', 'teacher'), listSections);
+router.get('/teachers', authorize('admin', 'registrar', 'principal', 'enrollment_committee'), listTeachers);
 router.get(
   '/my-sections',
   authorize('teacher', 'registrar'),
   getTeacherSections
 );
-router.get('/:id', getSectionById);
+router.get('/:id', authorize('admin', 'registrar', 'principal', 'enrollment_committee', 'teacher'), getSectionById);
 router.post('/', authorize('admin', 'registrar'), createSection);
 router.put('/:id', authorize('admin', 'registrar'), updateSection);
 router.delete('/:id', authorize('admin', 'registrar'), deleteSection);

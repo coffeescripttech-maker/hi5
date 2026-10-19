@@ -58,6 +58,22 @@ export async function listStudents(req: Request, res: Response): Promise<void> {
       params.push(q, q, q);
     }
 
+    // Privacy: a teacher may only see learners in sections they advise or are
+    // assigned to, plus pending-queue learners they personally enrolled — never
+    // the whole school roster. Other staff roles keep school-wide read access.
+    if (req.user?.role === "teacher") {
+      const userId = req.user.userId;
+      conditions.push(`s.id IN (
+        SELECT en.student_id FROM enrollments en
+        LEFT JOIN sections sec ON en.section_id = sec.id
+        WHERE en.status = 'enrolled'
+          AND (sec.adviser_id = ?
+            OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+            OR (en.enrolled_by = ? AND en.section_id IS NULL))
+      )`);
+      params.push(userId, userId, userId);
+    }
+
     if (conditions.length > 0) {
       sql += " WHERE " + conditions.join(" AND ");
     }
@@ -196,6 +212,25 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
     if (students.length === 0) {
       res.status(404).json({ error: "Student not found." });
       return;
+    }
+
+    // Privacy: teachers may only open profiles of learners in their sections.
+    if (req.user?.role === "teacher") {
+      const userId = req.user.userId;
+      const allowed = await query<RowDataPacket[]>(
+        `SELECT 1 FROM enrollments en
+         LEFT JOIN sections sec ON en.section_id = sec.id
+         WHERE en.student_id = ? AND en.status = 'enrolled'
+           AND (sec.adviser_id = ?
+             OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+             OR (en.enrolled_by = ? AND en.section_id IS NULL))
+         LIMIT 1`,
+        [id, userId, userId, userId]
+      );
+      if (allowed.length === 0) {
+        res.status(403).json({ error: "Access denied. This learner is not in your section." });
+        return;
+      }
     }
 
     // Get current enrollment

@@ -161,6 +161,9 @@ const NOTIF_TYPE_ICONS: Record<string, string> = {
   security: '🛡️'
 };
 
+/** Security alerts carry a base36 random string id — normalise it once. */
+const securityId = (id: string) => parseInt(id, 36) || 9999;
+
 export function NotificationsDropdown() {
   const {
     role,
@@ -177,6 +180,10 @@ export function NotificationsDropdown() {
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // Security alerts are in-memory (login-lockout warnings) with no DB read
+  // column, so they track their own read state — otherwise the badge can never
+  // be cleared once one fires.
+  const [readSecurity, setReadSecurity] = useState<number[]>([]);
 
   // Real-time subscription — DB notifications pushed via SSE, no refresh.
   const onNewLive = useCallback(
@@ -200,13 +207,16 @@ export function NotificationsDropdown() {
     ...n,
     text: n.text.replace(/2025[–-]2026/g, schoolYearLabel || '2025–2026')
   }));
+  const unreadSecurityCount = securityNotifs.filter(
+    n => !readSecurity.includes(securityId(n.id))
+  ).length;
   const securityItems = securityNotifs.map(n => ({
-    id: parseInt(n.id, 36) || 9999,
+    id: securityId(n.id),
     icon: n.icon,
     text: n.text,
     time: n.time,
     isSecurity: true,
-    isRead: false
+    isRead: readSecurity.includes(securityId(n.id))
   }));
   const liveItems = liveNotifs.map(n => ({
     id: n.id,
@@ -227,16 +237,20 @@ export function NotificationsDropdown() {
       ]
     : [...securityItems, ...liveItems];
   const unreadCount = isFallback
-    ? securityNotifs.length +
+    ? unreadSecurityCount +
       staticNotifs.filter(n => !ctxReadNotifs.includes(n.id)).length
-    : securityNotifs.length + liveUnread;
+    : unreadSecurityCount + liveUnread;
 
   const handleMarkAllRead = () => {
+    setReadSecurity(securityNotifs.map(n => securityId(n.id)));
     if (isFallback) ctxMarkAllRead();
     else liveMarkAllRead();
   };
   const handleMarkOneRead = (id: number, isSecurity: boolean) => {
-    if (isSecurity) return;
+    if (isSecurity) {
+      setReadSecurity(prev => (prev.includes(id) ? prev : [...prev, id]));
+      return;
+    }
     if (isFallback) ctxMarkOneRead(id);
     else liveMarkOneRead(id);
   };
@@ -362,7 +376,9 @@ export function NotificationsDropdown() {
                   }`}
                   style={{
                     backgroundColor: isSec
-                      ? 'rgba(239,68,68,0.08)'
+                      ? isUnread
+                        ? 'rgba(239,68,68,0.08)'
+                        : 'transparent'
                       : isUnread
                         ? `${accent.chartHex}0d`
                         : 'transparent'
@@ -381,7 +397,7 @@ export function NotificationsDropdown() {
                       {n.time}
                     </p>
                   </div>
-                  {(isSec || isUnread) && (
+                  {isUnread && (
                     <span
                       className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full"
                       style={{

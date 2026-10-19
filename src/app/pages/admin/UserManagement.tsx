@@ -1106,6 +1106,7 @@ export function UserManagement() {
                   />
                   <input
                     type="text"
+                    maxLength={30}
                     value={formValue('employee_id')}
                     onChange={e => handleChange('employee_id', e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"
@@ -1133,6 +1134,7 @@ export function UserManagement() {
                   />
                   <input
                     type="text"
+                    maxLength={100}
                     value={formValue('designation')}
                     onChange={e => handleChange('designation', e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 border border-gray-200 bg-white"

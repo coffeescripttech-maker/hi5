@@ -17,11 +17,11 @@ const router = Router();
 // All student routes require authentication
 router.use(authenticate);
 
-router.get("/", listStudents);
+router.get("/", authorize("admin", "registrar", "principal", "enrollment_committee", "teacher"), listStudents);
 router.get("/my-students", authorize("teacher"), getTeacherStudents);
 // Specific routes must be registered before "/:id" so "graduates" is not parsed as an id.
 router.get("/graduates", authorize("registrar", "principal"), listGraduates);
-router.get("/:id", getStudentById);
+router.get("/:id", authorize("admin", "registrar", "principal", "enrollment_committee", "teacher"), getStudentById);
 router.post("/", authorize("admin", "registrar", "enrollment_committee"), createStudent);
 router.put("/:id", authorize("admin", "registrar", "enrollment_committee"), updateStudent);
 router.delete("/:id", authorize("admin"), deleteStudent);

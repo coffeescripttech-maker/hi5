@@ -185,15 +185,27 @@ export async function reviewCorrection(req: Request, res: Response): Promise<voi
       [status, req.user!.userId, id]
     );
 
-    // On approval, unlock the student's whole grade sheet for that school year so
-    // the teacher can re-enter the corrected values. The teacher's "Lock Grades"
-    // action locks every row for the student at once, so approval re-opens the
-    // entire sheet (the grade page blocks saving if ANY row is still locked).
+    // On approval, unlock only the requested scope: one subject (or all when the
+    // request used subject_id = NULL) and one quarter (or all when quarter =
+    // NULL). The request already stores both, so approval must not open the
+    // student's whole grade sheet — a single-subject/quarter correction must
+    // leave every other cell locked.
     if (status === "approved") {
       const target = existing[0];
       const unlockResult = await query<ResultSetHeader>(
-        "UPDATE grades SET is_locked = 0, locked_at = NULL, locked_by = NULL WHERE student_id = ? AND school_year_id = ?",
-        [target.student_id, target.school_year_id]
+        `UPDATE grades
+         SET is_locked = 0, locked_at = NULL, locked_by = NULL
+         WHERE student_id = ? AND school_year_id = ?
+           AND (subject_id = ? OR ? IS NULL)
+           AND (quarter = ? OR ? IS NULL)`,
+        [
+          target.student_id,
+          target.school_year_id,
+          target.subject_id,
+          target.subject_id,
+          target.quarter,
+          target.quarter,
+        ]
       );
       await logActivity(
         req.user!.userId,

@@ -37,6 +37,8 @@ type GradeEntry = {
   q2: number | '';
   q3: number | '';
   grade_ids: (number | null)[];
+  /** Per-quarter lock flags [Q1, Q2, Q3]; a correction may unlock a single cell. */
+  locks: [boolean, boolean, boolean];
 };
 
 const toNum = (v: number | ''): number => (v === '' ? 0 : Number(v));
@@ -350,7 +352,7 @@ export function GradeManagement() {
   useEffect(() => {
     if (!selectedStudent) return;
     setLoadingGrades(true);
-    const subs = subjects.filter(
+    const localSubs = subjects.filter(
       s => s.grade_level === selectedStudent.grade_level
     );
     gradesApi
@@ -361,6 +363,29 @@ export function GradeManagement() {
         // Handle both the pivoted object format and the flat array format
         const subjectsData = apiGrades?.subjects ?? apiGrades;
         const isPivoted = !Array.isArray(apiGrades) && apiGrades?.subjects;
+
+        // Row set = this grade level's subjects PLUS any subject the API
+        // returned because it already holds a saved grade (the learner's grade
+        // level may have drifted since encoding, and an inactive/other-program
+        // subject may still carry grades). Without those, saved grades render as
+        // blank cells while At-Risk / Grade History show them.
+        const localIds = new Set(localSubs.map(s => s.id));
+        const extraSubs = isPivoted
+          ? subjectsData
+              .filter(
+                (s: any) =>
+                  !localIds.has(s.subject_id) &&
+                  (s.q1 != null || s.q2 != null || s.q3 != null)
+              )
+              .map((s: any) => ({
+                id: s.subject_id,
+                name: s.subject_name,
+                subject_group:
+                  subjects.find(x => x.id === s.subject_id)?.subject_group ??
+                  null
+              }))
+          : [];
+        const subs = [...localSubs, ...extraSubs];
 
         const entries: GradeEntry[] = subs.map(sub => {
           if (isPivoted) {
@@ -374,7 +399,13 @@ export function GradeManagement() {
               q1: found?.q1 != null ? Number(found.q1) : '',
               q2: found?.q2 != null ? Number(found.q2) : '',
               q3: found?.q3 != null ? Number(found.q3) : '',
-              grade_ids: [null, null, null]
+              grade_ids: [null, null, null],
+              // Backward compatible: older payloads only carry the sheet-wide flag.
+              locks: [
+                (found?.q1_locked ?? found?.is_locked ?? 0) === 1,
+                (found?.q2_locked ?? found?.is_locked ?? 0) === 1,
+                (found?.q3_locked ?? found?.is_locked ?? 0) === 1
+              ] as [boolean, boolean, boolean]
             };
           }
           // Flat array format: find individual quarter records
@@ -394,27 +425,35 @@ export function GradeManagement() {
             q1: q1g?.grade != null ? Number(q1g.grade) : '',
             q2: q2g?.grade != null ? Number(q2g.grade) : '',
             q3: q3g?.grade != null ? Number(q3g.grade) : '',
-            grade_ids: [q1g?.id ?? null, q2g?.id ?? null, q3g?.id ?? null]
+            grade_ids: [q1g?.id ?? null, q2g?.id ?? null, q3g?.id ?? null],
+            locks: [
+              q1g?.is_locked === 1,
+              q2g?.is_locked === 1,
+              q3g?.is_locked === 1
+            ] as [boolean, boolean, boolean]
           };
         });
         setGrades(entries);
-        // Determine locked state from either format
-        if (isPivoted) {
-          setLocked(subjectsData.some((s: any) => s.is_locked === 1));
-        } else {
-          setLocked(subjectsData.some((g: any) => g.is_locked === 1));
-        }
+        // Sheet-level flag = "at least one cell is locked" (keeps the Locked
+        // badge and the correction-request action available); each individual
+        // cell is gated by its own locks[] entry so a scoped unlock stays usable.
+        setLocked(entries.some(e => e.locks.some(Boolean)));
       })
-      .catch(() => {
-        // Initialize empty
-        const entries: GradeEntry[] = subs.map(sub => ({
+      .catch((err: any) => {
+        // Surface the failure instead of silently rendering empty boxes.
+        showToast(
+          'error',
+          err?.detail?.error || err?.message || 'Failed to load grades'
+        );
+        const entries: GradeEntry[] = localSubs.map(sub => ({
           subject: sub.name,
           subject_id: sub.id,
           subject_group: sub.subject_group,
           q1: '',
           q2: '',
           q3: '',
-          grade_ids: [null, null, null]
+          grade_ids: [null, null, null],
+          locks: [false, false, false]
         }));
         setGrades(entries);
         setLocked(false);
@@ -430,7 +469,10 @@ export function GradeManagement() {
     // Subject-level grade security: only assigned subjects may be edited.
     const subject = grades[idx];
     if (subject && !canEditSubject(subject.subject_id)) return;
-    if (locked || deadlinePassed) return;
+    // Cell-level lock: only the requested subject + quarter unlocks after a
+    // correction is approved, so gate each cell on its own flag.
+    const qi = quarter === 'q1' ? 0 : quarter === 'q2' ? 1 : 2;
+    if (deadlinePassed || (subject && subject.locks[qi])) return;
     const parsed = parseFloat(value);
     const num =
       value === ''
@@ -462,14 +504,16 @@ export function GradeManagement() {
         if (!canEditSubject(entry.subject_id)) continue;
         const quarters: ('q1' | 'q2' | 'q3')[] = ['q1', 'q2', 'q3'];
         for (const q of quarters) {
-          const qi = quarters.indexOf(q) + 1;
+          const qi = quarters.indexOf(q);
           const val = entry[q];
-          if (val !== '') {
+          // Locked cells reject writes server-side — skip them so one locked
+          // subject never blocks saving the rest of the sheet.
+          if (val !== '' && !entry.locks[qi]) {
             await gradesApi.upsert({
               student_id: selectedStudent.id,
               subject_id: entry.subject_id,
               school_year_id: schoolYearId,
-              quarter: qi,
+              quarter: qi + 1,
               grade: val as number
             });
           }
@@ -541,6 +585,9 @@ export function GradeManagement() {
 
   const overallAvg = allAvg(grades);
   const descriptor = getDescriptor(overallAvg);
+  // At least one cell the teacher may still edit (fully locked sheets fall back
+  // to the correction-request flow instead).
+  const hasEditableCell = grades.some(g => g.locks.some(v => !v));
 
   // MAPEH components grouped under one header, in canonical order
   // (hooks must run before any early return)
@@ -892,30 +939,38 @@ export function GradeManagement() {
                                   )}
                                 </span>
                               </td>
-                              {(['q1', 'q2', 'q3'] as const).map(q => (
-                                <td key={q} className="px-3 py-2.5 text-center">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="0.01"
-                                    value={row[q]}
-                                    onChange={e =>
-                                      updateGrade(idx, q, e.target.value)
-                                    }
-                                    disabled={
-                                      locked ||
-                                      deadlinePassed ||
-                                      !canEditSubject(row.subject_id)
-                                    }
-                                    className={`w-20 text-center border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
-                                      locked || !canEditSubject(row.subject_id)
-                                        ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'
-                                        : 'border-gray-200 bg-white'
-                                    }`}
-                                  />
-                                </td>
-                              ))}
+                              {(['q1', 'q2', 'q3'] as const).map((q, qi) => {
+                                const cellLocked = row.locks[qi];
+                                const cellReadonly =
+                                  deadlinePassed ||
+                                  cellLocked ||
+                                  !canEditSubject(row.subject_id);
+                                return (
+                                  <td key={q} className="px-3 py-2.5 text-center">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="0.01"
+                                      value={row[q]}
+                                      onChange={e =>
+                                        updateGrade(idx, q, e.target.value)
+                                      }
+                                      disabled={cellReadonly}
+                                      title={
+                                        cellLocked
+                                          ? 'Locked — a correction must be approved for this subject and quarter'
+                                          : undefined
+                                      }
+                                      className={`w-20 text-center border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
+                                        cellReadonly
+                                          ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'
+                                          : 'border-gray-200 bg-white'
+                                      }`}
+                                    />
+                                  </td>
+                                );
+                              })}
                               <td className="px-3 py-3 text-center font-extrabold text-gray-800 text-base">
                                 {finalGrade}
                               </td>
@@ -979,34 +1034,42 @@ export function GradeManagement() {
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 mt-2">
-                            {(['q1', 'q2', 'q3'] as const).map((q, qi) => (
-                              <div key={q}>
-                                <label className="block text-center text-[10px] font-semibold text-gray-400 uppercase mb-1">
-                                  Q{qi + 1}
-                                </label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.01"
-                                  value={row[q]}
-                                  onChange={e =>
-                                    updateGrade(idx, q, e.target.value)
-                                  }
-                                  disabled={
-                                    locked ||
-                                    deadlinePassed ||
-                                    !canEditSubject(row.subject_id)
-                                  }
-                                  inputMode="decimal"
-                                  className={`w-full text-center border rounded-lg px-1 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
-                                    locked || !canEditSubject(row.subject_id)
-                                      ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'
-                                      : 'border-gray-200 bg-white'
-                                  }`}
-                                />
-                              </div>
-                            ))}
+                            {(['q1', 'q2', 'q3'] as const).map((q, qi) => {
+                              const cellLocked = row.locks[qi];
+                              const cellReadonly =
+                                deadlinePassed ||
+                                cellLocked ||
+                                !canEditSubject(row.subject_id);
+                              return (
+                                <div key={q}>
+                                  <label className="block text-center text-[10px] font-semibold text-gray-400 uppercase mb-1">
+                                    Q{qi + 1}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={row[q]}
+                                    onChange={e =>
+                                      updateGrade(idx, q, e.target.value)
+                                    }
+                                    disabled={cellReadonly}
+                                    inputMode="decimal"
+                                    title={
+                                      cellLocked
+                                        ? 'Locked — a correction must be approved for this subject and quarter'
+                                        : undefined
+                                    }
+                                    className={`w-full text-center border rounded-lg px-1 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition ${
+                                      cellReadonly
+                                        ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'
+                                        : 'border-gray-200 bg-white'
+                                    }`}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="mt-2 flex items-center justify-between">
                             <span
@@ -1042,7 +1105,7 @@ export function GradeManagement() {
 
               {/* ── Actions ── */}
               <div className="px-5 sm:px-6 py-4 border-t border-gray-100 flex items-center gap-3 flex-wrap">
-                {!locked ? (
+                {hasEditableCell && (
                   <>
                     <button
                       onClick={handleSave}
@@ -1070,7 +1133,8 @@ export function GradeManagement() {
                       <Lock size={15} /> Lock & Finalize
                     </button>
                   </>
-                ) : (
+                )}
+                {locked && (
                   <button
                     onClick={() => {
                       setShowCorrectionModal(true);

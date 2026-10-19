@@ -154,9 +154,10 @@ export function GradeCorrections() {
           <div className="mt-5 flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
             <ShieldCheck size={16} className="text-blue-700 mt-0.5 shrink-0" />
             <p className="text-xs text-blue-800 leading-relaxed">
-              <span className="font-semibold">Approving</span> unlocks this
-              student's grades for the school year so the teacher can re-enter
-              and re-save the corrected values.{' '}
+              <span className="font-semibold">Approving</span> unlocks only the
+              subject and quarter this request asks for — every other grade for
+              this student stays locked — so the teacher can re-enter the
+              corrected values.{' '}
               <span className="font-semibold">Rejecting</span>
               keeps the grades locked.
             </p>
@@ -426,10 +427,12 @@ export function GradeCorrections() {
               <p className="text-xs text-emerald-800 leading-relaxed">
                 This will{' '}
                 <span className="font-semibold">
-                  unlock this student's grades for the school year
-                </span>
-                so the teacher can re-enter the corrected values and re-save.
-                Make sure the justification is valid.
+                  unlock only the subject and quarter requested
+                </span>{' '}
+                (all subjects / all quarters only when the request says so) so
+                the teacher can re-enter the corrected values and re-save. Every
+                other grade for this student stays locked. Make sure the
+                justification is valid.
               </p>
             </div>
           ) : (
