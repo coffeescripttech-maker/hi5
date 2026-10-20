@@ -19,6 +19,12 @@ export interface SubjectRow {
    * NULL = shared across all programs (all core subjects).
    */
   program?: string | null;
+  /**
+   * Strand tracks this subject is linked to (steering which learners see it).
+   * Empty = shown to every learner in the program.
+   */
+  strand_track_ids?: number[];
+  strand_tracks?: { id: number; name: string; code: string }[];
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -68,6 +74,16 @@ export interface SpecialSubjectPayload {
   name: string;
   grade_level: number;
   hours_per_week: number;
+  /**
+   * Curriculum this subject is scoped to. `null`/omitted = shared by every
+   * program (all learners at that grade level). Mirrors enrollment.program.
+   */
+  program?: string | null;
+  /**
+   * Optional strand-track links; when set, only learners on one of these tracks
+   * see the subject. An empty array = no track restriction.
+   */
+  strand_track_ids?: number[];
 }
 
 export interface DeleteSpecialSubjectResult {

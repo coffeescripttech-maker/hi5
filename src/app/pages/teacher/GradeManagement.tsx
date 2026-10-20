@@ -39,6 +39,27 @@ type GradeEntry = {
   grade_ids: (number | null)[];
   /** Per-quarter lock flags [Q1, Q2, Q3]; a correction may unlock a single cell. */
   locks: [boolean, boolean, boolean];
+  /** 0 when a saved grade keeps a subject the learner is not offered enrolled in. */
+  in_offering?: number;
+  /** subjects.program for a non-offering row (ste / spfl / als_* / …). */
+  subject_program?: string | null;
+};
+
+/** Display names for curriculum programs shown on out-of-curriculum rows. */
+const PROGRAM_LABEL: Record<string, string> = {
+  ste: 'STE',
+  spfl: 'SPFL',
+  als_jhs: 'ALS (JHS)',
+  als_shs: 'ALS (SHS)',
+  open_high: 'Open High'
+};
+
+/** Tag text for a saved-grade subject outside the learner's curriculum. */
+const offCurriculumLabel = (g: GradeEntry): string => {
+  const prog = g.subject_program
+    ? PROGRAM_LABEL[g.subject_program] ?? g.subject_program.toUpperCase()
+    : null;
+  return prog ? `Not in curriculum · ${prog}` : 'Not in curriculum';
 };
 
 const toNum = (v: number | ''): number => (v === '' ? 0 : Number(v));
@@ -364,41 +385,40 @@ export function GradeManagement() {
         const subjectsData = apiGrades?.subjects ?? apiGrades;
         const isPivoted = !Array.isArray(apiGrades) && apiGrades?.subjects;
 
-        // Row set = this grade level's subjects PLUS any subject the API
-        // returned because it already holds a saved grade (the learner's grade
-        // level may have drifted since encoding, and an inactive/other-program
-        // subject may still carry grades). Without those, saved grades render as
-        // blank cells while At-Risk / Grade History show them.
-        const localIds = new Set(localSubs.map(s => s.id));
-        const extraSubs = isPivoted
-          ? subjectsData
-              .filter(
-                (s: any) =>
-                  !localIds.has(s.subject_id) &&
-                  (s.q1 != null || s.q2 != null || s.q3 != null)
-              )
-              .map((s: any) => ({
-                id: s.subject_id,
-                name: s.subject_name,
-                subject_group:
-                  subjects.find(x => x.id === s.subject_id)?.subject_group ??
-                  null
-              }))
-          : [];
-        const subs = [...localSubs, ...extraSubs];
+        // Row set = exactly the subjects the API returns for this learner. The
+        // backend scopes them to the learner's enrolment — the subjects their
+        // grade level offers for their program/strand — and always keeps any
+        // subject that already holds a saved grade. Merging the local grade-level
+        // subject list back in (the old `localSubs` behaviour) is what made
+        // STE/SPFL/ALS subjects appear for a mainstream learner.
+        const subs = isPivoted
+          ? (subjectsData as any[]).map((s: any) => ({
+              id: s.subject_id,
+              name: s.subject_name,
+              subject_group:
+                subjects.find(x => x.id === s.subject_id)?.subject_group ?? null,
+              in_offering: s.in_offering ?? 1,
+              subject_program: s.subject_program ?? null
+            }))
+          : localSubs;
 
         const entries: GradeEntry[] = subs.map(sub => {
           if (isPivoted) {
             const found = subjectsData.find(
               (s: any) => s.subject_id === sub.id
             );
+            // An out-of-curriculum row (saved grade only) keeps its place as a
+            // tagged, read-only marker but never renders the learner's values.
+            const off = (sub as any).in_offering === 0;
             return {
               subject: sub.name,
               subject_id: sub.id,
               subject_group: sub.subject_group,
-              q1: found?.q1 != null ? Number(found.q1) : '',
-              q2: found?.q2 != null ? Number(found.q2) : '',
-              q3: found?.q3 != null ? Number(found.q3) : '',
+              in_offering: (sub as any).in_offering ?? 1,
+              subject_program: (sub as any).subject_program ?? null,
+              q1: !off && found?.q1 != null ? Number(found.q1) : '',
+              q2: !off && found?.q2 != null ? Number(found.q2) : '',
+              q3: !off && found?.q3 != null ? Number(found.q3) : '',
               grade_ids: [null, null, null],
               // Backward compatible: older payloads only carry the sheet-wide flag.
               locks: [
@@ -468,7 +488,8 @@ export function GradeManagement() {
   ) => {
     // Subject-level grade security: only assigned subjects may be edited.
     const subject = grades[idx];
-    if (subject && !canEditSubject(subject.subject_id)) return;
+    if (subject && (!canEditSubject(subject.subject_id) || subject.in_offering === 0))
+      return;
     // Cell-level lock: only the requested subject + quarter unlocks after a
     // correction is approved, so gate each cell on its own flag.
     const qi = quarter === 'q1' ? 0 : quarter === 'q2' ? 1 : 2;
@@ -489,7 +510,7 @@ export function GradeManagement() {
     // Subject-level scope guard: nothing to save if no subjects are assigned.
     if (
       assignedSubjectIds.size === 0 ||
-      grades.every(g => !canEditSubject(g.subject_id))
+      grades.every(g => !canEditSubject(g.subject_id) || g.in_offering === 0)
     ) {
       showToast(
         'info',
@@ -500,8 +521,10 @@ export function GradeManagement() {
     setSaving(true);
     try {
       for (const entry of grades) {
-        // Subject-level scope: only persist grades for assigned subjects.
-        if (!canEditSubject(entry.subject_id)) continue;
+        // Subject-level scope: only persist grades for assigned subjects that
+        // the learner is actually offered (out-of-curriculum rows are read-only).
+        if (!canEditSubject(entry.subject_id) || entry.in_offering === 0)
+          continue;
         const quarters: ('q1' | 'q2' | 'q3')[] = ['q1', 'q2', 'q3'];
         for (const q of quarters) {
           const qi = quarters.indexOf(q);
@@ -932,9 +955,18 @@ export function GradeManagement() {
                                   {row.subject}
                                   {!canEditSubject(row.subject_id) && (
                                     <span
-                                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full"
-                                      title="Read-only — not your assigned subject">
-                                      <Lock size={9} /> Read-only
+                                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full"
+                                      title="Read-only — this subject is not assigned to you">
+                                      <Lock size={9} /> Read-only · not
+                                      assigned to you
+                                    </span>
+                                  )}
+                                  {row.in_offering === 0 && (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full"
+                                      title="This learner's curriculum does not include this subject — shown because a grade is already saved against it">
+                                      <AlertTriangle size={9} />{' '}
+                                      {offCurriculumLabel(row)}
                                     </span>
                                   )}
                                 </span>
@@ -944,6 +976,7 @@ export function GradeManagement() {
                                 const cellReadonly =
                                   deadlinePassed ||
                                   cellLocked ||
+                                  row.in_offering === 0 ||
                                   !canEditSubject(row.subject_id);
                                 return (
                                   <td
@@ -1025,9 +1058,18 @@ export function GradeManagement() {
                               {row.subject}
                               {!canEditSubject(row.subject_id) && (
                                 <span
-                                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1"
-                                  title="Read-only">
-                                  <Lock size={9} /> Read-only
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1"
+                                  title="Read-only — this subject is not assigned to you">
+                                  <Lock size={9} /> Read-only · not assigned
+                                  to you
+                                </span>
+                              )}
+                              {row.in_offering === 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full ml-1"
+                                  title="This learner's curriculum does not include this subject — shown because a grade is already saved against it">
+                                  <AlertTriangle size={9} />{' '}
+                                  {offCurriculumLabel(row)}
                                 </span>
                               )}
                             </p>
@@ -1041,6 +1083,7 @@ export function GradeManagement() {
                               const cellReadonly =
                                 deadlinePassed ||
                                 cellLocked ||
+                                row.in_offering === 0 ||
                                 !canEditSubject(row.subject_id);
                               return (
                                 <div key={q}>

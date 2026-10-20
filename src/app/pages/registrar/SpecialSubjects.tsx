@@ -16,20 +16,39 @@ import { PageContainer } from "../../components/PageContainer";
 import { useApp } from "../../context/AppContext";
 import { useRoleAccent } from "../../utils/roleTheme";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
+import { strandTracksApi, StrandTrackRow } from "../../services/strandTracks";
 import { formatHoursPerWeek } from "../../utils/hours";
 
 const GRADES = [7, 8, 9, 10, 11, 12] as const;
+
+/** Curriculum programs a special subject can be scoped to ('' = shared). */
+const PROGRAMS: { value: string; label: string }[] = [
+  { value: "", label: "Shared — every program" },
+  { value: "regular", label: "Regular (mainstream)" },
+  { value: "ste", label: "STE" },
+  { value: "spfl", label: "SPFL" },
+  { value: "open_high", label: "Open High School" },
+  { value: "als_shs", label: "ALS — SHS" },
+  { value: "als_jhs", label: "ALS — JHS" },
+];
+
+const programLabel = (v?: string | null): string =>
+  PROGRAMS.find(p => p.value === (v ?? ""))?.label ?? "Shared — every program";
 
 interface Draft {
   name: string;
   grade_level: number;
   hours_per_week: string;
+  program: string;
+  strand_track_ids: number[];
 }
 
 const emptyDraft = (grade: number): Draft => ({
   name: "",
   grade_level: grade,
   hours_per_week: "1",
+  program: "",
+  strand_track_ids: [],
 });
 
 /**
@@ -45,6 +64,7 @@ export function SpecialSubjects() {
   const accent = useRoleAccent();
 
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
+  const [tracks, setTracks] = useState<StrandTrackRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [includeInactive, setIncludeInactive] = useState(false);
@@ -57,7 +77,12 @@ export function SpecialSubjects() {
 
   const load = useCallback(async () => {
     try {
-      setSubjects(await subjectsApi.listSpecial(undefined, includeInactive));
+      const [subs, trks] = await Promise.all([
+        subjectsApi.listSpecial(undefined, includeInactive),
+        strandTracksApi.list().catch(() => [] as StrandTrackRow[]),
+      ]);
+      setSubjects(subs);
+      setTracks(trks);
     } catch (err: any) {
       showToast("error", "Failed to load special subjects: " + (err?.detail?.error || err?.message));
     } finally {
@@ -68,6 +93,13 @@ export function SpecialSubjects() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Active strand tracks that apply to a grade level (0 = all grades). */
+  const tracksForGrade = (grade: number): StrandTrackRow[] =>
+    tracks.filter(t => t.grade_level === 0 || t.grade_level === grade);
+
+  const toggleTrack = (ids: number[], id: number): number[] =>
+    ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
 
   const validate = (d: Draft): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -103,6 +135,8 @@ export function SpecialSubjects() {
         name: draft.name.trim(),
         grade_level: draft.grade_level,
         hours_per_week: Number(draft.hours_per_week),
+        program: draft.program || null,
+        strand_track_ids: draft.strand_track_ids,
       });
       showToast("success", `"${created.name}" added to Grade ${created.grade_level}.`);
       setShowForm(false);
@@ -128,6 +162,8 @@ export function SpecialSubjects() {
       name: s.name,
       grade_level: s.grade_level,
       hours_per_week: String(s.hours_per_week),
+      program: s.program ?? "",
+      strand_track_ids: s.strand_track_ids ?? [],
     });
     setErrors({});
   };
@@ -142,6 +178,8 @@ export function SpecialSubjects() {
       await subjectsApi.updateSpecial(s.id, {
         name: editDraft.name.trim(),
         hours_per_week: Number(editDraft.hours_per_week),
+        program: editDraft.program || null,
+        strand_track_ids: editDraft.strand_track_ids,
       });
       showToast("success", `"${s.name}" updated.`);
       setEditingId(null);
@@ -248,9 +286,11 @@ export function SpecialSubjects() {
                 teachers encode its grades in <strong>Grade Management</strong>,
                 and it flows into SF9, SF10, LIS exports, and the{" "}
                 <strong>general average</strong> automatically. It is reported as
-                its own row and is not folded into TLE/EPP or TVL. Nothing here
-                changes an already-generated report card — regenerate it to see
-                the new row.
+                its own row and is not folded into TLE/EPP or TVL. Set a{" "}
+                <strong>program</strong> (and optionally a strand/track) to limit
+                it — e.g. STE-only — or leave it shared to show it to every
+                learner at that grade level. Nothing here changes an
+                already-generated report card — regenerate it to see the new row.
               </p>
             </div>
           </div>
@@ -329,7 +369,59 @@ export function SpecialSubjects() {
                     </p>
                   )}
                 </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                    Curriculum / program
+                  </label>
+                  <select
+                    value={draft.program}
+                    onChange={e => setDraft(d => ({ ...d, program: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400">
+                    {PROGRAMS.map(p => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {tracksForGrade(draft.grade_level).length > 0 && (
+                <div className="mt-4">
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                    Strand / track (optional)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {tracksForGrade(draft.grade_level).map(t => (
+                      <label
+                        key={t.id}
+                        className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium cursor-pointer transition-colors ${
+                          draft.strand_track_ids.includes(t.id)
+                            ? "border-violet-300 bg-violet-50 text-violet-700"
+                            : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                        }`}>
+                        <input
+                          type="checkbox"
+                          checked={draft.strand_track_ids.includes(t.id)}
+                          onChange={() =>
+                            setDraft(d => ({
+                              ...d,
+                              strand_track_ids: toggleTrack(d.strand_track_ids, t.id),
+                            }))
+                          }
+                          className="w-4 h-4 accent-violet-600 rounded cursor-pointer"
+                        />
+                        {t.name}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1.5">
+                    Leave all unchecked to show this subject to every learner in the
+                    chosen program.
+                  </p>
+                </div>
+              )}
 
               <div className="mt-5 flex items-center gap-2">
                 <button
@@ -402,44 +494,96 @@ export function SpecialSubjects() {
                   return (
                     <div key={s.id} className="px-5 py-3.5">
                       {isEditing ? (
-                        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                          <div className="flex-1">
-                            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                              Name
-                            </label>
-                            <input
-                              type="text"
-                              value={editDraft.name}
-                              maxLength={100}
-                              onChange={e =>
-                                setEditDraft(d => ({ ...d, name: e.target.value }))
-                              }
-                              className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 ${
-                                errors.name
-                                  ? "border-red-300 focus:ring-red-500/30"
-                                  : "border-gray-200 focus:ring-violet-500/30"
-                              }`}
-                            />
-                            {errors.name && (
-                              <p className="text-[11px] text-red-600 mt-1">{errors.name}</p>
-                            )}
+                        <div className="space-y-3">
+                          <div className="grid gap-3 sm:grid-cols-4">
+                            <div className="sm:col-span-2">
+                              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                                Name
+                              </label>
+                              <input
+                                type="text"
+                                value={editDraft.name}
+                                maxLength={100}
+                                onChange={e =>
+                                  setEditDraft(d => ({ ...d, name: e.target.value }))
+                                }
+                                className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 ${
+                                  errors.name
+                                    ? "border-red-300 focus:ring-red-500/30"
+                                    : "border-gray-200 focus:ring-violet-500/30"
+                                }`}
+                              />
+                              {errors.name && (
+                                <p className="text-[11px] text-red-600 mt-1">{errors.name}</p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                                Hours
+                              </label>
+                              <input
+                                type="number"
+                                min={0.5}
+                                max={40}
+                                step={0.5}
+                                value={editDraft.hours_per_week}
+                                onChange={e =>
+                                  setEditDraft(d => ({ ...d, hours_per_week: e.target.value }))
+                                }
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                                Program
+                              </label>
+                              <select
+                                value={editDraft.program}
+                                onChange={e =>
+                                  setEditDraft(d => ({ ...d, program: e.target.value }))
+                                }
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/30">
+                                {PROGRAMS.map(p => (
+                                  <option key={p.value} value={p.value}>
+                                    {p.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
-                          <div className="sm:w-32">
-                            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                              Hours
-                            </label>
-                            <input
-                              type="number"
-                              min={0.5}
-                              max={40}
-                              step={0.5}
-                              value={editDraft.hours_per_week}
-                              onChange={e =>
-                                setEditDraft(d => ({ ...d, hours_per_week: e.target.value }))
-                              }
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/30"
-                            />
-                          </div>
+
+                          {tracksForGrade(s.grade_level).length > 0 && (
+                            <div>
+                              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                                Strand / track (optional)
+                              </label>
+                              <div className="flex flex-wrap gap-2">
+                                {tracksForGrade(s.grade_level).map(t => (
+                                  <label
+                                    key={t.id}
+                                    className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium cursor-pointer transition-colors ${
+                                      editDraft.strand_track_ids.includes(t.id)
+                                        ? "border-violet-300 bg-violet-50 text-violet-700"
+                                        : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                                    }`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={editDraft.strand_track_ids.includes(t.id)}
+                                      onChange={() =>
+                                        setEditDraft(d => ({
+                                          ...d,
+                                          strand_track_ids: toggleTrack(d.strand_track_ids, t.id),
+                                        }))
+                                      }
+                                      className="w-4 h-4 accent-violet-600 rounded cursor-pointer"
+                                    />
+                                    {t.name}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleEdit(s)}
@@ -483,7 +627,19 @@ export function SpecialSubjects() {
                                 {s.name}
                               </p>
                               <p className="text-[11px] text-gray-500">
-                                {formatHoursPerWeek(s.hours_per_week)} • Grade {s.grade_level}
+                                {formatHoursPerWeek(s.hours_per_week)} • Grade{" "}
+                                {s.grade_level} •{" "}
+                                <span
+                                  className={
+                                    s.program
+                                      ? "text-violet-600 font-semibold"
+                                      : undefined
+                                  }>
+                                  {programLabel(s.program)}
+                                </span>
+                                {s.strand_tracks && s.strand_tracks.length > 0 && (
+                                  <> • {s.strand_tracks.map(t => t.name).join(", ")}</>
+                                )}
                               </p>
                             </div>
                           </div>

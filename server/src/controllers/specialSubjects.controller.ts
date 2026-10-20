@@ -26,10 +26,85 @@ interface SpecialSubjectRow extends RowDataPacket {
   hours_per_week: number;
   subject_type: "core" | "applied" | "specialized";
   subject_group: string | null;
+  /** Curriculum program this subject is scoped to — NULL = shared by all. */
+  program: string | null;
   is_active: number;
+  /** Attached below from `subject_strand_tracks` (not a column). */
+  strand_track_ids?: number[];
+  strand_tracks?: { id: number; name: string; code: string }[];
 }
 
 const GRADES = [7, 8, 9, 10, 11, 12];
+
+/**
+ * Program values a special subject may be scoped to. Mirrors
+ * `enrollments.program`, so a subject scoped here surfaces on the SF9 only for
+ * learners enrolled in that program.
+ */
+const PROGRAM_SCOPES = ["regular", "ste", "spfl", "open_high", "als_shs", "als_jhs"];
+
+/**
+ * Validate a `strand_track_ids` payload and confirm every id exists.
+ * Returns the clean id list plus an optional human-readable error.
+ */
+async function validateStrandTracks(
+  value: unknown
+): Promise<{ ids: number[]; error?: string }> {
+  if (!Array.isArray(value)) {
+    return { ids: [], error: "strand_track_ids must be an array of track ids" };
+  }
+  const ids = value.map(Number).filter(n => Number.isInteger(n) && n > 0);
+  if (ids.length !== value.length) {
+    return { ids: [], error: "strand_track_ids contains an invalid track id" };
+  }
+  if (ids.length > 0) {
+    const found = await query<RowDataPacket[]>(
+      `SELECT id FROM strand_tracks WHERE id IN (${ids.map(() => "?").join(",")})`,
+      ids
+    );
+    if (found.length !== new Set(ids).size) {
+      return { ids: [], error: "One or more strand tracks were not found" };
+    }
+  }
+  return { ids: [...new Set(ids)] };
+}
+
+/** Replace the subject's strand-track links with exactly `ids`. */
+async function replaceStrandTracks(subjectId: number | string, ids: number[]): Promise<void> {
+  await query<ResultSetHeader>("DELETE FROM subject_strand_tracks WHERE subject_id = ?", [subjectId]);
+  if (ids.length > 0) {
+    const values = ids.map(t => `(${t}, ${Number(subjectId)})`).join(",");
+    await query<ResultSetHeader>(
+      `INSERT INTO subject_strand_tracks (strand_track_id, subject_id) VALUES ${values}`
+    );
+  }
+}
+
+/** Attach each row's linked strand tracks (id/name/code) for the UI. */
+async function attachStrandTracks<T extends SpecialSubjectRow>(rows: T[]): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  const ids = rows.map(r => r.id);
+  const links = await query<RowDataPacket[]>(
+    `SELECT sst.subject_id, st.id AS track_id, st.name AS track_name, st.code AS track_code
+     FROM subject_strand_tracks sst
+     JOIN strand_tracks st ON st.id = sst.strand_track_id
+     WHERE sst.subject_id IN (${ids.map(() => "?").join(",")})
+     ORDER BY st.sort_order ASC, st.name ASC`,
+    ids
+  );
+  const bySubject = new Map<number, { id: number; name: string; code: string }[]>();
+  for (const l of links) {
+    const list = bySubject.get(l.subject_id) ?? [];
+    list.push({ id: l.track_id, name: l.track_name, code: l.track_code });
+    bySubject.set(l.subject_id, list);
+  }
+  for (const r of rows) {
+    const tracks = bySubject.get(r.id) ?? [];
+    r.strand_tracks = tracks;
+    r.strand_track_ids = tracks.map(t => t.id);
+  }
+  return rows;
+}
 
 /**
  * GET /api/subjects/special — List special subjects
@@ -62,7 +137,7 @@ export async function listSpecialSubjects(req: Request, res: Response): Promise<
     sql += " ORDER BY grade_level ASC, name ASC";
 
     const subjects = await query<SpecialSubjectRow[]>(sql, params);
-    res.json(subjects);
+    res.json(await attachStrandTracks(subjects));
   } catch (error) {
     console.error("List special subjects error:", error);
     res.status(500).json({ error: "Failed to fetch special subjects." });
@@ -71,15 +146,17 @@ export async function listSpecialSubjects(req: Request, res: Response): Promise<
 
 /**
  * POST /api/subjects/special — Create a special subject
- * Body: { name, grade_level, hours_per_week }
+ * Body: { name, grade_level, hours_per_week, program?, strand_track_ids? }
  *
  * subject_type is forced to 'specialized' and subject_group is forced to NULL
  * so the subject reports as its own row rather than being folded into a
- * TLE/EPP or TVL group.
+ * TLE/EPP or TVL group. `program` (optional) scopes the subject to a curriculum
+ * — NULL (the default) means shared by every program. `strand_track_ids`
+ * (optional) further narrows it to learners carrying one of those tracks.
  */
 export async function createSpecialSubject(req: Request, res: Response): Promise<void> {
   try {
-    const { name, grade_level, hours_per_week } = req.body;
+    const { name, grade_level, hours_per_week, program, strand_track_ids } = req.body;
 
     const problems: string[] = [];
 
@@ -98,6 +175,22 @@ export async function createSpecialSubject(req: Request, res: Response): Promise
     const hours = Number(hours_per_week);
     if (!Number.isFinite(hours) || hours <= 0 || hours > 40) {
       problems.push("hours_per_week must be a number greater than 0 and at most 40");
+    }
+
+    // NULL = shared across all programs; any other value must be a known program.
+    const programScope =
+      program === undefined || program === null || program === ""
+        ? null
+        : String(program).trim();
+    if (programScope !== null && !PROGRAM_SCOPES.includes(programScope)) {
+      problems.push(`program must be one of: ${PROGRAM_SCOPES.join(", ")}`);
+    }
+
+    let strandIds: number[] = [];
+    if (strand_track_ids !== undefined) {
+      const strand = await validateStrandTracks(strand_track_ids);
+      if (strand.error) problems.push(strand.error);
+      else strandIds = strand.ids;
     }
 
     if (problems.length > 0) {
@@ -123,14 +216,20 @@ export async function createSpecialSubject(req: Request, res: Response): Promise
     }
 
     const result = await query<ResultSetHeader>(
-      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, subject_group, is_active)
-       VALUES (?, ?, ?, 'specialized', NULL, 1)`,
-      [nameText, grade, hours]
+      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, subject_group, program, is_active)
+       VALUES (?, ?, ?, 'specialized', NULL, ?, 1)`,
+      [nameText, grade, hours, programScope]
     );
+
+    if (strandIds.length > 0) {
+      await replaceStrandTracks(result.insertId, strandIds);
+    }
 
     await logActivity(
       req.user!.userId,
-      `Created special subject "${nameText}" (Grade ${grade})`,
+      `Created special subject "${nameText}" (Grade ${grade})${
+        programScope ? ` — ${programScope.toUpperCase()} only` : ""
+      }`,
       "subjects",
       result.insertId
     );
@@ -139,7 +238,7 @@ export async function createSpecialSubject(req: Request, res: Response): Promise
       "SELECT * FROM subjects WHERE id = ?",
       [result.insertId]
     );
-    res.status(201).json(created[0]);
+    res.status(201).json((await attachStrandTracks(created))[0]);
   } catch (error) {
     console.error("Create special subject error:", error);
     res.status(500).json({ error: "Failed to create special subject." });
@@ -147,7 +246,11 @@ export async function createSpecialSubject(req: Request, res: Response): Promise
 }
 
 /**
- * PUT /api/subjects/special/:id — Rename / re-hour / activate a special subject
+ * PUT /api/subjects/special/:id — Rename / re-hour / re-scope / activate
+ *
+ * `program` and `strand_track_ids` are optional: omit them to leave the current
+ * curriculum scope untouched, or send `program: null` (and/or `strand_track_ids:
+ * []`) to widen the subject back to every learner.
  *
  * Deactivation is preferred over deletion: `grades.subject_id` is a foreign key,
  * so deleting a subject that has grades recorded would fail or orphan history.
@@ -157,7 +260,7 @@ export async function createSpecialSubject(req: Request, res: Response): Promise
 export async function updateSpecialSubject(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const { name, hours_per_week, is_active } = req.body;
+    const { name, hours_per_week, is_active, program, strand_track_ids } = req.body;
 
     const existing = await query<SpecialSubjectRow[]>(
       "SELECT * FROM subjects WHERE id = ?",
@@ -203,6 +306,29 @@ export async function updateSpecialSubject(req: Request, res: Response): Promise
       }
     }
 
+    // undefined = leave the current program untouched; ""/null = shared again.
+    let programScope: string | null | undefined = undefined;
+    if (program !== undefined) {
+      if (program === null || program === "") {
+        programScope = null;
+      } else {
+        const p = String(program).trim();
+        if (!PROGRAM_SCOPES.includes(p)) {
+          problems.push(`program must be one of: ${PROGRAM_SCOPES.join(", ")}`);
+        } else {
+          programScope = p;
+        }
+      }
+    }
+
+    // undefined = leave links untouched; an array (even empty) replaces them.
+    let strandIds: number[] | undefined = undefined;
+    if (strand_track_ids !== undefined) {
+      const strand = await validateStrandTracks(strand_track_ids);
+      if (strand.error) problems.push(strand.error);
+      else strandIds = strand.ids;
+    }
+
     if (problems.length > 0) {
       res.status(400).json({
         error: "The special subject has invalid fields.",
@@ -224,10 +350,21 @@ export async function updateSpecialSubject(req: Request, res: Response): Promise
       }
     }
 
+    const fields: string[] = ["name = ?", "hours_per_week = ?", "is_active = ?"];
+    const values: any[] = [nameText, hours, active];
+    if (programScope !== undefined) {
+      fields.push("program = ?");
+      values.push(programScope);
+    }
+    values.push(id);
     await query<ResultSetHeader>(
-      `UPDATE subjects SET name = ?, hours_per_week = ?, is_active = ? WHERE id = ?`,
-      [nameText, hours, active, id]
+      `UPDATE subjects SET ${fields.join(", ")} WHERE id = ?`,
+      values
     );
+
+    if (strandIds !== undefined) {
+      await replaceStrandTracks(id, strandIds);
+    }
 
     const verb =
       active !== current.is_active
@@ -246,7 +383,7 @@ export async function updateSpecialSubject(req: Request, res: Response): Promise
       "SELECT * FROM subjects WHERE id = ?",
       [id]
     );
-    res.json(updated[0]);
+    res.json((await attachStrandTracks(updated))[0]);
   } catch (error) {
     console.error("Update special subject error:", error);
     res.status(500).json({ error: "Failed to update special subject." });

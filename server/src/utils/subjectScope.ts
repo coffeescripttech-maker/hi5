@@ -15,6 +15,11 @@
  * Track filtering is only applied when a track is actually assigned: a learner
  * without a track keeps the existing behaviour (all shared + all track subjects)
  * so grade encoding is never blocked for unassigned learners.
+ *
+ * When the program is unknown (no enrollment row for the school year), the
+ * mainstream offering is assumed and every program-specific subject is filtered
+ * out. Leaving the program clause off would let a learner who is not enrolled for
+ * that year list the STE / SPFL / ALS additions on their report card.
  */
 export interface SubjectScope {
   /** `enrollment.program`; falsy = no program restriction. */
@@ -40,6 +45,11 @@ export function subjectScopeSql(
   if (scope.program) {
     clauses.push(`(${a}.program IS NULL OR ${a}.program = ?)`);
     params.push(scope.program);
+  } else {
+    // Unknown program (usually "no enrollment for this school year"): assume the
+    // mainstream offering so STE/SPFL/ALS subjects never surface for a learner
+    // who is not in that program.
+    clauses.push(`${a}.program IS NULL`);
   }
 
   if (scope.strandTrackId) {

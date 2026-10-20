@@ -1,11 +1,11 @@
-import { Request, Response } from "express";
-import { query } from "../config/database";
-import { logActivity } from "../utils/activityLogger";
-import { collapseSubjectGroups } from "../utils/subjectGroups";
-import { subjectScopeSql } from "../utils/subjectScope";
-import { createNotification } from "../services/notify";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
-
+import { Request, Response } from 'express';
+import { query } from '../config/database';
+import { logActivity } from '../utils/activityLogger';
+import { collapseSubjectGroups } from '../utils/subjectGroups';
+import { subjectScopeSql } from '../utils/subjectScope';
+import { createNotification } from '../services/notify';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+// hi
 /* ── Grade security helpers (Module: Grade Security) ─────────────────── */
 
 /**
@@ -49,7 +49,11 @@ async function getTeacherSectionIds(
  * /api/enrollments already expose to them (no pending "Awaiting Section"
  * queue). Returns a `student_id` predicate for filtering bulk reads.
  */
-function teacherStudentScopeSql(studentIdExpr: string, teacherId: number, params: any[]): string {
+function teacherStudentScopeSql(
+  studentIdExpr: string,
+  teacherId: number,
+  params: any[]
+): string {
   params.push(teacherId, teacherId);
   return `${studentIdExpr} IN (
     SELECT en.student_id FROM enrollments en
@@ -94,24 +98,54 @@ async function getStudentSectionId(
 }
 
 /**
- * Grade-entry offering rule: when the learner's section has a timetable for the
- * school year, grades may only be encoded for the subjects on it — the same set
- * the gradebook read returns. Sections without a timetable keep the previous
- * grade-level scope, so missing schedule data never blocks legitimate encoding.
+ * Subject ids a learner's enrolment actually offers: their grade level's active
+ * subjects filtered by program and (when assigned) strand/track. Empty when the
+ * learner is not enrolled for that school year.
+ */
+async function getLearnerOfferingSubjectIds(
+  studentId: number,
+  schoolYearId: number
+): Promise<Set<number>> {
+  const enrollment = await query<RowDataPacket[]>(
+    `SELECT e.program, e.strand_track_id, stu.grade_level
+     FROM enrollments e
+     JOIN students stu ON stu.id = e.student_id
+     WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+     ORDER BY e.id DESC LIMIT 1`,
+    [studentId, schoolYearId]
+  );
+  if (enrollment.length === 0) return new Set();
+
+  const params: any[] = [Number(enrollment[0].grade_level)];
+  const scope = subjectScopeSql(
+    's',
+    {
+      program: enrollment[0].program,
+      strandTrackId: enrollment[0].strand_track_id
+    },
+    params
+  );
+  const rows = await query<RowDataPacket[]>(
+    `SELECT s.id FROM subjects s
+     WHERE s.is_active = 1 AND s.grade_level = ?${scope}`,
+    params
+  );
+  return new Set(rows.map(r => Number(r.id)));
+}
+
+/**
+ * Grade-entry offering rule: a teacher may only encode a subject the learner's
+ * enrolment actually offers — the same program/strand scope the gradebook read
+ * uses. Without this a teacher assigned to (say) Advanced Science could still
+ * save it against a mainstream learner in her advisory section.
  */
 async function isSubjectOfferedToLearner(
   studentId: number,
   schoolYearId: number,
   subjectId: number
 ): Promise<boolean> {
-  const sectionId = await getStudentSectionId(studentId, schoolYearId);
-  if (!sectionId) return true;
-  const scheduled = await query<RowDataPacket[]>(
-    `SELECT subject_id FROM schedules WHERE section_id = ? AND school_year_id = ?`,
-    [sectionId, schoolYearId]
-  );
-  if (scheduled.length === 0) return true;
-  return scheduled.some(r => Number(r.subject_id) === Number(subjectId));
+  const offered = await getLearnerOfferingSubjectIds(studentId, schoolYearId);
+  return offered.has(Number(subjectId));
 }
 
 /** True when the configured grade-edit deadline has passed (teacher read-only). */
@@ -121,7 +155,8 @@ async function isPastGradeDeadline(): Promise<boolean> {
   );
   const s = rows[0] as RowDataPacket | undefined;
   if (!s) return false;
-  if (Number(s.grade_deadline_enabled) !== 1 || !s.grade_edit_deadline) return false;
+  if (Number(s.grade_deadline_enabled) !== 1 || !s.grade_edit_deadline)
+    return false;
   return new Date(String(s.grade_edit_deadline)).getTime() < Date.now();
 }
 
@@ -137,21 +172,21 @@ async function teacherGradeBlockReason(
   studentId: number
 ): Promise<string | null> {
   if (await isPastGradeDeadline()) {
-    return "The grade editing deadline has passed. Grades are now read-only — contact the Registrar for corrections.";
+    return 'The grade editing deadline has passed. Grades are now read-only — contact the Registrar for corrections.';
   }
   const [allowedSubjects, teacherSections] = await Promise.all([
     getTeacherSubjectIds(teacherId, schoolYearId),
-    getTeacherSectionIds(teacherId, schoolYearId),
+    getTeacherSectionIds(teacherId, schoolYearId)
   ]);
   if (!allowedSubjects.has(subjectId)) {
-    return "Access denied: you may only encode grades for subjects assigned to you.";
+    return 'Access denied: you may only encode grades for subjects assigned to you.';
   }
   const studentSection = await getStudentSectionId(studentId, schoolYearId);
   if (!studentSection || !teacherSections.has(studentSection)) {
-    return "Access denied: you may only encode grades for students in your advisory section.";
+    return 'Access denied: you may only encode grades for students in your advisory section.';
   }
   if (!(await isSubjectOfferedToLearner(studentId, schoolYearId, subjectId))) {
-    return "Access denied: this subject is not offered to the learner's section.";
+    return 'Access denied: this subject is not offered to the learner.';
   }
   return null;
 }
@@ -164,34 +199,43 @@ async function teacherGradeBlockReason(
  */
 export async function getGrades(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, school_year_id, subject_id, section_id, quarter } = req.query;
+    const { student_id, school_year_id, subject_id, section_id, quarter } =
+      req.query;
 
     // Single student grades (pivoted by quarter)
     if (student_id) {
       // Privacy: a teacher may only read grades for learners in their own
       // sections — IDs of other students must not be usable as an oracle.
-      if (req.user!.role === "teacher" && !(await teacherMayReadGrades(req.user!.userId, String(student_id)))) {
-        res.status(403).json({ error: "Access denied. This learner is not in your section." });
+      if (
+        req.user!.role === 'teacher' &&
+        !(await teacherMayReadGrades(req.user!.userId, String(student_id)))
+      ) {
+        res.status(403).json({
+          error: 'Access denied. This learner is not in your section.'
+        });
         return;
       }
 
       const params: any[] = [student_id];
-      let syFilter = "";
+      let syFilter = '';
       if (school_year_id) {
-        syFilter = " AND g.school_year_id = ?";
+        syFilter = ' AND g.school_year_id = ?';
         params.push(school_year_id);
       }
 
       // Get student's strand track and program from their current enrollment
       const enrollmentInfo = await query<RowDataPacket[]>(
-        `SELECT e.strand_track_id, e.program, e.section_id, e.school_year_id
-         FROM enrollments e
-         WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : " AND e.status = 'enrolled'"}
+        `SELECT e.strand_track_id, e.program, e.school_year_id FROM enrollments e
+         WHERE e.student_id = ?${school_year_id ? ' AND e.school_year_id = ?' : " AND e.status = 'enrolled'"}
          ORDER BY e.school_year_id DESC LIMIT 1`,
         school_year_id ? [student_id, school_year_id] : [student_id]
       );
       const strandTrackId = (enrollmentInfo[0] as any)?.strand_track_id || null;
       const enrollmentProgram = (enrollmentInfo[0] as any)?.program || null;
+      const effSchoolYearId =
+        Number(school_year_id) ||
+        Number((enrollmentInfo[0] as any)?.school_year_id) ||
+        null;
 
       // Build grade params — first two are for student_id in JOIN and ON clause
       const gradeParams: any[] = [student_id, student_id];
@@ -199,57 +243,33 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         gradeParams.push(school_year_id);
       }
 
-      // Gradable-subject scope, in priority order:
-      //   1. the subjects on the learner's section timetable for this school year
-      //      — the section's actual offering (from the active enrollment),
-      //   2. when that section has no timetable yet, the grade-level subjects
-      //      filtered by program / strand-track (previous behaviour), so missing
-      //      schedule data never blanks out a learner's gradebook,
-      //   3. plus any subject that already carries a saved grade, so a stored
-      //      grade can never silently disappear from the interface.
-      const learnerSectionId = (enrollmentInfo[0] as any)?.section_id ?? null;
-      const effSchoolYearId = school_year_id
-        ? Number(school_year_id)
-        : ((enrollmentInfo[0] as any)?.school_year_id ?? null);
+      // Scope subjects to the learner's program and (when assigned) strand/track.
+      const scopeWhere = subjectScopeSql(
+        's',
+        { program: enrollmentProgram, strandTrackId },
+        gradeParams
+      );
 
-      let scheduledSubjectIds: number[] = [];
-      if (learnerSectionId && effSchoolYearId) {
-        const scheduled = await query<RowDataPacket[]>(
-          `SELECT DISTINCT subject_id FROM schedules
-           WHERE section_id = ? AND school_year_id = ?`,
-          [learnerSectionId, effSchoolYearId]
-        );
-        scheduledSubjectIds = scheduled.map(r => r.subject_id as number);
-      }
-
-      let subjectWhere: string;
-      if (scheduledSubjectIds.length > 0) {
-        gradeParams.push(...scheduledSubjectIds);
-        subjectWhere = `s.id IN (${scheduledSubjectIds.map(() => "?").join(", ")})`;
-      } else {
-        subjectWhere = `(s.grade_level = stu.grade_level AND s.is_active = 1${subjectScopeSql(
-          "s",
-          { program: enrollmentProgram, strandTrackId },
-          gradeParams
-        )})`;
-      }
-
-      // A subject that already has a saved grade row for this learner must always
-      // be returned, even when it falls outside the current scope (inactive
-      // subject, different program/strand, or the learner's grade_level has since
-      // drifted). Otherwise a saved grade becomes invisible in Grade Management
-      // while At-Risk / Grade History still show it.
+      // A subject that already has a saved grade row for this learner is always
+      // returned, even when it falls outside the current scope (inactive subject,
+      // different program/strand, or the learner's grade_level has since drifted).
+      // Rows that only qualify this way are flagged `in_offering = 0` so the UI can
+      // show why they are there instead of silently hiding a saved grade.
       const savedGradeExists = school_year_id
-        ? "EXISTS (SELECT 1 FROM grades g2 WHERE g2.subject_id = s.id AND g2.student_id = ? AND g2.school_year_id = ?)"
-        : "EXISTS (SELECT 1 FROM grades g2 WHERE g2.subject_id = s.id AND g2.student_id = ?)";
+        ? 'EXISTS (SELECT 1 FROM grades g2 WHERE g2.subject_id = s.id AND g2.student_id = ? AND g2.school_year_id = ?)'
+        : 'EXISTS (SELECT 1 FROM grades g2 WHERE g2.subject_id = s.id AND g2.student_id = ?)';
       if (school_year_id) {
         gradeParams.push(student_id, school_year_id);
       } else {
         gradeParams.push(student_id);
       }
 
+      const inOffering = `(s.grade_level = stu.grade_level AND s.is_active = 1${scopeWhere})`;
+      const whereClause = `${inOffering} OR ${savedGradeExists}`;
+
       const grades = await query<RowDataPacket[]>(
         `SELECT s.id AS subject_id, s.name AS subject_name, s.subject_type,
+                s.program AS subject_program,
                 MAX(CASE WHEN g.quarter = 1 THEN g.grade END) AS q1,
                 MAX(CASE WHEN g.quarter = 2 THEN g.grade END) AS q2,
                 MAX(CASE WHEN g.quarter = 3 THEN g.grade END) AS q3,
@@ -261,9 +281,8 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
          FROM subjects s
          JOIN students stu ON stu.id = ?
          LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
-         WHERE ${subjectWhere}
-            OR ${savedGradeExists}
-         GROUP BY s.id, s.name, s.subject_type
+         WHERE ${whereClause}
+         GROUP BY s.id, s.name, s.subject_type, s.program
          ORDER BY s.name ASC`,
         gradeParams
       );
@@ -274,43 +293,44 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
          FROM enrollments e
          JOIN sections sec ON e.section_id = sec.id
          JOIN school_years sy ON e.school_year_id = sy.id
-         WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : ""}
+         WHERE e.student_id = ?${school_year_id ? ' AND e.school_year_id = ?' : ''}
          ORDER BY sy.is_current DESC
          LIMIT 1`,
         school_year_id ? [student_id, school_year_id] : [student_id]
       );
 
+      // Flag rows that are only present because a grade is already saved against
+      // them (not part of the learner's offering), so the client can tag them.
+      const offeredIds = effSchoolYearId
+        ? await getLearnerOfferingSubjectIds(Number(student_id), effSchoolYearId)
+        : new Set<number>();
+      const subjects = grades.map(g => ({
+        ...g,
+        in_offering: offeredIds.has(Number(g.subject_id)) ? 1 : 0
+      }));
+
       res.json({
         student_id,
         enrollment: enrollments[0] || null,
-        subjects: grades,
+        subjects
       });
       return;
     }
 
     // Gradebook for a section (all students × subjects)
     if (section_id && school_year_id) {
-      if (req.user!.role === "teacher") {
+      if (req.user!.role === 'teacher') {
         const ownSections = await getTeacherSectionIds(
           req.user!.userId,
           parseInt(school_year_id as string)
         );
         if (!ownSections.has(parseInt(section_id as string))) {
-          res.status(403).json({ error: "Access denied. This section is not yours." });
+          res
+            .status(403)
+            .json({ error: 'Access denied. This section is not yours.' });
           return;
         }
       }
-      // Same offering rule as the per-learner read: when the section has a
-      // timetable for the school year, the gradebook lists only the subjects it
-      // actually offers; without one it falls back to the grade level.
-      const scheduled = await query<RowDataPacket[]>(
-        `SELECT DISTINCT subject_id FROM schedules
-         WHERE section_id = ? AND school_year_id = ?`,
-        [section_id, school_year_id]
-      );
-      const subjectFilter = scheduled.length
-        ? `AND s.id IN (${scheduled.map(() => "?").join(", ")})`
-        : "AND s.grade_level = sec.grade_level";
       const grades = await query<RowDataPacket[]>(
         `SELECT st.id AS student_id, st.name AS student_name, st.student_id,
                 s.id AS subject_id, s.name AS subject_name,
@@ -321,9 +341,9 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
          CROSS JOIN subjects s
          LEFT JOIN grades g ON g.student_id = st.id AND g.subject_id = s.id AND g.school_year_id = e.school_year_id
          WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-           ${subjectFilter}
+           AND s.grade_level = sec.grade_level
          ORDER BY st.name ASC, s.name ASC, g.quarter ASC`,
-        [section_id, school_year_id, ...scheduled.map(r => r.subject_id)]
+        [section_id, school_year_id]
       );
 
       res.json(grades);
@@ -342,24 +362,35 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
     const params: any[] = [];
     const conditions: string[] = [];
 
-    if (school_year_id) { conditions.push("g.school_year_id = ?"); params.push(school_year_id); }
-    if (subject_id) { conditions.push("g.subject_id = ?"); params.push(subject_id); }
-    if (quarter) { conditions.push("g.quarter = ?"); params.push(quarter); }
+    if (school_year_id) {
+      conditions.push('g.school_year_id = ?');
+      params.push(school_year_id);
+    }
+    if (subject_id) {
+      conditions.push('g.subject_id = ?');
+      params.push(subject_id);
+    }
+    if (quarter) {
+      conditions.push('g.quarter = ?');
+      params.push(quarter);
+    }
     // Privacy: bulk grade reads are filtered to a teacher's own roster.
-    if (req.user!.role === "teacher") {
-      conditions.push(teacherStudentScopeSql("g.student_id", req.user!.userId, params));
+    if (req.user!.role === 'teacher') {
+      conditions.push(
+        teacherStudentScopeSql('g.student_id', req.user!.userId, params)
+      );
     }
 
-    if (conditions.length > 0) sql += " WHERE " + conditions.join(" AND ");
-    sql += " ORDER BY g.school_year_id DESC, g.student_id ASC, g.subject_id ASC, g.quarter ASC";
+    if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
+    sql +=
+      ' ORDER BY g.school_year_id DESC, g.student_id ASC, g.subject_id ASC, g.quarter ASC';
 
     const result = await query<RowDataPacket[]>(sql, params);
     res.json(result);
     return;
-
   } catch (error) {
-    console.error("Get grades error:", error);
-    res.status(500).json({ error: "Failed to fetch grades." });
+    console.error('Get grades error:', error);
+    res.status(500).json({ error: 'Failed to fetch grades.' });
   }
 }
 
@@ -372,12 +403,15 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
     const { student_id, subject_id, school_year_id, quarter, grade } = req.body;
 
     if (!student_id || !subject_id || !school_year_id || !quarter) {
-      res.status(400).json({ error: "Missing required fields: student_id, subject_id, school_year_id, quarter." });
+      res.status(400).json({
+        error:
+          'Missing required fields: student_id, subject_id, school_year_id, quarter.'
+      });
       return;
     }
 
     if (quarter < 1 || quarter > 3) {
-      res.status(400).json({ error: "Quarter must be between 1 and 3." });
+      res.status(400).json({ error: 'Quarter must be between 1 and 3.' });
       return;
     }
 
@@ -387,13 +421,16 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
       [student_id, school_year_id]
     );
     if (enrollments.length === 0) {
-      res.status(400).json({ error: "Student is not enrolled in this school year. Please enroll first." });
+      res.status(400).json({
+        error:
+          'Student is not enrolled in this school year. Please enroll first.'
+      });
       return;
     }
     const enrollment_id = enrollments[0].id;
 
     // Grade security: teachers encode only their assigned subject + advisory section.
-    if (req.user!.role === "teacher") {
+    if (req.user!.role === 'teacher') {
       const blockReason = await teacherGradeBlockReason(
         req.user!.userId,
         school_year_id,
@@ -408,11 +445,13 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
 
     // Check if grade is locked
     const lockedCheck = await query<RowDataPacket[]>(
-      "SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ? AND is_locked = 1",
+      'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ? AND is_locked = 1',
       [student_id, subject_id, school_year_id, quarter]
     );
     if (lockedCheck.length > 0) {
-      res.status(403).json({ error: "Grade is locked and cannot be modified." });
+      res
+        .status(403)
+        .json({ error: 'Grade is locked and cannot be modified.' });
       return;
     }
 
@@ -421,20 +460,27 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
       `INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quarter, grade)
        VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE grade = VALUES(grade), updated_at = NOW()`,
-      [student_id, subject_id, enrollment_id, school_year_id, quarter, grade ?? null]
+      [
+        student_id,
+        subject_id,
+        enrollment_id,
+        school_year_id,
+        quarter,
+        grade ?? null
+      ]
     );
 
     await logActivity(
       req.user!.userId,
       `Updated grade for student ID ${student_id}, subject ID ${subject_id}, Q${quarter}`,
-      "grades",
+      'grades',
       null
     );
 
-    res.json({ message: "Grade saved successfully." });
+    res.json({ message: 'Grade saved successfully.' });
   } catch (error) {
-    console.error("Upsert grade error:", error);
-    res.status(500).json({ error: "Failed to save grade." });
+    console.error('Upsert grade error:', error);
+    res.status(500).json({ error: 'Failed to save grade.' });
   }
 }
 
@@ -442,17 +488,20 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
  * POST /api/grades/batch — Upsert multiple grades at once
  * Body: { grades: [{ student_id, subject_id, school_year_id, quarter, grade }] }
  */
-export async function batchUpsertGrades(req: Request, res: Response): Promise<void> {
+export async function batchUpsertGrades(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const { grades } = req.body;
 
     if (!grades || !Array.isArray(grades) || grades.length === 0) {
-      res.status(400).json({ error: "Grades array is required." });
+      res.status(400).json({ error: 'Grades array is required.' });
       return;
     }
 
     let updated = 0;
-    if (req.user!.role === "teacher") {
+    if (req.user!.role === 'teacher') {
       // Security pre-pass: reject the whole batch if any row is out of scope.
       for (const g of grades) {
         const { student_id, subject_id, school_year_id } = g;
@@ -485,7 +534,7 @@ export async function batchUpsertGrades(req: Request, res: Response): Promise<vo
 
       // Skip locked grades
       const locked = await query<RowDataPacket[]>(
-        "SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ? AND is_locked = 1",
+        'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ? AND is_locked = 1',
         [student_id, subject_id, school_year_id, quarter]
       );
       if (locked.length > 0) continue;
@@ -494,16 +543,28 @@ export async function batchUpsertGrades(req: Request, res: Response): Promise<vo
         `INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quarter, grade)
          VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE grade = VALUES(grade), updated_at = NOW()`,
-        [student_id, subject_id, enrollment_id, school_year_id, quarter, grade ?? null]
+        [
+          student_id,
+          subject_id,
+          enrollment_id,
+          school_year_id,
+          quarter,
+          grade ?? null
+        ]
       );
       updated++;
     }
 
-    await logActivity(req.user!.userId, `Batch imported ${updated} grades`, "grades", null);
+    await logActivity(
+      req.user!.userId,
+      `Batch imported ${updated} grades`,
+      'grades',
+      null
+    );
     res.json({ message: `${updated} grades saved successfully.` });
   } catch (error) {
-    console.error("Batch upsert error:", error);
-    res.status(500).json({ error: "Failed to save grades." });
+    console.error('Batch upsert error:', error);
+    res.status(500).json({ error: 'Failed to save grades.' });
   }
 }
 
@@ -513,41 +574,58 @@ export async function batchUpsertGrades(req: Request, res: Response): Promise<vo
  */
 export async function lockGrades(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, subject_id, school_year_id, section_id, quarter } = req.body;
+    const { student_id, subject_id, school_year_id, section_id, quarter } =
+      req.body;
 
     if (!school_year_id) {
-      res.status(400).json({ error: "school_year_id is required." });
+      res.status(400).json({ error: 'school_year_id is required.' });
       return;
     }
 
-    let sql = "UPDATE grades SET is_locked = 1, locked_at = NOW(), locked_by = ? WHERE school_year_id = ?";
+    let sql =
+      'UPDATE grades SET is_locked = 1, locked_at = NOW(), locked_by = ? WHERE school_year_id = ?';
     const params: any[] = [req.user!.userId, school_year_id];
 
-    if (student_id) { sql += " AND student_id = ?"; params.push(student_id); }
-    if (subject_id) { sql += " AND subject_id = ?"; params.push(subject_id); }
+    if (student_id) {
+      sql += ' AND student_id = ?';
+      params.push(student_id);
+    }
+    if (subject_id) {
+      sql += ' AND subject_id = ?';
+      params.push(subject_id);
+    }
     if (section_id) {
-      sql += " AND student_id IN (SELECT student_id FROM enrollments WHERE section_id = ? AND school_year_id = ?)";
+      sql +=
+        ' AND student_id IN (SELECT student_id FROM enrollments WHERE section_id = ? AND school_year_id = ?)';
       params.push(section_id, school_year_id);
     }
-    if (quarter) { sql += " AND quarter = ?"; params.push(quarter); }
+    if (quarter) {
+      sql += ' AND quarter = ?';
+      params.push(quarter);
+    }
 
     const result = await query<ResultSetHeader>(sql, params);
 
-    await logActivity(req.user!.userId, `Locked ${result.affectedRows} grade(s)`, "grades", null);
+    await logActivity(
+      req.user!.userId,
+      `Locked ${result.affectedRows} grade(s)`,
+      'grades',
+      null
+    );
 
     if (result.affectedRows > 0) {
       // Real-time notification: grades submitted/locked (SSE push, no refresh).
       createNotification({
-        title: "Grades Submitted",
+        title: 'Grades Submitted',
         message: `${result.affectedRows} grade(s) were submitted and locked for review.`,
-        type: "info",
+        type: 'info'
       });
     }
 
     res.json({ message: `${result.affectedRows} grade(s) locked.` });
   } catch (error) {
-    console.error("Lock grades error:", error);
-    res.status(500).json({ error: "Failed to lock grades." });
+    console.error('Lock grades error:', error);
+    res.status(500).json({ error: 'Failed to lock grades.' });
   }
 }
 
@@ -557,31 +635,48 @@ export async function lockGrades(req: Request, res: Response): Promise<void> {
  */
 export async function unlockGrades(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, subject_id, school_year_id, section_id, quarter } = req.body;
+    const { student_id, subject_id, school_year_id, section_id, quarter } =
+      req.body;
 
     if (!school_year_id) {
-      res.status(400).json({ error: "school_year_id is required." });
+      res.status(400).json({ error: 'school_year_id is required.' });
       return;
     }
 
-    let sql = "UPDATE grades SET is_locked = 0, locked_at = NULL, locked_by = NULL WHERE school_year_id = ?";
+    let sql =
+      'UPDATE grades SET is_locked = 0, locked_at = NULL, locked_by = NULL WHERE school_year_id = ?';
     const params: any[] = [school_year_id];
 
-    if (student_id) { sql += " AND student_id = ?"; params.push(student_id); }
-    if (subject_id) { sql += " AND subject_id = ?"; params.push(subject_id); }
+    if (student_id) {
+      sql += ' AND student_id = ?';
+      params.push(student_id);
+    }
+    if (subject_id) {
+      sql += ' AND subject_id = ?';
+      params.push(subject_id);
+    }
     if (section_id) {
-      sql += " AND student_id IN (SELECT student_id FROM enrollments WHERE section_id = ? AND school_year_id = ?)";
+      sql +=
+        ' AND student_id IN (SELECT student_id FROM enrollments WHERE section_id = ? AND school_year_id = ?)';
       params.push(section_id, school_year_id);
     }
-    if (quarter) { sql += " AND quarter = ?"; params.push(quarter); }
+    if (quarter) {
+      sql += ' AND quarter = ?';
+      params.push(quarter);
+    }
 
     const result = await query<ResultSetHeader>(sql, params);
 
-    await logActivity(req.user!.userId, `Unlocked ${result.affectedRows} grade(s)`, "grades", null);
+    await logActivity(
+      req.user!.userId,
+      `Unlocked ${result.affectedRows} grade(s)`,
+      'grades',
+      null
+    );
     res.json({ message: `${result.affectedRows} grade(s) unlocked.` });
   } catch (error) {
-    console.error("Unlock grades error:", error);
-    res.status(500).json({ error: "Failed to unlock grades." });
+    console.error('Unlock grades error:', error);
+    res.status(500).json({ error: 'Failed to unlock grades.' });
   }
 }
 
@@ -604,12 +699,17 @@ type SubjectAverageEntry = {
   subject_average: number;
 };
 
-export async function computeAverages(req: Request, res: Response): Promise<void> {
+export async function computeAverages(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const { student_id, school_year_id } = req.query;
 
     if (!student_id || !school_year_id) {
-      res.status(400).json({ error: "student_id and school_year_id are required." });
+      res
+        .status(400)
+        .json({ error: 'student_id and school_year_id are required.' });
       return;
     }
 
@@ -626,21 +726,31 @@ export async function computeAverages(req: Request, res: Response): Promise<void
 
     // Grouped learning areas (MAPEH components, TLE specializations) report — and
     // count toward the general average — as a single subject.
-    const subjectsForAverage = collapseSubjectGroups(averages as any[]) as SubjectAverageEntry[];
+    const subjectsForAverage = collapseSubjectGroups(
+      averages as any[]
+    ) as SubjectAverageEntry[];
 
-    const generalAverage = subjectsForAverage.length > 0
-      ? Math.round(subjectsForAverage.reduce((sum: number, a: any) => sum + parseFloat(a.subject_average || 0), 0) / subjectsForAverage.length * 100) / 100
-      : null;
+    const generalAverage =
+      subjectsForAverage.length > 0
+        ? Math.round(
+            (subjectsForAverage.reduce(
+              (sum: number, a: any) => sum + parseFloat(a.subject_average || 0),
+              0
+            ) /
+              subjectsForAverage.length) *
+              100
+          ) / 100
+        : null;
 
     res.json({
       student_id: parseInt(student_id as string),
       school_year_id: parseInt(school_year_id as string),
       general_average: generalAverage,
-      subject_averages: subjectsForAverage,
+      subject_averages: subjectsForAverage
     });
   } catch (error) {
-    console.error("Compute averages error:", error);
-    res.status(500).json({ error: "Failed to compute averages." });
+    console.error('Compute averages error:', error);
+    res.status(500).json({ error: 'Failed to compute averages.' });
   }
 }
 
@@ -653,17 +763,25 @@ export async function computeAverages(req: Request, res: Response): Promise<void
  * years (e.g. Grade 7 after promotion to Grade 8) still appear. MAPEH components
  * are collapsed into a single subject row, matching the report card.
  */
-export async function getGradeHistory(req: Request, res: Response): Promise<void> {
+export async function getGradeHistory(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const student_id = parseInt(req.query.student_id as string);
     if (!student_id || isNaN(student_id)) {
-      res.status(400).json({ error: "student_id is required." });
+      res.status(400).json({ error: 'student_id is required.' });
       return;
     }
 
     // Privacy: teachers may only read history for their own learners.
-    if (req.user!.role === "teacher" && !(await teacherMayReadGrades(req.user!.userId, student_id))) {
-      res.status(403).json({ error: "Access denied. This learner is not in your section." });
+    if (
+      req.user!.role === 'teacher' &&
+      !(await teacherMayReadGrades(req.user!.userId, student_id))
+    ) {
+      res
+        .status(403)
+        .json({ error: 'Access denied. This learner is not in your section.' });
       return;
     }
 
@@ -697,16 +815,24 @@ export async function getGradeHistory(req: Request, res: Response): Promise<void
       // Collapse MAPEH components and grouped learning areas (TLE specializations)
       // into one subject row, matching the report card.
       const collapsed = collapseSubjectGroups(subjects as any[], [
-        "q1",
-        "q2",
-        "q3",
-        "final_average",
+        'q1',
+        'q2',
+        'q3',
+        'final_average'
       ]);
 
       const graded = collapsed.filter((s: any) => s.final_average !== null);
-      const general_average = graded.length > 0
-        ? Math.round(graded.reduce((sum: number, s: any) => sum + parseFloat(s.final_average), 0) / graded.length * 100) / 100
-        : null;
+      const general_average =
+        graded.length > 0
+          ? Math.round(
+              (graded.reduce(
+                (sum: number, s: any) => sum + parseFloat(s.final_average),
+                0
+              ) /
+                graded.length) *
+                100
+            ) / 100
+          : null;
 
       schoolYears.push({
         school_year_id: enroll.school_year_id,
@@ -714,14 +840,14 @@ export async function getGradeHistory(req: Request, res: Response): Promise<void
         grade_level: enroll.grade_level ?? null,
         section_name: enroll.section_name ?? null,
         general_average,
-        subjects: collapsed,
+        subjects: collapsed
       });
     }
 
     res.json({ student_id, school_years: schoolYears });
   } catch (error) {
-    console.error("Grade history error:", error);
-    res.status(500).json({ error: "Failed to fetch grade history." });
+    console.error('Grade history error:', error);
+    res.status(500).json({ error: 'Failed to fetch grade history.' });
   }
 }
 
@@ -731,7 +857,10 @@ export async function getGradeHistory(req: Request, res: Response): Promise<void
  *
  * Returns per-subject bucket counts: 90-100, 85-89, 80-84, 75-79, <75
  */
-export async function getGradeDistribution(req: Request, res: Response): Promise<void> {
+export async function getGradeDistribution(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const { school_year_id, grade_level, section_id } = req.query;
 
@@ -741,30 +870,36 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
       syId = parseInt(school_year_id as string);
     } else {
       const currentSY = await query<RowDataPacket[]>(
-        "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+        'SELECT id FROM school_years WHERE is_current = 1 LIMIT 1'
       );
       syId = currentSY.length > 0 ? currentSY[0].id : 0;
     }
 
     if (!syId) {
-      res.status(400).json({ error: "No school year found. Specify school_year_id or set one as current." });
+      res.status(400).json({
+        error:
+          'No school year found. Specify school_year_id or set one as current.'
+      });
       return;
     }
 
     // Build filter conditions
-    const conditions: string[] = ["e.school_year_id = ?", "e.status = 'enrolled'"];
+    const conditions: string[] = [
+      'e.school_year_id = ?',
+      "e.status = 'enrolled'"
+    ];
     const params: any[] = [syId];
 
     if (grade_level) {
-      conditions.push("s.grade_level = ?");
+      conditions.push('s.grade_level = ?');
       params.push(parseInt(grade_level as string));
     }
     if (section_id) {
-      conditions.push("e.section_id = ?");
+      conditions.push('e.section_id = ?');
       params.push(parseInt(section_id as string));
     }
 
-    const where = conditions.join(" AND ");
+    const where = conditions.join(' AND ');
 
     // Get grade distribution per subject
     // Uses the MAPEH grouping pattern: CASE WHEN name IN ('Music','Arts','Physical Education','Health') THEN 'MAPEH' ELSE s.name END
@@ -821,12 +956,12 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
     }
 
     const AVG_BUCKET_FIELDS = [
-      "bucket_90_100",
-      "bucket_85_89",
-      "bucket_80_84",
-      "bucket_75_79",
-      "bucket_below_75",
-      "bucket_no_grade",
+      'bucket_90_100',
+      'bucket_85_89',
+      'bucket_80_84',
+      'bucket_75_79',
+      'bucket_below_75',
+      'bucket_no_grade'
     ];
 
     const subjects: any[] = [];
@@ -840,58 +975,74 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
         subject_id: -1,
         subject_name: key,
         total: serialized[0].total, // same students across the group
-        mean_grade: null,
+        mean_grade: null
       };
       for (const f of AVG_BUCKET_FIELDS) {
         agg[f] = Math.round(
-          serialized.reduce((s: number, r: any) => s + Number(r[f] || 0), 0) / serialized.length
+          serialized.reduce((s: number, r: any) => s + Number(r[f] || 0), 0) /
+            serialized.length
         );
       }
       const means = serialized
         .map((r: any) => (r.mean_grade === null ? null : Number(r.mean_grade)))
         .filter((v: number | null): v is number => v !== null && !isNaN(v));
-      agg.mean_grade = means.length > 0
-        ? Math.round((means.reduce((a, b) => a + b, 0) / means.length) * 100) / 100
-        : null;
+      agg.mean_grade =
+        means.length > 0
+          ? Math.round(
+              (means.reduce((a, b) => a + b, 0) / means.length) * 100
+            ) / 100
+          : null;
       subjects.push(agg);
     }
-    subjects.sort((a, b) => String(a.subject_name).localeCompare(String(b.subject_name)));
+    subjects.sort((a, b) =>
+      String(a.subject_name).localeCompare(String(b.subject_name))
+    );
 
     // Build bucket distribution for each subject
     const reportedSubjects = subjects.map((s: any) => {
       const buckets = [
-        { range: "90-100", count: s.bucket_90_100, color: "#22c55e" },
-        { range: "85-89", count: s.bucket_85_89, color: "#3b82f6" },
-        { range: "80-84", count: s.bucket_80_84, color: "#f59e0b" },
-        { range: "75-79", count: s.bucket_75_79, color: "#f97316" },
-        { range: "<75", count: s.bucket_below_75, color: "#ef4444" },
+        { range: '90-100', count: s.bucket_90_100, color: '#22c55e' },
+        { range: '85-89', count: s.bucket_85_89, color: '#3b82f6' },
+        { range: '80-84', count: s.bucket_80_84, color: '#f59e0b' },
+        { range: '75-79', count: s.bucket_75_79, color: '#f97316' },
+        { range: '<75', count: s.bucket_below_75, color: '#ef4444' }
       ];
       const graded = buckets.reduce((sum: number, b: any) => sum + b.count, 0);
-      const passCount = s.bucket_90_100 + s.bucket_85_89 + s.bucket_80_84 + s.bucket_75_79;
+      const passCount =
+        s.bucket_90_100 + s.bucket_85_89 + s.bucket_80_84 + s.bucket_75_79;
       return {
         subject_name: s.subject_name,
         total_students: s.total,
         mean_grade: s.mean_grade,
         pass_rate: s.total > 0 ? Math.round((passCount / s.total) * 100) : 0,
-        buckets,
+        buckets
       };
     });
 
     // Overall stats
-    const totalStudents = reportedSubjects.reduce((sum: number, s: any) => Math.max(sum, s.total_students), 0);
-    const overallPassRate = reportedSubjects.length > 0
-      ? Math.round(reportedSubjects.reduce((sum: number, s: any) => sum + s.pass_rate, 0) / reportedSubjects.length)
-      : 0;
+    const totalStudents = reportedSubjects.reduce(
+      (sum: number, s: any) => Math.max(sum, s.total_students),
+      0
+    );
+    const overallPassRate =
+      reportedSubjects.length > 0
+        ? Math.round(
+            reportedSubjects.reduce(
+              (sum: number, s: any) => sum + s.pass_rate,
+              0
+            ) / reportedSubjects.length
+          )
+        : 0;
 
     res.json({
       school_year_id: syId,
       total_students: totalStudents,
       overall_pass_rate: overallPassRate,
-      subjects: reportedSubjects,
+      subjects: reportedSubjects
     });
   } catch (error) {
-    console.error("Grade distribution error:", error);
-    res.status(500).json({ error: "Failed to fetch grade distribution." });
+    console.error('Grade distribution error:', error);
+    res.status(500).json({ error: 'Failed to fetch grade distribution.' });
   }
 }
 
@@ -903,7 +1054,10 @@ export async function getGradeDistribution(req: Request, res: Response): Promise
  * already have grades entered, and how many grade rows are locked.
  * A section is considered "submitted" when every enrolled student has grades.
  */
-export async function getGradeSubmissionStatus(req: Request, res: Response): Promise<void> {
+export async function getGradeSubmissionStatus(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     // Resolve school year
     let syId: number;
@@ -911,13 +1065,16 @@ export async function getGradeSubmissionStatus(req: Request, res: Response): Pro
       syId = parseInt(req.query.school_year_id as string);
     } else {
       const currentSY = await query<RowDataPacket[]>(
-        "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+        'SELECT id FROM school_years WHERE is_current = 1 LIMIT 1'
       );
       syId = currentSY.length > 0 ? currentSY[0].id : 0;
     }
 
     if (!syId) {
-      res.status(400).json({ error: "No school year found. Specify school_year_id or set one as current." });
+      res.status(400).json({
+        error:
+          'No school year found. Specify school_year_id or set one as current.'
+      });
       return;
     }
 
@@ -944,30 +1101,39 @@ export async function getGradeSubmissionStatus(req: Request, res: Response): Pro
     const byGrade = [7, 8, 9, 10, 11, 12]
       .map(g => {
         const rows = sections.filter((s: any) => s.grade_level === g);
-        const submitted = rows.filter((s: any) => s.total_students > 0 && s.graded_students === s.total_students).length;
+        const submitted = rows.filter(
+          (s: any) =>
+            s.total_students > 0 && s.graded_students === s.total_students
+        ).length;
         return {
           grade_level: g,
           sections: rows,
           submitted,
           total: rows.length,
-          pct: rows.length > 0 ? Math.round((submitted / rows.length) * 100) : 0,
+          pct: rows.length > 0 ? Math.round((submitted / rows.length) * 100) : 0
         };
       })
       .filter((g: any) => g.sections.length > 0);
 
     const totalSections = sections.length;
-    const submittedSections = byGrade.reduce((a: number, g: any) => a + g.submitted, 0);
+    const submittedSections = byGrade.reduce(
+      (a: number, g: any) => a + g.submitted,
+      0
+    );
 
     res.json({
       school_year_id: syId,
       total_sections: totalSections,
       submitted_sections: submittedSections,
-      overall_pct: totalSections > 0 ? Math.round((submittedSections / totalSections) * 100) : 0,
-      by_grade: byGrade,
+      overall_pct:
+        totalSections > 0
+          ? Math.round((submittedSections / totalSections) * 100)
+          : 0,
+      by_grade: byGrade
     });
   } catch (error) {
-    console.error("Grade submission status error:", error);
-    res.status(500).json({ error: "Failed to fetch grade submission status." });
+    console.error('Grade submission status error:', error);
+    res.status(500).json({ error: 'Failed to fetch grade submission status.' });
   }
 }
 
@@ -986,6 +1152,9 @@ function serializeSubject(r: any) {
     bucket_75_79: n(r.bucket_75_79),
     bucket_below_75: n(r.bucket_below_75),
     bucket_no_grade: n(r.bucket_no_grade),
-    mean_grade: r.mean_grade === null || r.mean_grade === undefined ? null : Number(r.mean_grade),
+    mean_grade:
+      r.mean_grade === null || r.mean_grade === undefined
+        ? null
+        : Number(r.mean_grade)
   };
 }
