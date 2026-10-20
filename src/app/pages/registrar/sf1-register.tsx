@@ -41,71 +41,71 @@ type Leaf = {
   blue?: boolean;
 };
 
-// Flat list of data columns (used to render body rows in order)
+// Flat list of data columns (used to render body rows in order).
+// These are exactly the columns required by the official DepEd SF1 School
+// Register (no quarterly-grade columns — those belong to the SF9/SF10).
+// The widths sum to 1460px: legal-landscape print area is 1306px wide at
+// 96dpi and `.sf1-page` is scaled with zoom 0.89, so 1306 / 0.89 = 1467px is
+// the layout budget. Staying just under it fills the printable width without
+// triggering Chrome's shrink-to-fit (which used to squeeze the text when the
+// 21-column table was 1766px wide).
 const LEAF_COLUMNS: Leaf[] = [
-  { key: 'lrn', title: 'LRN', width: '90px' },
+  { key: 'lrn', title: 'LRN', width: '82px' },
   {
     key: 'name',
     title: 'NAME',
     sub: '(Last Name, First Name, Middle Name)',
-    width: '200px'
+    width: '179px'
   },
-  { key: 'sex', title: 'Sex', sub: '(M/F)', width: '40px' },
-  { key: 'birthdate', title: 'BIRTH DATE', sub: '(mm/dd/yyyy)', width: '80px' },
-  { key: 'age', title: 'AGE as of', sub: '1st Friday June', width: '55px' },
-  { key: 'mothertongue', title: 'MOTHER TONGUE', width: '70px' },
-  { key: 'ip', title: 'IP', sub: '(Ethnic Group)', width: '60px' },
-  { key: 'religion', title: 'RELIGION', width: '70px' },
+  { key: 'sex', title: 'Sex', sub: '(M/F)', width: '36px' },
+  { key: 'birthdate', title: 'BIRTH DATE', sub: '(mm/dd/yyyy)', width: '72px' },
+  { key: 'age', title: 'AGE as of', sub: '1st Friday June', width: '50px' },
+  { key: 'mothertongue', title: 'MOTHER TONGUE', width: '63px' },
+  { key: 'ip', title: 'IP', sub: '(Ethnic Group)', width: '55px' },
+  { key: 'religion', title: 'RELIGION', width: '63px' },
   // ADDRESS group
   {
     key: 'addr_house',
     title: 'House #/ Street/ Sitio/ Purok',
-    width: '90px',
+    width: '82px',
     blue: true
   },
-  { key: 'addr_barangay', title: 'Barangay', width: '75px', blue: true },
-  { key: 'addr_city', title: 'Municipality/ City', width: '80px', blue: true },
-  { key: 'addr_province', title: 'Province', width: '75px', blue: true },
+  { key: 'addr_barangay', title: 'Barangay', width: '68px', blue: true },
+  { key: 'addr_city', title: 'Municipality/ City', width: '72px', blue: true },
+  { key: 'addr_province', title: 'Province', width: '68px', blue: true },
   // PARENTS group
   {
     key: 'father',
     title: "Father's Name (Last Name, First Name, Middle Name)",
-    width: '130px',
+    width: '118px',
     blue: true
   },
   {
     key: 'mother',
     title: "Mother's Maiden Name (Last Name, First Name, Middle Name)",
-    width: '130px',
+    width: '118px',
     blue: true
   },
   // GUARDIAN group
-  { key: 'guardian_name', title: 'Name', width: '100px', blue: true },
-  { key: 'guardian_rel', title: 'Relation-ship', width: '70px', blue: true },
+  { key: 'guardian_name', title: 'Name', width: '91px', blue: true },
+  { key: 'guardian_rel', title: 'Relation-ship', width: '63px', blue: true },
   {
     key: 'contact',
     title: 'Contact Number of Parent or Guardian',
-    width: '90px'
+    width: '82px'
   },
   {
     key: 'remarks',
     title: 'REMARKS',
     sub: '(Please refer to the legend on last page)',
-    width: '110px',
+    width: '98px',
     blue: true
-  },
-  // GRADE COLUMNS
-  { key: 'q1', title: 'Q1', width: '50px' },
-  { key: 'q2', title: 'Q2', width: '50px' },
-  { key: 'q3', title: 'Q3', width: '50px' }
+  }
 ];
 
 const TOTAL_ROWS = 30;
 
 type RowData = Record<string, string>;
-
-/** Only these columns are numeric grades; the rest are free-format text. */
-const NUMERIC_CELLS = new Set(['q1', 'q2', 'q3']);
 
 /* ---------------------------------------------------------------- */
 /* Helpers                                                          */
@@ -410,20 +410,6 @@ export function SF1Register() {
       return next;
     });
   };
-  const sanitizeGradeInput = (value: string): string => {
-    if (value === '') {
-      return '';
-    }
-    const parsed = parseFloat(value);
-    if (isNaN(parsed)) {
-      return '';
-    }
-    // Truncate to 2 decimal places
-    const truncated = Math.floor(parsed * 100) / 100;
-    // Clamp to 0-100 range
-    const clamped = Math.min(100, Math.max(0, truncated));
-    return clamped.toString();
-  };
   const setH = (key: keyof typeof header, val: string) =>
     setHeader(prev => ({ ...prev, [key]: val }));
 
@@ -596,7 +582,7 @@ export function SF1Register() {
         <div
           id="sf1-print-area"
           className="sf1-sheet mx-auto w-fit max-w-full overflow-x-auto bg-white p-6 text-black shadow-sm">
-          <div className="sf1-page" style={{ minWidth: '1340px' }}>
+          <div className="sf1-page" style={{ minWidth: '1460px' }}>
             {/* ---------- Title block ---------- */}
             <SchoolFormTitleBlock
               title="School Form 1 (SF 1) School Register"
@@ -723,15 +709,7 @@ export function SF1Register() {
                       <td key={c.key} className="border border-black p-0">
                         <input
                           value={row[c.key] ?? ''}
-                          onChange={e =>
-                            setCell(
-                              r,
-                              c.key,
-                              NUMERIC_CELLS.has(c.key)
-                                ? sanitizeGradeInput(e.target.value)
-                                : e.target.value
-                            )
-                          }
+                          onChange={e => setCell(r, c.key, e.target.value)}
                           className="sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50"
                         />
                       </td>
