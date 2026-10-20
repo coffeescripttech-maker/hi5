@@ -388,17 +388,41 @@ export function SF9Report() {
             ) ||
             enrs.find(
               (e: EnrollmentRow) =>
-                e.student_id === sid && e.status === 'enrolled'
+                e.student_id === sid &&
+                e.school_year_id === targetSyId
+            ) ||
+            enrs.find(
+              (e: EnrollmentRow) => e.student_id === sid && e.status === 'enrolled'
             );
           if (
             enrollment &&
             (role !== "teacher" || studs.some(s => s.id === sid))
           ) {
-            setSelectedGrade(String(enrollment.section_grade_level));
-            // Set section and student — the effects will preserve these
-            const sec = activeSections.find(
-              (s: SectionRow) => s.id === enrollment.section_id
+            const gradeStr = String(
+              enrollment.section_grade_level ??
+                (enrs.find(
+                  (e: EnrollmentRow) =>
+                    e.student_id === sid && e.section_grade_level != null
+                )?.section_grade_level) ??
+                ''
             );
+            if (gradeStr) setSelectedGrade(gradeStr);
+            // Set section and student — the effects will preserve these
+            const sec =
+              (enrollment.section_id != null
+                ? activeSections.find((s: SectionRow) => s.id === enrollment.section_id)
+                : null) ??
+              activeSections.find(
+                (s: SectionRow) =>
+                  String(s.grade_level) === gradeStr &&
+                  enrs.some(
+                    (e: EnrollmentRow) =>
+                      e.student_id === sid && e.section_id === s.id
+                  )
+              ) ??
+              (gradeStr
+                ? activeSections.find((s: SectionRow) => String(s.grade_level) === gradeStr)
+                : null);
             if (sec) setSelectedSectionId(sec.id);
             setSelectedStudentId(sid);
             return;
