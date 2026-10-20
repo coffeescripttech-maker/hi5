@@ -93,6 +93,27 @@ async function getStudentSectionId(
   return rows.length > 0 ? (rows[0].section_id as number) : null;
 }
 
+/**
+ * Grade-entry offering rule: when the learner's section has a timetable for the
+ * school year, grades may only be encoded for the subjects on it — the same set
+ * the gradebook read returns. Sections without a timetable keep the previous
+ * grade-level scope, so missing schedule data never blocks legitimate encoding.
+ */
+async function isSubjectOfferedToLearner(
+  studentId: number,
+  schoolYearId: number,
+  subjectId: number
+): Promise<boolean> {
+  const sectionId = await getStudentSectionId(studentId, schoolYearId);
+  if (!sectionId) return true;
+  const scheduled = await query<RowDataPacket[]>(
+    `SELECT subject_id FROM schedules WHERE section_id = ? AND school_year_id = ?`,
+    [sectionId, schoolYearId]
+  );
+  if (scheduled.length === 0) return true;
+  return scheduled.some(r => Number(r.subject_id) === Number(subjectId));
+}
+
 /** True when the configured grade-edit deadline has passed (teacher read-only). */
 async function isPastGradeDeadline(): Promise<boolean> {
   const rows = await query<RowDataPacket[]>(
@@ -129,6 +150,9 @@ async function teacherGradeBlockReason(
   if (!studentSection || !teacherSections.has(studentSection)) {
     return "Access denied: you may only encode grades for students in your advisory section.";
   }
+  if (!(await isSubjectOfferedToLearner(studentId, schoolYearId, subjectId))) {
+    return "Access denied: this subject is not offered to the learner's section.";
+  }
   return null;
 }
 
@@ -160,7 +184,8 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
 
       // Get student's strand track and program from their current enrollment
       const enrollmentInfo = await query<RowDataPacket[]>(
-        `SELECT e.strand_track_id, e.program FROM enrollments e
+        `SELECT e.strand_track_id, e.program, e.section_id, e.school_year_id
+         FROM enrollments e
          WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : " AND e.status = 'enrolled'"}
          ORDER BY e.school_year_id DESC LIMIT 1`,
         school_year_id ? [student_id, school_year_id] : [student_id]
@@ -174,12 +199,40 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         gradeParams.push(school_year_id);
       }
 
-      // Scope subjects to the learner's program and (when assigned) strand/track.
-      const scopeWhere = subjectScopeSql(
-        "s",
-        { program: enrollmentProgram, strandTrackId },
-        gradeParams
-      );
+      // Gradable-subject scope, in priority order:
+      //   1. the subjects on the learner's section timetable for this school year
+      //      — the section's actual offering (from the active enrollment),
+      //   2. when that section has no timetable yet, the grade-level subjects
+      //      filtered by program / strand-track (previous behaviour), so missing
+      //      schedule data never blanks out a learner's gradebook,
+      //   3. plus any subject that already carries a saved grade, so a stored
+      //      grade can never silently disappear from the interface.
+      const learnerSectionId = (enrollmentInfo[0] as any)?.section_id ?? null;
+      const effSchoolYearId = school_year_id
+        ? Number(school_year_id)
+        : ((enrollmentInfo[0] as any)?.school_year_id ?? null);
+
+      let scheduledSubjectIds: number[] = [];
+      if (learnerSectionId && effSchoolYearId) {
+        const scheduled = await query<RowDataPacket[]>(
+          `SELECT DISTINCT subject_id FROM schedules
+           WHERE section_id = ? AND school_year_id = ?`,
+          [learnerSectionId, effSchoolYearId]
+        );
+        scheduledSubjectIds = scheduled.map(r => r.subject_id as number);
+      }
+
+      let subjectWhere: string;
+      if (scheduledSubjectIds.length > 0) {
+        gradeParams.push(...scheduledSubjectIds);
+        subjectWhere = `s.id IN (${scheduledSubjectIds.map(() => "?").join(", ")})`;
+      } else {
+        subjectWhere = `(s.grade_level = stu.grade_level AND s.is_active = 1${subjectScopeSql(
+          "s",
+          { program: enrollmentProgram, strandTrackId },
+          gradeParams
+        )})`;
+      }
 
       // A subject that already has a saved grade row for this learner must always
       // be returned, even when it falls outside the current scope (inactive
@@ -208,7 +261,7 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
          FROM subjects s
          JOIN students stu ON stu.id = ?
          LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
-         WHERE (s.grade_level = stu.grade_level AND s.is_active = 1${scopeWhere})
+         WHERE ${subjectWhere}
             OR ${savedGradeExists}
          GROUP BY s.id, s.name, s.subject_type
          ORDER BY s.name ASC`,
@@ -247,6 +300,17 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
           return;
         }
       }
+      // Same offering rule as the per-learner read: when the section has a
+      // timetable for the school year, the gradebook lists only the subjects it
+      // actually offers; without one it falls back to the grade level.
+      const scheduled = await query<RowDataPacket[]>(
+        `SELECT DISTINCT subject_id FROM schedules
+         WHERE section_id = ? AND school_year_id = ?`,
+        [section_id, school_year_id]
+      );
+      const subjectFilter = scheduled.length
+        ? `AND s.id IN (${scheduled.map(() => "?").join(", ")})`
+        : "AND s.grade_level = sec.grade_level";
       const grades = await query<RowDataPacket[]>(
         `SELECT st.id AS student_id, st.name AS student_name, st.student_id,
                 s.id AS subject_id, s.name AS subject_name,
@@ -257,9 +321,9 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
          CROSS JOIN subjects s
          LEFT JOIN grades g ON g.student_id = st.id AND g.subject_id = s.id AND g.school_year_id = e.school_year_id
          WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-           AND s.grade_level = sec.grade_level
+           ${subjectFilter}
          ORDER BY st.name ASC, s.name ASC, g.quarter ASC`,
-        [section_id, school_year_id]
+        [section_id, school_year_id, ...scheduled.map(r => r.subject_id)]
       );
 
       res.json(grades);

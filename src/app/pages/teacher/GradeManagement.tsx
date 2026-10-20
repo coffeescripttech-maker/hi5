@@ -364,28 +364,21 @@ export function GradeManagement() {
         const subjectsData = apiGrades?.subjects ?? apiGrades;
         const isPivoted = !Array.isArray(apiGrades) && apiGrades?.subjects;
 
-        // Row set = this grade level's subjects PLUS any subject the API
-        // returned because it already holds a saved grade (the learner's grade
-        // level may have drifted since encoding, and an inactive/other-program
-        // subject may still carry grades). Without those, saved grades render as
-        // blank cells while At-Risk / Grade History show them.
-        const localIds = new Set(localSubs.map(s => s.id));
-        const extraSubs = isPivoted
-          ? subjectsData
-              .filter(
-                (s: any) =>
-                  !localIds.has(s.subject_id) &&
-                  (s.q1 != null || s.q2 != null || s.q3 != null)
-              )
-              .map((s: any) => ({
-                id: s.subject_id,
-                name: s.subject_name,
-                subject_group:
-                  subjects.find(x => x.id === s.subject_id)?.subject_group ??
-                  null
-              }))
-          : [];
-        const subs = [...localSubs, ...extraSubs];
+        // Row set = the subjects the API returns for this learner. The backend
+        // scopes them to the learner's actual enrollment — the subjects their
+        // section offers for the school year (section timetable), otherwise the
+        // grade-level subjects for their program/strand — and always keeps any
+        // subject that already holds a saved grade. Subjects the learner is not
+        // enrolled in no longer appear as gradable rows.
+        const subs = isPivoted
+          ? (subjectsData as any[]).map((s: any) => ({
+              id: s.subject_id,
+              name: s.subject_name,
+              subject_group:
+                subjects.find(x => x.id === s.subject_id)?.subject_group ??
+                null
+            }))
+          : localSubs;
 
         const entries: GradeEntry[] = subs.map(sub => {
           if (isPivoted) {
