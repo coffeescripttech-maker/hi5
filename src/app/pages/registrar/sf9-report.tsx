@@ -405,24 +405,49 @@ export function SF9Report() {
           }
         }
 
-        // Default: jump to the first student enrolled in the target school
-        // year so the page opens on a populated roster.
-        const syEnr = enrs.find(
+        // Default: jump to the first *sectioned* student enrolled in the target
+        // school year so the page opens on a populated roster. An enrollment
+        // with no section yet (section_id NULL) must be skipped — otherwise the
+        // grade is set but the section dropdown stays empty.
+        const syEnrolled = enrs.filter(
           (e: EnrollmentRow) =>
             e.school_year_id === targetSyId && e.status === 'enrolled'
         );
+        const syEnr = syEnrolled.find((e: EnrollmentRow) => e.section_id != null) ?? null;
+
         if (syEnr) {
-          setSelectedGrade(String(syEnr.section_grade_level));
-          const sec = activeSections.find(
-            (s: SectionRow) => s.id === syEnr.section_id
-          );
+          const gradeStr = String(syEnr.section_grade_level ?? '');
+          setSelectedGrade(gradeStr);
+          // Pick a section that belongs to that grade. Prefer the enrolled
+          // student's own section; otherwise fall back to any active section of
+          // that grade that has enrolled learners.
+          const sec =
+            activeSections.find((s: SectionRow) => s.id === syEnr.section_id) ??
+            activeSections.find(
+              (s: SectionRow) =>
+                String(s.grade_level) === gradeStr &&
+                enrs.some(
+                  (e: EnrollmentRow) =>
+                    e.school_year_id === targetSyId &&
+                    e.status === 'enrolled' &&
+                    e.section_id === s.id
+                )
+            ) ??
+            activeSections.find((s: SectionRow) => String(s.grade_level) === gradeStr);
           if (sec) setSelectedSectionId(sec.id);
           setSelectedStudentId(syEnr.student_id);
         } else {
-          const g7 = activeSections.filter(
-            (s: SectionRow) => s.grade_level === 7
+          // No sectioned enrollment in this year — open on whatever grade the
+          // raw enrollments point at, then land on its first section.
+          const gradeFromAny = syEnrolled.find(
+            (e: EnrollmentRow) => e.section_grade_level != null
+          )?.section_grade_level;
+          const gradeStr = String(gradeFromAny ?? 7);
+          setSelectedGrade(gradeStr);
+          const gradeSecs = activeSections.filter(
+            (s: SectionRow) => String(s.grade_level) === gradeStr
           );
-          if (g7.length > 0) setSelectedSectionId(g7[0].id);
+          if (gradeSecs.length > 0) setSelectedSectionId(gradeSecs[0].id);
         }
       })
       .catch(err =>
