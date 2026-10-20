@@ -16,6 +16,20 @@ interface SectionTypeRow extends RowDataPacket {
 }
 
 /**
+ * Column widths in `section_types` — keep in sync with migration 039.
+ * Checked up-front so an over-long value returns a readable 400 instead of
+ * bubbling up as a MySQL "Data too long" 500.
+ */
+function tooLong(entries: Array<[label: string, value: unknown, max: number]>): string | null {
+  for (const [label, value, max] of entries) {
+    if (typeof value === "string" && value.length > max) {
+      return `${label} must be ${max} characters or fewer (got ${value.length}).`;
+    }
+  }
+  return null;
+}
+
+/**
  * GET /api/section-types — List all active section types
  */
 export async function listSectionTypes(_req: Request, res: Response): Promise<void> {
@@ -39,6 +53,17 @@ export async function createSectionType(req: Request, res: Response): Promise<vo
 
     if (!name || !label) {
       res.status(400).json({ error: "Missing required fields: name, label." });
+      return;
+    }
+
+    const overflow = tooLong([
+      ["Section type name", name, 50],
+      ["Label", label, 100],
+      ["Colour", color_code, 80],
+      ["Icon", icon, 30],
+    ]);
+    if (overflow) {
+      res.status(400).json({ error: overflow });
       return;
     }
 
@@ -78,6 +103,16 @@ export async function updateSectionType(req: Request, res: Response): Promise<vo
   try {
     const id = req.params.id as string;
     const { label, color_code, icon, sort_order, is_active } = req.body;
+
+    const overflow = tooLong([
+      ["Label", label, 100],
+      ["Colour", color_code, 80],
+      ["Icon", icon, 30],
+    ]);
+    if (overflow) {
+      res.status(400).json({ error: overflow });
+      return;
+    }
 
     const existing = await query<RowDataPacket[]>(
       "SELECT id FROM section_types WHERE id = ?",

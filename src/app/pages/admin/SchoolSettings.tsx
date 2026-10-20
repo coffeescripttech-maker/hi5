@@ -773,11 +773,16 @@ export function SchoolSettings() {
             const displayName = sectionType.label || sectionType.name;
             const description = `Section type with sort order ${sectionType.sort_order}`;
             const isCore = sectionType.is_locked === 1;
-            // Color class helpers: parse color_code or use defaults
+            // Color classes: color_code is either the Tailwind triple written
+            // by Manage Types ('bg-green-100 text-green-700 border-green-200')
+            // or a legacy short name seeded before the UI ('amber'). Reuse the
+            // stored tokens as-is (they are real classes the badge already
+            // renders) and fall back to neutral greys for anything older.
             const colorCode = sectionType.color_code || "";
-            const bgColor = colorCode ? `bg-${colorCode.split(" ")[0]?.replace("bg-", "") || "gray"}-50` : "bg-gray-50";
-            const borderColor = colorCode ? `border-${colorCode.split(" ")[2]?.replace("border-", "") || "gray"}-200` : "border-gray-200";
-            const textColor = colorCode ? `text-${colorCode.split("text-")[1]?.split(" ")[0] || "gray"}-700` : "text-gray-700";
+            const classFor = (rule: RegExp, fallback: string) => colorCode.match(rule)?.[0] || fallback;
+            const bgColor = classFor(/bg-[a-z]+-\d+/, "bg-gray-50");
+            const borderColor = classFor(/border-[a-z]+-\d+/, "border-gray-200");
+            const textColor = classFor(/text-[a-z]+-\d+/, "text-gray-700");
             // Get the row for the lowest grade level (used as the editable entry point)
             const t = thresholds
               .filter(th => th.section_type === sectionType.name)
