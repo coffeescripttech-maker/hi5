@@ -17,6 +17,19 @@ import { isNativePlatform } from '../../services/nativeExport';
 /** Placeholder shown while a student hasn't been loaded yet. */
 export const PLACEHOLDER = '________________________';
 
+/**
+ * Page geometry for the registrar certificates: one letter-portrait page with
+ * no page margin (the template's own padding supplies the whitespace).
+ *
+ * Passed explicitly to the server renderer on purpose. Without it the renderer
+ * auto-collects every `@page` rule in the document, and the SF1 register's
+ * *global* `@media print { @page { size: legal landscape } }` (sf1.css is
+ * bundled with every route) would win the cascade — printing the certificate on
+ * a short 8.5in-tall landscape sheet, which pushes the validity footer onto a
+ * second, nearly blank page.
+ */
+export const CERTIFICATE_PRINT_CSS = '@page { size: letter portrait; margin: 0; }';
+
 /** Render a value or the underline placeholder when empty. */
 export const orBlank = (value?: string | number | null): string =>
   value !== undefined && value !== null && String(value).trim() !== ''
@@ -138,6 +151,7 @@ export function printCertificate(elementId: string) {
       filename: 'certificate',
       orientation: 'portrait',
       format: 'letter',
+      printCss: CERTIFICATE_PRINT_CSS,
     });
     return;
   }

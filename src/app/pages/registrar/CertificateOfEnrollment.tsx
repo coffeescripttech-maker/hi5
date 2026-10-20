@@ -18,7 +18,7 @@ import { useApp } from "../../context/AppContext";
 import { useRoleAccent } from "../../utils/roleTheme";
 import {
   Letterhead, SignatureBlock, FieldValue,
-  printCertificate, pickSignatory
+  printCertificate, pickSignatory, CERTIFICATE_PRINT_CSS
 } from "./CertificateParts";
 import { CertificateStudentSearch } from "./CertificateStudentSearch";
 
@@ -58,6 +58,9 @@ export function CertificateOfEnrollment() {
       filename: `Certificate_of_Enrollment_${data?.student.lrn || "unknown"}`,
       orientation: "portrait" as const,
       format: "letter" as const,
+      // Pin the page geometry so the SF registers' global print @page rules
+      // cannot hijack the certificate onto a landscape, half-height page.
+      printCss: CERTIFICATE_PRINT_CSS,
     };
     setExporting(true);
     try {
