@@ -47,18 +47,31 @@ export interface UpdateSettingsPayload {
   conditions_text?: string | null;
 }
 
+/** One program's eligibility minimums as returned by GET /settings/thresholds. */
 export interface SectionTypeThreshold {
-  id: number;
   section_type: string;
-  grade_level: number;
-  min_average: number;
-  max_average: number;
-  color_code: string | null;
+  label: string | null;
   icon: string | null;
+  color_code: string | null;
+  sort_order: number;
+  /** Eligibility minimums (null = no rule of that kind). */
+  min_general_average: number | null;
+  min_science: number | null;
+  min_math: number | null;
+  min_english: number | null;
+  min_filipino: number | null;
+  grade_row_count: number;
 }
 
 export interface UpdateThresholdsPayload {
-  thresholds: { id: number; min_average?: number; max_average?: number }[];
+  types: {
+    section_type: string;
+    min_general_average?: number | null;
+    min_science?: number | null;
+    min_math?: number | null;
+    min_english?: number | null;
+    min_filipino?: number | null;
+  }[];
 }
 
 export interface BackupSettings {
@@ -109,7 +122,7 @@ export const settingsApi = {
     api.put<SchoolSettingsRow>("/settings", data),
   getThresholds: () => api.get<SectionTypeThreshold[]>("/settings/thresholds"),
   updateThresholds: (data: UpdateThresholdsPayload) =>
-    api.put<SectionTypeThreshold[]>("/settings/thresholds", data),
+    api.put<{ thresholds: SectionTypeThreshold[]; sections_raised: number }>("/settings/thresholds", data),
   getBackupSettings: () => api.get<BackupSettings>("/settings/backup"),
   updateBackupSettings: (data: Partial<BackupSettings>) =>
     api.put<BackupSettings>("/settings/backup", data),

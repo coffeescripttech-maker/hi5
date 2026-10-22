@@ -16,6 +16,7 @@ const PROGRAMS = [
   { key: 'regular', label: 'Regular' },
   { key: 'ste', label: 'STE' },
   { key: 'spfl', label: 'SPFL' },
+  { key: 'spj', label: 'SPJ' },
   { key: 'open_high', label: 'Open High' },
   { key: 'als_shs', label: 'ALS-SHS' },
   { key: 'als_jhs', label: 'ALS-JHS' }

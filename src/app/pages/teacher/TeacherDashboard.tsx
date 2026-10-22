@@ -4,7 +4,6 @@ import {
   Layers,
   Users,
   TrendingUp,
-  UserPlus,
   BookOpen,
   LayoutDashboard,
   BarChart3,
@@ -170,11 +169,6 @@ export function TeacherDashboard() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => navigate('/teacher/enroll')}
-              className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2 touch-target">
-              <UserPlus size={15} /> Enroll Student
-            </button>
             <button
               onClick={() => navigate('/teacher/grades')}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex items-center gap-2 touch-target">

@@ -1,5 +1,11 @@
 import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
+import {
+  getSectioningThresholds,
+  DEFAULT_SECTIONING_THRESHOLDS,
+  SectioningThresholds,
+  ProgramEligibilityMinimums,
+} from "./schoolConfig";
 
 // ============================================================
 // AUTO-SECTIONING RULES ENGINE
@@ -15,14 +21,19 @@ import { RowDataPacket } from "mysql2";
 //    shuffle; the seed is reported so a run can be reproduced), while keeping
 //    each section's male-to-female ratio balanced (as close to 50/50 as the
 //    cohort and capacities allow, counting students already in the section).
-//  - STE applicants: GWA >= 85; Science & Mathematics >= 85; passed the
-//    entrance examination and the interview.
-//  - SPFL applicants: English & Filipino >= 85; passed the entrance
-//    examination and the interview (no GWA requirement).
-//  - Continuing (maintenance) eligibility for students already in STE/SPFL:
-//    STE must keep GWA >= 85 and Science/Mathematics >= 85; SPFL must keep
-//    English/Filipino >= 85. Students who fail are flagged for transfer to a
-//    Regular section.
+//  - STE applicants: General Average >= the screen's STE minimum (default 85);
+//    Science & Mathematics >= the STE subject minimums; passed the entrance
+//    examination and the interview.
+//  - SPFL applicants: English & Filipino >= the SPFL subject minimums (default
+//    85); passed the entrance examination and the interview (no GWA rule).
+//  - SPJ applicants: General Average >= the SPJ minimum (default 85) and
+//    English & Filipino >= the SPJ subject minimums; exam + interview.
+//    All minimums come from the Administrator's Grade Thresholds screen
+//    (section_type_config); the returned proposal reasons quote them.
+//  - Continuing (maintenance) eligibility for students already in STE/SPFL/SPJ:
+//    they must keep the program's configured minimums or they are flagged for
+//    transfer to a Regular section. The system never moves them on its own —
+//    the Enrollment Committee makes the transfer.
 //  - Only the program's own subjects are floored at 85 — no other subjects
 //    (e.g. MAPEH/TLE) and no per-grade config band influence eligibility.
 //  - Grade 11 -> 12 (and in general returning students): carry over the
@@ -96,7 +107,7 @@ export interface Proposal {
   sex: string;
   program: string;
   classification_tags: string[];
-  target_program: "ste" | "spfl" | "regular";
+  target_program: "ste" | "spfl" | "spj" | "regular";
   kind: "new" | "transfer" | "carryover";
   flagged: boolean;
   reason: string;
@@ -136,9 +147,30 @@ export interface BalanceSummary {
   }>;
 }
 
-const PASS_MARK = 85;
 
-const SPECIAL_TYPES = ["ste", "spfl"];
+/**
+ * Program eligibility minimums, resolved for the engine. When a field is
+ * undefined the legacy hard rule (85) applies, so historical call sites and
+ * unit tests keep their old behaviour.
+ */
+export type EligibilityMinimums = Partial<SectioningThresholds>;
+
+function thresholdsFor(mins: EligibilityMinimums | null | undefined): SectioningThresholds {
+  if (!mins) return {
+    ste: { ga: 85, science: 85, math: 85, english: null, filipino: null },
+    spfl: { ga: null, science: null, math: null, english: 85, filipino: 85 },
+    spj: { ga: 85, science: null, math: null, english: 85, filipino: 85 },
+    regular: { ga: 75 },
+  };
+  return {
+    ste: mins.ste ?? { ga: 85, science: 85, math: 85, english: null, filipino: null },
+    spfl: mins.spfl ?? { ga: null, science: null, math: null, english: 85, filipino: 85 },
+    spj: mins.spj ?? { ga: 85, science: null, math: null, english: 85, filipino: 85 },
+    regular: mins.regular ?? { ga: 75 },
+  };
+}
+
+const SPECIAL_TYPES = ["ste", "spfl", "spj"];
 
 const SUBJECT_MATCHERS: Record<"science" | "math" | "english" | "filipino", RegExp> = {
   science: /science|earth|biology|chemistry|physics/i,
@@ -400,65 +432,82 @@ function pushReason(reasons: string[], cond: boolean, message: string) {
   if (!cond) reasons.push(message);
 }
 
-export type ProgramType = "ste" | "spfl";
+export type ProgramType = "ste" | "spfl" | "spj";
 
-/** Subjects floored at 85 per special program — only these, no other subjects. */
-const SPECIAL_REQUIRED_SUBJECTS: Record<
-  ProgramType,
-  Array<{ key: "science" | "math" | "english" | "filipino"; label: string }>
-> = {
-  ste: [
-    { key: "science", label: "Science" },
-    { key: "math", label: "Mathematics" },
-  ],
-  spfl: [
-    { key: "english", label: "English" },
-    { key: "filipino", label: "Filipino" },
-  ],
+const SUBJECT_KEYS: Record<string, { key: "science" | "math" | "english" | "filipino"; label: string }[]> = {
+  science: [{ key: "science", label: "Science" }],
+  math: [{ key: "math", label: "Mathematics" }],
+  english: [{ key: "english", label: "English" }],
+  filipino: [{ key: "filipino", label: "Filipino" }],
 };
 
+/** Resolve the type's field-level minimums to check (empty = that program has no subject rules). */
+function requiredListFor(type: ProgramType, mins: ProgramEligibilityMinimums) {
+  const out: { key: "science" | "math" | "english" | "filipino"; label: string; minimum: number }[] = [];
+  for (const [key, entries] of Object.entries(SUBJECT_KEYS)) {
+    const minimum = (mins as any)[key];
+    if (minimum === null || minimum === undefined) continue;
+    for (const e of entries) out.push({ ...e, minimum: Number(minimum) });
+  }
+  return out;
+}
+
 /**
- * STE/SPFL eligibility.
+ * STE/SPFL/SPJ eligibility driven by the Administrator's Grade Thresholds
+ * screen (schoolConfig `getSectioningThresholds`) — the rules below are the
+ * paper's finalized criteria, with the 85/75 defaults standing in whenever a
+ * minimum is unset:
+ *  - STE: General Average >= min AND Science & Mathematics >= min.
+ *  - SPFL: English & Filipino >= min (no General Average rule).
+ *  - SPJ: General Average >= min AND English & Filipino >= min.
  *  - mode "entrance": new applicant. Exam + interview always required; academic
- *    checks apply once grade records exist (GWA >= 85 for STE, program subjects
- *    >= 85 for both). Applicants with no grades yet are judged on exam +
- *    interview alone so fresh enrollees aren't prematurely sent to Regular.
- *  - mode "continuing": current/returning member. Must keep the program's own
- *    subjects at >= 85 (STE also GWA >= 85) or they are flagged for transfer to
- *    Regular. A missing subject grade is tolerated; only a recorded grade below
- *    the passing mark breaks continuity.
- * Only the program's own subjects are floored at 85 — no other subjects
- * (e.g. MAPEH/TLE) and no per-grade config band influence eligibility.
+ *    checks apply once grade records exist. Applicants with no grades yet are
+ *    judged on exam + interview alone so fresh enrollees aren't prematurely
+ *    sent to Regular.
+ *  - mode "continuing": current/returning member. Must keep the program's
+ *    minimums (General Average included when configured) or they are flagged
+ *    for transfer to Regular. A missing subject grade is tolerated; only a
+ *    recorded grade below the applicable minimum breaks continuity.
+ * Only the program's own subjects are floored — no other subjects (e.g.
+ * MAPEH/TLE) influence eligibility.
  */
 export function evalProgramEligibility(
   student: CohortStudent,
   sectionType: ProgramType,
-  mode: "entrance" | "continuing"
+  mode: "entrance" | "continuing",
+  configured?: EligibilityMinimums
 ): EligibilityResult {
   const reasons: string[] = [];
   const ga = student.general_average;
-  const subjects = SPECIAL_REQUIRED_SUBJECTS[sectionType];
+  const cfg: SectioningThresholds = configured ? thresholdsFor(configured) : DEFAULT_SECTIONING_THRESHOLDS;
+  const mins: ProgramEligibilityMinimums = cfg[sectionType];
+  const gaMinimum = mins.ga;
+  const subjectMins = requiredListFor(sectionType, mins);
 
   const checkAcademics = mode === "continuing" || student.has_grades;
 
   if (checkAcademics) {
-    if (sectionType === "ste") {
+    if (gaMinimum !== null && gaMinimum !== undefined) {
       pushReason(reasons, ga !== null, ga === null ? "No general average on record" : "");
       if (ga !== null) {
-        pushReason(reasons, ga >= PASS_MARK, `GWA ${ga.toFixed(2)} below ${PASS_MARK}`);
+        pushReason(
+          reasons,
+          ga >= gaMinimum,
+          `General Average ${ga.toFixed(2)} below ${gaMinimum}`
+        );
       }
     }
 
-    for (const { key, label } of subjects) {
+    for (const { key, label, minimum } of subjectMins) {
       const grade = student[key];
       if (mode === "continuing") {
-        if (grade !== null && grade < PASS_MARK) {
-          reasons.push(`${label} grade (${grade}) below ${PASS_MARK}`);
+        if (grade !== null && grade < minimum) {
+          reasons.push(`${label} grade (${grade}) below ${minimum}`);
         }
       } else {
         pushReason(reasons, grade !== null, `${label} grade not on record`);
         if (grade !== null) {
-          pushReason(reasons, grade >= PASS_MARK, `${label} grade (${grade}) below ${PASS_MARK}`);
+          pushReason(reasons, grade >= minimum, `${label} grade (${grade}) below ${minimum}`);
         }
       }
     }
@@ -635,6 +684,10 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
 
   const cohort = await loadCohort(schoolYearId);
 
+  // Eligibility minimums from the Administrator's Grade Thresholds screen —
+  // changes apply to sectioning runs only, never to students already seated.
+  const configuredThresholds = await getSectioningThresholds();
+
   const proposals: Proposal[] = [];
   const ctx: BalanceContext = {
     existing: existingGender,
@@ -651,7 +704,7 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
       case "regular":
         return s.program === "regular" || s.program === "streamline";
       case "special":
-        return s.program === "ste" || s.program === "spfl";
+        return s.program === "ste" || s.program === "spfl" || s.program === "spj";
       case "carryover":
         return s.current_section_id === null || s.prev_section_id !== null;
       default:
@@ -667,26 +720,27 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
 
   // ── Phase 1: decide placement intent per student ──────────────────
   for (const student of considered) {
-    let target: "ste" | "spfl" | "regular";
+    let target: "ste" | "spfl" | "spj" | "regular";
     let kind: Proposal["kind"] = "new";
     let flagged = false;
     let eligibility: EligibilityResult = { eligible: true, reasons: [] };
     let reason = "";
 
-    const applicantSpecial =
-      student.program === "ste" || student.program === "spfl";
+    const applicantSpecial = isSpecialSectionType(student.program);
 
     if (student.current_section_id === null) {
       // RETURNING student — carry over the previous section first (per client
-      // rules), judged by continuing-eligibility when it was STE/SPFL. Only
+      // rules), judged by continuing-eligibility when it was STE/SPFL/SPJ. Only
       // students with no prior section are treated as new applicants.
       if (student.prev_section_id !== null && student.prev_section_type) {
         const prevType = student.prev_section_type;
         kind = "carryover";
         if (isSpecialSectionType(prevType)) {
-          const cont = evalProgramEligibility(student, prevType as ProgramType, "continuing");
+          const cont = evalProgramEligibility(
+            student, prevType as ProgramType, "continuing", configuredThresholds
+          );
           if (cont.eligible) {
-            target = prevType === "ste" ? "ste" : "spfl";
+            target = prevType as ProgramType;
             eligibility = { eligible: true, reasons: [] };
             reason = `Carried over from ${student.prev_section_name} (${prevType.toUpperCase()})`;
           } else {
@@ -700,9 +754,9 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
           reason = `Carried over from ${student.prev_section_name}`;
         }
       } else if (applicantSpecial) {
-        // NEW STE/SPFL applicant — entrance eligibility (exam + interview).
+        // NEW STE/SPFL/SPJ applicant — entrance eligibility (exam + interview).
         const myType = student.program as ProgramType;
-        eligibility = evalProgramEligibility(student, myType, "entrance");
+        eligibility = evalProgramEligibility(student, myType, "entrance", configuredThresholds);
         if (eligibility.eligible) {
           target = myType;
           reason = `${myType.toUpperCase()} applicant met eligibility requirements`;
@@ -723,7 +777,8 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
       const cont = evalProgramEligibility(
         student,
         student.current_section_type as ProgramType,
-        "continuing"
+        "continuing",
+        configuredThresholds
       );
       if (cont.eligible) {
         continue; // stays in place.
@@ -809,7 +864,7 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
     }
   };
 
-  const specialSection = (gradeLevel: number, type: "ste" | "spfl") => {
+  const specialSection = (gradeLevel: number, type: ProgramType) => {
     const gradeSections = sectionsByGrade.get(gradeLevel) || [];
     return gradeSections.filter(
       s =>
@@ -840,6 +895,7 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
   for (const [grade, list] of byGrade) {
     const steProposals = list.filter(p => p.target_program === "ste");
     const spflProposals = list.filter(p => p.target_program === "spfl");
+    const spjProposals = list.filter(p => p.target_program === "spj");
     const regularProposals = list.filter(
       p => p.target_program === "regular" && p.kind !== "transfer"
     );
@@ -858,9 +914,14 @@ export async function generateRulesPlan(options: RuleOptions): Promise<Generated
     applyAssignments(spflProposals, specialSection(grade, "spfl"));
     const spflOverflow = spflProposals.filter(p => p.proposed_section_id === null);
 
+    // SPJ applicants — fill the SPJ sections the same way.
+    applyAssignments(spjProposals, specialSection(grade, "spj"));
+    const spjOverflow = spjProposals.filter(p => p.proposed_section_id === null);
+
     // Any special-program overflow lands in regular sections, flagged.
     applyAssignments(steOverflow, regularSections, "no STE section capacity");
     applyAssignments(spflOverflow, regularSections, "no SPFL section capacity");
+    applyAssignments(spjOverflow, regularSections, "no SPJ section capacity");
 
     // Regular/Streamline + transfers — random, gender-balanced across regular.
     applyAssignments(regularProposals, regularSections);

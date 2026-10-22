@@ -139,6 +139,13 @@ export function PrincipalDashboard() {
       color: '#c084fc'
     },
     {
+      name: 'SPJ',
+      value: enrollments.filter(
+        e => e.status === 'enrolled' && e.program === 'spj'
+      ).length,
+      color: '#6366f1'
+    },
+    {
       name: 'Open High',
       value: enrollments.filter(
         e => e.status === 'enrolled' && e.program === 'open_high'

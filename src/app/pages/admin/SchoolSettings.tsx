@@ -8,7 +8,6 @@ import {
   UserCheck, FileText, ShieldCheck, Plus, Gauge, Shield
 } from "lucide-react";
 import { settingsApi, SectionTypeThreshold, LegalContentDoc } from "../../services/settings";
-import { sectionTypesApi, SectionType } from "../../services/sectionTypes";
 import { schoolYearsApi } from "../../services/schoolYears";
 import { useApp } from "../../context/AppContext";
 
@@ -143,7 +142,6 @@ export function SchoolSettings() {
   const [principalName, setPrincipalName] = useState("");
   const [registrarName, setRegistrarName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sectionTypes, setSectionTypes] = useState<SectionType[]>([]);
   // Grade security settings
   const [gradeDeadlineEnabled, setGradeDeadlineEnabled] = useState(false);
   const [gradeEditDeadline, setGradeEditDeadline] = useState("");
@@ -162,9 +160,7 @@ export function SchoolSettings() {
       settingsApi.get(),
       schoolYearsApi.list(),
       settingsApi.getThresholds(),
-      sectionTypesApi.list(),
-    ]).then(([settings, sys, thresholdsData, types]) => {
-      setSectionTypes(types);
+    ]).then(([settings, sys, thresholdsData]) => {
       setSchoolName(settings.school_name);
       setSchoolId(settings.school_id);
       setRegion(settings.region);
@@ -331,23 +327,63 @@ export function SchoolSettings() {
     }
   };
 
+  /* ── Auto-Sectioning Grade Thresholds (eligibility minimums) ── */
+
+  const updateThresholdMin = (sectionType: string, field: string, value: number | null) => {
+    setThresholds(prev => prev.map(t => t.section_type === sectionType ? { ...t, [field]: value } : t));
+  };
+
   const handleSaveThresholds = async () => {
+    // Client-side gate mirroring the server (spec: save is blocked with a clear message).
+    const fields = ["min_general_average", "min_science", "min_math", "min_english", "min_filipino"] as const;
+    const FIELD_LABELS: Record<string, string> = {
+      min_general_average: "General Average minimum",
+      min_science: "Science minimum",
+      min_math: "Mathematics minimum",
+      min_english: "English minimum",
+      min_filipino: "Filipino minimum",
+    };
+    const labelOf = (t: SectionTypeThreshold) => (t.label || t.section_type).toUpperCase().replace(/\s*\(.*\)\s*$/, "");
+    for (const t of thresholds) {
+      if (t.section_type === "non_reader") continue;
+      for (const f of fields) {
+        const raw = (t as any)[f];
+        const shown = raw === 0 || raw !== null && raw !== undefined && raw !== "";
+        if (shown) {
+          const n = Number(raw);
+          if (!Number.isFinite(n) || n < 0 || n > 100) {
+            showToast("error", `${FIELD_LABELS[f]} for ${labelOf(t)} must be a number between 0 and 100.`);
+            return;
+          }
+        }
+      }
+    }
     setSaving(true);
     try {
       const updated = await settingsApi.updateThresholds({
-        thresholds: thresholds
-          .map(t => ({ id: t.id, min_average: t.min_average, max_average: t.max_average }))});
-      setThresholds(updated);
-      showToast("success", "Auto-sectioning thresholds saved successfully.");
+        types: thresholds
+          .filter(t => t.section_type !== "non_reader")
+          .map(t => ({
+            section_type: t.section_type,
+            min_general_average: t.min_general_average,
+            min_science: t.min_science,
+            min_math: t.min_math,
+            min_english: t.min_english,
+            min_filipino: t.min_filipino,
+          })),
+      });
+      setThresholds(updated.thresholds);
+      showToast(
+        "success",
+        updated.sections_raised > 0
+          ? `Eligibility minimums saved. ${updated.sections_raised} section minimum(s) raised to match their type's rule.`
+          : "Eligibility minimums saved successfully."
+      );
     } catch (err: any) {
       showToast("error", err.detail?.error || err.message || "Failed to save thresholds");
     } finally {
       setSaving(false);
     }
-  };
-
-  const updateThreshold = (id: number, field: "min_average" | "max_average", value: number) => {
-    setThresholds(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t));
   };
 
   if (loading) {
@@ -751,12 +787,12 @@ export function SchoolSettings() {
             </div>
             <div>
               <h3 className="font-semibold text-gray-900 text-sm">Auto-Sectioning Grade Thresholds</h3>
-              <p className="text-xs text-gray-400">Configure grade average ranges for automatic section assignment</p>
+              <p className="text-xs text-gray-400">Eligibility minimums for STE, SPFL, SPJ and Regular placement</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex-shrink-0">
             <AlertTriangle size={13} className="text-amber-500" />
-            <span className="text-xs text-amber-700 font-medium">Changes affect next auto-sectioning run</span>
+            <span className="text-xs text-amber-700 font-medium">Applies to future sectioning runs only</span>
           </div>
         </div>
 
@@ -764,101 +800,128 @@ export function SchoolSettings() {
           <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4">
             <Info size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-blue-700">
-              Grade averages from the previous school year are used to automatically assign sections to continuing students.
-              Thresholds must not overlap and must cover the full range from 0 to 100.
+              Continuing students are checked against the previous school year's General Average and subject grades.
+              For STE, SPFL and SPJ the system only shows who meets the grade requirements — the entrance exam and
+              interview happen outside the system and the Enrollment Committee confirms each placement. Regular
+              students are placed at random with an even gender split; a General Average below the passing minimum
+              is retained, never blocked, and still gets a Regular section.
             </p>
           </div>
 
-          {sectionTypes.filter(t => t.is_active).sort((a, b) => a.sort_order - b.sort_order).map(sectionType => {
-            const displayName = sectionType.label || sectionType.name;
-            const description = `Section type with sort order ${sectionType.sort_order}`;
-            const isCore = sectionType.is_locked === 1;
+          {thresholds
+            .filter(t => ["ste", "spfl", "spj", "regular", "non_reader"].includes(t.section_type))
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map(t => {
+            const sectionType = t.section_type;
+            const displayName = t.label || sectionType.toUpperCase();
+            const isNonReader = sectionType === "non_reader";
             // Color classes: color_code is either the Tailwind triple written
             // by Manage Types ('bg-green-100 text-green-700 border-green-200')
             // or a legacy short name seeded before the UI ('amber'). Reuse the
             // stored tokens as-is (they are real classes the badge already
             // renders) and fall back to neutral greys for anything older.
-            const colorCode = sectionType.color_code || "";
+            const colorCode = t.color_code || "";
             const classFor = (rule: RegExp, fallback: string) => colorCode.match(rule)?.[0] || fallback;
             const bgColor = classFor(/bg-[a-z]+-\d+/, "bg-gray-50");
             const borderColor = classFor(/border-[a-z]+-\d+/, "border-gray-200");
             const textColor = classFor(/text-[a-z]+-\d+/, "text-gray-700");
-            // Get the row for the lowest grade level (used as the editable entry point)
-            const t = thresholds
-              .filter(th => th.section_type === sectionType.name)
-              .sort((a, b) => a.grade_level - b.grade_level)[0];
 
-            if (!t) {
-              return (
-                <div key={sectionType.name} className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 overflow-hidden">
-                  <div className="px-4 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200">
-                        <span className="text-sm">{sectionType.icon || sectionType.name.charAt(0).toUpperCase()}</span>
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-sm text-gray-500">{displayName}</p>
-                        <p className="text-gray-400 text-xs">No thresholds configured</p>
-                      </div>
-                    </div>
-                    <span className="text-xs text-gray-400">—</span>
-                  </div>
-                </div>
-              );
-            }
+            // Fields shown per the finalized criteria table.
+            const fieldsToShow: { key: string; label: string; disabled: boolean }[] = isNonReader
+              ? []
+              : [
+                  { key: "min_general_average", label: "General Average minimum", disabled: sectionType === "spfl" },
+                  ...(sectionType === "ste"
+                    ? [{ key: "min_science", label: "Science minimum", disabled: false },
+                       { key: "min_math", label: "Mathematics minimum", disabled: false }]
+                    : []),
+                  ...(sectionType === "spfl" || sectionType === "spj"
+                    ? [{ key: "min_english", label: "English minimum", disabled: false },
+                       { key: "min_filipino", label: "Filipino minimum", disabled: false }]
+                    : []),
+                ];
+
+            const summaryParts = isNonReader
+              ? ["No grade rule"]
+              : [
+                  ...(t.min_general_average != null ? [`GA ${Number(t.min_general_average)}`] : []),
+                  ...(t.min_science != null ? [`Sci ${Number(t.min_science)}`] : []),
+                  ...(t.min_math != null ? [`Math ${Number(t.min_math)}`] : []),
+                  ...(t.min_english != null ? [`Eng ${Number(t.min_english)}`] : []),
+                  ...(t.min_filipino != null ? [`Fil ${Number(t.min_filipino)}`] : []),
+                ];
 
             return (
-            <div key={sectionType.name} className={`rounded-xl border ${borderColor} ${bgColor} overflow-hidden`}>
-              <button onClick={() => setExpandedSection(expandedSection === sectionType.name ? null : sectionType.name)}
+            <div key={sectionType} className={`rounded-xl border ${borderColor} ${bgColor} overflow-hidden`}>
+              <button onClick={() => setExpandedSection(expandedSection === sectionType ? null : sectionType)}
                 className="w-full px-4 py-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border ${borderColor}`}>
-                    <span className="text-sm">{sectionType.icon || sectionType.name.charAt(0).toUpperCase()}</span>
+                    <span className="text-sm">{t.icon || sectionType.charAt(0).toUpperCase()}</span>
                   </div>
                   <div className="text-left">
                     <p className={`font-semibold text-sm ${textColor}`}>{displayName}</p>
-                    <p className="text-gray-500 text-xs">{description}</p>
+                    <p className="text-gray-500 text-xs">
+                      {isNonReader
+                        ? "Teacher tagged only — no grade minimums"
+                        : "Eligibility minimum for new and continuing students"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`text-sm font-bold px-3 py-1 rounded-full bg-white border ${borderColor} ${textColor}`}>
-                    {t.max_average === 100 ? `${t.min_average} – 100` : `${t.min_average} – ${t.max_average}`}
+                    {summaryParts.length > 0 ? summaryParts.join(" · ") : "None"}
                   </span>
-                  {isCore && <span className="flex items-center gap-1 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-200"><Lock size={11} /> Core</span>}
-                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedSection === sectionType.name ? "rotate-180" : ""}`} />
+                  {isNonReader && (
+                    <span className="flex items-center gap-1 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-200">
+                      <Lock size={11} /> Tag only
+                    </span>
+                  )}
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedSection === sectionType ? "rotate-180" : ""}`} />
                 </div>
               </button>
-              {expandedSection === sectionType.name && (
+              {expandedSection === sectionType && (
                 <div className="px-4 pb-4 border-t border-white/60 pt-4">
-                  {isCore && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/70 rounded-lg p-3 border border-gray-200 mb-3">
+                  {isNonReader ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/70 rounded-lg p-3 border border-gray-200">
                       <Shield size={13} className="text-gray-400" />
-                      Core section type — its threshold can still be customized to match your school's policy.
+                      Non-Reader placement is a teacher's tag, never grades. No minimum or maximum applies — tagging
+                      does not move a student; the Enrollment Committee or Registrar places tagged students into a
+                      Non-Reader section.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {fieldsToShow.map(f => (
+                        <div key={f.key}>
+                          <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">{f.label}</label>
+                          <input type="number" min={0} max={100} step="0.01" value={f.disabled ? "" : String((t as any)[f.key] ?? "")}
+                            onChange={e => updateThresholdMin(sectionType, f.key, e.target.value === "" ? null : Number(e.target.value))}
+                            disabled={f.disabled}
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white disabled:bg-gray-100 disabled:text-gray-400" />
+                          {f.disabled && sectionType === "spfl" && f.key === "min_general_average" && (
+                            <p className="text-[11px] text-gray-400 mt-1.5">SPFL has no General Average rule — English and Filipino minimums apply.</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Minimum Average</label>
-                      <input type="number" min={0} max={100} step="0.01" value={t.min_average}
-                        onChange={e => updateThreshold(t.id, "min_average", Number(e.target.value))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white" />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.06em] mb-1.5">Maximum Average</label>
-                      <input type="number" min={0} max={100} step="0.01" value={t.max_average ?? ""}
-                        onChange={e => updateThreshold(t.id, "max_average", e.target.value === "" ? t.max_average ?? 100 : Number(e.target.value))}
-                        disabled={t.max_average === 100}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400 bg-white disabled:bg-gray-100 disabled:text-gray-400" />
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
             );
           })}
+
+          <div className="flex items-start gap-2 bg-gray-50 border border-gray-100 rounded-xl p-3">
+            <Info size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-gray-500">
+              ALS and Open High School are not listed — they have no grade rule and are placed manually, never
+              auto-sectioned. Only the Administrator and the Enrollment Committee can edit these minimums, and every
+              change is written to the Activity Log.
+            </p>
+          </div>
         </div>
-        {sectionFooter(handleSaveThresholds, "Save Thresholds",
-          <p className="text-xs text-gray-400 flex items-center gap-1.5 mr-auto"><Info size={13} className="text-gray-400" />Thresholds apply to all Grade 7–12 sections upon next auto-sectioning run.</p>
+        {sectionFooter(handleSaveThresholds, "Save Eligibility Minimums",
+          <p className="text-xs text-gray-400 flex items-center gap-1.5 mr-auto"><Info size={13} className="text-gray-400" />Changes never move already-sectioned students.</p>
         )}
       </div>
     </div>

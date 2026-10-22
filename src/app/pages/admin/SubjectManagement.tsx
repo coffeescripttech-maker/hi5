@@ -66,6 +66,7 @@ const PROGRAM_OPTIONS: { value: string; label: string }[] = [
   { value: 'regular', label: 'Regular' },
   { value: 'ste', label: 'STE' },
   { value: 'spfl', label: 'SPFL' },
+  { value: 'spj', label: 'SPJ' },
   { value: 'open_high', label: 'Open High School' },
   { value: 'als_jhs', label: 'ALS JHS' },
   { value: 'als_shs', label: 'ALS SHS' }
@@ -78,6 +79,7 @@ const PROGRAM_BADGE: Record<string, { label: string; cls: string }> = {
   },
   ste: { label: 'STE', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
   spfl: { label: 'SPFL', cls: 'bg-teal-100 text-teal-700 border-teal-200' },
+  spj: { label: 'SPJ', cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
   open_high: {
     label: 'Open HS',
     cls: 'bg-amber-100 text-amber-700 border-amber-200'

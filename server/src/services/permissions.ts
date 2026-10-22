@@ -110,8 +110,6 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
     "committee_section_assignment",
     "committee_document_verification",
     "committee_transfers",
-    "registrar_students",
-    "registrar_document_completion",
     "committee_profile",
     "committee_guide",
   ],

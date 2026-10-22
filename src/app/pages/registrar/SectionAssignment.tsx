@@ -80,6 +80,7 @@ const PROGRAM_LABELS: Record<string, string> = {
   regular: 'Regular',
   ste: 'STE',
   spfl: 'SPFL',
+  spj: 'SPJ',
   open_high: 'Open HS',
   als_shs: 'ALS-SHS',
   als_jhs: 'ALS-JHS'
@@ -1352,7 +1353,8 @@ export function SectionAssignment() {
                         </span>
                         <span className="font-semibold text-purple-700">
                           {rulesPlan.summary.by_program.ste +
-                            rulesPlan.summary.by_program.spfl}
+                            rulesPlan.summary.by_program.spfl +
+                            rulesPlan.summary.by_program.spj}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -1365,6 +1367,12 @@ export function SectionAssignment() {
                         <span className="text-gray-600 pl-4">SPFL</span>
                         <span className="font-semibold text-purple-700">
                           {rulesPlan.summary.by_program.spfl}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 pl-4">SPJ</span>
+                        <span className="font-semibold text-purple-700">
+                          {rulesPlan.summary.by_program.spj}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">

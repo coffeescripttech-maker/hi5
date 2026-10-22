@@ -133,14 +133,29 @@ export async function updateSettings(req: Request, res: Response): Promise<void>
 }
 
 /**
- * GET /api/settings/thresholds — Get section type thresholds for all grade levels
+ * GET /api/settings/thresholds — Program eligibility minimums for the
+ * Auto-Sectioning Grade Thresholds screen.
+ *
+ * Returns one entry per section TYPE (all grade rows share the same minimums):
+ * STE, SPFL, SPJ and Regular carry the configurable minimums; Non-Reader
+ * carries none (all null — teacher-tagged only); ALS and Open High School are
+ * enrollment programs, never auto-sectioned, and are not listed.
  */
 export async function getThresholds(_req: Request, res: Response): Promise<void> {
   try {
     const rows = await query<RowDataPacket[]>(
-      `SELECT stc.* FROM section_type_config stc
-       JOIN section_types st ON stc.section_type = st.name
-       ORDER BY stc.grade_level, st.sort_order`
+      `SELECT c.section_type, s.label, s.icon, s.color_code, s.sort_order,
+              MIN(c.min_general_average) AS min_general_average,
+              MIN(c.min_science) AS min_science,
+              MIN(c.min_math) AS min_math,
+              MIN(c.min_english) AS min_english,
+              MIN(c.min_filipino) AS min_filipino,
+              COUNT(DISTINCT c.grade_level) AS grade_row_count
+       FROM section_type_config c
+       JOIN section_types s ON c.section_type = s.name
+       WHERE c.section_type IN ('ste', 'spfl', 'spj', 'regular', 'non_reader')
+       GROUP BY c.section_type, s.label, s.icon, s.color_code, s.sort_order
+       ORDER BY s.sort_order`
     );
     res.json(rows);
   } catch (error) {
@@ -150,156 +165,175 @@ export async function getThresholds(_req: Request, res: Response): Promise<void>
 }
 
 /**
- * PUT /api/settings/thresholds — Update section type thresholds
- * Body: { thresholds: { id: number, min_average: number, max_average: number }[] }
+ * PUT /api/settings/thresholds — Save program eligibility minimums.
+ * Body: { types: [{ section_type, min_general_average, min_science,
+ *                   min_math, min_english, min_filipino }] }
+ *
+ * Finalized rules:
+ *  - Every editable value must be a number from 0 to 100 — blank, non-numeric
+ *    or out-of-range values are rejected with a clear message.
+ *  - Non-Reader: saving ANY minimum is rejected — its fields are stored empty
+ *    (NULL), never 0 or 100, because placement there is a teacher's tag only.
+ *  - STE: General Average + Science + Mathematics minimums.
+ *  - SPFL: English + Filipino minimums only (no General Average rule) — a
+ *    General Average value for SPFL is rejected.
+ *  - SPJ: General Average + English + Filipino minimums.
+ *  - Regular: General Average minimum (passing grade); below-minimum students
+ *    are retained, never blocked from a Regular section.
+ *  - After saving, sections of the affected type are raised to their type's
+ *    floor so a section can never admit a student the type's rule rejects.
+ *  - Ordinary values are written to every grade row of the type; changes apply
+ *    to the next sectioning run and every change is written to the Activity Log.
  */
 export async function updateThresholds(req: Request, res: Response): Promise<void> {
   try {
-    const { thresholds } = req.body;
+    const { types } = req.body;
 
-    if (!Array.isArray(thresholds) || thresholds.length === 0) {
-      res.status(400).json({ error: "thresholds array is required." });
+    if (!Array.isArray(types) || types.length === 0) {
+      res.status(400).json({ error: "No threshold values were submitted. Enter the minimums and save again." });
       return;
     }
 
-    // Current rows (needed to know each id's grade_level + section_type and to
-    // validate the whole tiling per grade, not just the submitted subset).
-    const current = await query<RowDataPacket[]>(
-      `SELECT stc.*, st.name AS section_type, st.label FROM section_type_config stc
-       JOIN section_types st ON stc.section_type = st.name`
-    );
-
-    // Merge submitted values over the current rows.
-    const merged = current.map((r) => ({ ...r }));
-    const updateMap = new Map<number, { min_average?: number | null; max_average?: number | null }>();
-    for (const t of thresholds) {
-      if (!t.id || (t.min_average === undefined && t.max_average === undefined)) continue;
-      updateMap.set(Number(t.id), {
-        min_average: t.min_average !== undefined ? Number(t.min_average) : undefined,
-        max_average: t.max_average !== undefined ? (t.max_average === null ? null : Number(t.max_average)) : undefined,
-      });
-    }
-    for (const row of merged) {
-      const u = updateMap.get(Number(row.id));
-      if (!u) continue;
-      if (u.min_average !== undefined) row.min_average = u.min_average;
-      if (u.max_average !== undefined) row.max_average = u.max_average;
-    }
-
-    // Which rows the client actually changed (frontend resends every row, so
-    // only ids whose value differs from the stored row count as "edited").
-    const minOf = (row: any) => Number(row.min_average);
-    const maxOf = (row: any) => (row.max_average === null || row.max_average === undefined ? 100 : Number(row.max_average));
-    const rangeString = (row: any) => `${minOf(row)}–${maxOf(row) === 100 ? "100" : maxOf(row)}`;
-
-    const editedIds = new Set<number>();
-    for (const t of thresholds) {
-      const orig = current.find((c) => Number(c.id) === Number(t.id));
-      if (!orig) continue;
-      const key = Number(t.id);
-      if (t.min_average !== undefined && Number(orig.min_average) !== Number(t.min_average)) editedIds.add(key);
-      else if (t.max_average !== undefined && maxOf(orig) !== (t.max_average === null ? 100 : Number(t.max_average))) editedIds.add(key);
-    }
-
-    // Per-row sanity checks.
-    for (const row of merged) {
-      const min = minOf(row);
-      const max = maxOf(row);
-      if (!Number.isFinite(min) || min < 0 || min > 100) {
-        res.status(400).json({ error: `Threshold "${row.section_type}" (Grade ${row.grade_level}): minimum average must be between 0 and 100. Try a value like 75.` });
-        return;
-      }
-      if (!Number.isFinite(max) || max < 0 || max > 100) {
-        res.status(400).json({ error: `Threshold "${row.section_type}" (Grade ${row.grade_level}): maximum average must be between 0 and 100. Try a value like 80.` });
-        return;
-      }
-      if (min > max) {
-        res.status(400).json({ error: `Threshold "${row.section_type}" (Grade ${row.grade_level}): minimum average (${min}) cannot exceed maximum average (${max}). Set the maximum average to ${min} or higher.` });
-        return;
-      }
-    }
-
-    // Tiling check per grade level: sorted lowest→highest, each band must run
-    // straight into the next (upper.min === lower.max + 1) — that makes the
-    // effective ranges continuous with no overlap and no gap. The bottom band
-    // must start at 0 and the top band must end at 100.
-    // e.g. non_reader [0,74] · regular [75,79] · ... · ste [90,100]
-    const byGrade = new Map<number, any[]>();
-    for (const row of merged) {
-      if (!byGrade.has(row.grade_level)) byGrade.set(row.grade_level, []);
-      byGrade.get(row.grade_level)!.push(row);
-    }
-
-    // Suggest the corrected value for the band the user just edited. When only
-    // one of the two conflicting bands was changed, point at that one.
-    const adjFix = (lower: any, upper: any): string => {
-      const lowerEdited = editedIds.has(Number(lower.id));
-      const upperEdited = editedIds.has(Number(upper.id));
-      if (upperEdited && !lowerEdited) {
-        return ` Set "${upper.section_type}" to start at ${maxOf(lower) + 1}.`;
-      }
-      if (lowerEdited && !upperEdited) {
-        return ` Set "${lower.section_type}" to end at ${minOf(upper) - 1}.`;
-      }
-      return ` Start "${upper.section_type}" at ${maxOf(lower) + 1} (or end "${lower.section_type}" at ${minOf(upper) - 1}).`;
+    // Applicable fields per type (from the finalized criteria table).
+    const REQUIRED: Record<string, string[]> = {
+      ste: ["min_general_average", "min_science", "min_math"],
+      spfl: ["min_english", "min_filipino"],
+      spj: ["min_general_average", "min_english", "min_filipino"],
+      regular: ["min_general_average"],
     };
+    const FIELDS = ["min_general_average", "min_science", "min_math", "min_english", "min_filipino"];
+    const FIELD_LABELS: Record<string, string> = {
+      min_general_average: "General Average minimum",
+      min_science: "Science minimum",
+      min_math: "Mathematics minimum",
+      min_english: "English minimum",
+      min_filipino: "Filipino minimum",
+    };
+    const typeLabels: Record<string, string> = { ste: "STE", spfl: "SPFL", spj: "SPJ", regular: "Regular", non_reader: "Non-Reader" };
 
-    for (const [grade, tiers] of byGrade) {
-      tiers.sort((a, b) => minOf(a) - minOf(b));
-      const bottom = tiers[0];
-      const top = tiers[tiers.length - 1];
-      if (minOf(bottom) !== 0) {
-        res.status(400).json({
-          error: `Grade ${grade}: thresholds must cover the full range from 0 to 100. The lowest threshold "${bottom.section_type}" must start at 0 — set its minimum average to 0 (it is currently ${minOf(bottom)}).`,
-        });
+    for (const t of types) {
+      const type = String(t?.section_type ?? "").toLowerCase();
+
+      if (type === "non_reader") {
+        const anyValue = FIELDS.some((f) => t[f] !== undefined && t[f] !== null && t[f] !== "");
+        if (anyValue) {
+          res.status(400).json({
+            error: "Non-Reader sections have no minimum and no maximum — they are placed by a teacher's tag only. Leave all Non-Reader fields empty.",
+          });
+          return;
+        }
+        continue;
+      }
+
+      const required = REQUIRED[type];
+      if (!required) {
+        res.status(400).json({ error: `"${type}" cannot be configured here. Only STE, SPFL, SPJ, Regular and Non-Reader appear on this screen; ALS and Open High School students are placed manually.` });
         return;
       }
-      if (maxOf(top) !== 100) {
-        res.status(400).json({
-          error: `Grade ${grade}: thresholds must cover the full range from 0 to 100. The highest threshold "${top.section_type}" must end at 100 — set its maximum average to 100 (it is currently ${maxOf(top)}).`,
-        });
-        return;
+
+      // Validate: required fields must be a number 0–100 (blank is blocked).
+      for (const f of required) {
+        const raw = t[f];
+        if (raw === undefined || raw === null || raw === "") {
+          res.status(400).json({
+            error: `${FIELD_LABELS[f]} for ${typeLabels[type]} cannot be blank. Enter a value between 0 and 100.`,
+          });
+          return;
+        }
+        const n = Number(raw);
+        if (!Number.isFinite(n)) {
+          res.status(400).json({
+            error: `${FIELD_LABELS[f]} for ${typeLabels[type]} must be a number. "${raw}" is not valid — try ${REQUIRED[type]!.indexOf(f) >= 0 ? "85" : "75"}.`,
+          });
+          return;
+        }
+        if (n < 0 || n > 100) {
+          res.status(400).json({
+            error: `${FIELD_LABELS[f]} for ${typeLabels[type]} must be between 0 and 100 (it is ${n}).`,
+          });
+          return;
+        }
       }
-      for (let i = 0; i < tiers.length - 1; i++) {
-        const lower = tiers[i];
-        const upper = tiers[i + 1];
-        if (minOf(upper) !== maxOf(lower) + 1) {
-          if (minOf(upper) < maxOf(lower) + 1) {
-            res.status(400).json({
-              error: `Grade ${grade}: thresholds must not overlap. "${lower.section_type}" (${rangeString(lower)}) and "${upper.section_type}" (${rangeString(upper)}) overlap.${adjFix(lower, upper)}`,
-            });
-          } else {
-            res.status(400).json({
-              error: `Grade ${grade}: thresholds must cover the full range from 0 to 100. There is a gap between "${lower.section_type}" (ends at ${maxOf(lower)}) and "${upper.section_type}" (starts at ${minOf(upper)}).${adjFix(lower, upper)}`,
-            });
-          }
+
+      // Not-applicable subject fields for this type must stay empty.
+      const notApplicable = FIELDS.filter((f) => !required.includes(f));
+      for (const f of notApplicable) {
+        const raw = t[f];
+        if (raw !== undefined && raw !== null && raw !== "") {
+          res.status(400).json({
+            error: `${FIELD_LABELS[f]} does not apply to ${typeLabels[type]} under the school's criteria. Leave it empty.`,
+          });
           return;
         }
       }
     }
 
-    for (const t of thresholds) {
-      if (t.id && (t.min_average !== undefined || t.max_average !== undefined)) {
-        const fields: string[] = [];
-        const params: any[] = [];
-        if (t.min_average !== undefined) { fields.push("min_average = ?"); params.push(Number(t.min_average)); }
-        if (t.max_average !== undefined) { fields.push("max_average = ?"); params.push(t.max_average === null ? null : Number(t.max_average)); }
-        params.push(t.id);
-        await query<ResultSetHeader>(
-          `UPDATE section_type_config SET ${fields.join(", ")} WHERE id = ?`,
-          params
+    let sectionsRaised = 0;
+    for (const t of types) {
+      const type = String(t.section_type).toLowerCase();
+      if (type === "non_reader") continue; // stays empty — no grade rule
+
+      const fields: string[] = [];
+      const params: any[] = [];
+      for (const f of FIELDS) {
+        if (REQUIRED[type].includes(f)) {
+          fields.push(`${f} = ?`);
+          params.push(Number(t[f]));
+        } else {
+          fields.push(`${f} = NULL`);
+        }
+      }
+      params.push(type);
+      await query<ResultSetHeader>(
+        `UPDATE section_type_config SET ${fields.join(", ")} WHERE section_type = ?`,
+        params
+      );
+
+      // Keep per-section minimums coherent: a section's minimum may exceed its
+      // type's floor (adjustable per section) but never fall below it.
+      const gaFloor = REQUIRED[type].includes("min_general_average") ? Number(t.min_general_average) : null;
+      let floor = gaFloor;
+      if (floor === null && type === "spfl") {
+        // SPFL sections use the subject floor as their minimum average (85).
+        floor = Math.max(Number(t.min_english ?? 0), Number(t.min_filipino ?? 0));
+      }
+      if (floor !== null) {
+        const result = await query<ResultSetHeader>(
+          `UPDATE sections SET min_average = GREATEST(min_average, ?)
+           WHERE section_type = ? AND min_average < ?`,
+          [floor, type, floor]
         );
+        sectionsRaised += result.affectedRows || 0;
       }
     }
 
-    await logActivity(req.user!.userId, "Updated section type thresholds", "settings", 0);
-
-    const updated = await query<RowDataPacket[]>(
-      `SELECT stc.* FROM section_type_config stc
-       JOIN section_types st ON stc.section_type = st.name
-       ORDER BY stc.grade_level, st.sort_order`
+    const changed = types
+      .map((t) => typeLabels[String(t.section_type).toLowerCase()])
+      .filter(Boolean)
+      .join(", ");
+    await logActivity(
+      req.user!.userId,
+      `Updated sectioning eligibility minimums (${changed})${sectionsRaised > 0 ? ` — ${sectionsRaised} section minimum(s) raised to match` : ""}`,
+      "settings",
+      0
     );
-    res.json(updated);
+
+    // Return the refreshed per-type view the screen renders.
+    const rows = await query<RowDataPacket[]>(
+      `SELECT c.section_type, s.label, s.icon, s.color_code, s.sort_order,
+              MIN(c.min_general_average) AS min_general_average,
+              MIN(c.min_science) AS min_science,
+              MIN(c.min_math) AS min_math,
+              MIN(c.min_english) AS min_english,
+              MIN(c.min_filipino) AS min_filipino,
+              COUNT(DISTINCT c.grade_level) AS grade_row_count
+       FROM section_type_config c
+       JOIN section_types s ON c.section_type = s.name
+       WHERE c.section_type IN ('ste', 'spfl', 'spj', 'regular', 'non_reader')
+       GROUP BY c.section_type, s.label, s.icon, s.color_code, s.sort_order
+       ORDER BY s.sort_order`
+    );
+    res.json({ thresholds: rows, sections_raised: sectionsRaised });
   } catch (error) {
     console.error("Update thresholds error:", error);
     res.status(500).json({ error: "Failed to update section thresholds." });

@@ -49,6 +49,7 @@ type GradeEntry = {
 const PROGRAM_LABEL: Record<string, string> = {
   ste: 'STE',
   spfl: 'SPFL',
+  spj: 'SPJ',
   als_jhs: 'ALS (JHS)',
   als_shs: 'ALS (SHS)',
   open_high: 'Open High'

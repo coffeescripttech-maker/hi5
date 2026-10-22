@@ -550,18 +550,6 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
           label: 'Document Verification',
           icon: ClipboardList,
           path: '/committee/documents'
-        },
-        {
-          key: 'registrar_students',
-          label: 'Student Search',
-          icon: Search,
-          path: '/registrar/students'
-        },
-        {
-          key: 'registrar_document_completion',
-          label: 'Enrollment Document Checklist',
-          icon: ClipboardList,
-          path: '/registrar/document-completion'
         }
       ]
     },

@@ -142,7 +142,7 @@ export interface RulesProposal {
   sex: string;
   program: string;
   classification_tags: string[];
-  target_program: "ste" | "spfl" | "regular";
+  target_program: "ste" | "spfl" | "spj" | "regular";
   kind: "new" | "transfer" | "carryover";
   flagged: boolean;
   reason: string;

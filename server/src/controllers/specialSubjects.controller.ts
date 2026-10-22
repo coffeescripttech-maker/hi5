@@ -41,7 +41,7 @@ const GRADES = [7, 8, 9, 10, 11, 12];
  * `enrollments.program`, so a subject scoped here surfaces on the SF9 only for
  * learners enrolled in that program.
  */
-const PROGRAM_SCOPES = ["regular", "ste", "spfl", "open_high", "als_shs", "als_jhs"];
+const PROGRAM_SCOPES = ["regular", "ste", "spfl", "spj", "open_high", "als_shs", "als_jhs"];
 
 /**
  * Validate a `strand_track_ids` payload and confirm every id exists.

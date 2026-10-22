@@ -138,6 +138,12 @@ const PROGRAMS = [
     color: 'teal'
   },
   {
+    value: 'spj',
+    label: 'SPJ',
+    desc: 'Special Program in Journalism',
+    color: 'indigo'
+  },
+  {
     value: 'open_high',
     label: 'Open High School',
     desc: 'Flexible learning for independent study',
@@ -168,6 +174,7 @@ const PROGRAM_BADGES: Record<
   },
   ste: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'STE' },
   spfl: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'SPFL' },
+  spj: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'SPJ' },
   open_high: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Open High' },
   als_shs: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'ALS SHS' },
   als_jhs: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'ALS JHS' }
@@ -184,10 +191,10 @@ const REQUIREMENTS_LIST = [
   { key: 'lrn_verification', label: 'LRN Verification Slip' }
 ];
 
-// ── STE/SPFL admission evidence ──────────────────────────────────────────
+// ── STE/SPFL/SPJ admission evidence ─────────────────────────────────────
 // Recorded at enrollment time (entrance exam + interview) and consumed by
 // the registrar's auto-sectioning eligibility engine. Only relevant for
-// STE/SPFL programs; null means "not yet assessed".
+// the special programs; null means "not yet assessed".
 export interface AdmissionState {
   entrance_exam_passed: boolean | null;
   entrance_exam_grade: string;
@@ -209,7 +216,7 @@ function AdmissionAssessment({
   value: AdmissionState;
   onChange: (next: AdmissionState) => void;
 }) {
-  if (program !== 'ste' && program !== 'spfl') return null;
+  if (program !== 'ste' && program !== 'spfl' && program !== 'spj') return null;
 
   return (
     <div>
@@ -2911,7 +2918,7 @@ export function EnrollmentModule() {
                 </div>
               </div>
 
-              {/* Admission assessment for STE/SPFL applicants */}
+              {/* Admission assessment for STE/SPFL/SPJ applicants */}
               <AdmissionAssessment
                 program={program}
                 value={admission}
@@ -3960,7 +3967,7 @@ export function EnrollmentModule() {
                 </div>
               </div>
 
-              {/* Admission assessment for STE/SPFL applicants */}
+              {/* Admission assessment for STE/SPFL/SPJ applicants */}
               <AdmissionAssessment
                 program={program}
                 value={admission}

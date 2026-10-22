@@ -27,6 +27,7 @@ const PROGRAMS: { value: string; label: string }[] = [
   { value: "regular", label: "Regular (mainstream)" },
   { value: "ste", label: "STE" },
   { value: "spfl", label: "SPFL" },
+  { value: "spj", label: "SPJ" },
   { value: "open_high", label: "Open High School" },
   { value: "als_shs", label: "ALS — SHS" },
   { value: "als_jhs", label: "ALS — JHS" },

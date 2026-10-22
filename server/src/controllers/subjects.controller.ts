@@ -21,7 +21,7 @@ interface SubjectRow extends RowDataPacket {
 }
 
 /** Program values a subject may be scoped to (mirrors enrollments.program). */
-const PROGRAM_SCOPES = ["regular", "ste", "spfl", "open_high", "als_shs", "als_jhs"];
+const PROGRAM_SCOPES = ["regular", "ste", "spfl", "spj", "open_high", "als_shs", "als_jhs"];
 const isProgramScope = (v: unknown): v is string =>
   typeof v === "string" && PROGRAM_SCOPES.includes(v);
 
