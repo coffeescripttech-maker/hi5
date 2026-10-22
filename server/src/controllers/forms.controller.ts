@@ -285,6 +285,10 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
       {
         program: enrollments[0]?.program ?? null,
         strandTrackId: enrollments[0]?.strand_track_id ?? null,
+        preserveStudentId: Number(student_id),
+        preserveSchoolYearId: school_year_id
+          ? Number(school_year_id)
+          : enrollments[0]?.school_year_id ?? null,
       },
       params
     );
@@ -392,7 +396,12 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
       const syParams: any[] = [student_id, enroll.school_year_id, enroll.grade_level];
       const scopeSql = subjectScopeSql(
         "sub",
-        { program: enroll.program, strandTrackId: enroll.strand_track_id },
+        {
+          program: enroll.program,
+          strandTrackId: enroll.strand_track_id,
+          preserveStudentId: Number(student_id),
+          preserveSchoolYearId: enroll.school_year_id,
+        },
         syParams
       );
       const syGradesRaw = await query<RowDataPacket[]>(

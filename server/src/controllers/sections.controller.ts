@@ -96,15 +96,16 @@ export async function getTeacherSections(req: Request, res: Response): Promise<v
   try {
     const userId = req.user!.userId;
     const sections = await query<SectionRow[]>(
-      `SELECT s.*, u.name AS adviser_name,
+      `SELECT DISTINCT s.*, u.name AS adviser_name,
               (SELECT COUNT(*) FROM enrollments e
                JOIN school_years sy ON e.school_year_id = sy.id
-               WHERE e.section_id = s.id AND sy.is_current = 1) AS current_count
+               WHERE e.section_id = s.id AND sy.is_current = 1 AND e.status = 'enrolled') AS current_count
        FROM sections s
        LEFT JOIN users u ON s.adviser_id = u.id
-       WHERE s.adviser_id = ? AND s.is_active = 1
+       WHERE s.is_active = 1
+         AND (s.adviser_id = ? OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
        ORDER BY s.grade_level ASC, s.name ASC`,
-      [userId]
+      [userId, userId]
     );
     res.json(sections);
   } catch (error) {

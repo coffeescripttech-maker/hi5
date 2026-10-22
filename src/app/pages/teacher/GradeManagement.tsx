@@ -583,10 +583,13 @@ export function GradeManagement() {
     if (!selectedStudent || !correctionJustification) return;
     setSubmittingCorrection(true);
     try {
-      const sub = grades.find(g => g.subject === correctionSubject);
+      // Value is the subject_id itself (set by the dropdown) — never match by
+      // display name, and never fall through to null (an all-subjects unlock)
+      // when the teacher picked a specific subject.
+      const subId = correctionSubject ? Number(correctionSubject) : null;
       await gradesApi.requestCorrection({
         student_id: selectedStudent.id,
-        subject_id: correctionSubject ? (sub?.subject_id ?? null) : null,
+        subject_id: subId,
         school_year_id: schoolYearId,
         quarter: correctionQuarter ? Number(correctionQuarter) : null,
         justification: correctionJustification,
@@ -1321,7 +1324,11 @@ export function GradeManagement() {
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition">
                   <option value="">All subjects</option>
                   {grades.map(g => (
-                    <option key={g.subject}>{g.subject}</option>
+                    <option key={g.subject_id} value={String(g.subject_id)}>
+                      {g.subject_group && g.subject_group !== g.subject
+                        ? `${g.subject_group} — ${g.subject}`
+                        : g.subject}
+                    </option>
                   ))}
                 </select>
               </div>

@@ -530,6 +530,17 @@ export function SF9Report() {
     setSf9Data(null);
   }, [selectedGrade]);
 
+  // Reset editable form fields whenever the student changes, so previously
+  // entered attendance/observed values for a different learner do not persist
+  // on screen or in the print/export.
+  useEffect(() => {
+    setAttendance({});
+    setObservedMarks({});
+    setParentSignatures({});
+    setTransferFields({});
+    setSignerNames({ principal: '', adviser: '' });
+  }, [selectedStudentId, syId]);
+
   /* ── Fetch SF9 report ── */
   useEffect(() => {
     if (!selectedStudentId) return;

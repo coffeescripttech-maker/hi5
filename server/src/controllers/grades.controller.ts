@@ -121,7 +121,9 @@ async function getLearnerOfferingSubjectIds(
     's',
     {
       program: enrollment[0].program,
-      strandTrackId: enrollment[0].strand_track_id
+      strandTrackId: enrollment[0].strand_track_id,
+      preserveStudentId: studentId,
+      preserveSchoolYearId: schoolYearId
     },
     params
   );
@@ -246,7 +248,12 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
       // Scope subjects to the learner's program and (when assigned) strand/track.
       const scopeWhere = subjectScopeSql(
         's',
-        { program: enrollmentProgram, strandTrackId },
+        {
+          program: enrollmentProgram,
+          strandTrackId,
+          preserveStudentId: Number(student_id),
+          preserveSchoolYearId: effSchoolYearId
+        },
         gradeParams
       );
 

@@ -17,6 +17,24 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
+/**
+ * Resolve a stored upload path for reading on THIS machine.
+ *
+ * Rows uploaded on another deployment (e.g. a Docker container recording
+ * /app/uploads/...) carry absolute paths that have no meaning locally, which
+ * made every download fail with "File not found on disk." Documents are all
+ * stored flat in UPLOADS_DIR keyed by their unique multer filename, so:
+ *   1. If the stored path exists as-is (local absolute path), use it.
+ *   2. Otherwise remap the path's basename onto UPLOADS_DIR.
+ *   3. Otherwise fall back to path.resolve(stored) so the caller reports 404.
+ */
+function resolveStoredFile(storedPath: string): string {
+  if (fs.existsSync(storedPath)) return storedPath;
+  const remapped = path.join(UPLOADS_DIR, path.basename(storedPath));
+  if (fs.existsSync(remapped)) return remapped;
+  return path.resolve(storedPath);
+}
+
 /* ─────────────── Excel helpers ─────────────── */
 
 /** Normalize an LRN value from a spreadsheet cell to plain digits. */
@@ -59,8 +77,9 @@ interface ParsedGradeRow {
  * Returns rows with a status: valid (will import), skipped (no grade), or invalid.
  */
 async function parseGradeWorkbook(doc: any): Promise<ParsedGradeRow[]> {
-  if (!fs.existsSync(doc.file_path)) throw new Error("File not found on disk.");
-  const wb = XLSX.readFile(doc.file_path);
+  const fp = resolveStoredFile(doc.file_path);
+  if (!fs.existsSync(fp)) throw new Error("File not found on disk.");
+  const wb = XLSX.readFile(fp);
   const ws = wb.Sheets[wb.SheetNames[0]];
   const header = findHeader(ws);
   if (!header) throw new Error("Template format not recognized. Expected LRN, Student Name, and Grade columns.");
@@ -209,7 +228,7 @@ export async function downloadDocument(req: Request, res: Response): Promise<voi
     }
 
     const doc = docs[0];
-    const filePath = path.resolve(doc.file_path);
+    const filePath = resolveStoredFile(doc.file_path);
 
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: "File not found on disk." });
@@ -269,7 +288,10 @@ export async function uploadDocument(req: Request, res: Response): Promise<void>
         school_year_id || null,
         file.originalname,
         ext,
-        file.path,
+        // Store the portable filename only — multer puts it in UPLOADS_DIR, and
+        // resolveStoredFile() maps it back per-machine. Recording absolute
+        // paths previously broke downloads when the deployment env changed.
+        file.filename,
         file.size,
         req.user!.userId,
         record_count || null,

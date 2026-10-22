@@ -24,7 +24,27 @@ const pool: Pool = mysql.createPool({
   dateStrings: ["DATE"],
   // TLS for a remote managed MySQL (Railway/cloud): DB_SSL=require.
   ssl: process.env.DB_SSL === "require" ? { rejectUnauthorized: false } : undefined,
+  // The managed MySQL sits behind a TCP proxy that silently drops sockets that
+  // have been idle for a few minutes. Without keep-alive those dead sockets
+  // stay in the pool, so the first requests after an idle period fail with
+  // ECONNRESET ("Failed to fetch ...") until every stale socket is evicted.
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10_000,
 });
+
+/** Connection-level failures that mean "that socket is gone", not "that query is wrong". */
+function isConnectionLoss(error: unknown): boolean {
+  const code = (error as { code?: string })?.code || "";
+  return (
+    (error as { fatal?: boolean })?.fatal === true ||
+    ["ECONNRESET", "EPIPE", "ETIMEDOUT", "ECONNREFUSED", "PROTOCOL_CONNECTION_LOST", "PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR"].includes(code)
+  );
+}
+
+/** Only read statements may be retried — a retried write could be applied twice. */
+function isReadOnly(sql: string): boolean {
+  return /^\s*(select|show|describe|desc|explain|with)\b/i.test(sql);
+}
 
 /**
  * Execute a query with params
@@ -33,8 +53,19 @@ export async function query<T extends RowDataPacket[] | ResultSetHeader>(
   sql: string,
   params?: any[]
 ): Promise<T> {
-  const [rows] = await pool.execute<T>(sql, params);
-  return rows;
+  try {
+    const [rows] = await pool.execute<T>(sql, params);
+    return rows;
+  } catch (error) {
+    // A dropped pooled socket is transient; mysql2 already evicted it, so one
+    // retry lands on a fresh connection. Writes surface the error instead of
+    // risking a double-apply.
+    if (isConnectionLoss(error) && isReadOnly(sql)) {
+      const [rows] = await pool.execute<T>(sql, params);
+      return rows;
+    }
+    throw error;
+  }
 }
 
 /**

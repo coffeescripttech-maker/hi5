@@ -41,7 +41,12 @@ import {
   Sparkles
 } from 'lucide-react';
 
-export type Role = 'admin' | 'teacher' | 'registrar' | 'principal' | 'enrollment_committee';
+export type Role =
+  | 'admin'
+  | 'teacher'
+  | 'registrar'
+  | 'principal'
+  | 'enrollment_committee';
 
 export interface NavItem {
   key: string;
@@ -60,154 +65,445 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
   admin: [
     {
       group: 'Overview',
-      items: [{ key: 'admin_dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' }]
+      items: [
+        {
+          key: 'admin_dashboard',
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          path: '/admin'
+        }
+      ]
     },
     {
       group: 'Management',
       items: [
-        { key: 'admin_users', label: 'User Management', icon: Users, path: '/admin/users' },
-        { key: 'admin_subjects', label: 'Subject Management', icon: BookOpen, path: '/admin/subjects' },
-        { key: 'admin_sections', label: 'Section Creation', icon: Layers, path: '/admin/sections' },
-                {
+        {
+          key: 'admin_users',
+          label: 'User Management',
+          icon: Users,
+          path: '/admin/users'
+        },
+        {
+          key: 'admin_subjects',
+          label: 'Subject Management',
+          icon: BookOpen,
+          path: '/admin/subjects'
+        },
+        {
+          key: 'admin_sections',
+          label: 'Section Creation',
+          icon: Layers,
+          path: '/admin/sections'
+        },
+        {
           key: 'admin_academic_year',
           label: 'Academic Year Mgmt.',
           icon: Calendar,
           path: '/admin/academic-year'
         },
-        { key: 'admin_rooms', label: 'Room Management', icon: MapPin, path: '/admin/rooms' },
-        { key: 'admin_promote', label: 'Promotion & Graduation', icon: GraduationCap, path: '/admin/promote' }
+        {
+          key: 'admin_rooms',
+          label: 'Room Management',
+          icon: MapPin,
+          path: '/admin/rooms'
+        },
+        {
+          key: 'admin_promote',
+          label: 'Promotion & Graduation',
+          icon: GraduationCap,
+          path: '/admin/promote'
+        }
       ]
     },
     {
       group: 'School Forms',
       items: [
-        { key: 'admin_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/admin/forms/sf1' },
-        { key: 'admin_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/admin/forms/sf5' },
-        { key: 'admin_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/admin/forms/sf9' },
-        { key: 'admin_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/admin/forms/sf10' }
+        {
+          key: 'admin_forms_sf1',
+          label: 'SF1 — School Register',
+          icon: FileSpreadsheet,
+          path: '/admin/forms/sf1'
+        },
+        {
+          key: 'admin_forms_sf5',
+          label: 'SF5 — Promotion Report',
+          icon: BarChart2,
+          path: '/admin/forms/sf5'
+        },
+        {
+          key: 'admin_forms_sf9',
+          label: 'SF9 — Report Card',
+          icon: FileText,
+          path: '/admin/forms/sf9'
+        },
+        {
+          key: 'admin_forms_sf10',
+          label: 'SF10 — Permanent Record',
+          icon: BookOpen,
+          path: '/admin/forms/sf10'
+        }
       ]
     },
     {
       group: 'System',
       items: [
-        { key: 'admin_settings', label: 'School Settings', icon: Settings, path: '/admin/settings' },
-        { key: 'admin_backup', label: 'Database Backup', icon: Database, path: '/admin/backup' },
-        { key: 'admin_logs', label: 'Activity Logs', icon: Activity, path: '/admin/logs' },
-        { key: 'admin_rbac', label: 'Role Access Control', icon: ShieldCheck, path: '/admin/access-control' },
-        { key: 'admin_profile', label: 'My Profile', icon: User, path: '/admin/profile' },
-        { key: 'admin_guide', label: 'System Guide', icon: BookOpen, path: '/admin/guide' }
+        {
+          key: 'admin_settings',
+          label: 'School Settings',
+          icon: Settings,
+          path: '/admin/settings'
+        },
+        {
+          key: 'admin_backup',
+          label: 'Database Backup',
+          icon: Database,
+          path: '/admin/backup'
+        },
+        {
+          key: 'admin_logs',
+          label: 'Activity Logs',
+          icon: Activity,
+          path: '/admin/logs'
+        },
+        {
+          key: 'admin_rbac',
+          label: 'Role Access Control',
+          icon: ShieldCheck,
+          path: '/admin/access-control'
+        },
+        {
+          key: 'admin_profile',
+          label: 'My Profile',
+          icon: User,
+          path: '/admin/profile'
+        },
+        {
+          key: 'admin_guide',
+          label: 'System Guide',
+          icon: BookOpen,
+          path: '/admin/guide'
+        }
       ]
     }
   ],
   teacher: [
     {
       group: 'Overview',
-      items: [{ key: 'teacher_dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/teacher' }]
+      items: [
+        {
+          key: 'teacher_dashboard',
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          path: '/teacher'
+        }
+      ]
     },
     {
       group: 'Student Management',
       items: [
-        { key: 'teacher_my_students', label: 'My Students', icon: UsersRound, path: '/teacher/my-students' },
+        {
+          key: 'teacher_my_students',
+          label: 'My Students',
+          icon: UsersRound,
+          path: '/teacher/my-students'
+        },
         {
           key: 'teacher_sections',
           label: 'My Sections',
           icon: BookMarked,
           path: '/teacher/sections'
         },
-        { key: 'teacher_promote', label: 'Bulk Promotion', icon: GraduationCap, path: '/teacher/promote' },
-        { key: 'teacher_reading_assessments', label: 'Reading Assessments', icon: BookMarked, path: '/teacher/reading-assessments' }
+        {
+          key: 'teacher_promote',
+          label: 'Bulk Promotion',
+          icon: GraduationCap,
+          path: '/teacher/promote'
+        },
+        {
+          key: 'teacher_reading_assessments',
+          label: 'Reading Assessments',
+          icon: BookMarked,
+          path: '/teacher/reading-assessments'
+        }
       ]
     },
     {
       group: 'Schedule',
       items: [
-        { key: 'teacher_schedule', label: 'My Schedule', icon: Calendar, path: '/teacher/schedule' }
+        {
+          key: 'teacher_schedule',
+          label: 'My Schedule',
+          icon: Calendar,
+          path: '/teacher/schedule'
+        }
       ]
     },
     {
       group: 'School Forms',
       items: [
-        { key: 'teacher_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/teacher/forms/sf1' },
-        { key: 'teacher_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/teacher/forms/sf5' },
-        { key: 'teacher_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/teacher/forms/sf9' },
-        { key: 'teacher_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/teacher/forms/sf10' }
+        {
+          key: 'teacher_forms_sf1',
+          label: 'SF1 — School Register',
+          icon: FileSpreadsheet,
+          path: '/teacher/forms/sf1'
+        },
+        {
+          key: 'teacher_forms_sf5',
+          label: 'SF5 — Promotion Report',
+          icon: BarChart2,
+          path: '/teacher/forms/sf5'
+        },
+        {
+          key: 'teacher_forms_sf9',
+          label: 'SF9 — Report Card',
+          icon: FileText,
+          path: '/teacher/forms/sf9'
+        },
+        {
+          key: 'teacher_forms_sf10',
+          label: 'SF10 — Permanent Record',
+          icon: BookOpen,
+          path: '/teacher/forms/sf10'
+        }
       ]
     },
     {
       group: 'Academic',
       items: [
-        { key: 'teacher_grades', label: 'Grade Management', icon: BookOpen, path: '/teacher/grades' },
-        { key: 'teacher_upload', label: 'Upload Grades', icon: Upload, path: '/teacher/upload' },
-        { key: 'teacher_documents', label: 'Document Management', icon: FileText, path: '/teacher/documents' },
-        { key: 'teacher_atrisk', label: 'At-Risk Detection', icon: AlertTriangle, path: '/teacher/atrisk' }
+        {
+          key: 'teacher_grades',
+          label: 'Grade Management',
+          icon: BookOpen,
+          path: '/teacher/grades'
+        },
+        {
+          key: 'teacher_upload',
+          label: 'Upload Grades',
+          icon: Upload,
+          path: '/teacher/upload'
+        },
+        {
+          key: 'teacher_documents',
+          label: 'Document Management',
+          icon: FileText,
+          path: '/teacher/documents'
+        },
+        {
+          key: 'teacher_atrisk',
+          label: 'At-Risk Detection',
+          icon: AlertTriangle,
+          path: '/teacher/atrisk'
+        }
       ]
     },
     {
       group: 'Account',
       items: [
-        { key: 'teacher_profile', label: 'My Profile', icon: User, path: '/teacher/profile' },
-        { key: 'teacher_guide', label: 'System Guide', icon: BookOpen, path: '/teacher/guide' }
+        {
+          key: 'teacher_profile',
+          label: 'My Profile',
+          icon: User,
+          path: '/teacher/profile'
+        },
+        {
+          key: 'teacher_guide',
+          label: 'System Guide',
+          icon: BookOpen,
+          path: '/teacher/guide'
+        }
       ]
     }
   ],
   registrar: [
     {
       group: 'Overview',
-      items: [{ key: 'registrar_dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/registrar' }]
+      items: [
+        {
+          key: 'registrar_dashboard',
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          path: '/registrar'
+        }
+      ]
     },
     {
       group: 'Records',
       items: [
-        { key: 'registrar_students', label: 'Student Search', icon: Search, path: '/registrar/students' },
-        { key: 'registrar_section_assignment', label: 'Section Assignment', icon: Layers, path: '/registrar/section-assignment' },
-        { key: 'registrar_promotions', label: 'Promotion Records', icon: GraduationCap, path: '/registrar/promotions' },
-        { key: 'registrar_promote', label: 'Promotion & Graduation', icon: GraduationCap, path: '/registrar/promote' },
-        { key: 'registrar_graduates', label: 'Alumni / Graduates', icon: Award, path: '/registrar/graduates' },
-        { key: 'registrar_subjects', label: 'Subject Directory', icon: BookOpen, path: '/registrar/subjects' }
+        {
+          key: 'registrar_students',
+          label: 'Student Search',
+          icon: Search,
+          path: '/registrar/students'
+        },
+        {
+          key: 'registrar_section_assignment',
+          label: 'Section Assignment',
+          icon: Layers,
+          path: '/registrar/section-assignment'
+        },
+        {
+          key: 'registrar_promotions',
+          label: 'Promotion Records',
+          icon: GraduationCap,
+          path: '/registrar/promotions'
+        },
+        {
+          key: 'registrar_promote',
+          label: 'Promotion & Graduation',
+          icon: GraduationCap,
+          path: '/registrar/promote'
+        },
+        {
+          key: 'registrar_graduates',
+          label: 'Alumni / Graduates',
+          icon: Award,
+          path: '/registrar/graduates'
+        },
+        {
+          key: 'registrar_subjects',
+          label: 'Subject Directory',
+          icon: BookOpen,
+          path: '/registrar/subjects'
+        }
       ]
     },
     {
       group: 'School Forms',
       items: [
-        { key: 'registrar_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/registrar/forms/sf1' },
-        { key: 'registrar_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/registrar/forms/sf5' },
-        { key: 'registrar_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/registrar/forms/sf9' },
-        { key: 'registrar_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/registrar/forms/sf10' },
-        { key: 'registrar_special_subjects', label: 'SF9 Special Subjects', icon: Sparkles, path: '/registrar/special-subjects' }
+        {
+          key: 'registrar_forms_sf1',
+          label: 'SF1 — School Register',
+          icon: FileSpreadsheet,
+          path: '/registrar/forms/sf1'
+        },
+        {
+          key: 'registrar_forms_sf5',
+          label: 'SF5 — Promotion Report',
+          icon: BarChart2,
+          path: '/registrar/forms/sf5'
+        },
+        {
+          key: 'registrar_forms_sf9',
+          label: 'SF9 — Report Card',
+          icon: FileText,
+          path: '/registrar/forms/sf9'
+        },
+        {
+          key: 'registrar_forms_sf10',
+          label: 'SF10 — Permanent Record',
+          icon: BookOpen,
+          path: '/registrar/forms/sf10'
+        },
+        {
+          key: 'registrar_special_subjects',
+          label: 'SF9 Special Subjects',
+          icon: Sparkles,
+          path: '/registrar/special-subjects'
+        }
       ]
     },
     {
       group: 'Reports & Monitoring',
       items: [
-        { key: 'registrar_reports', label: 'Enrollment Report', icon: BarChart2, path: '/registrar/reports' },
-        { key: 'registrar_sections', label: 'Section Management', icon: Layers, path: '/registrar/sections' },
-        { key: 'registrar_grade_distribution', label: 'Grade Distribution', icon: BarChart2, path: '/registrar/grade-distribution' },
-        { key: 'registrar_grade_corrections', label: 'Grade Corrections', icon: MessageSquare, path: '/registrar/grade-corrections' },
-        { key: 'registrar_transfers', label: 'Transfer Management', icon: ArrowLeftRight, path: '/registrar/transfers' },
-        { key: 'registrar_document_completion', label: 'Enrollment Document Checklist', icon: ClipboardList, path: '/registrar/document-completion' },
-        { key: 'registrar_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/registrar/atrisk' }
+        {
+          key: 'registrar_reports',
+          label: 'Enrollment Report',
+          icon: BarChart2,
+          path: '/registrar/reports'
+        },
+        {
+          key: 'registrar_sections',
+          label: 'Section Management',
+          icon: Layers,
+          path: '/registrar/sections'
+        },
+        {
+          key: 'registrar_grade_distribution',
+          label: 'Grade Distribution',
+          icon: BarChart2,
+          path: '/registrar/grade-distribution'
+        },
+        {
+          key: 'registrar_grade_corrections',
+          label: 'Grade Corrections',
+          icon: MessageSquare,
+          path: '/registrar/grade-corrections'
+        },
+        {
+          key: 'registrar_transfers',
+          label: 'Transfer Management',
+          icon: ArrowLeftRight,
+          path: '/registrar/transfers'
+        },
+        {
+          key: 'registrar_document_completion',
+          label: 'Enrollment Document Checklist',
+          icon: ClipboardList,
+          path: '/registrar/document-completion'
+        },
+        {
+          key: 'registrar_atrisk',
+          label: 'At-Risk Students',
+          icon: AlertTriangle,
+          path: '/registrar/atrisk'
+        }
       ]
     },
     {
       group: 'Scheduling & LIS',
       items: [
-        { key: 'registrar_master_schedule', label: 'Master Schedule', icon: CalendarDays, path: '/registrar/master-schedule' },
-        { key: 'registrar_schedule', label: 'Schedule Modifier', icon: Calendar, path: '/registrar/schedule-modifier' },
-        { key: 'registrar_lis_export', label: 'LIS Export', icon: Upload, path: '/registrar/lis-export' }
+        {
+          key: 'registrar_master_schedule',
+          label: 'Master Schedule',
+          icon: CalendarDays,
+          path: '/registrar/master-schedule'
+        },
+        {
+          key: 'registrar_schedule',
+          label: 'Schedule Modifier',
+          icon: Calendar,
+          path: '/registrar/schedule-modifier'
+        },
+        {
+          key: 'registrar_lis_export',
+          label: 'LIS Export',
+          icon: Upload,
+          path: '/registrar/lis-export'
+        }
       ]
     },
     {
       group: 'Certificates',
       items: [
-        { key: 'registrar_certificate_enrollment', label: 'Certificate of Enrollment', icon: FileText, path: '/registrar/certificates/enrollment' },
-        { key: 'registrar_certificate_good_moral', label: 'Good Moral Certificate', icon: UserCheck, path: '/registrar/certificates/good-moral' }
+        {
+          key: 'registrar_certificate_enrollment',
+          label: 'Certificate of Enrollment',
+          icon: FileText,
+          path: '/registrar/certificates/enrollment'
+        },
+        {
+          key: 'registrar_certificate_good_moral',
+          label: 'Good Moral Certificate',
+          icon: UserCheck,
+          path: '/registrar/certificates/good-moral'
+        }
       ]
     },
     {
       group: 'Account',
       items: [
-        { key: 'registrar_profile', label: 'My Profile', icon: User, path: '/registrar/profile' },
-        { key: 'registrar_guide', label: 'System Guide', icon: BookOpen, path: '/registrar/guide' }
+        {
+          key: 'registrar_profile',
+          label: 'My Profile',
+          icon: User,
+          path: '/registrar/profile'
+        },
+        {
+          key: 'registrar_guide',
+          label: 'System Guide',
+          icon: BookOpen,
+          path: '/registrar/guide'
+        }
       ]
     }
   ],
@@ -219,97 +515,270 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
   enrollment_committee: [
     {
       group: 'Overview',
-      items: [{ key: 'committee_dashboard', label: 'Committee Dashboard', icon: LayoutDashboard, path: '/committee' }]
+      items: [
+        {
+          key: 'committee_dashboard',
+          label: 'Committee Dashboard',
+          icon: LayoutDashboard,
+          path: '/committee'
+        }
+      ]
     },
     {
       group: 'Committee Duties',
       items: [
-        { key: 'committee_transfers', label: 'Transfer Approvals', icon: ArrowLeftRight, path: '/committee/transfers' },
-        { key: 'committee_enrollment', label: 'Enrollment', icon: UserCheck, path: '/committee/enrollment' },
-        { key: 'committee_section_assignment', label: 'Section Assignment', icon: Layers, path: '/committee/section-assignment' },
-        { key: 'committee_document_verification', label: 'Document Verification', icon: ClipboardList, path: '/committee/documents' }
+        {
+          key: 'committee_transfers',
+          label: 'Transfer Approvals',
+          icon: ArrowLeftRight,
+          path: '/committee/transfers'
+        },
+        {
+          key: 'committee_enrollment',
+          label: 'Enrollment',
+          icon: UserCheck,
+          path: '/committee/enrollment'
+        },
+        {
+          key: 'committee_section_assignment',
+          label: 'Section Assignment',
+          icon: Layers,
+          path: '/committee/section-assignment'
+        },
+        {
+          key: 'committee_document_verification',
+          label: 'Document Verification',
+          icon: ClipboardList,
+          path: '/committee/documents'
+        },
+        {
+          key: 'registrar_students',
+          label: 'Student Search',
+          icon: Search,
+          path: '/registrar/students'
+        },
+        {
+          key: 'registrar_document_completion',
+          label: 'Enrollment Document Checklist',
+          icon: ClipboardList,
+          path: '/registrar/document-completion'
+        }
       ]
     },
     {
       group: 'Administration',
       items: [
-        { key: 'admin_dashboard', label: 'Admin Dashboard', icon: LayoutDashboard, path: '/admin' },
-        { key: 'admin_users', label: 'User Management', icon: Users, path: '/admin/users' },
-        { key: 'admin_subjects', label: 'Subject Management', icon: BookOpen, path: '/admin/subjects' },
-        { key: 'admin_sections', label: 'Section Creation', icon: Layers, path: '/admin/sections' },
-        { key: 'admin_academic_year', label: 'Academic Year Mgmt.', icon: Calendar, path: '/admin/academic-year' },
-        { key: 'admin_rooms', label: 'Room Management', icon: MapPin, path: '/admin/rooms' }
+        {
+          key: 'admin_dashboard',
+          label: 'Admin Dashboard',
+          icon: LayoutDashboard,
+          path: '/admin'
+        },
+        {
+          key: 'admin_users',
+          label: 'User Management',
+          icon: Users,
+          path: '/admin/users'
+        },
+        {
+          key: 'admin_subjects',
+          label: 'Subject Management',
+          icon: BookOpen,
+          path: '/admin/subjects'
+        },
+        {
+          key: 'admin_sections',
+          label: 'Section Creation',
+          icon: Layers,
+          path: '/admin/sections'
+        },
+        {
+          key: 'admin_academic_year',
+          label: 'Academic Year Mgmt.',
+          icon: Calendar,
+          path: '/admin/academic-year'
+        },
+        {
+          key: 'admin_rooms',
+          label: 'Room Management',
+          icon: MapPin,
+          path: '/admin/rooms'
+        }
       ]
     },
     {
       group: 'School Forms',
       items: [
-        { key: 'admin_forms_sf1', label: 'SF1 — School Register', icon: FileSpreadsheet, path: '/admin/forms/sf1' },
-        { key: 'admin_forms_sf5', label: 'SF5 — Promotion Report', icon: BarChart2, path: '/admin/forms/sf5' },
-        { key: 'admin_forms_sf9', label: 'SF9 — Report Card', icon: FileText, path: '/admin/forms/sf9' },
-        { key: 'admin_forms_sf10', label: 'SF10 — Permanent Record', icon: BookOpen, path: '/admin/forms/sf10' }
-      ]
-    },
-    {
-      group: 'Records',
-      items: [
-        { key: 'registrar_students', label: 'Student Search', icon: Search, path: '/registrar/students' },
-        { key: 'registrar_promotions', label: 'Promotion Records', icon: GraduationCap, path: '/registrar/promotions' },
-        { key: 'registrar_graduates', label: 'Alumni / Graduates', icon: Award, path: '/registrar/graduates' },
-        { key: 'registrar_reports', label: 'Enrollment Report', icon: BarChart2, path: '/registrar/reports' },
-        { key: 'registrar_grade_distribution', label: 'Grade Distribution', icon: BarChart2, path: '/registrar/grade-distribution' },
-        { key: 'registrar_grade_corrections', label: 'Grade Corrections', icon: MessageSquare, path: '/registrar/grade-corrections' },
-        { key: 'registrar_document_completion', label: 'Enrollment Document Checklist', icon: ClipboardList, path: '/registrar/document-completion' },
-        { key: 'registrar_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/registrar/atrisk' }
+        {
+          key: 'admin_forms_sf1',
+          label: 'SF1 — School Register',
+          icon: FileSpreadsheet,
+          path: '/admin/forms/sf1'
+        },
+        {
+          key: 'admin_forms_sf5',
+          label: 'SF5 — Promotion Report',
+          icon: BarChart2,
+          path: '/admin/forms/sf5'
+        },
+        {
+          key: 'admin_forms_sf9',
+          label: 'SF9 — Report Card',
+          icon: FileText,
+          path: '/admin/forms/sf9'
+        },
+        {
+          key: 'admin_forms_sf10',
+          label: 'SF10 — Permanent Record',
+          icon: BookOpen,
+          path: '/admin/forms/sf10'
+        }
       ]
     },
     {
       group: 'System',
       items: [
-        { key: 'admin_settings', label: 'School Settings', icon: Settings, path: '/admin/settings' },
-        { key: 'admin_backup', label: 'Database Backup', icon: Database, path: '/admin/backup' },
-        { key: 'admin_logs', label: 'Activity Logs', icon: Activity, path: '/admin/logs' },
-        { key: 'admin_rbac', label: 'Role Access Control', icon: ShieldCheck, path: '/admin/access-control' },
-        { key: 'committee_profile', label: 'My Profile', icon: User, path: '/admin/profile' },
-        { key: 'committee_guide', label: 'System Guide', icon: BookMarked, path: '/admin/guide' }
+        {
+          key: 'admin_settings',
+          label: 'School Settings',
+          icon: Settings,
+          path: '/admin/settings'
+        },
+        {
+          key: 'admin_backup',
+          label: 'Database Backup',
+          icon: Database,
+          path: '/admin/backup'
+        },
+        {
+          key: 'admin_logs',
+          label: 'Activity Logs',
+          icon: Activity,
+          path: '/admin/logs'
+        },
+        {
+          key: 'admin_rbac',
+          label: 'Role Access Control',
+          icon: ShieldCheck,
+          path: '/admin/access-control'
+        },
+        {
+          key: 'committee_profile',
+          label: 'My Profile',
+          icon: User,
+          path: '/admin/profile'
+        },
+        {
+          key: 'committee_guide',
+          label: 'System Guide',
+          icon: BookMarked,
+          path: '/admin/guide'
+        }
       ]
     }
   ],
   principal: [
     {
       group: 'Overview',
-      items: [{ key: 'principal_dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/principal' }]
+      items: [
+        {
+          key: 'principal_dashboard',
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          path: '/principal'
+        }
+      ]
     },
     {
       group: 'Enrollment',
       items: [
-        { key: 'principal_enrollment', label: 'Enrollment Figures', icon: TrendingUp, path: '/principal/enrollment-figures' },
-        { key: 'principal_enrollment_trend', label: 'Enrollment Trend', icon: BarChart2, path: '/principal/enrollment-trend' },
-        { key: 'principal_sections', label: 'Section Population', icon: PieChart, path: '/principal/section-population' }
+        {
+          key: 'principal_enrollment',
+          label: 'Enrollment Figures',
+          icon: TrendingUp,
+          path: '/principal/enrollment-figures'
+        },
+        {
+          key: 'principal_enrollment_trend',
+          label: 'Enrollment Trend',
+          icon: BarChart2,
+          path: '/principal/enrollment-trend'
+        },
+        {
+          key: 'principal_sections',
+          label: 'Section Population',
+          icon: PieChart,
+          path: '/principal/section-population'
+        }
       ]
     },
     {
       group: 'Academic',
       items: [
-        { key: 'principal_grades', label: 'Grade Progress', icon: ClipboardList, path: '/principal/grade-progress' },
-        { key: 'principal_promotions', label: 'Promotion Stats', icon: GraduationCap, path: '/principal/promotion-stats' },
-        { key: 'principal_graduates', label: 'Alumni / Graduates', icon: Award, path: '/principal/graduates' },
-        { key: 'principal_atrisk', label: 'At-Risk Students', icon: AlertTriangle, path: '/principal/at-risk' }
+        {
+          key: 'principal_grades',
+          label: 'Grade Progress',
+          icon: ClipboardList,
+          path: '/principal/grade-progress'
+        },
+        {
+          key: 'principal_promotions',
+          label: 'Promotion Stats',
+          icon: GraduationCap,
+          path: '/principal/promotion-stats'
+        },
+        {
+          key: 'principal_graduates',
+          label: 'Alumni / Graduates',
+          icon: Award,
+          path: '/principal/graduates'
+        },
+        {
+          key: 'principal_atrisk',
+          label: 'At-Risk Students',
+          icon: AlertTriangle,
+          path: '/principal/at-risk'
+        }
       ]
     },
     {
       group: 'Exports',
       items: [
-        { key: 'principal_export_documents', label: 'School Documents', icon: FileText, path: '/principal/exports/documents' },
-        { key: 'principal_export_reports', label: 'Reports', icon: BarChart2, path: '/principal/exports/reports' },
-        { key: 'principal_export_data', label: 'School-wide Data', icon: FileSpreadsheet, path: '/principal/exports/data' }
+        {
+          key: 'principal_export_documents',
+          label: 'School Documents',
+          icon: FileText,
+          path: '/principal/exports/documents'
+        },
+        {
+          key: 'principal_export_reports',
+          label: 'Reports',
+          icon: BarChart2,
+          path: '/principal/exports/reports'
+        },
+        {
+          key: 'principal_export_data',
+          label: 'School-wide Data',
+          icon: FileSpreadsheet,
+          path: '/principal/exports/data'
+        }
       ]
     },
     {
       group: 'Account',
       items: [
-        { key: 'principal_profile', label: 'My Profile', icon: User, path: '/principal/profile' },
-        { key: 'principal_guide', label: 'System Guide', icon: BookOpen, path: '/principal/guide' }
+        {
+          key: 'principal_profile',
+          label: 'My Profile',
+          icon: User,
+          path: '/principal/profile'
+        },
+        {
+          key: 'principal_guide',
+          label: 'System Guide',
+          icon: BookOpen,
+          path: '/principal/guide'
+        }
       ]
     }
   ]
@@ -325,7 +794,11 @@ export const CORE_KEYS: Record<Role, string[]> = {
   teacher: ['teacher_dashboard', 'teacher_profile', 'teacher_guide'],
   registrar: ['registrar_dashboard', 'registrar_profile', 'registrar_guide'],
   principal: ['principal_dashboard', 'principal_profile', 'principal_guide'],
-  enrollment_committee: ['committee_dashboard', 'committee_profile', 'committee_guide']
+  enrollment_committee: [
+    'committee_dashboard',
+    'committee_profile',
+    'committee_guide'
+  ]
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
