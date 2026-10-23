@@ -1094,7 +1094,7 @@ export function GradeManagement() {
                         const desc = getDescriptor(item.final);
                         return (
                           <li
-                            key="mapeh-header"
+                            key={`mapeh-header-${item.label}`}
                             className="bg-emerald-50/70 border-y border-emerald-100 px-4 py-2.5 flex items-center justify-between gap-2">
                             <span className="font-bold text-gray-700 uppercase text-xs tracking-[0.08em]">
                               {item.label}
