@@ -16,6 +16,7 @@ import {
   fetchAsBase64,
   inlineRemoteImages,
   replaceFormControls,
+  syncFormControlValues,
   withLightTheme,
 } from "./pdfExport";
 import tinosRegular from "../../assets/fonts/Tinos-Regular.ttf";
@@ -536,6 +537,7 @@ export async function serializeElementForPdf(
     // dark backgrounds straight into the PDF *and* into the screen-media
     // FormPrintPreview iframe (where the @media print reset never applies).
     await withLightTheme(async () => {
+      syncFormControlValues(element, clone);
       await inlineComputedStylesForChromium(clone);
       replaceFormControls(clone);
     });

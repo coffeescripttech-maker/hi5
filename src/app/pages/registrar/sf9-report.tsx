@@ -282,6 +282,7 @@ export function SF9Report() {
   const [observedMarks, setObservedMarks] = useState<Record<string, string>>(
     {}
   );
+  const [observedSaved, setObservedSaved] = useState(false);
   const [parentSignatures, setParentSignatures] = useState<
     Record<string, string>
   >({});
@@ -536,6 +537,7 @@ export function SF9Report() {
   useEffect(() => {
     setAttendance({});
     setObservedMarks({});
+    setObservedSaved(false);
     setParentSignatures({});
     setTransferFields({});
     setSignerNames({ principal: '', adviser: '' });
@@ -575,6 +577,43 @@ export function SF9Report() {
       )
       .finally(() => setLoadingReport(false));
   }, [selectedStudentId, syId, enrollments, sections]);
+
+  // ── Persisted Observed Values ──
+  // Load the learner's saved observed-value marks for this SY, then
+  // debounce-save locally made selections so they survive student switches,
+  // refreshes, PDF exports and print previews.
+  useEffect(() => {
+    if (!selectedStudentId) return;
+    let cancelled = false;
+    formsApi
+      .sf9FormData(selectedStudentId, syId)
+      .then(({ observed_values }) => {
+        if (!cancelled && observed_values) setObservedMarks(observed_values);
+      })
+      .catch(() => {
+        // No saved data — an empty map is fine.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStudentId, syId]);
+
+  useEffect(() => {
+    if (!selectedStudentId) return;
+    if (!Object.keys(observedMarks).length) return; // nothing to save yet
+    const t = setTimeout(() => {
+      formsApi
+        .saveSF9FormData(selectedStudentId, syId, observedMarks)
+        .then(() => setObservedSaved(true))
+        .catch(err =>
+          showToast(
+            'error',
+            err.detail?.error || err.message || 'Failed to save observed values'
+          )
+        );
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [observedMarks, selectedStudentId, syId]);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
   const subjectRows = sf9Data?.subjects
@@ -1388,6 +1427,9 @@ export function SF9Report() {
                 <div>
                   <h3 className="text-center text-[11px] font-bold mb-1">
                     REPORT ON LEARNER'S OBSERVED VALUES
+                    {observedSaved && (
+                      <span className="ml-2 text-emerald-600">✓ saved</span>
+                    )}
                   </h3>
                   <table className="w-full border-collapse text-[9px]">
                     <colgroup>
@@ -1438,7 +1480,7 @@ export function SF9Report() {
                               {st}
                             </td>
                             {[1, 2, 3].map(q => (
-                              <td key={q} className="border border-black p-0">
+                              <td key={q} className="border border-black p-0 text-center">
                                 <select
                                   value={getObserved(cvIdx, stIdx, q)}
                                   onChange={e =>

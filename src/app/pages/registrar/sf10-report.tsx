@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import {
   Loader2,
   Printer,
@@ -26,7 +26,7 @@ import {
 import './sf1.css';
 import { DocumentViewer } from '../../components/DocumentViewer';
 
-/* ── Types ── */
+/* â”€â”€ Types â”€â”€ */
 interface LearningAreaRow {
   subject: string;
   q1: string;
@@ -131,7 +131,7 @@ const EMPTY_REMEDIAL = (): RemedialRow => ({
   remarks: ''
 });
 
-/* ── Helpers ── */
+/* â”€â”€ Helpers â”€â”€ */
 
 /** Parse "Last, First Middle" or "First Middle Last" into parts */
 function parseName(name: string): {
@@ -195,7 +195,7 @@ function remarksFor(avg: number | null | undefined): string {
   return Number(avg) >= 75 ? 'Passed' : 'Failed';
 }
 
-/* ── MAPEH grouping (mirrors SF9 / Grade Management) ── */
+/* â”€â”€ MAPEH grouping (mirrors SF9 / Grade Management) â”€â”€ */
 const MAPEH_ORDER = ['Music', 'Arts', 'Physical Education', 'Health'];
 
 function isMapehSubject(name: string): boolean {
@@ -293,13 +293,13 @@ function checkboxInput(props: {
   );
 }
 
-/* ── Component ── */
+/* â”€â”€ Component â”€â”€ */
 export function SF10Report() {
   const { showToast, role } = useApp();
   const accent = useRoleAccent();
   const [header, setHeader] = useSchoolHeader();
 
-  /* ── Student picker ── */
+  /* â”€â”€ Student picker â”€â”€ */
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -317,7 +317,7 @@ export function SF10Report() {
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
 
-  /* ── Report ── */
+  /* â”€â”€ Report â”€â”€ */
   const [sf10Data, setSf10Data] = useState<SF10Row | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -325,11 +325,11 @@ export function SF10Report() {
   // Print confirmation preview — no form goes straight to window.print().
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  /* ── Lookups ── */
+  /* â”€â”€ Lookups â”€â”€ */
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [settings, setSettings] = useState<SchoolSettingsRow | null>(null);
 
-  /* ── Form state ── */
+  /* â”€â”€ Form state â”€â”€ */
   const [learner, setLearner] = useState<LearnerState>(EMPTY_LEARNER);
   const [eligibility, setEligibility] =
     useState<EligibilityState>(EMPTY_ELIGIBILITY);
@@ -545,7 +545,7 @@ export function SF10Report() {
     setHeader('section', last?.section_name || '');
   }
 
-  /* ── Update helpers ── */
+  /* â”€â”€ Update helpers â”€â”€ */
   const setLearnerField = (key: keyof LearnerState, val: string) =>
     setLearner(prev => ({ ...prev, [key]: val }));
 
@@ -598,7 +598,7 @@ export function SF10Report() {
       )
     );
 
-  /* ── Print ── */
+  /* â”€â”€ Print â”€â”€ */
   const handlePrint = () => {
     window.print();
   };
@@ -631,7 +631,7 @@ export function SF10Report() {
     }
   };
 
-  /* ── Loading skeleton ── */
+  /* â”€â”€ Loading skeleton â”€â”€ */
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto space-y-5 animate-pulse">
@@ -654,7 +654,7 @@ export function SF10Report() {
 
   return (
     <div className="space-y-5 pb-10">
-      {/* ── Print styles ── */}
+      {/* â”€â”€ Print styles â”€â”€ */}
       <style>{`
         @media print {
           /* !important is required: the app-wide dark theme remaps the body
@@ -668,7 +668,7 @@ export function SF10Report() {
         }
       `}</style>
 
-      {/* ── Filter Bar ── */}
+      {/* â”€â”€ Filter Bar â”€â”€ */}
       <div className="no-print">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
@@ -871,15 +871,15 @@ export function SF10Report() {
               <span>
                 {students.length} learner{students.length !== 1 ? 's' : ''}
                 {selectedStudent
-                  ? ` · Selected: ${selectedStudent.name}`
-                  : ' · Search to open a permanent record'}
+                  ? ` Â· Selected: ${selectedStudent.name}`
+                  : ' Â· Search to open a permanent record'}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Loading / Error / Empty ── */}
+      {/* â”€â”€ Loading / Error / Empty â”€â”€ */}
       {loadingReport && (
         <div className="no-print max-w-5xl mx-auto">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
@@ -939,9 +939,9 @@ export function SF10Report() {
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────────────────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {/* SF10 Official DepEd Learner's Permanent Academic Record        */}
-      {/* ────────────────────────────────────────────────────────────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {!loadingReport && sf10Data && selectedStudent && (
         <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-x-auto print:border-transparent print:shadow-none">
           <DocumentViewer>
@@ -949,16 +949,16 @@ export function SF10Report() {
             id="sf10-print-area"
             className="p-4 sm:p-6 text-[10px] leading-tight text-black">
             <div style={{ minWidth: '960px' }}>
-              {/* ── Shared letterhead title block (same as SF1) ── */}
+              {/* â”€â”€ Shared letterhead title block (same as SF1) â”€â”€ */}
               <SchoolFormTitleBlock
                 title="Learner's Permanent Academic Record for Junior High School (SF10-JHS)"
                 subtitle="(Formerly Form 137)"
               />
 
-              {/* ── Shared header fields ── */}
+              {/* â”€â”€ Shared header fields â”€â”€ */}
               <SchoolFormHeader header={header} onChange={setHeader} />
 
-              {/* ── LEARNER'S INFORMATION ── */}
+              {/* â”€â”€ LEARNER'S INFORMATION â”€â”€ */}
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2">
                 LEARNER'S INFORMATION
               </div>
@@ -1028,7 +1028,7 @@ export function SF10Report() {
                 </div>
               </div>
 
-              {/* ── ELIGIBILITY FOR JHS ENROLMENT ── */}
+              {/* â”€â”€ ELIGIBILITY FOR JHS ENROLMENT â”€â”€ */}
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2">
                 ELIGIBILITY FOR JHS ENROLMENT
               </div>
@@ -1200,7 +1200,7 @@ export function SF10Report() {
                 </div>
               </div>
 
-              {/* ── SCHOLASTIC RECORDS (one per school year) ── */}
+              {/* â”€â”€ SCHOLASTIC RECORDS (one per school year) â”€â”€ */}
               {records.map((record, idx) => (
                 <div key={record.schoolYear || idx} className="print-page">
                   <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2 mt-4">
@@ -1216,7 +1216,7 @@ export function SF10Report() {
                         onChange={e =>
                           updateRecord(idx, 'school', e.target.value)
                         }
-                        className="sf1-input inline border-b border-gray-800 w-48 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        className="sf1-input inline border-b border-gray-800 w-60 bg-transparent px-1 text-[9px] outline-none focus:bg-amber-50"
                       />
                       <span className="ml-4 font-bold">School ID:</span>
                       <input
@@ -1380,7 +1380,7 @@ export function SF10Report() {
                               <td className="border border-gray-800 p-1 font-medium pl-6">
                                 {area.subject}
                               </td>
-                              <td className="border border-gray-800 p-0">
+                              <td className="border border-gray-800 p-0 text-center">
                                 <input
                                   inputMode="numeric"
                                   value={area.q1}
@@ -1399,7 +1399,7 @@ export function SF10Report() {
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
                                 />
                               </td>
-                              <td className="border border-gray-800 p-0">
+                              <td className="border border-gray-800 p-0 text-center">
                                 <input
                                   inputMode="numeric"
                                   value={area.q2}
@@ -1418,7 +1418,7 @@ export function SF10Report() {
                                   className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
                                 />
                               </td>
-                              <td className="border border-gray-800 p-0">
+                              <td className="border border-gray-800 p-0 text-center">
                                 <input
                                   inputMode="numeric"
                                   value={area.q3}
@@ -1438,7 +1438,7 @@ export function SF10Report() {
                                 />
                               </td>
 
-                              <td className="border border-gray-800 p-0">
+                              <td className="border border-gray-800 p-0 text-center">
                                 <input
                                   type="text"
                                   inputMode="numeric"
@@ -1598,7 +1598,7 @@ export function SF10Report() {
                               className="sf1-input w-full border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
                             />
                           </td>
-                          <td className="border border-gray-800 p-0">
+                          <td className="border border-gray-800 p-0 text-center">
                             <input
                               type="text"
                               value={item.finalRating}
@@ -1613,7 +1613,7 @@ export function SF10Report() {
                               className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
                             />
                           </td>
-                          <td className="border border-gray-800 p-0">
+                          <td className="border border-gray-800 p-0 text-center">
                             <input
                               type="text"
                               value={item.classmark}
@@ -1628,7 +1628,7 @@ export function SF10Report() {
                               className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] outline-none focus:bg-amber-50"
                             />
                           </td>
-                          <td className="border border-gray-800 p-0">
+                          <td className="border border-gray-800 p-0 text-center">
                             <input
                               type="text"
                               value={item.recomputedGrade}
@@ -1665,7 +1665,7 @@ export function SF10Report() {
                 </div>
               ))}
 
-              {/* ── CERTIFICATION ── */}
+              {/* â”€â”€ CERTIFICATION â”€â”€ */}
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2 mt-4">
                 CERTIFICATION
               </div>

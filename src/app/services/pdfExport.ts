@@ -440,6 +440,38 @@ export function replaceFormControls(root: HTMLElement) {
   }
 }
 
+/**
+ * copyNode() (cloneNode) copies attributes, not the live "value"/"checked"
+ * properties React keeps on form controls — so a cloned sheet lost every
+ * selected observed-value mark and typed field and printed blank sheets.
+ * This restores the LIVE control state onto the clone by parallel walk
+ * (source and clone share the exact same structure by construction).
+ */
+export function syncFormControlValues(source: Element, clone: Element) {
+  const src = Array.from(
+    source.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      "input, select, textarea"
+    )
+  );
+  const dst = Array.from(
+    clone.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      "input, select, textarea"
+    )
+  );
+  for (let i = 0; i < src.length && i < dst.length; i++) {
+    const s = src[i];
+    const d = dst[i];
+    if (s instanceof HTMLSelectElement) {
+      d.value = s.value;
+    } else if (s instanceof HTMLTextAreaElement) {
+      d.value = s.value;
+    } else if (s instanceof HTMLInputElement) {
+      d.value = s.value;
+      if (s.type === "checkbox" || s.type === "radio") d.checked = s.checked;
+    }
+  }
+}
+
 /** Load a remote image and return it as a base64 PNG data URL (or null). */
 function fetchAsDataUrl(src: string): Promise<string | null> {
   return new Promise((resolve) => {
@@ -589,6 +621,7 @@ export async function exportToPdf({
     // Inline computed styles and materialise inputs while the app is forced to
     // light mode, so dark-theme colours are never baked into the PDF.
     await withLightTheme(() => {
+      syncFormControlValues(element, clone);
       inlineComputedStyles(clone);
       replaceFormControls(clone);
     });

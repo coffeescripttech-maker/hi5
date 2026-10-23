@@ -135,6 +135,19 @@ export const formsApi = {
     api.get<SF9Row>(
       `/forms/sf9?student_id=${studentId}&school_year_id=${schoolYearId}`
     ),
+  sf9FormData: (studentId: number, schoolYearId: number) =>
+    api.get<{ observed_values: Record<string, string> }>(
+      `/forms/sf9-data?student_id=${studentId}&school_year_id=${schoolYearId}`
+    ),
+  saveSF9FormData: (
+    studentId: number,
+    schoolYearId: number,
+    observedValues: Record<string, string>
+  ) =>
+    api.put<{ observed_values: Record<string, string>; message: string }>(
+      "/forms/sf9-data",
+      { student_id: studentId, school_year_id: schoolYearId, observed_values: observedValues }
+    ),
   sf10: (studentId: number) =>
     api.get<SF10Row>(`/forms/sf10?student_id=${studentId}`),
 };

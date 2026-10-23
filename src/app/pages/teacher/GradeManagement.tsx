@@ -1012,7 +1012,7 @@ export function GradeManagement() {
                           const isGrouped = inGroup(row);
                           return (
                             <tr
-                              key={row.subject}
+                              key={`s${row.subject_id}-${row.subject}`}
                               className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-emerald-50/40 transition-colors duration-150`}>
                               <td
                                 className={`pr-3 py-3 text-sm ${isGrouped ? 'pl-8 font-medium text-gray-600' : 'pl-5 font-semibold text-gray-700'}`}>
@@ -1116,7 +1116,7 @@ export function GradeManagement() {
                       const desc = getDescriptor(finalGrade);
                       const isGrouped = inGroup(row);
                       return (
-                        <li key={row.subject} className="px-4 py-3.5">
+                        <li key={`s${row.subject_id}-${row.subject}`} className="px-4 py-3.5">
                           <div className="flex items-center justify-between gap-2">
                             <p
                               className={`text-sm ${isGrouped ? 'pl-3 font-medium text-gray-600' : 'font-semibold text-gray-700'}`}>

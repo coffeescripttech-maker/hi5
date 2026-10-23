@@ -459,3 +459,84 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: "Failed to generate SF10." });
   }
 }
+
+/**
+ * GET /api/forms/sf9-data?student_id=&school_year_id=
+ * Persisted SF9 sheet fields (observed values map). Empty payload when the
+ * learner has not saved one yet.
+ */
+export async function getSF9FormData(req: Request, res: Response): Promise<void> {
+  try {
+    const student_id = parseInt(req.query.student_id as string);
+    const school_year_id = parseInt(req.query.school_year_id as string);
+    if (!student_id || !school_year_id) {
+      res.status(400).json({ error: "student_id and school_year_id are required." });
+      return;
+    }
+    const rows = await query<RowDataPacket[]>(
+      "SELECT observed_values FROM sf9_form_data WHERE student_id = ? AND school_year_id = ? LIMIT 1",
+      [student_id, school_year_id]
+    );
+    let observedValues: Record<string, string> = {};
+    if (rows.length > 0 && rows[0].observed_values) {
+      observedValues =
+        typeof rows[0].observed_values === "string"
+          ? JSON.parse(rows[0].observed_values)
+          : rows[0].observed_values;
+    }
+    res.json({ observed_values: observedValues });
+  } catch (error) {
+    console.error("SF9 form data error:", error);
+    res.status(500).json({ error: "Failed to load SF9 form data." });
+  }
+}
+
+const OBSERVED_CODES = new Set(["AO", "SO", "RO", "NO", ""]);
+
+/**
+ * PUT /api/forms/sf9-data — Upsert the learner's SF9 observed values.
+ * Body: { student_id, school_year_id, observed_values: Record<key, code> }
+ * Keys are "cvIdx-stIdx-Q{1..3}"; values are AO/SO/RO/NO (or "" to clear).
+ */
+export async function saveSF9FormData(req: Request, res: Response): Promise<void> {
+  try {
+    const { student_id, school_year_id, observed_values } = req.body;
+    if (!student_id || !school_year_id) {
+      res.status(400).json({ error: "student_id and school_year_id are required." });
+      return;
+    }
+    if (typeof observed_values !== "object" || observed_values === null || Array.isArray(observed_values)) {
+      res.status(400).json({ error: "observed_values must be an object." });
+      return;
+    }
+    if (Object.keys(observed_values).length > 500) {
+      res.status(400).json({ error: "observed_values payload too large." });
+      return;
+    }
+    for (const [key, value] of Object.entries(observed_values)) {
+      if (!/^\d+-\d+-Q[1-3]$/.test(key)) {
+        res.status(400).json({ error: `Invalid observed_values key: ${key}` });
+        return;
+      }
+      if (typeof value !== "string" || !OBSERVED_CODES.has(value)) {
+        res.status(400).json({ error: `Invalid observed value at ${key}: expected AO/SO/RO/NO.` });
+        return;
+      }
+    }
+    // Drop empty-string entries so the stored map only carries real marks.
+    const cleaned: Record<string, string> = {};
+    for (const [key, value] of Object.entries(observed_values)) {
+      if (value !== "") cleaned[key] = value as string;
+    }
+    await query(
+      `INSERT INTO sf9_form_data (student_id, school_year_id, observed_values)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE observed_values = VALUES(observed_values)`,
+      [student_id, school_year_id, JSON.stringify(cleaned)]
+    );
+    res.json({ observed_values: cleaned, message: "Observed values saved." });
+  } catch (error) {
+    console.error("SF9 form data save error:", error);
+    res.status(500).json({ error: "Failed to save SF9 form data." });
+  }
+}
