@@ -39,6 +39,9 @@ type GradeEntry = {
   grade_ids: (number | null)[];
   /** Per-quarter lock flags [Q1, Q2, Q3]; a correction may unlock a single cell. */
   locks: [boolean, boolean, boolean];
+  /** Per-quarter "a saved grade row exists" flags [Q1, Q2, Q3]; a finalized
+   *  sheet keeps rows that never saved (empty at lock time) frozen. */
+  rowExists: [boolean, boolean, boolean];
   /** 0 when a saved grade keeps a subject the learner is not offered enrolled in. */
   in_offering?: number;
   /** subjects.program for a non-offering row (ste / spfl / als_* / …). */
@@ -199,6 +202,11 @@ export function GradeManagement() {
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
   const [loadingGrades, setLoadingGrades] = useState(false);
+  // Unsaved edits: "Lock & Finalize" stays greyed out until the sheet has been
+  // saved (avoids locking values that only exist in the UI, never in the DB).
+  const [dirty, setDirty] = useState(false);
+  // Bumped after a lock so the sheet refetches fresh lock flags from the DB.
+  const [reloadKey, setReloadKey] = useState(0);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [correctionSubject, setCorrectionSubject] = useState('');
@@ -426,6 +434,13 @@ export function GradeManagement() {
                 (found?.q1_locked ?? found?.is_locked ?? 0) === 1,
                 (found?.q2_locked ?? found?.is_locked ?? 0) === 1,
                 (found?.q3_locked ?? found?.is_locked ?? 0) === 1
+              ] as [boolean, boolean, boolean],
+              // A row counts as existing once it has ever been saved (grade or
+              // explicit row flag from the pivoted payload).
+              rowExists: [
+                (found?.q1_exists ?? (found?.q1 != null ? 1 : 0)) === 1,
+                (found?.q2_exists ?? (found?.q2 != null ? 1 : 0)) === 1,
+                (found?.q3_exists ?? (found?.q3 != null ? 1 : 0)) === 1
               ] as [boolean, boolean, boolean]
             };
           }
@@ -451,7 +466,12 @@ export function GradeManagement() {
               q1g?.is_locked === 1,
               q2g?.is_locked === 1,
               q3g?.is_locked === 1
-            ] as [boolean, boolean, boolean]
+            ] as [boolean, boolean, boolean],
+            rowExists: [q1g != null, q2g != null, q3g != null] as [
+              boolean,
+              boolean,
+              boolean
+            ]
           };
         });
         setGrades(entries);
@@ -459,6 +479,7 @@ export function GradeManagement() {
         // badge and the correction-request action available); each individual
         // cell is gated by its own locks[] entry so a scoped unlock stays usable.
         setLocked(entries.some(e => e.locks.some(Boolean)));
+        setDirty(false);
       })
       .catch((err: any) => {
         // Surface the failure instead of silently rendering empty boxes.
@@ -474,13 +495,15 @@ export function GradeManagement() {
           q2: '',
           q3: '',
           grade_ids: [null, null, null],
-          locks: [false, false, false]
+          locks: [false, false, false],
+          rowExists: [false, false, false]
         }));
         setGrades(entries);
         setLocked(false);
+        setDirty(false);
       })
       .finally(() => setLoadingGrades(false));
-  }, [selectedStudent, schoolYearId]);
+  }, [selectedStudent, schoolYearId, reloadKey]);
 
   const updateGrade = (
     idx: number,
@@ -494,7 +517,15 @@ export function GradeManagement() {
     // Cell-level lock: only the requested subject + quarter unlocks after a
     // correction is approved, so gate each cell on its own flag.
     const qi = quarter === 'q1' ? 0 : quarter === 'q2' ? 1 : 2;
-    if (deadlinePassed || (subject && subject.locks[qi])) return;
+    // A finalized sheet freezes cells that never saved a row (they were empty
+    // at lock time); they reopen only through a registrar-approved correction,
+    // which requires an existing (now unlocked) row.
+    if (
+      deadlinePassed ||
+      (subject && subject.locks[qi]) ||
+      (locked && subject && !subject.rowExists[qi])
+    )
+      return;
     const parsed = parseFloat(value);
     const num =
       value === ''
@@ -504,6 +535,7 @@ export function GradeManagement() {
       g.map((row, i) => (i === idx ? { ...row, [quarter]: num } : row))
     );
     setSaved(false);
+    setDirty(true);
   };
 
   const handleSave = async () => {
@@ -531,8 +563,14 @@ export function GradeManagement() {
           const qi = quarters.indexOf(q);
           const val = entry[q];
           // Locked cells reject writes server-side — skip them so one locked
-          // subject never blocks saving the rest of the sheet.
-          if (val !== '' && !entry.locks[qi]) {
+          // subject never blocks saving the rest of the sheet. On a finalized
+          // sheet, cells that never saved a row are frozen too (empty at lock
+          // time), mirroring the updateGrade/edit gate.
+          if (
+            val !== '' &&
+            !entry.locks[qi] &&
+            !(locked && !entry.rowExists[qi])
+          ) {
             await gradesApi.upsert({
               student_id: selectedStudent.id,
               subject_id: entry.subject_id,
@@ -558,6 +596,16 @@ export function GradeManagement() {
 
   const handleLock = async () => {
     if (!selectedStudent) return;
+    // Locking only persists what is in the DB — unsaved edits would be left
+    // behind (or silently dropped), so the sheet must be saved first.
+    if (dirty) {
+      showToast(
+        'info',
+        'Save your grades before locking the sheet.'
+      );
+      setShowLockModal(false);
+      return;
+    }
     setLocking(true);
     try {
       await gradesApi.lock({
@@ -566,6 +614,9 @@ export function GradeManagement() {
       });
       setLocked(true);
       setShowLockModal(false);
+      // Refetch so locks[]/rowExists[] match the DB exactly before the sheet
+      // is shown again.
+      setReloadKey(k => k + 1);
       showToast(
         'success',
         'Grades locked. A correction request can be submitted for registrar approval.'
@@ -976,7 +1027,7 @@ export function GradeManagement() {
                                 </span>
                               </td>
                               {(['q1', 'q2', 'q3'] as const).map((q, qi) => {
-                                const cellLocked = row.locks[qi];
+                                const cellLocked = row.locks[qi] || (locked && !row.rowExists[qi]);
                                 const cellReadonly =
                                   deadlinePassed ||
                                   cellLocked ||
@@ -1083,7 +1134,7 @@ export function GradeManagement() {
                           </div>
                           <div className="grid grid-cols-3 gap-2 mt-2">
                             {(['q1', 'q2', 'q3'] as const).map((q, qi) => {
-                              const cellLocked = row.locks[qi];
+                              const cellLocked = row.locks[qi] || (locked && !row.rowExists[qi]);
                               const cellReadonly =
                                 deadlinePassed ||
                                 cellLocked ||
@@ -1175,6 +1226,9 @@ export function GradeManagement() {
                       onClick={() => setShowLockModal(true)}
                       disabled={
                         saving ||
+                        locking ||
+                        dirty ||
+                        locked ||
                         deadlinePassed ||
                         assignedSubjectIds.size === 0
                       }
@@ -1193,7 +1247,8 @@ export function GradeManagement() {
                       setCorrectionOther('');
                       setCorrectionSubmitted(false);
                     }}
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                    disabled={saving || locking || submittingCorrection}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm disabled:shadow-none">
                     <MessageSquare size={15} /> Request Grade Correction
                   </button>
                 )}

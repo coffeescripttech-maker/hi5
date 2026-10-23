@@ -45,9 +45,9 @@ export async function listSections(req: Request, res: Response): Promise<void> {
     const { grade_level, section_type, is_active } = req.query;
 
     let sql = `SELECT s.*, u.name AS adviser_name,
-                      (SELECT COUNT(*) FROM enrollments e
+                      (SELECT COUNT(DISTINCT e.student_id) FROM enrollments e
                        JOIN school_years sy ON e.school_year_id = sy.id
-                       WHERE e.section_id = s.id AND sy.is_current = 1) AS current_count
+                       WHERE e.section_id = s.id AND sy.is_current = 1 AND e.status = 'enrolled') AS current_count
                FROM sections s
                LEFT JOIN users u ON s.adviser_id = u.id`;
     const params: any[] = [];
@@ -97,7 +97,7 @@ export async function getTeacherSections(req: Request, res: Response): Promise<v
     const userId = req.user!.userId;
     const sections = await query<SectionRow[]>(
       `SELECT DISTINCT s.*, u.name AS adviser_name,
-              (SELECT COUNT(*) FROM enrollments e
+              (SELECT COUNT(DISTINCT e.student_id) FROM enrollments e
                JOIN school_years sy ON e.school_year_id = sy.id
                WHERE e.section_id = s.id AND sy.is_current = 1 AND e.status = 'enrolled') AS current_count
        FROM sections s

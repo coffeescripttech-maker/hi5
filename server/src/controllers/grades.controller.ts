@@ -284,7 +284,10 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
                 MAX(g.is_locked) AS is_locked,
                 MAX(CASE WHEN g.quarter = 1 THEN g.is_locked ELSE 0 END) AS q1_locked,
                 MAX(CASE WHEN g.quarter = 2 THEN g.is_locked ELSE 0 END) AS q2_locked,
-                MAX(CASE WHEN g.quarter = 3 THEN g.is_locked ELSE 0 END) AS q3_locked
+                MAX(CASE WHEN g.quarter = 3 THEN g.is_locked ELSE 0 END) AS q3_locked,
+                MAX(CASE WHEN g.quarter = 1 THEN 1 ELSE 0 END) AS q1_exists,
+                MAX(CASE WHEN g.quarter = 2 THEN 1 ELSE 0 END) AS q2_exists,
+                MAX(CASE WHEN g.quarter = 3 THEN 1 ELSE 0 END) AS q3_exists
          FROM subjects s
          JOIN students stu ON stu.id = ?
          LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
@@ -462,6 +465,30 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Sheet-level guard: "Lock & Finalize" freezes the learner's whole sheet,
+    // but lockGrades can only flag rows that already exist. A cell that was
+    // empty at lock time has no row, so without this guard a brand-new INSERT
+    // would silently bypass the lock. If any other cell in this sheet is
+    // locked, the sheet is finalized — only registrar-approved corrections
+    // (which operate on rows that exist) may reopen it.
+    const existingCell = await query<RowDataPacket[]>(
+      'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ?',
+      [student_id, subject_id, school_year_id, quarter]
+    );
+    if (existingCell.length === 0) {
+      const sheetLocked = await query<RowDataPacket[]>(
+        'SELECT id FROM grades WHERE student_id = ? AND school_year_id = ? AND is_locked = 1 LIMIT 1',
+        [student_id, school_year_id]
+      );
+      if (sheetLocked.length > 0) {
+        res.status(403).json({
+          error:
+            'Grade sheet is locked. Submit a correction request to unlock it.'
+        });
+        return;
+      }
+    }
+
     // Upsert
     await query<ResultSetHeader>(
       `INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quarter, grade)
@@ -545,6 +572,20 @@ export async function batchUpsertGrades(
         [student_id, subject_id, school_year_id, quarter]
       );
       if (locked.length > 0) continue;
+
+      // Sheet-level guard: if the learner's sheet has any locked row, no new
+      // rows may be created for it (see the sheet-lock note in upsertGrade).
+      const existingCell = await query<RowDataPacket[]>(
+        'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ?',
+        [student_id, subject_id, school_year_id, quarter]
+      );
+      if (existingCell.length === 0) {
+        const sheetLocked = await query<RowDataPacket[]>(
+          'SELECT id FROM grades WHERE student_id = ? AND school_year_id = ? AND is_locked = 1 LIMIT 1',
+          [student_id, school_year_id]
+        );
+        if (sheetLocked.length > 0) continue;
+      }
 
       await query<ResultSetHeader>(
         `INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quarter, grade)

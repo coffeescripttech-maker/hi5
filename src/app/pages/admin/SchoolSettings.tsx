@@ -790,16 +790,16 @@ export function SchoolSettings() {
               <p className="text-xs text-gray-400">Eligibility minimums for STE, SPFL, SPJ and Regular placement</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 flex-shrink-0">
             <AlertTriangle size={13} className="text-amber-500" />
-            <span className="text-xs text-amber-700 font-medium">Applies to future sectioning runs only</span>
+            <span className="text-xs text-gray-600 font-medium">Applies to future sectioning runs only</span>
           </div>
         </div>
 
         <div className="p-5 sm:p-6 space-y-3">
-          <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4">
-            <Info size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-blue-700">
+          <div className="flex items-start gap-2 bg-gray-50 border border-gray-100 rounded-xl p-3 mb-4">
+            <Info size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-gray-600">
               Continuing students are checked against the previous school year's General Average and subject grades.
               For STE, SPFL and SPJ the system only shows who meets the grade requirements — the entrance exam and
               interview happen outside the system and the Enrollment Committee confirms each placement. Regular
@@ -808,23 +808,24 @@ export function SchoolSettings() {
             </p>
           </div>
 
-          {thresholds
-            .filter(t => ["ste", "spfl", "spj", "regular", "non_reader"].includes(t.section_type))
+          {[
+            // One card per section type: de-dupe by section_type so a legacy or
+            // stale API payload can never render the same type twice.
+            ...new Map(
+              thresholds
+                .filter(t =>
+                  ["ste", "spfl", "spj", "regular", "non_reader"].includes(
+                    t.section_type
+                  )
+                )
+                .map(t => [t.section_type, t])
+            ).values()
+          ]
             .sort((a, b) => a.sort_order - b.sort_order)
             .map(t => {
             const sectionType = t.section_type;
             const displayName = t.label || sectionType.toUpperCase();
             const isNonReader = sectionType === "non_reader";
-            // Color classes: color_code is either the Tailwind triple written
-            // by Manage Types ('bg-green-100 text-green-700 border-green-200')
-            // or a legacy short name seeded before the UI ('amber'). Reuse the
-            // stored tokens as-is (they are real classes the badge already
-            // renders) and fall back to neutral greys for anything older.
-            const colorCode = t.color_code || "";
-            const classFor = (rule: RegExp, fallback: string) => colorCode.match(rule)?.[0] || fallback;
-            const bgColor = classFor(/bg-[a-z]+-\d+/, "bg-gray-50");
-            const borderColor = classFor(/border-[a-z]+-\d+/, "border-gray-200");
-            const textColor = classFor(/text-[a-z]+-\d+/, "text-gray-700");
 
             // Fields shown per the finalized criteria table.
             const fieldsToShow: { key: string; label: string; disabled: boolean }[] = isNonReader
@@ -852,15 +853,15 @@ export function SchoolSettings() {
                 ];
 
             return (
-            <div key={sectionType} className={`rounded-xl border ${borderColor} ${bgColor} overflow-hidden`}>
+            <div key={sectionType} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
               <button onClick={() => setExpandedSection(expandedSection === sectionType ? null : sectionType)}
-                className="w-full px-4 py-3.5 flex items-center justify-between">
+                className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border ${borderColor}`}>
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                     <span className="text-sm">{t.icon || sectionType.charAt(0).toUpperCase()}</span>
                   </div>
                   <div className="text-left">
-                    <p className={`font-semibold text-sm ${textColor}`}>{displayName}</p>
+                    <p className="font-semibold text-sm text-gray-900">{displayName}</p>
                     <p className="text-gray-500 text-xs">
                       {isNonReader
                         ? "Teacher tagged only — no grade minimums"
@@ -869,7 +870,7 @@ export function SchoolSettings() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm font-bold px-3 py-1 rounded-full bg-white border ${borderColor} ${textColor}`}>
+                  <span className="text-sm font-semibold px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-gray-700">
                     {summaryParts.length > 0 ? summaryParts.join(" · ") : "None"}
                   </span>
                   {isNonReader && (
@@ -881,9 +882,9 @@ export function SchoolSettings() {
                 </div>
               </button>
               {expandedSection === sectionType && (
-                <div className="px-4 pb-4 border-t border-white/60 pt-4">
+                <div className="px-4 pb-4 border-t border-gray-100 pt-4">
                   {isNonReader ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/70 rounded-lg p-3 border border-gray-200">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-100">
                       <Shield size={13} className="text-gray-400" />
                       Non-Reader placement is a teacher's tag, never grades. No minimum or maximum applies — tagging
                       does not move a student; the Enrollment Committee or Registrar places tagged students into a
