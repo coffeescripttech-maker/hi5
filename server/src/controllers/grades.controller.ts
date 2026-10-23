@@ -521,6 +521,10 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
 /**
  * POST /api/grades/batch — Upsert multiple grades at once
  * Body: { grades: [{ student_id, subject_id, school_year_id, quarter, grade }] }
+ *
+ * Set-based (one round-trip per sheet): scope checks, lock checks, and the
+ * upsert itself are batched so saving a 12-subject × 3-quarter sheet takes a
+ * single request instead of dozens of sequential ones.
  */
 export async function batchUpsertGrades(
   req: Request,
@@ -534,82 +538,166 @@ export async function batchUpsertGrades(
       return;
     }
 
-    let updated = 0;
+    // Normalize: keep valid rows, dedupe by (student, subject, sy, quarter) —
+    // last value wins.
+    const rows = new Map<
+      string,
+      { student_id: number; subject_id: number; school_year_id: number; quarter: number; grade: number | null }
+    >();
+    for (const g of grades) {
+      const { student_id, subject_id, school_year_id, quarter } = g;
+      if (!student_id || !subject_id || !school_year_id) continue;
+      if (!quarter || quarter < 1 || quarter > 3) continue;
+      rows.set(`${student_id}|${subject_id}|${school_year_id}|${quarter}`, {
+        student_id: Number(student_id),
+        subject_id: Number(subject_id),
+        school_year_id: Number(school_year_id),
+        quarter: Number(quarter),
+        grade: g.grade ?? null
+      });
+    }
+    const rowList = [...rows.values()];
+    if (rowList.length === 0) {
+      res.status(400).json({ error: 'No valid grade rows.' });
+      return;
+    }
+
+    const studentIds = [...new Set(rowList.map(r => r.student_id))];
+    const schoolYearIds = [...new Set(rowList.map(r => r.school_year_id))];
+
+    let enrollmentMap = new Map<string, number>();
+    const enrollQ = `SELECT id, student_id, school_year_id, section_id FROM enrollments WHERE student_id IN (${studentIds
+      .map(() => '?')
+      .join(',')}) AND school_year_id IN (${schoolYearIds
+      .map(() => '?')
+      .join(',')}) AND status = 'enrolled'`;
+    const enrollRows = await query<RowDataPacket[]>(enrollQ, [
+      ...studentIds,
+      ...schoolYearIds
+    ]);
+    for (const e of enrollRows) {
+      enrollmentMap.set(`${e.student_id}|${e.school_year_id}`, Number(e.id));
+    }
+
     if (req.user!.role === 'teacher') {
-      // Security pre-pass: reject the whole batch if any row is out of scope.
-      for (const g of grades) {
-        const { student_id, subject_id, school_year_id } = g;
-        if (!student_id || !subject_id || !school_year_id) continue;
-        const reason = await teacherGradeBlockReason(
-          req.user!.userId,
-          school_year_id,
-          subject_id,
-          student_id
+      if (await isPastGradeDeadline()) {
+        res
+          .status(403)
+          .json({
+            error:
+              'The grade editing deadline has passed. Grades are now read-only — contact the Registrar for corrections.'
+          });
+        return;
+      }
+      // Scope checks once per request, not once per row: allowed subjects,
+      // own sections, per-learner offered subjects.
+      const [allowedSubjects, teacherSections] = await Promise.all([
+        getTeacherSubjectIds(req.user!.userId, rowList[0].school_year_id),
+        getTeacherSectionIds(req.user!.userId, rowList[0].school_year_id)
+      ]);
+      for (const studentId of studentIds) {
+        const enrollment = enrollRows.find(
+          e => Number(e.student_id) === studentId &&
+            Number(e.school_year_id) === rowList[0].school_year_id
         );
-        if (reason) {
-          res.status(403).json({ error: reason });
+        if (!enrollment || !enrollment.section_id || !teacherSections.has(Number(enrollment.section_id))) {
+          res
+            .status(403)
+            .json({
+              error:
+                'Access denied: you may only encode grades for students in your advisory section.'
+            });
           return;
+        }
+        const offered = await getLearnerOfferingSubjectIds(
+          studentId,
+          rowList[0].school_year_id
+        );
+        for (const r of rowList.filter(x => x.student_id === studentId)) {
+          if (!allowedSubjects.has(r.subject_id)) {
+            res
+              .status(403)
+              .json({
+                error:
+                  'Access denied: you may only encode grades for subjects assigned to you.'
+              });
+            return;
+          }
+          if (!offered.has(r.subject_id)) {
+            res
+              .status(403)
+              .json({
+                error: 'Access denied: this subject is not offered to the learner.'
+              });
+            return;
+          }
         }
       }
     }
-    for (const g of grades) {
-      const { student_id, subject_id, school_year_id, quarter, grade } = g;
 
-      if (!student_id || !subject_id || !school_year_id || !quarter) continue;
-      if (quarter < 1 || quarter > 3) continue;
-
-      // Get enrollment_id
-      const enrolls = await query<RowDataPacket[]>(
-        "SELECT id FROM enrollments WHERE student_id = ? AND school_year_id = ? AND status = 'enrolled' LIMIT 1",
-        [student_id, school_year_id]
-      );
-      if (enrolls.length === 0) continue;
-      const enrollment_id = enrolls[0].id;
-
-      // Skip locked grades
-      const locked = await query<RowDataPacket[]>(
-        'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ? AND is_locked = 1',
-        [student_id, subject_id, school_year_id, quarter]
-      );
-      if (locked.length > 0) continue;
-
-      // Sheet-level guard: if the learner's sheet has any locked row, no new
-      // rows may be created for it (see the sheet-lock note in upsertGrade).
-      const existingCell = await query<RowDataPacket[]>(
-        'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ?',
-        [student_id, subject_id, school_year_id, quarter]
-      );
-      if (existingCell.length === 0) {
-        const sheetLocked = await query<RowDataPacket[]>(
-          'SELECT id FROM grades WHERE student_id = ? AND school_year_id = ? AND is_locked = 1 LIMIT 1',
-          [student_id, school_year_id]
-        );
-        if (sheetLocked.length > 0) continue;
+    // Existing lock state fetched once for every involved (student, sy).
+    const existing = await query<RowDataPacket[]>(
+      `SELECT student_id, subject_id, school_year_id, quarter, is_locked
+       FROM grades
+       WHERE student_id IN (${studentIds.map(() => '?').join(',')})
+         AND school_year_id IN (${schoolYearIds.map(() => '?').join(',')})`,
+      [...studentIds, ...schoolYearIds]
+    );
+    const cellLocked = new Set<string>();
+    const cellExists = new Set<string>();
+    const sheetLocked = new Set<number>();
+    for (const g of existing) {
+      const key = `${g.student_id}|${g.subject_id}|${g.school_year_id}|${g.quarter}`;
+      cellExists.add(key);
+      if (Number(g.is_locked) === 1) {
+        cellLocked.add(key);
+        sheetLocked.add(Number(g.student_id));
       }
+    }
 
-      await query<ResultSetHeader>(
-        `INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quarter, grade)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE grade = VALUES(grade), updated_at = NOW()`,
-        [
-          student_id,
-          subject_id,
-          enrollment_id,
-          school_year_id,
-          quarter,
-          grade ?? null
-        ]
+    // One batched upsert; skip locked cells and frozen cells on locked sheets.
+    const inserts: (number | string | null)[][] = [];
+    for (const r of rowList) {
+      const key = `${r.student_id}|${r.subject_id}|${r.school_year_id}|${r.quarter}`;
+      if (cellLocked.has(key)) continue;
+      if (sheetLocked.has(r.student_id) && !cellExists.has(key)) continue;
+      const enrollmentId = enrollmentMap.get(
+        `${r.student_id}|${r.school_year_id}`
       );
-      updated++;
+      if (!enrollmentId) continue;
+      inserts.push([
+        r.student_id,
+        r.subject_id,
+        enrollmentId,
+        r.school_year_id,
+        r.quarter,
+        r.grade
+      ]);
+    }
+
+    if (inserts.length > 0) {
+      for (let i = 0; i < inserts.length; i += 500) {
+        const chunk = inserts.slice(i, i + 500);
+        const valuesSql = chunk
+          .map(() => '(?, ?, ?, ?, ?, ?)')
+          .join(', ');
+        const flat = chunk.flat();
+        await query<ResultSetHeader>(
+          `INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quarter, grade)
+           VALUES ${valuesSql}
+           ON DUPLICATE KEY UPDATE grade = VALUES(grade), updated_at = NOW()`,
+          flat
+        );
+      }
     }
 
     await logActivity(
       req.user!.userId,
-      `Batch imported ${updated} grades`,
+      `Batch imported ${inserts.length} grades`,
       'grades',
       null
     );
-    res.json({ message: `${updated} grades saved successfully.` });
+    res.json({ message: `${inserts.length} grades saved successfully.` });
   } catch (error) {
     console.error('Batch upsert error:', error);
     res.status(500).json({ error: 'Failed to save grades.' });

@@ -553,6 +553,13 @@ export function GradeManagement() {
     }
     setSaving(true);
     try {
+      const payload: {
+        student_id: number;
+        subject_id: number;
+        school_year_id: number;
+        quarter: number;
+        grade: number;
+      }[] = [];
       for (const entry of grades) {
         // Subject-level scope: only persist grades for assigned subjects that
         // the learner is actually offered (out-of-curriculum rows are read-only).
@@ -567,22 +574,25 @@ export function GradeManagement() {
           // sheet, cells that never saved a row are frozen too (empty at lock
           // time), mirroring the updateGrade/edit gate.
           if (
-            val !== '' &&
-            !entry.locks[qi] &&
-            !(locked && !entry.rowExists[qi])
-          ) {
-            await gradesApi.upsert({
-              student_id: selectedStudent.id,
-              subject_id: entry.subject_id,
-              school_year_id: schoolYearId,
-              quarter: qi + 1,
-              grade: val as number
-            });
-          }
+            val === '' ||
+            entry.locks[qi] ||
+            (locked && !entry.rowExists[qi])
+          )
+            continue;
+          payload.push({
+            student_id: selectedStudent.id,
+            subject_id: entry.subject_id,
+            school_year_id: schoolYearId,
+            quarter: qi + 1,
+            grade: val as number
+          });
         }
       }
+      if (payload.length > 0)
+        await gradesApi.batchUpsert(payload);
       showToast('success', 'Grades saved successfully.');
       setSaved(true);
+      setDirty(false);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       showToast(

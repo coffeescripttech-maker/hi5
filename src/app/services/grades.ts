@@ -154,6 +154,8 @@ export const gradesApi = {
   },
   upsert: (data: GradeUpsertPayload) =>
     api.post<GradeRow>("/grades", data),
+  batchUpsert: (grades: GradeUpsertPayload[]) =>
+    api.post<{ message: string }>("/grades/batch", { grades }),
   lock: (data: GradeLockPayload) =>
     api.post<{ message: string }>("/grades/lock", data),
   unlock: (data: GradeLockPayload) =>
