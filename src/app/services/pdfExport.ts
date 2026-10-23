@@ -467,7 +467,11 @@ export function syncFormControlValues(source: Element, clone: Element) {
       d.value = s.value;
     } else if (s instanceof HTMLInputElement) {
       d.value = s.value;
-      if (s.type === "checkbox" || s.type === "radio") d.checked = s.checked;
+      if (
+        d instanceof HTMLInputElement &&
+        (s.type === "checkbox" || s.type === "radio")
+      )
+        d.checked = s.checked;
     }
   }
 }
