@@ -1238,7 +1238,6 @@ export function GradeManagement() {
                         saving ||
                         locking ||
                         dirty ||
-                        locked ||
                         deadlinePassed ||
                         assignedSubjectIds.size === 0
                       }
