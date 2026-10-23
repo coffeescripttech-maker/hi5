@@ -1216,7 +1216,7 @@ export function SF10Report() {
                         onChange={e =>
                           updateRecord(idx, 'school', e.target.value)
                         }
-                        className="sf1-input inline border-b border-gray-800 w-60 bg-transparent px-1 text-[9px] outline-none focus:bg-amber-50"
+                        className="sf1-input inline border-b border-gray-800 w-72 bg-transparent px-1 text-[8px] outline-none focus:bg-amber-50"
                       />
                       <span className="ml-4 font-bold">School ID:</span>
                       <input

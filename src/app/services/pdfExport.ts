@@ -429,9 +429,13 @@ export function replaceFormControls(root: HTMLElement) {
         span.textContent = el.checked ? "☑" : "☐"; // ☑ / ☐
       } else {
         span.textContent = el.value;
+        // Inputs never wrap their text — the replacement span must not either,
+        // or wider font metrics on some devices broke one-line fields.
+        span.style.whiteSpace = "nowrap";
       }
     } else if (el instanceof HTMLSelectElement) {
       span.textContent = el.selectedOptions[0]?.text ?? "";
+      span.style.whiteSpace = "nowrap";
     } else {
       span.textContent = (el as HTMLTextAreaElement).value;
     }

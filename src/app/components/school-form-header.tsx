@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /* ---------------------------------------------------------------- */
 /* HeaderField — single editable label + input row                  */
@@ -11,20 +11,37 @@ function HeaderField({
   value,
   onChange,
   boxClass = "w-48",
+  grow = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   boxClass?: string;
+  /** Size the input from its content so long names stay on one line on every device. */
+  grow?: boolean;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [growWidth, setGrowWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!grow) return;
+    const el = inputRef.current;
+    const font = el ? getComputedStyle(el).font : "";
+    const ctx = document.createElement("canvas").getContext("2d");
+    const textW = ctx && font ? ctx.measureText(value || " ").width : 0;
+    setGrowWidth(Math.max(Math.ceil(textW) + 12, 180));
+  }, [value, grow]);
+
   return (
     <div className="flex items-end gap-1">
       <span className="whitespace-nowrap text-[11px] font-semibold text-foreground">
         {label}
       </span>
       <input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        style={grow && growWidth != null ? { width: `${growWidth}px` } : undefined}
         className={`sf1-input ${boxClass} border border-foreground/70 px-1 text-[11px] leading-5 outline-none focus:bg-amber-50`}
       />
     </div>
@@ -120,6 +137,7 @@ export function SchoolFormHeader({
           value={header.schoolName}
           onChange={(v) => onChange("schoolName", v)}
           boxClass="w-[30rem]"
+          grow
         />
         <HeaderField
           label="School Year"
