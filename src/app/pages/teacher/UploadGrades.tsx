@@ -130,8 +130,17 @@ export function UploadGrades() {
     }
   }, [sectionSubjects, selectedSubjectId]);
 
+  // Strengthened SHS Curriculum: elective subjects are graded against the
+  // learners' elective picks, not a section roster.
+  const isElectiveSubject = (subjectId: number) =>
+    subjects.find(s => s.id === subjectId)?.subject_type === 'elective';
+
   const hasSelection =
-    !!selectedSectionId && !!selectedSubjectId && !!selectedYearId;
+    !!selectedSubjectId &&
+    !!selectedYearId &&
+    // Strengthened SHS Curriculum: electives don't need a section — their
+    // roster is the learners who picked the elective.
+    (!!selectedSectionId || isElectiveSubject(selectedSubjectId as number));
 
   // Context names for display
   const context = useMemo(() => {
@@ -172,7 +181,7 @@ export function UploadGrades() {
     setTemplateBusy(true);
     try {
       await documentsApi.template({
-        section_id: selectedSectionId as number,
+        section_id: selectedSectionId || undefined,
         subject_id: selectedSubjectId as number,
         school_year_id: selectedYearId as number,
         quarter
@@ -191,7 +200,7 @@ export function UploadGrades() {
     if (!hasSelection) {
       showToast(
         'error',
-        'Please select Section, Subject, and School Year first.'
+        'Please select Subject and School Year first (a section is only needed for non-elective subjects).'
       );
       return;
     }
@@ -210,7 +219,9 @@ export function UploadGrades() {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('section_id', String(selectedSectionId));
+    if (selectedSectionId) {
+      formData.append('section_id', String(selectedSectionId));
+    }
     formData.append('subject_id', String(selectedSubjectId));
     formData.append('school_year_id', String(selectedYearId));
     formData.append('quarter', String(quarter));
@@ -349,6 +360,13 @@ export function UploadGrades() {
                   </option>
                 ))}
               </select>
+              {selectedSubjectId &&
+                isElectiveSubject(selectedSubjectId as number) && (
+                  <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 mt-1.5">
+                    Elective — no section needed. The roster lists learners who
+                    picked this elective.
+                  </p>
+                )}
             </div>
             <div>
               <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">
@@ -366,6 +384,7 @@ export function UploadGrades() {
                 {sectionSubjects.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.name}
+                    {s.subject_type === 'elective' ? ' (Elective)' : ''}
                   </option>
                 ))}
               </select>
@@ -420,7 +439,7 @@ export function UploadGrades() {
               disabled={!hasSelection || templateBusy}
               title={
                 !hasSelection
-                  ? 'Select section, subject, and school year first'
+                  ? 'Select subject and school year first (a section is only needed for non-elective subjects)'
                   : undefined
               }
               className="flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-lg text-sm font-medium transition shadow-sm">

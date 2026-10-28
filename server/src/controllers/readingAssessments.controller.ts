@@ -23,9 +23,10 @@ const SELECT_BASE = `
 
 /**
  * A teacher may only assess learners on their own roster: students in a section
- * they advise, or a pending-queue student they enrolled themselves. Mirrors the
- * scoping of GET /api/students/my-students so the assessment pages cannot be
- * used to reach other advisers' learners.
+ * they advise, a pending-queue student they enrolled themselves, or a learner
+ * who picked one of the teacher's electives (Strengthened SHS Curriculum).
+ * Mirrors the scoping of GET /api/students/my-students so the assessment pages
+ * cannot be used to reach other advisers' learners.
  */
 async function teacherOwnsStudent(userId: number, studentId: number, schoolYearId: number): Promise<boolean> {
   const rows = await query<RowDataPacket[]>(
@@ -34,9 +35,16 @@ async function teacherOwnsStudent(userId: number, studentId: number, schoolYearI
      LEFT JOIN sections sec ON e.section_id = sec.id
      WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
        AND ((sec.adviser_id IS NOT NULL AND sec.adviser_id = ?)
-            OR (e.section_id IS NULL AND e.enrolled_by = ?))
+            OR (e.section_id IS NULL AND e.enrolled_by = ?)
+            OR EXISTS (
+              SELECT 1 FROM student_electives se
+              JOIN teacher_subject_assignments tea
+                ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+              WHERE se.student_id = e.student_id
+                AND se.school_year_id = e.school_year_id
+            ))
      LIMIT 1`,
-    [studentId, schoolYearId, userId, userId]
+    [studentId, schoolYearId, userId, userId, userId]
   );
   return rows.length > 0;
 }

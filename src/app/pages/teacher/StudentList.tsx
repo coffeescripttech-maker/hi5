@@ -14,6 +14,7 @@ import {
   ChevronFirst,
   ChevronLast,
   SlidersHorizontal,
+  Sparkles,
   X
 } from 'lucide-react';
 import { studentsApi, StudentRow } from '../../services/students';
@@ -707,15 +708,30 @@ export function StudentList() {
                                   <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded-lg">
                                     Graduated
                                   </span>
-                                ) : hasSection ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">
-                                    {s.section_name}
-                                  </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                    Pending Section
-                                  </span>
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {s.section_name != null && (
+                                      <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg">
+                                        {s.section_name}
+                                      </span>
+                                    )}
+                                    {s.elective_via && (
+                                      <span
+                                        title={`On your roster because the learner picked: ${s.elective_via}`}
+                                        className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">
+                                        <Sparkles size={12} />
+                                        <span className="truncate max-w-[180px]">
+                                          Elective: {s.elective_via}
+                                        </span>
+                                      </span>
+                                    )}
+                                    {!s.section_name && !s.elective_via && (
+                                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                        Pending Section
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                               <td className="px-6 py-3.5">
@@ -808,15 +824,30 @@ export function StudentList() {
                                   <span className="text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
                                     Graduated
                                   </span>
-                                ) : hasSection ? (
-                                  <span className="text-[11px] font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md truncate">
-                                    {s.section_name}
-                                  </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                    Pending Section
-                                  </span>
+                                  <>
+                                    {s.section_name != null && (
+                                      <span className="text-[11px] font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md truncate">
+                                        {s.section_name}
+                                      </span>
+                                    )}
+                                    {s.elective_via && (
+                                      <span
+                                        title={`On your roster because the learner picked: ${s.elective_via}`}
+                                        className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                                        <Sparkles size={11} />
+                                        <span className="truncate max-w-[140px]">
+                                          Elective: {s.elective_via}
+                                        </span>
+                                      </span>
+                                    )}
+                                    {!s.section_name && !s.elective_via && (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                        Pending Section
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>

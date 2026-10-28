@@ -3,6 +3,7 @@ import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { randomUUID } from "crypto";
+import { carryOverElectives } from "../utils/shsCurriculum";
 
 
 import { generateRulesPlan, RuleScope } from "../services/sectioningRules";
@@ -468,6 +469,43 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
 
     const assignedBy = req.user!.userId;
     const batchId = randomUUID();
+
+    // ── Strengthened SHS Curriculum gate ─────────────────────────────────────
+    // The Enrollment Committee must complete each SHS learner's elective
+    // selections before confirming section placement. Section the learners who
+    // are Grade 11/12 Mainstream / Open High School this school year and have
+    // no elective picks yet.
+    {
+      const candidateIds = assignments.map((a: any) => Number(a.student_id));
+      if (candidateIds.length > 0) {
+        const placeholders = candidateIds.map(() => "?").join(",");
+        const shsMissing = await query<RowDataPacket[]>(
+          `SELECT st.id, st.name
+             FROM students st
+             LEFT JOIN enrollments e
+               ON e.student_id = st.id AND e.school_year_id = ? AND e.status IN ('enrolled','pending')
+             WHERE st.id IN (${placeholders})
+               AND st.grade_level >= 11
+               AND e.id IS NOT NULL
+               AND e.program IN ('regular','open_high')
+               AND NOT EXISTS (
+                 SELECT 1 FROM student_electives se
+                 WHERE se.student_id = st.id AND se.school_year_id = ?
+               )
+             LIMIT 200`,
+          [school_year_id, school_year_id, ...candidateIds]
+        );
+        if (shsMissing.length > 0) {
+          const names = shsMissing.map((s: any) => String(s.name)).join(", ");
+          res.status(422).json({
+            error: `Complete the elective selections before confirming section placement for: ${names}`,
+            missing_electives: shsMissing.map((s: any) => ({ student_id: s.id, name: s.name })),
+          });
+          return;
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
     const results: Array<{
       student_id: number;
       enrollment_id?: number;
@@ -565,13 +603,37 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
             );
             assignEnrollmentId = existingEnroll[0].id;
           } else {
-            // Create new
+            // Create new — carry the learner's program and track forward from
+            // their most recent prior enrollment (SHS carryover), then copy
+            // prior-year electives as a proposed list for committee review.
+            const prior = await query<RowDataPacket[]>(
+              `SELECT program, strand_track_id, school_year_id FROM enrollments
+                WHERE student_id = ? AND school_year_id < ?
+                ORDER BY school_year_id DESC LIMIT 1`,
+              [student_id, school_year_id]
+            );
+            const carryProgram = prior.length > 0 ? String(prior[0].program ?? 'regular') : 'regular';
+            const carryTrack = prior.length > 0 ? (prior[0].strand_track_id ?? null) : null;
             const ins = await query<ResultSetHeader>(
-              `INSERT INTO enrollments (student_id, section_id, school_year_id, program, enrollment_date, enrolled_by)
-               VALUES (?, ?, ?, 'regular', CURDATE(), ?)`,
-              [student_id, section_id, school_year_id, assignedBy]
+              `INSERT INTO enrollments (student_id, section_id, school_year_id, program, strand_track_id, enrollment_date, enrolled_by)
+               VALUES (?, ?, ?, ?, ?, CURDATE(), ?)`,
+              [student_id, section_id, school_year_id, carryProgram, carryTrack, assignedBy]
             );
             assignEnrollmentId = ins.insertId;
+            if (
+              Number(student[0].grade_level) >= 12 &&
+              ['regular', 'open_high'].includes(carryProgram) &&
+              prior.length > 0
+            ) {
+              await carryOverElectives(
+                Number(student_id),
+                Number(prior[0].school_year_id),
+                school_year_id,
+                Number(student[0].grade_level),
+                carryTrack,
+                assignedBy
+              );
+            }
           }
         }
 

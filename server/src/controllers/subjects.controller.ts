@@ -7,14 +7,22 @@ interface SubjectRow extends RowDataPacket {
   id: number;
   name: string;
   grade_level: number;
-  hours_per_week: number;
-  subject_type: "core" | "applied" | "specialized";
+  hours_per_week: number | null;
+  subject_type:
+    | "core"
+    | "applied"
+    | "specialized"
+    | "elective"
+    | "field_experience"
+    | "work_immersion";
   /** Reporting group key — NULL = standalone subject. All rows sharing a group
    *  (e.g. TLE specializations) are reported under one heading and counted once
    *  in the general average. Mirrors the existing MAPEH collapse. */
   subject_group: string | null;
   /** Curriculum program this subject belongs to — NULL = shared by all programs. */
   program: string | null;
+  /** Strengthened SHS Curriculum: cluster heading an elective belongs to. */
+  elective_cluster: string | null;
   is_active: number;
   created_at: Date;
   updated_at: Date;
@@ -161,15 +169,36 @@ export async function getSubjectById(req: Request, res: Response): Promise<void>
  */
 export async function createSubject(req: Request, res: Response): Promise<void> {
   try {
-    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group, program } = req.body;
+    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group, program, elective_cluster } = req.body;
 
-    if (!name || !grade_level || hours_per_week === undefined || !subject_type) {
-      res.status(400).json({ error: "Missing required fields: name, grade_level, hours_per_week, subject_type." });
+    if (!name || !grade_level || !subject_type) {
+      res.status(400).json({ error: "Missing required fields: name, grade_level, subject_type." });
       return;
     }
 
-    if (!["core", "applied", "specialized"].includes(subject_type)) {
-      res.status(400).json({ error: "Invalid subject_type. Must be core, applied, or specialized." });
+    if (!["core", "applied", "specialized", "elective", "field_experience", "work_immersion"].includes(subject_type)) {
+      res.status(400).json({ error: "Invalid subject_type. Must be core, applied, specialized, elective, field_experience, or work_immersion." });
+      return;
+    }
+
+    // Strengthened SHS Curriculum: SHS core subjects are the five Grade-11
+    // cores only — Grade 12 has no core subjects. JHS core subjects (7-10)
+    // are unaffected.
+    if (subject_type === "core" && Number(grade_level) === 12) {
+      res.status(400).json({ error: "Core subjects are Grade 11 only under the Strengthened SHS Curriculum — Grade 12 has no core subjects." });
+      return;
+    }
+
+    // Strengthened SHS Curriculum: curriculum-mandated subjects may leave
+    // hours_per_week NULL (the 160-hour yearly totals cannot be expressed as a
+    // weekly figure). Everything else still needs a weekly load.
+    if (hours_per_week === undefined && !["elective", "field_experience", "work_immersion"].includes(subject_type)) {
+      res.status(400).json({ error: "hours_per_week is required for core, applied, and specialized subjects." });
+      return;
+    }
+
+    if (subject_type === "elective" && (!elective_cluster || !String(elective_cluster).trim())) {
+      res.status(400).json({ error: "Electives require an elective_cluster (e.g. General Education, TechPro)." });
       return;
     }
 
@@ -194,10 +223,15 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
 
     const programScope = program === undefined || program === null || program === "" ? null : program;
 
+    const cluster =
+      subject_type === "elective"
+        ? String(elective_cluster).trim()
+        : null;
+
     const result = await query<ResultSetHeader>(
-      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, subject_group, program, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, grade_level, hours_per_week, subject_type, group, programScope, is_active !== undefined ? is_active : 1]
+      `INSERT INTO subjects (name, grade_level, hours_per_week, subject_type, subject_group, program, is_active, elective_cluster)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, grade_level, hours_per_week ?? null, subject_type, group, programScope, is_active !== undefined ? is_active : 1, cluster]
     );
 
     await logActivity(req.user!.userId, `Created subject "${name}" (Grade ${grade_level})`, "subjects", result.insertId);
@@ -216,11 +250,31 @@ export async function createSubject(req: Request, res: Response): Promise<void> 
 export async function updateSubject(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group, program } = req.body;
+    const { name, grade_level, hours_per_week, subject_type, is_active, subject_group, program, elective_cluster } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM subjects WHERE id = ?", [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: "Subject not found." });
+      return;
+    }
+
+    if (subject_type !== undefined && !["core", "applied", "specialized", "elective", "field_experience", "work_immersion"].includes(subject_type)) {
+      res.status(400).json({ error: "Invalid subject_type. Must be core, applied, specialized, elective, field_experience, or work_immersion." });
+      return;
+    }
+
+    // Strengthened SHS Curriculum: core subjects are Grade 11 only — block a
+    // core subject being created at or moved to Grade 12.
+    const coreCheck = await query<RowDataPacket[]>(
+      "SELECT subject_type, grade_level FROM subjects WHERE id = ?",
+      [id]
+    );
+    if (
+      coreCheck.length > 0 &&
+      (subject_type !== undefined ? subject_type : coreCheck[0].subject_type) === "core" &&
+      Number(grade_level !== undefined ? grade_level : coreCheck[0].grade_level) === 12
+    ) {
+      res.status(400).json({ error: "Core subjects are Grade 11 only under the Strengthened SHS Curriculum — Grade 12 has no core subjects." });
       return;
     }
 
@@ -234,7 +288,7 @@ export async function updateSubject(req: Request, res: Response): Promise<void> 
 
     if (name !== undefined) { fields.push("name = ?"); params.push(name); }
     if (grade_level !== undefined) { fields.push("grade_level = ?"); params.push(grade_level); }
-    if (hours_per_week !== undefined) { fields.push("hours_per_week = ?"); params.push(hours_per_week); }
+    if (hours_per_week !== undefined) { fields.push("hours_per_week = ?"); params.push(hours_per_week === null ? null : hours_per_week); }
     if (subject_type !== undefined) { fields.push("subject_type = ?"); params.push(subject_type); }
     if (subject_group !== undefined) {
       fields.push("subject_group = ?");
@@ -245,6 +299,10 @@ export async function updateSubject(req: Request, res: Response): Promise<void> 
       params.push(program === null || program === "" ? null : program);
     }
     if (is_active !== undefined) { fields.push("is_active = ?"); params.push(is_active); }
+    if (elective_cluster !== undefined) {
+      fields.push("elective_cluster = ?");
+      params.push(elective_cluster === null || elective_cluster === "" ? null : String(elective_cluster).trim());
+    }
 
     if (fields.length === 0) {
       res.status(400).json({ error: "No fields to update." });

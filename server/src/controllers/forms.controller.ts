@@ -42,9 +42,16 @@ async function isTeacherAllowedForStudent(
             WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
               AND tsa.section_id = e.section_id
           )
+          OR EXISTS (
+            SELECT 1 FROM student_electives se
+            JOIN teacher_subject_assignments tea
+              ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+            WHERE se.student_id = e.student_id
+              AND se.school_year_id = e.school_year_id
+          )
         )
       LIMIT 1`;
-    params = [studentId, parseInt(schoolYearId), userId, userId];
+    params = [studentId, parseInt(schoolYearId), userId, userId, userId];
   } else {
     sql = `
       SELECT 1 AS allowed
@@ -59,10 +66,17 @@ async function isTeacherAllowedForStudent(
             WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
               AND tsa.section_id = e.section_id
           )
+          OR EXISTS (
+            SELECT 1 FROM student_electives se
+            JOIN teacher_subject_assignments tea
+              ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+            WHERE se.student_id = e.student_id
+              AND se.school_year_id = e.school_year_id
+          )
         )
       ORDER BY e.school_year_id DESC
       LIMIT 1`;
-    params = [studentId, userId, userId];
+    params = [studentId, userId, userId, userId];
   }
 
   const rows = await query<RowDataPacket[]>(sql, params);
@@ -80,6 +94,7 @@ export async function getSF1(req: Request, res: Response): Promise<void> {
              s.guardian, s.contact, s.status AS student_status,
              sec.name AS section_name, sec.section_type,
              e.enrollment_date, e.status AS enrollment_status, e.remarks,
+             e.program, trk.name AS track_name, trk.track_type AS track_type,
              sy.sy_label,
              u.name AS enrolled_by_name
       FROM enrollments e
@@ -87,6 +102,7 @@ export async function getSF1(req: Request, res: Response): Promise<void> {
       JOIN sections sec ON e.section_id = sec.id
       JOIN school_years sy ON e.school_year_id = sy.id
       JOIN users u ON e.enrolled_by = u.id
+      LEFT JOIN strand_tracks trk ON trk.id = e.strand_track_id
       WHERE e.status = 'enrolled'
     `;
     const params: any[] = [];
@@ -163,12 +179,14 @@ export async function getSF5(req: Request, res: Response): Promise<void> {
       SELECT s.id AS student_id, s.student_id AS student_id_display, s.lrn, s.name,
              s.grade_level, s.sex,
              sec.name AS section_name, sec.section_type,
+             e.program, trk.name AS track_name, trk.track_type AS track_type,
              ROUND(AVG(g.grade), 2) AS general_average,
              CASE WHEN ROUND(AVG(g.grade), 2) >= ? THEN 'PROMOTED' ELSE 'RETAINED' END AS promotion_status
       FROM enrollments e
       JOIN students s ON e.student_id = s.id
       JOIN sections sec ON e.section_id = sec.id
       JOIN grades g ON g.student_id = s.id AND g.school_year_id = e.school_year_id
+      LEFT JOIN strand_tracks trk ON trk.id = e.strand_track_id
       WHERE e.status = 'enrolled'
     `;
     // The passing-mark placeholder is textually first in the SQL (SELECT list),
@@ -190,7 +208,7 @@ export async function getSF5(req: Request, res: Response): Promise<void> {
       params.push(req.user!.userId);
     }
 
-    sql += ` GROUP BY s.id, s.student_id, s.lrn, s.name, s.grade_level, s.sex, sec.name, sec.section_type
+    sql += ` GROUP BY s.id, s.student_id, s.lrn, s.name, s.grade_level, s.sex, sec.name, sec.section_type, e.program, trk.name, trk.track_type
              ORDER BY s.grade_level ASC, sec.name ASC, s.name ASC`;
 
     const students = await query<RowDataPacket[]>(sql, params);
@@ -262,13 +280,16 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
     // Get enrollment for the requested school year first — it drives the
     // subject set for historical report cards (a student was a different
     // grade level in previous years than they are today).
+    // LEFT JOIN: an elective-roster learner may still be in the Pending
+    // Section queue (no section row yet) — the report card must still build.
     const enrollments = await query<RowDataPacket[]>(
       `SELECT e.*, sec.name AS section_name, sec.section_type, sec.grade_level AS grade_level, sy.sy_label,
-              adv.name AS adviser_name
+              adv.name AS adviser_name, trk.name AS strand_track_name, trk.track_type AS track_type
        FROM enrollments e
-       JOIN sections sec ON e.section_id = sec.id
+       LEFT JOIN sections sec ON e.section_id = sec.id
        LEFT JOIN users adv ON sec.adviser_id = adv.id
        JOIN school_years sy ON e.school_year_id = sy.id
+       LEFT JOIN strand_tracks trk ON trk.id = e.strand_track_id
        WHERE e.student_id = ?${school_year_id ? " AND e.school_year_id = ?" : ""}
        ORDER BY sy.is_current DESC LIMIT 1`,
       school_year_id ? [student_id, school_year_id] : [student_id]
@@ -276,6 +297,10 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
 
     const subjectGradeLevel =
       enrollments[0]?.grade_level ?? student[0].grade_level;
+    // Params for the has-grade EXISTS (deactivated subjects with history stay
+    // on the report card), then the grade-level filter.
+    params.push(student_id);
+    if (school_year_id) params.push(school_year_id);
     params.push(subjectGradeLevel);
 
     // Only list the learning areas that belong to this learner's program and
@@ -301,7 +326,10 @@ export async function getSF9(req: Request, res: Response): Promise<void> {
               ROUND(AVG(g.grade), 2) AS final_average
        FROM subjects s
        LEFT JOIN grades g ON g.subject_id = s.id AND g.student_id = ?${syFilter}
-       WHERE s.is_active = 1 AND s.grade_level = ?${scopeSql}
+       WHERE (s.is_active = 1 OR EXISTS (
+                SELECT 1 FROM grades g2
+                 WHERE g2.subject_id = s.id AND g2.student_id = ?${syFilter}
+              )) AND s.grade_level = ?${scopeSql}
        GROUP BY s.id, s.name, s.subject_type, s.subject_group, s.hours_per_week
        ORDER BY s.name ASC`,
       params
@@ -378,10 +406,12 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
     const enrollments = await query<RowDataPacket[]>(
       `SELECT e.school_year_id, sy.sy_label, sec.name AS section_name, sec.grade_level,
               e.enrollment_date, e.status AS enrollment_status,
-              e.program, e.strand_track_id
+              e.program, e.strand_track_id,
+              trk.name AS strand_track_name, trk.track_type AS track_type
        FROM enrollments e
-       JOIN sections sec ON e.section_id = sec.id
+       LEFT JOIN sections sec ON e.section_id = sec.id
        JOIN school_years sy ON e.school_year_id = sy.id
+       LEFT JOIN strand_tracks trk ON trk.id = e.strand_track_id
        WHERE e.student_id = ?
        ORDER BY sy.sy_label ASC`,
       [student_id]
@@ -393,7 +423,7 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
       // Like SF9, list ALL active subjects for that school year's grade level
       // (LEFT JOIN), so learning areas without encoded grades still appear —
       // but only those scoped to the program/track the learner had that year.
-      const syParams: any[] = [student_id, enroll.school_year_id, enroll.grade_level];
+      const syParams: any[] = [student_id, enroll.school_year_id, student_id, enroll.school_year_id, enroll.grade_level];
       const scopeSql = subjectScopeSql(
         "sub",
         {
@@ -413,7 +443,10 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
          FROM subjects sub
          LEFT JOIN grades g ON g.subject_id = sub.id
            AND g.student_id = ? AND g.school_year_id = ?
-         WHERE sub.is_active = 1 AND sub.grade_level = ?${scopeSql}
+         WHERE (sub.is_active = 1 OR EXISTS (
+                  SELECT 1 FROM grades g2
+                   WHERE g2.subject_id = sub.id AND g2.student_id = ? AND g2.school_year_id = ?
+                )) AND sub.grade_level = ?${scopeSql}
          GROUP BY sub.id, sub.name, sub.subject_type, sub.subject_group
          ORDER BY sub.name ASC`,
         syParams

@@ -54,13 +54,23 @@ function teacherStudentScopeSql(
   teacherId: number,
   params: any[]
 ): string {
-  params.push(teacherId, teacherId);
+  // Third ? = the elective branch: a learner who picked one of the teacher's
+  // electives is on that teacher's roster even outside their sections
+  // (Strengthened SHS Curriculum — electives mix learners across sections).
+  params.push(teacherId, teacherId, teacherId);
   return `${studentIdExpr} IN (
     SELECT en.student_id FROM enrollments en
     LEFT JOIN sections sec ON en.section_id = sec.id
     WHERE en.status = 'enrolled'
       AND (sec.adviser_id = ?
-        OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
+        OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+        OR EXISTS (
+          SELECT 1 FROM student_electives se
+          JOIN teacher_subject_assignments tea
+            ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+          WHERE se.student_id = en.student_id
+            AND se.school_year_id = en.school_year_id
+        ))
   )`;
 }
 
@@ -76,10 +86,17 @@ async function teacherMayReadGrades(
        LEFT JOIN sections sec ON en.section_id = sec.id
        WHERE en.status = 'enrolled'
          AND (sec.adviser_id = ?
-           OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
-     )
+           OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+           OR EXISTS (
+             SELECT 1 FROM student_electives se
+             JOIN teacher_subject_assignments tea
+               ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+             WHERE se.student_id = en.student_id
+               AND se.school_year_id = en.school_year_id
+           ))
+       )
      LIMIT 1`,
-    [studentId, teacherId, teacherId]
+    [studentId, teacherId, teacherId, teacherId]
   );
   return rows.length > 0;
 }
@@ -122,6 +139,8 @@ async function getLearnerOfferingSubjectIds(
     {
       program: enrollment[0].program,
       strandTrackId: enrollment[0].strand_track_id,
+      electiveStudentId: studentId,
+      electiveSchoolYearId: schoolYearId,
       preserveStudentId: studentId,
       preserveSchoolYearId: schoolYearId
     },
@@ -176,16 +195,33 @@ async function teacherGradeBlockReason(
   if (await isPastGradeDeadline()) {
     return 'The grade editing deadline has passed. Grades are now read-only — contact the Registrar for corrections.';
   }
-  const [allowedSubjects, teacherSections] = await Promise.all([
+  const [allowedSubjects, teacherSections, subjectRow] = await Promise.all([
     getTeacherSubjectIds(teacherId, schoolYearId),
-    getTeacherSectionIds(teacherId, schoolYearId)
+    getTeacherSectionIds(teacherId, schoolYearId),
+    query<RowDataPacket[]>(
+      'SELECT subject_type FROM subjects WHERE id = ?',
+      [subjectId]
+    )
   ]);
-  if (!allowedSubjects.has(subjectId)) {
+  if (!allowedSubjects.has(Number(subjectId))) {
     return 'Access denied: you may only encode grades for subjects assigned to you.';
   }
-  const studentSection = await getStudentSectionId(studentId, schoolYearId);
-  if (!studentSection || !teacherSections.has(studentSection)) {
-    return 'Access denied: you may only encode grades for students in your advisory section.';
+  const isElective = subjectRow.length > 0 && subjectRow[0].subject_type === 'elective';
+  if (isElective) {
+    // Strengthened SHS Curriculum: an elective's roster is the learners who
+    // picked it — they may come from any section the teacher does not advise.
+    const pick = await query<RowDataPacket[]>(
+      'SELECT 1 FROM student_electives WHERE student_id = ? AND school_year_id = ? AND subject_id = ? LIMIT 1',
+      [studentId, schoolYearId, subjectId]
+    );
+    if (pick.length === 0) {
+      return 'Access denied: the learner is not assigned to this elective.';
+    }
+  } else {
+    const studentSection = await getStudentSectionId(studentId, schoolYearId);
+    if (!studentSection || !teacherSections.has(studentSection)) {
+      return 'Access denied: you may only encode grades for students in your advisory section.';
+    }
   }
   if (!(await isSubjectOfferedToLearner(studentId, schoolYearId, subjectId))) {
     return 'Access denied: this subject is not offered to the learner.';
@@ -348,10 +384,19 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
          FROM enrollments e
          JOIN students st ON e.student_id = st.id
          JOIN sections sec ON e.section_id = sec.id
-         CROSS JOIN subjects s
+         JOIN subjects s ON s.grade_level = sec.grade_level AND s.is_active = 1
+           -- Strengthened SHS Curriculum: electives belong to individual
+           -- learners — a section roster row for an elective only exists when
+           -- the learner holds that elective pick (student_electives). Core and
+           -- other subjects keep the whole-section roster.
+           AND (s.subject_type <> 'elective' OR EXISTS (
+             SELECT 1 FROM student_electives se
+              WHERE se.student_id = e.student_id
+                AND se.school_year_id = e.school_year_id
+                AND se.subject_id = s.id
+           ))
          LEFT JOIN grades g ON g.student_id = st.id AND g.subject_id = s.id AND g.school_year_id = e.school_year_id
          WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-           AND s.grade_level = sec.grade_level
          ORDER BY st.name ASC, s.name ASC, g.quarter ASC`,
         [section_id, school_year_id]
       );
@@ -595,12 +640,27 @@ export async function batchUpsertGrades(
         getTeacherSubjectIds(req.user!.userId, rowList[0].school_year_id),
         getTeacherSectionIds(req.user!.userId, rowList[0].school_year_id)
       ]);
+      // Strengthened SHS Curriculum: elective rows may target learners outside
+      // the teacher's sections (their roster is the elective's pickers).
+      const involvedSubjectIds = [...new Set(rowList.map(r => r.subject_id))];
+      const subjectTypeRows = await query<RowDataPacket[]>(
+        `SELECT id, subject_type FROM subjects WHERE id IN (${involvedSubjectIds.map(() => '?').join(',')})`,
+        involvedSubjectIds
+      );
+      const subjectIsElective = new Map(
+        subjectTypeRows.map((s: any) => [Number(s.id), s.subject_type === 'elective'])
+      );
       for (const studentId of studentIds) {
         const enrollment = enrollRows.find(
           e => Number(e.student_id) === studentId &&
             Number(e.school_year_id) === rowList[0].school_year_id
         );
-        if (!enrollment || !enrollment.section_id || !teacherSections.has(Number(enrollment.section_id))) {
+        const studentRows = rowList.filter(x => x.student_id === studentId);
+        const nonElectiveRows = studentRows.filter(x => !subjectIsElective.get(x.subject_id));
+        if (
+          nonElectiveRows.length > 0 &&
+          (!enrollment || !enrollment.section_id || !teacherSections.has(Number(enrollment.section_id)))
+        ) {
           res
             .status(403)
             .json({
@@ -613,7 +673,7 @@ export async function batchUpsertGrades(
           studentId,
           rowList[0].school_year_id
         );
-        for (const r of rowList.filter(x => x.student_id === studentId)) {
+        for (const r of studentRows) {
           if (!allowedSubjects.has(r.subject_id)) {
             res
               .status(403)
@@ -622,6 +682,21 @@ export async function batchUpsertGrades(
                   'Access denied: you may only encode grades for subjects assigned to you.'
               });
             return;
+          }
+          if (subjectIsElective.get(r.subject_id) && (!enrollment || Number(enrollment.school_year_id) !== rowList[0].school_year_id)) {
+            // Elective rows additionally require the learner to hold the pick.
+            const pick = await query<RowDataPacket[]>(
+              'SELECT 1 FROM student_electives WHERE student_id = ? AND school_year_id = ? AND subject_id = ? LIMIT 1',
+              [studentId, rowList[0].school_year_id, r.subject_id]
+            );
+            if (pick.length === 0) {
+              res
+                .status(403)
+                .json({
+                  error: 'Access denied: the learner is not assigned to this elective.'
+                });
+              return;
+            }
           }
           if (!offered.has(r.subject_id)) {
             res

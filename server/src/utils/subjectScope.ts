@@ -38,6 +38,13 @@ export interface SubjectScope {
   /** `enrollment.strand_track_id`; falsy = no track restriction. */
   strandTrackId?: number | null;
   /**
+   * Per-learner elective picks (Strengthened SHS curriculum): subjects listed in
+   * `student_electives` for this learner + school year are always in scope, even
+   * when they belong to the other track. Not applied to ALS learners.
+   */
+  electiveStudentId?: number | null;
+  electiveSchoolYearId?: number | null;
+  /**
    * Optional grade-preservation context (learner + school year). When set,
    * subjects with any saved grade for that learner/term stay listed even when
    * they fall outside this learner's program/track scope.
@@ -115,21 +122,45 @@ export function subjectScopeSql(
     clauses.push(`${a}.program IS NULL`);
   }
 
+  // Per-learner elective picks widen the track scope: a picked elective is in
+  // scope even when it belongs to the other track (DepEd allows choosing
+  // across tracks). OR-ed with the track restriction, never with the program
+  // restriction (programs remain exclusive).
+  const electiveStudentId = scope.electiveStudentId ?? scope.preserveStudentId ?? null;
+  const electiveSchoolYearId = scope.electiveSchoolYearId ?? scope.preserveSchoolYearId ?? null;
+  const electiveClause =
+    electiveStudentId != null
+      ? `(${a}.id IN (
+          SELECT se.subject_id FROM student_electives se
+          WHERE se.student_id = ? AND se.school_year_id = ?
+        ))`
+      : null;
+  if (electiveClause) {
+    params.push(electiveStudentId as number, electiveSchoolYearId as number);
+  }
+
   if (scope.strandTrackId) {
-    clauses.push(`(
+    const trackClause = `(
       NOT EXISTS (SELECT 1 FROM subject_strand_tracks sst WHERE sst.subject_id = ${a}.id)
       OR ${a}.id IN (SELECT sst2.subject_id FROM subject_strand_tracks sst2 WHERE sst2.strand_track_id = ?)
-    )`);
+    )`;
     params.push(scope.strandTrackId);
-  } else if (hasPreserve) {
+    if (electiveClause) {
+      clauses.push(`(${trackClause.slice(1, -1)} OR ${electiveClause.slice(1, -1)})`);
+    } else {
+      clauses.push(trackClause);
+    }
+  } else if (hasPreserve || electiveClause) {
     // No track assigned: the learner follows the untracked offering (core +
     // untracked TLE/EPP + program additions). Tracked specializations only show
-    // up when a grade already exists on them (record preservation).
-    const keep = keepSql();
-    clauses.push(`(
-      NOT EXISTS (SELECT 1 FROM subject_strand_tracks sst WHERE sst.subject_id = ${a}.id)
-      OR ${keep}
-    )`);
+    // up when a grade already exists on them (record preservation) or when the
+    // learner holds an explicit elective pick on them.
+    const keep = hasPreserve ? keepSql() : "";
+    const trackScope = `NOT EXISTS (SELECT 1 FROM subject_strand_tracks sst WHERE sst.subject_id = ${a}.id)`;
+    const ors: string[] = [trackScope];
+    if (keep) ors.push(keep);
+    if (electiveClause) ors.push(electiveClause.slice(1, -1));
+    clauses.push(`(` + ors.join(" OR ") + `)`);
   }
 
   return clauses.length > 0 ? " AND " + clauses.join(" AND ") : "";

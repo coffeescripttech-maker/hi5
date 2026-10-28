@@ -22,6 +22,13 @@ const pool: Pool = mysql.createPool({
   // the wrong day and is rejected by MySQL when posted back. dateStrings keeps
   // the round-trip lossless. DATETIME/TIMESTAMP columns are unaffected.
   dateStrings: ["DATE"],
+  // Return DECIMAL/NEWDECIMAL columns as JS numbers instead of strings. mysql2's
+  // default decodes DECIMAL to a string ("4.000000000000"), which breaks any
+  // arithmetic on the client ("a + hours" becomes string concatenation) and
+  // prints raw DB formatting in the UI. Every DECIMAL in this schema is small
+  // (hours, grades, averages), well inside Number's safe range, so the
+  // conversion is lossless for our data.
+  decimalNumbers: true,
   // TLS for a remote managed MySQL (Railway/cloud): DB_SSL=require.
   ssl: process.env.DB_SSL === "require" ? { rejectUnauthorized: false } : undefined,
   // The managed MySQL sits behind a TCP proxy that silently drops sockets that

@@ -15,6 +15,7 @@ import { SchoolFormHeader } from '../../components/school-form-header';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { strandTracksApi } from '../../services/strandTracks';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { gradesApi, GradeRow } from '../../services/grades';
 import { settingsApi } from '../../services/settings';
@@ -232,6 +233,9 @@ export function SF5Report() {
     certified: '',
     reviewed: ''
   });
+  // Strengthened SHS Curriculum: track names (incl. legacy strands) for the
+  // name cell of Grade 11/12 rows.
+  const [trackNameById, setTrackNameById] = useState<Record<number, string>>({});
   const [header, setHeader] = useState({
     schoolId: '',
     region: 'Region VIII',
@@ -323,6 +327,16 @@ export function SF5Report() {
       .catch(() => {});
   }, []);
 
+  // Track names (legacy strands stay printable for historical rosters).
+  useEffect(() => {
+    strandTracksApi
+      .list({ include_inactive: true })
+      .then(rows =>
+        setTrackNameById(Object.fromEntries(rows.map(t => [t.id, t.name])))
+      )
+      .catch(() => {});
+  }, []);
+
   // ── Sync school name & year (selected school year takes precedence) ──
   useEffect(() => {
     setHeader(prev => ({
@@ -383,18 +397,29 @@ export function SF5Report() {
     const enrolled = matchingEnrs
       .map(e => students.find(s => s.id === e.student_id))
       .filter(Boolean) as StudentRow[];
-    const newRows: RowData[] = enrolled.map(s => ({
-      lrn: s.lrn || '',
-      name: formatName(s.name || ''),
-      average: '',
-      action: '',
-      incomplete_completed: '',
-      incomplete_current: ''
-    }));
+    const newRows: RowData[] = enrolled.map(s => {
+      const enr = matchingEnrs.find(e => e.student_id === s.id);
+      const trackName = enr?.strand_track_id
+        ? trackNameById[enr.strand_track_id] || ''
+        : '';
+      return {
+        // Strengthened SHS Curriculum: SHS learners print their curriculum
+        // track next to their name as plain text.
+        lrn: s.lrn || '',
+        name:
+          formatName(s.name || '') +
+          ((s.grade_level ?? 0) >= 11 && trackName
+            ? ` (${trackName})`
+            : ''),
+        average: '',
+        action: '',
+        incomplete_completed: '',
+        incomplete_current: ''
+      };
+    });
     while (newRows.length < TOTAL_ROWS) newRows.push({});
     setRows(newRows);
     setEnrolledStudents(enrolled);
-
     // Clear derived tables while the section's grade data loads.
     setSummaryCounts([]);
     setProgressCounts([]);
@@ -543,7 +568,8 @@ export function SF5Report() {
     enrollments,
     students,
     sections,
-    schoolYears
+    schoolYears,
+    trackNameById
   ]);
 
   // ── Cell helper ──

@@ -13,12 +13,16 @@ function perDay(hours: number): number {
 }
 
 /** "3 hrs/day · 4 days/wk (12 hrs/wk)" — per-day first, weekly total in parens. */
-export function formatHoursPerWeek(hours: number): string {
+export function formatHoursPerWeek(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) {
+    return "Curriculum-mandated";
+  }
   const d = perDay(hours);
   return `${d} hr${d === 1 ? "" : "s"}/day · ${DAYS_PER_WEEK} days/wk (${hours} hrs/wk)`;
 }
 
 /** Compact form for tight cells (cards, preview rows): "12h". */
-export function hoursShort(hours: number): string {
+export function hoursShort(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return "—";
   return `${hours}h`;
 }

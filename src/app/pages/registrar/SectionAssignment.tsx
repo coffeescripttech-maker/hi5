@@ -36,6 +36,7 @@ import {
   BalanceRow,
   GenerateRulesPayload
 } from '../../services/sectioning';
+import { electivesApi, ElectiveBatchRow, ElectiveCatalogGroup } from '../../services/electives';
 
 /* ──────────────────────────────────────────
    Types
@@ -390,6 +391,38 @@ export function SectionAssignment() {
   >({});
   const [savingEligibility, setSavingEligibility] = useState(false);
 
+  // Strengthened SHS Curriculum: every learner's elective picks for the school
+  // year — shown in the review table so the committee can confirm or amend.
+  const [electivesByStudent, setElectivesByStudent] = useState<
+    Record<number, ElectiveBatchRow[]>
+  >({});
+
+  // Strengthened SHS Curriculum: the Enrollment Committee assigns or amends a
+  // learner's electives on the spot (e.g. filling the missing picks that block
+  // section confirmation).
+  const [editingElectives, setEditingElectives] =
+    useState<PreviewAssignment | null>(null);
+  const [editorGroups, setEditorGroups] = useState<ElectiveCatalogGroup[]>([]);
+  const [editorPicks, setEditorPicks] = useState<number[]>([]);
+  const [savingElectives, setSavingElectives] = useState(false);
+
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+    electivesApi
+      .assignmentsBatch(schoolYear.id)
+      .then(rows => {
+        if (cancelled) return;
+        const map: Record<number, ElectiveBatchRow[]> = {};
+        for (const r of rows) (map[r.student_id] ??= []).push(r);
+        setElectivesByStudent(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [schoolYear]);
+
   // ── Tabs config ──
   const TABS: {
     key: WorkflowTab;
@@ -611,6 +644,58 @@ export function SectionAssignment() {
           : p
       )
     );
+  };
+
+  /* ── Elective editor (committee) ── */
+  const openElectiveEditor = async (student: PreviewAssignment) => {
+    if (!schoolYear) return;
+    setEditingElectives(student);
+    setEditorPicks(
+      (electivesByStudent[student.student_id] ?? []).map(r => r.subject_id)
+    );
+    try {
+      const groups = await electivesApi.catalog(schoolYear.id);
+      setEditorGroups(
+        groups
+          .map(g => ({
+            ...g,
+            subjects: g.subjects.filter(
+              s =>
+                s.grade_level === student.grade_level && s.is_offered === 1
+            )
+          }))
+          .filter(g => g.subjects.length > 0)
+      );
+    } catch (err: any) {
+      setCommitMsg(
+        err.detail?.error || err.message || 'Failed to load the elective catalog.'
+      );
+      setEditingElectives(null);
+    }
+  };
+
+  const saveElectives = async () => {
+    if (!schoolYear || !editingElectives) return;
+    setSavingElectives(true);
+    try {
+      await electivesApi.saveAssignments({
+        school_year_id: schoolYear.id,
+        student_id: editingElectives.student_id,
+        subject_ids: editorPicks
+      });
+      const rows = await electivesApi.assignmentsBatch(schoolYear.id);
+      const map: Record<number, ElectiveBatchRow[]> = {};
+      for (const r of rows) (map[r.student_id] ??= []).push(r);
+      setElectivesByStudent(map);
+      setEditingElectives(null);
+      setCommitMsg(null);
+    } catch (err: any) {
+      setCommitMsg(
+        err.detail?.error || err.message || 'Failed to save electives.'
+      );
+    } finally {
+      setSavingElectives(false);
+    }
   };
 
   /* ── Confirm selected assignments ── */
@@ -1520,6 +1605,41 @@ export function SectionAssignment() {
                               ))}
                             </div>
                           )}
+                          {/* Strengthened SHS Curriculum: elective picks */}
+                          {(student.grade_level ?? 0) >= 11 &&
+                            ['regular', 'open_high'].includes(
+                              student.program
+                            ) && (
+                              <div
+                                className={`mt-1.5 flex items-start gap-1.5 px-2 py-1 rounded-lg border text-[11px] ${
+                                  (electivesByStudent[student.student_id] ??
+                                    []).length === 0
+                                    ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                    : 'bg-emerald-50/70 border-emerald-100 text-emerald-700'
+                                }`}>
+                                <span>
+                                  {(electivesByStudent[student.student_id] ??
+                                    []).length === 0
+                                    ? 'No electives chosen yet'
+                                    : `Electives: ${(
+                                        electivesByStudent[
+                                          student.student_id
+                                        ] ?? []
+                                      )
+                                        .map(r => r.subject_name)
+                                        .join(', ')}`}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => openElectiveEditor(student)}
+                                  className="ml-auto underline font-semibold whitespace-nowrap hover:opacity-80">
+                                  {(electivesByStudent[student.student_id] ??
+                                    []).length === 0
+                                    ? 'Assign'
+                                    : 'Edit'}
+                                </button>
+                              </div>
+                            )}
                           {student.flagged && (
                             <div className="mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px]">
                               <AlertTriangle size={12} className="shrink-0" />
@@ -1854,6 +1974,79 @@ export function SectionAssignment() {
           )}
         </div>
       </div>
+
+      {/* ── Elective editor modal (Enrollment Committee) ── */}
+      <ModalShell
+        open={editingElectives !== null}
+        onClose={() => setEditingElectives(null)}
+        title={`Electives — ${editingElectives?.name ?? ''}`}
+        description={`Grade ${editingElectives?.grade_level ?? ''} · tick the electives this learner will take, then Save. Empty is allowed here only when the curriculum does not require them.`}
+        maxWidth="max-w-2xl">
+        {editorGroups.length === 0 ? (
+          <p className="text-sm text-gray-400 py-6 text-center">
+            No electives are offered for this school year yet.
+          </p>
+        ) : (
+          <div className="max-h-[55vh] overflow-y-auto pr-1">
+            {editorGroups.map((g, gi) => {
+              const subs = g.subjects.filter(
+                s => s.grade_level === editingElectives?.grade_level
+              );
+              if (subs.length === 0) return null;
+              return (
+                <div key={`${g.track_name}-${g.cluster}-${gi}`} className="mb-4">
+                  <p className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.05em] mb-2">
+                    {g.cluster}
+                    <span className="ml-2 font-medium normal-case tracking-normal text-gray-400">
+                      · {g.track_name}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {subs.map(s => {
+                      const active = editorPicks.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() =>
+                            setEditorPicks(prev =>
+                              prev.includes(s.id)
+                                ? prev.filter(x => x !== s.id)
+                                : [...prev, s.id]
+                            )
+                          }
+                          className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                            active
+                              ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                              : 'border-gray-200 bg-gray-50/50 text-gray-500 hover:border-gray-300'
+                          }`}>
+                          {active ? '✓ ' : ''}
+                          {s.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={() => setEditingElectives(null)}
+            disabled={savingElectives}
+            className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
+            Cancel
+          </button>
+          <button
+            onClick={saveElectives}
+            disabled={savingElectives}
+            className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-50">
+            {savingElectives && <Loader2 size={14} className="animate-spin" />}
+            Save Electives
+          </button>
+        </div>
+      </ModalShell>
     </div>
   );
 }

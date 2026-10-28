@@ -123,9 +123,23 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
       [userId, userId]
     );
 
+    // A teacher who only handles an elective (no advisory/assigned section)
+    // still needs their elective roster below — don't bail out early for them.
     if (sections.length === 0) {
-      res.json([]);
-      return;
+      const electiveOnly = await query<RowDataPacket[]>(
+        `SELECT 1
+           FROM student_electives se
+           JOIN teacher_subject_assignments tsa
+             ON tsa.subject_id = se.subject_id
+            AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
+          WHERE se.school_year_id = ? AND tsa.teacher_id = ?
+          LIMIT 1`,
+        [schoolYearId, schoolYearId, userId]
+      );
+      if (electiveOnly.length === 0) {
+        res.json([]);
+        return;
+      }
     }
 
     // Graduated students keep an enrollment row in the current school year but with
@@ -140,18 +154,48 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
 
     const sectionIds = sections.map((s: any) => s.id);
     const ph = sectionIds.map(() => "?").join(",");
+    // Elective-only teachers (no advisory/assigned section) have an empty
+    // section list — "IN ()" is a SQL syntax error, so the section clause is
+    // only emitted when there is at least one section to match.
+    const sectionClause =
+      sectionIds.length > 0 ? `e.section_id IN (${ph}) OR` : "";
 
     const sql = `
-      SELECT s.*, e.section_id, sec.name AS section_name, e.status AS enrollment_status,
-             e.enrollment_date, e.program
+      SELECT DISTINCT s.*, e.section_id, sec.name AS section_name,
+             sec.grade_level AS section_grade_level, e.status AS enrollment_status,
+             e.enrollment_date, e.program,
+             (SELECT GROUP_CONCAT(sx.name SEPARATOR ', ')
+                FROM student_electives se2
+                JOIN subjects sx ON sx.id = se2.subject_id
+                JOIN teacher_subject_assignments tsa2
+                  ON tsa2.subject_id = se2.subject_id
+                 AND (tsa2.school_year_id = se2.school_year_id OR tsa2.school_year_id IS NULL)
+               WHERE se2.student_id = s.id
+                 AND se2.school_year_id = e.school_year_id
+                 AND tsa2.teacher_id = ?
+             ) AS elective_via
       FROM students s
       JOIN enrollments e ON e.student_id = s.id
       LEFT JOIN sections sec ON e.section_id = sec.id
       WHERE e.school_year_id = ?
         ${enrollmentStatusFilter}
-        AND e.section_id IN (${ph})
-      ORDER BY COALESCE(sec.grade_level, 0) ASC, sec.name ASC, s.name ASC`;
-    const params: any[] = [schoolYearId, ...sectionIds];
+        AND (
+          ${sectionClause}
+          EXISTS (
+            SELECT 1
+              FROM student_electives se
+              JOIN teacher_subject_assignments tsa
+                ON tsa.subject_id = se.subject_id
+               AND (tsa.school_year_id = se.school_year_id OR tsa.school_year_id IS NULL)
+             WHERE se.student_id = s.id
+               AND se.school_year_id = e.school_year_id
+               AND tsa.teacher_id = ?
+          )
+        )
+      ORDER BY section_grade_level ASC, section_name ASC, s.name ASC`;
+    // Placeholder order follows textual position: the elective_via subquery's
+    // teacher id comes first (SELECT list), then the WHERE-clause params.
+    const params: any[] = [userId, schoolYearId, ...sectionIds, userId];
 
     const students = await query<RowDataPacket[]>(sql, params);
     res.json(students);
@@ -213,7 +257,9 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Privacy: teachers may only open profiles of learners in their sections.
+    // Privacy: teachers may only open profiles of learners in their sections,
+    // or learners who picked one of the teacher's electives (Strengthened SHS
+    // Curriculum — an elective's roster is its pickers, across sections).
     if (req.user?.role === "teacher") {
       const userId = req.user.userId;
       const allowed = await query<RowDataPacket[]>(
@@ -221,9 +267,16 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
          LEFT JOIN sections sec ON en.section_id = sec.id
          WHERE en.student_id = ? AND en.status = 'enrolled'
            AND (sec.adviser_id = ?
-             OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
+             OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+             OR EXISTS (
+               SELECT 1 FROM student_electives se
+               JOIN teacher_subject_assignments tea
+                 ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+               WHERE se.student_id = en.student_id
+                 AND se.school_year_id = en.school_year_id
+             ))
          LIMIT 1`,
-        [id, userId, userId]
+        [id, userId, userId, userId]
       );
       if (allowed.length === 0) {
         res.status(403).json({ error: "Access denied. This learner is not in your section." });

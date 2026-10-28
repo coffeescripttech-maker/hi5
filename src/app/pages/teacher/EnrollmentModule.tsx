@@ -34,6 +34,11 @@ import {
 } from '../../services/students';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { strandTracksApi, StrandTrackRow } from '../../services/strandTracks';
+import {
+  electivesApi,
+  ElectiveCatalogGroup,
+  ElectiveSubject
+} from '../../services/electives';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { gradesApi, GradeHistoryYear } from '../../services/grades';
@@ -335,6 +340,189 @@ function AdmissionAssessment({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Strengthened SHS Curriculum: Track + Electives picker ───────────────
+// Grade 11/12 Mainstream and Open High learners choose one of the two
+// curriculum tracks (Academic / TechPro) plus the electives they will take
+// from that track. The Enrollment Committee reviews the picks before
+// section placement. The old SHS strands remain history-only.
+function ShsTrackElectives({
+  tracks,
+  grade,
+  program,
+  selectedTrackId,
+  onSelectTrack,
+  electiveGroups,
+  electivePicks,
+  onToggleElective,
+  showOtherTrack,
+  onToggleShowOther
+}: {
+  tracks: StrandTrackRow[];
+  grade: number | null;
+  program: string;
+  selectedTrackId: number | null;
+  onSelectTrack: (id: number | null) => void;
+  electiveGroups: {
+    cluster: string;
+    trackName?: string;
+    subjects: ElectiveSubject[];
+  }[];
+  electivePicks: number[];
+  onToggleElective: (id: number) => void;
+  showOtherTrack: boolean;
+  onToggleShowOther: (value: boolean) => void;
+}) {
+  const isShs = (grade ?? 0) >= 11;
+  const electivesApply = isShs && ['regular', 'open_high'].includes(program);
+
+  if (!isShs) {
+    // JHS still picks a TLE specialization the old way.
+    return (
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
+          TLE Specialization (optional)
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {tracks.map(t => {
+            const active = selectedTrackId === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onSelectTrack(active ? null : t.id)}
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                  active
+                    ? 'border-emerald-400 bg-emerald-50'
+                    : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
+                }`}>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    active ? 'border-emerald-500' : 'border-gray-300'
+                  }`}>
+                  {active && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
+                    {t.name}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">
+                    {t.code}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
+          Senior High School Track *
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {tracks.map(t => {
+            const active = selectedTrackId === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onSelectTrack(active ? null : t.id)}
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                  active
+                    ? 'border-emerald-400 bg-emerald-50'
+                    : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
+                }`}>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    active ? 'border-emerald-500' : 'border-gray-300'
+                  }`}>
+                  {active && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
+                    {t.name}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {t.description ||
+                      'Strengthened SHS Curriculum track'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">
+                    {t.code}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {electivesApply && selectedTrackId && (
+        <div>
+          <label className="flex items-center gap-2 text-xs text-gray-600 mb-2 cursor-pointer w-fit">
+            <input
+              type="checkbox"
+              checked={showOtherTrack}
+              onChange={e => onToggleShowOther(e.target.checked)}
+              className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+            />
+            <span>
+              Show electives from the other track{' '}
+              <span className="text-gray-400">
+                (DepEd lets learners choose across tracks)
+              </span>
+            </span>
+          </label>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2">
+            Electives (per learner)
+          </label>
+          <p className="text-xs text-gray-400 mb-3">
+            {electiveGroups.length === 0
+              ? 'No elective offerings configured for this track and school year yet — the Enrollment Committee can assign electives later.'
+              : 'Tick the electives the learner will take. The Enrollment Committee reviews these picks before section placement.'}
+          </p>
+          {electiveGroups.map((g, gi) => (
+            <div key={`${g.trackName ?? ''}-${g.cluster}-${gi}`} className="mb-4">
+              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.05em] mb-2">
+                {g.cluster}
+                {showOtherTrack && g.trackName && (
+                  <span className="ml-2 font-medium normal-case tracking-normal text-gray-400">
+                    · {g.trackName}
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {g.subjects.map(s => {
+                  const active = electivePicks.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onToggleElective(s.id)}
+                      className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-200 ${
+                        active
+                          ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                          : 'border-gray-200 bg-gray-50/50 text-gray-500 hover:border-gray-300'
+                      }`}>
+                      {active ? '✓ ' : ''}
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -984,6 +1172,15 @@ export function EnrollmentModule() {
   const [selectedStrandTrackId, setSelectedStrandTrackId] = useState<
     number | null
   >(null);
+  // Strengthened SHS Curriculum: per-learner elective picks (Grade 11/12
+  // Mainstream + Open High only). Grouped by cluster for the picker UI.
+  const [electivePicks, setElectivePicks] = useState<number[]>([]);
+  const [electiveGroups, setElectiveGroups] = useState<
+    { cluster: string; trackName?: string; subjects: ElectiveSubject[] }[]
+  >([]);
+  // DepEd lets learners choose electives across tracks — this reveals the
+  // other track's clusters alongside the selected track's.
+  const [showOtherTrackElectives, setShowOtherTrackElectives] = useState(false);
   const [requirements, setRequirements] = useState<Record<string, boolean>>({
     psa_birth_cert: false,
     previous_grade_card: false,
@@ -1069,17 +1266,75 @@ export function EnrollmentModule() {
       });
   }, []);
 
-  // Fetch strand tracks when new grade or ret grade changes
+  // Fetch strand tracks when new grade or ret grade changes.
+  // Strengthened SHS Curriculum: Grade 11/12 choose the new curriculum TRACK
+  // (Academic / TechPro) — the old shs_strand values are history-only and are
+  // no longer selectable for new enrollments.
   useEffect(() => {
     const grade = newGrade || retGrade;
     if (!grade) return;
     setSelectedStrandTrackId(null);
-    const trackType = grade >= 11 ? 'shs_strand' : 'tle';
+    setElectivePicks([]);
+    setElectiveGroups([]);
+    const trackType = grade >= 11 ? 'shs_track' : 'tle';
     strandTracksApi
-      .list({ track_type: trackType, grade_level: grade })
+      .list(
+        grade >= 11
+          ? { track_type: trackType }
+          : { track_type: trackType, grade_level: grade }
+      )
       .then(setStrandTracks)
       .catch(() => setStrandTracks([]));
   }, [newGrade, retGrade]);
+
+  // Strengthened SHS Curriculum: elective offerings per track + school year.
+  // Only mainstream and OHS learners pick electives, and only for grades 11–12.
+  useEffect(() => {
+    const grade = newGrade || retGrade;
+    if (
+      !selectedStrandTrackId ||
+      !grade ||
+      grade < 11 ||
+      !['regular', 'open_high'].includes(program) ||
+      !selectedSYId
+    ) {
+      setElectiveGroups([]);
+      return;
+    }
+    let cancelled = false;
+    electivesApi
+      .catalog(selectedSYId)
+      .then(groups => {
+        if (cancelled) return;
+        const allowed = showOtherTrackElectives
+          ? groups
+          : groups.filter(g => g.track_id === selectedStrandTrackId);
+        setElectiveGroups(
+          allowed
+            .map(g => ({
+              cluster: g.cluster,
+              trackName: g.track_name,
+              subjects: g.subjects.filter(
+                s => s.grade_level === grade && s.is_offered === 1
+              )
+            }))
+            .filter(g => g.subjects.length > 0)
+        );
+        setElectivePicks(prev =>
+          prev.filter(id =>
+            allowed.some(g =>
+              g.subjects.some(s => s.id === id && s.grade_level === grade)
+            )
+          )
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setElectiveGroups([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStrandTrackId, selectedSYId, newGrade, retGrade, program, showOtherTrackElectives]);
 
   // Close suggestions on click outside
   useEffect(() => {
@@ -1612,6 +1867,9 @@ export function EnrollmentModule() {
     setProgram('regular');
     setSelectedStrandTrackId(null);
     setStrandTracks([]);
+    setElectivePicks([]);
+    setElectiveGroups([]);
+    setShowOtherTrackElectives(false);
     setAdmission({ ...EMPTY_ADMISSION });
     setRequirements({
       psa_birth_cert: false,
@@ -1707,6 +1965,10 @@ export function EnrollmentModule() {
         enrollment_date: new Date().toISOString().split('T')[0],
         program: program,
         strand_track_id: selectedStrandTrackId || undefined,
+        elective_ids:
+          (newGrade ?? 0) >= 11 && ['regular', 'open_high'].includes(program)
+            ? electivePicks
+            : undefined,
         entrance_exam_grade: admission.entrance_exam_grade
           ? parseFloat(admission.entrance_exam_grade)
           : null,
@@ -1796,6 +2058,10 @@ export function EnrollmentModule() {
         enrollment_date: new Date().toISOString().split('T')[0],
         program: program,
         strand_track_id: selectedStrandTrackId || undefined,
+        elective_ids:
+          (retGrade ?? 0) >= 11 && ['regular', 'open_high'].includes(program)
+            ? electivePicks
+            : undefined,
         entrance_exam_grade: admission.entrance_exam_grade
           ? parseFloat(admission.entrance_exam_grade)
           : null,
@@ -2925,50 +3191,27 @@ export function EnrollmentModule() {
                 onChange={setAdmission}
               />
 
-              {/* Strand/Track selector — shown when tracks are available for the selected grade */}
+              {/* Strand/Track + electives — new curriculum for SHS, TLE for JHS */}
               {strandTracks.length > 0 && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
-                    {newGrade && newGrade >= 11
-                      ? 'SHS Strand *'
-                      : 'TLE Specialization (optional)'}
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {strandTracks.map(t => {
-                      const active = selectedStrandTrackId === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() =>
-                            setSelectedStrandTrackId(active ? null : t.id)
-                          }
-                          className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
-                            active
-                              ? 'border-emerald-400 bg-emerald-50'
-                              : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
-                          }`}>
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
-                              active ? 'border-emerald-500' : 'border-gray-300'
-                            }`}>
-                            {active && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
-                              {t.name}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">
-                              {t.code}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <ShsTrackElectives
+                  tracks={strandTracks}
+                  grade={newGrade}
+                  program={program}
+                  selectedTrackId={selectedStrandTrackId}
+                  onSelectTrack={setSelectedStrandTrackId}
+                  electiveGroups={electiveGroups}
+                  electivePicks={electivePicks}
+                  onToggleElective={(id: number) =>
+                    setElectivePicks(
+                      prev =>
+                        prev.includes(id)
+                          ? prev.filter(x => x !== id)
+                          : [...prev, id]
+                    )
+                  }
+                  showOtherTrack={showOtherTrackElectives}
+                  onToggleShowOther={setShowOtherTrackElectives}
+                />
               )}
             </div>
           )}
@@ -3974,50 +4217,27 @@ export function EnrollmentModule() {
                 onChange={setAdmission}
               />
 
-              {/* Strand/Track selector for returning student */}
+              {/* Strand/Track + electives for returning student */}
               {strandTracks.length > 0 && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-2.5">
-                    {retGrade && retGrade >= 11
-                      ? 'SHS Strand *'
-                      : 'TLE Specialization (optional)'}
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {strandTracks.map(t => {
-                      const active = selectedStrandTrackId === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() =>
-                            setSelectedStrandTrackId(active ? null : t.id)
-                          }
-                          className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
-                            active
-                              ? 'border-emerald-400 bg-emerald-50'
-                              : 'border-gray-100 bg-gray-50/50 hover:border-gray-200 hover:bg-gray-50'
-                          }`}>
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
-                              active ? 'border-emerald-500' : 'border-gray-300'
-                            }`}>
-                            {active && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`font-semibold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>
-                              {t.name}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-0.5 font-mono uppercase">
-                              {t.code}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <ShsTrackElectives
+                  tracks={strandTracks}
+                  grade={retGrade}
+                  program={program}
+                  selectedTrackId={selectedStrandTrackId}
+                  onSelectTrack={setSelectedStrandTrackId}
+                  electiveGroups={electiveGroups}
+                  electivePicks={electivePicks}
+                  onToggleElective={(id: number) =>
+                    setElectivePicks(
+                      prev =>
+                        prev.includes(id)
+                          ? prev.filter(x => x !== id)
+                          : [...prev, id]
+                    )
+                  }
+                  showOtherTrack={showOtherTrackElectives}
+                  onToggleShowOther={setShowOtherTrackElectives}
+                />
               )}
             </div>
           )}

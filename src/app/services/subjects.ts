@@ -7,8 +7,15 @@ export interface SubjectRow {
   id: number;
   name: string;
   grade_level: number;
-  hours_per_week: number;
-  subject_type: "core" | "applied" | "specialized";
+  /** NULL for curriculum-mandated subjects where a weekly load cannot apply. */
+  hours_per_week: number | null;
+  subject_type:
+    | "core"
+    | "applied"
+    | "specialized"
+    | "elective"
+    | "field_experience"
+    | "work_immersion";
   /**
    * Reporting group key. Subjects sharing a key (TLE/EPP + its specializations)
    * are reported and averaged as one learning area. NULL = standalone subject.
@@ -19,6 +26,8 @@ export interface SubjectRow {
    * NULL = shared across all programs (all core subjects).
    */
   program?: string | null;
+  /** Strengthened SHS Curriculum: cluster heading an elective belongs to. */
+  elective_cluster?: string | null;
   /**
    * Strand tracks this subject is linked to (steering which learners see it).
    * Empty = shown to every learner in the program.
@@ -33,27 +42,30 @@ export interface SubjectRow {
 export interface CreateSubjectPayload {
   name: string;
   grade_level: number;
-  hours_per_week: number;
+  hours_per_week?: number | null;
   subject_type: string;
   subject_group?: string | null;
   program?: string | null;
+  elective_cluster?: string | null;
 }
 
 export interface UpdateSubjectPayload {
   name?: string;
-  hours_per_week?: number;
+  hours_per_week?: number | null;
   subject_type?: string;
   subject_group?: string | null;
   program?: string | null;
+  elective_cluster?: string | null;
   is_active?: number;
 }
 
 export interface BulkSubjectItem {
   name: string;
   grade_level: number;
-  hours_per_week: number;
+  hours_per_week: number | null;
   subject_type: string;
   program?: string | null;
+  elective_cluster?: string | null;
 }
 
 export interface PopulateSubjectsResult {

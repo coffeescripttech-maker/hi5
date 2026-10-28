@@ -7,7 +7,7 @@ export interface StrandTrackRow {
   id: number;
   code: string;
   name: string;
-  track_type: "tle" | "shs_strand";
+  track_type: "tle" | "shs_strand" | "shs_track";
   grade_level: number;
   description: string | null;
   is_active: number;
@@ -18,7 +18,7 @@ export interface StrandTrackRow {
 export interface CreateStrandTrackPayload {
   code: string;
   name: string;
-  track_type: "tle" | "shs_strand";
+  track_type: "tle" | "shs_strand" | "shs_track";
   grade_level?: number;
   description?: string;
   sort_order?: number;
@@ -27,7 +27,7 @@ export interface CreateStrandTrackPayload {
 export interface UpdateStrandTrackPayload {
   code?: string;
   name?: string;
-  track_type?: "tle" | "shs_strand";
+  track_type?: "tle" | "shs_strand" | "shs_track";
   grade_level?: number;
   description?: string;
   sort_order?: number;

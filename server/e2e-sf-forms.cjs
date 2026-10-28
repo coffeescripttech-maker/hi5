@@ -67,7 +67,15 @@ function pageCount(buf) {
   await uInput.type("registrar01");
   const pInput = await page.waitForSelector('input[placeholder="Enter your password"]');
   await pInput.type("password123");
-  await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), pInput.press("Enter")]);
+  // The Terms & Conditions gate must be accepted before Sign In is enabled.
+  const agree = await page.waitForSelector("#agree-terms", { timeout: 10000 });
+  await agree.click();
+  await Promise.all([
+    // The app navigates within the SPA, so settle on the dashboard selector
+    // rather than a hard page navigation event.
+    page.waitForSelector("[data-nav-item]", { timeout: 30000 }),
+    pInput.press("Enter"),
+  ]);
   console.log("logged-in url:", page.url());
   await page.waitForSelector("[data-nav-item]", { timeout: 15000 });
 
@@ -105,10 +113,24 @@ function pageCount(buf) {
       const b = Array.from(document.querySelectorAll("button")).find((x) => x.textContent.includes("PDF"));
       if (b) b.click();
     });
+    // The PDF button opens the FormPrintPreview modal — confirm with its
+    // "Export PDF" button, which triggers the server render POST.
+    for (let i = 0; i < 20; i++) {
+      const hasExport = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("button")).some((x) => x.textContent.includes("Export PDF") && !x.disabled)
+      );
+      if (hasExport) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll("button")).find((x) => x.textContent.includes("Export PDF") && !x.disabled);
+      if (b) b.click();
+    });
     // wait for the POST request to fire
     for (let i = 0; i < 40 && Object.keys(captures).length === before; i++) await new Promise((r) => setTimeout(r, 500));
-    // wait for the server-rendered blob (up to 90s — first render launches Chrome)
-    for (let i = 0; i < 180 && !(await page.evaluate(() => !!window.__pdfB64)); i++) await new Promise((r) => setTimeout(r, 500));
+    // wait for the server-rendered blob (up to 4 min — the first render launches
+    // Chrome cold and the wide registers serialize ~3MB of html)
+    for (let i = 0; i < 480 && !(await page.evaluate(() => !!window.__pdfB64)); i++) await new Promise((r) => setTimeout(r, 500));
     const b64 = await page.evaluate(() => window.__pdfB64);
     const elapsed = Date.now() - t0;
     if (b64) {
@@ -137,15 +159,17 @@ function pageCount(buf) {
       ["no-print hiding", /\.no-print\s*\{[^}]*display:\s*none/i],
     ];
     if (isSf1Family) {
-      checks.push(["@page A4 landscape (sf1.css)", /@page[^}]*size:\s*A4 landscape/i]);
-      checks.push(["zoom: 0.78 (sf1.css)", /zoom:\s*0\.78/]);
+      // sf1.css now prints on legal landscape (14×8.5in) with zoom 0.89 for the
+      // register and 100% for SF5 — matches src/app/pages/registrar/sf1.css.
+      checks.push(["@page legal landscape (sf1.css)", /@page[^}]*size:\s*legal landscape/i]);
+      checks.push(["zoom: 0.89 (sf1.css)", /zoom:\s*0\.89/]);
     } else {
       checks.push(["@page letter landscape (form)", /@page[^}]*size:\s*letter landscape/i]);
     }
     for (const [label, re] of checks) console.log(`  ${label}: ${re.test(html) ? "YES" : "NO"}`);
     const baseIdx = html.indexOf("@page { size: letter landscape; margin: 0; }");
-    const a4Idx = html.indexOf("A4 landscape");
-    console.log(`  base @page before form @page: ${baseIdx !== -1 && a4Idx > baseIdx ? "YES" : "NO"}`);
+    const formIdx = html.indexOf("legal landscape");
+    console.log(`  base @page before form @page: ${baseIdx !== -1 && formIdx > baseIdx ? "YES" : "NO"}`);
     console.log(`  html bytes: ${Buffer.byteLength(html)}`);
   };
 

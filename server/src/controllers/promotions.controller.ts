@@ -4,6 +4,7 @@ import { logActivity } from "../utils/activityLogger";
 import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { getAcademicThresholds } from "../services/schoolConfig";
+import { carryOverElectives } from "../utils/shsCurriculum";
 
 /**
  * POST /api/promotions — Promote a section to the next grade level
@@ -232,7 +233,7 @@ async function promoteSectionCore(
   // Get enrolled students with their averages + grade completeness.
   // grade_complete = every subject has all 3 quarters (Q1-Q3) of grades entered.
   const students = await query<RowDataPacket[]>(
-    `SELECT e.id AS enrollment_id, e.student_id, e.program,
+    `SELECT e.id AS enrollment_id, e.student_id, e.program, e.strand_track_id,
             COALESCE(ROUND(AVG(ss.subject_avg), 2), NULL) AS general_average,
             COUNT(ss.subject_key) AS subject_count,
             COALESCE(MIN(ss.quarters_present), 0) AS min_quarters
@@ -315,11 +316,27 @@ async function promoteSectionCore(
     );
 
     if (existingEnroll.length === 0) {
-      await query<ResultSetHeader>(
-        `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status, program)
-         VALUES (?, NULL, ?, CURDATE(), ?, 'enrolled', ?)`,
-        [s.student_id, nextSchoolYearId, userId, s.program || 'regular']
+      const newEnroll = await query<ResultSetHeader>(
+        `INSERT INTO enrollments (student_id, section_id, school_year_id, enrollment_date, enrolled_by, status, program, strand_track_id)
+         VALUES (?, NULL, ?, CURDATE(), ?, 'enrolled', ?, ?)`,
+        [s.student_id, nextSchoolYearId, userId, s.program || 'regular', s.strand_track_id ?? null]
       );
+      // Strengthened SHS Curriculum carryover: promoted Grade-11 learners move
+      // to Grade 12 — copy their electives forward as a PROPOSED list that the
+      // Enrollment Committee reviews/edits before confirming placement.
+      if (
+        toGrade === 12 &&
+        ['regular', 'open_high'].includes(String(s.program || 'regular'))
+      ) {
+        await carryOverElectives(
+          s.student_id,
+          schoolYearId,
+          nextSchoolYearId,
+          toGrade,
+          s.strand_track_id ?? null,
+          userId
+        );
+      }
     } else if (existingEnroll[0].section_id != null) {
       // An enrollment already exists (e.g. a promotion re-run) — move it into
       // the Pending Section Queue and rebalance the section it was pulled from.

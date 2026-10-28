@@ -19,6 +19,8 @@ import { SchoolFormTitleBlock } from '../../components/school-form-title';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { electivesApi } from '../../services/electives';
+import { strandTracksApi } from '../../services/strandTracks';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { settingsApi } from '../../services/settings';
 import { authApi } from '../../services/api';
@@ -196,6 +198,14 @@ export function SF1Register() {
   // form; Certified Correct = school head from school settings. Both stay
   // editable so the user can correct them before printing.
   const [signers, setSigners] = useState({ prepared: '', certified: '' });
+  // Strengthened SHS Curriculum: track names (incl. deactivated legacy strands
+  // for historical rosters) + per-learner elective picks for the REMARKS cell.
+  const [trackNameById, setTrackNameById] = useState<
+    Record<number, string>
+  >({});
+  const [electivesByStudent, setElectivesByStudent] = useState<
+    Record<number, string[]>
+  >({});
 
   // â”€â”€ Load data on mount â”€â”€
   useEffect(() => {
@@ -278,6 +288,31 @@ export function SF1Register() {
       .catch(() => {});
   }, []);
 
+  // Track names for the REMARKS cell (legacy strands stay printable).
+  useEffect(() => {
+    strandTracksApi
+      .list({ include_inactive: true })
+      .then(rows =>
+        setTrackNameById(Object.fromEntries(rows.map(t => [t.id, t.name])))
+      )
+      .catch(() => {});
+  }, []);
+
+  // Per-learner elective picks for the REMARKS cell.
+  useEffect(() => {
+    if (!syId) return;
+    electivesApi
+      .assignmentsBatch(syId)
+      .then(rows => {
+        const map: Record<number, string[]> = {};
+        for (const r of rows) {
+          (map[r.student_id] ??= []).push(r.subject_name);
+        }
+        setElectivesByStudent(map);
+      })
+      .catch(() => {});
+  }, [syId]);
+
   // â”€â”€ Sync school name & year (selected school year takes precedence) â”€â”€
   useEffect(() => {
     setHeader(prev => ({
@@ -352,8 +387,7 @@ export function SF1Register() {
     );
     const enrolled = matchingEnrs
       .map(e => students.find(s => s.id === e.student_id))
-      .filter(Boolean) as StudentRow[];
-    // REGISTERED/BoSY/EoSY counts from the loaded roster (sex breakdown).
+      .filter(Boolean) as StudentRow[];    // REGISTERED/BoSY/EoSY counts from the loaded roster (sex breakdown).
     // The data model holds a single enrollment snapshot per SY, so BoSY and
     // EoSY reflect the same enrolled roster until dropouts are tracked.
     const male = enrolled.filter(s => s.sex === 'male').length;
@@ -370,26 +404,44 @@ export function SF1Register() {
       bosyDate: formatDateInput(sy?.enrollment_start_date ?? null),
       eosyDate: formatDateInput(sy?.enrollment_end_date ?? null)
     });
-    const newRows: RowData[] = enrolled.map(s => ({
-      lrn: s.lrn || '',
-      name: formatName(s.name || ''),
-      sex: s.sex === 'male' ? 'M' : s.sex === 'female' ? 'F' : '',
-      birthdate: formatBirthdate(s.birthdate),
-      age: s.birthdate ? String(computeAge(s.birthdate)) : '',
-      mothertongue: '',
-      ip: '',
-      religion: '',
-      addr_house: '',
-      addr_barangay: '',
-      addr_city: '',
-      addr_province: '',
-      father: '',
-      mother: '',
-      guardian_name: s.guardian || '',
-      guardian_rel: '',
-      contact: s.contact || '',
-      remarks: ''
-    }));
+    const newRows: RowData[] = enrolled.map(s => {
+      const enr = matchingEnrs.find(e => e.student_id === s.id);
+      const trackName = enr?.strand_track_id
+        ? trackNameById[enr.strand_track_id] || ''
+        : '';
+      const picks = electivesByStudent[s.id] || [];
+      // Strengthened SHS Curriculum: SHS learners print their curriculum track
+      // and electives as plain text in the REMARKS cell.
+      const remarks =
+        (s.grade_level ?? 0) >= 11
+          ? [
+              trackName ? `Track: ${trackName}` : '',
+              picks.length ? `Electives: ${picks.join(', ')}` : ''
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : '';
+      return {
+        lrn: s.lrn || '',
+        name: formatName(s.name || ''),
+        sex: s.sex === 'male' ? 'M' : s.sex === 'female' ? 'F' : '',
+        birthdate: formatBirthdate(s.birthdate),
+        age: s.birthdate ? String(computeAge(s.birthdate)) : '',
+        mothertongue: '',
+        ip: '',
+        religion: '',
+        addr_house: '',
+        addr_barangay: '',
+        addr_city: '',
+        addr_province: '',
+        father: '',
+        mother: '',
+        guardian_name: s.guardian || '',
+        guardian_rel: '',
+        contact: s.contact || '',
+        remarks
+      };
+    });
     while (newRows.length < TOTAL_ROWS) newRows.push({});
     setRows(newRows);
   }, [
@@ -399,7 +451,9 @@ export function SF1Register() {
     enrollments,
     students,
     sections,
-    schoolYears
+    schoolYears,
+    trackNameById,
+    electivesByStudent
   ]);
 
   // â”€â”€ Cell / header helpers â”€â”€

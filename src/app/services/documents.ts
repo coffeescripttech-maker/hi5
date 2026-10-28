@@ -47,7 +47,9 @@ export interface ImportResult {
 }
 
 export interface TemplateParams {
-  section_id: number;
+  // Optional for Strengthened SHS electives — their roster comes from the
+  // learners' elective picks, not a section.
+  section_id?: number;
   school_year_id: number;
   subject_id: number;
   quarter: number;
@@ -79,7 +81,8 @@ export const documentsApi = {
   },
   template: async (params: TemplateParams): Promise<void> => {
     const response = await api.getBlob("/documents/template", {
-      section_id: params.section_id,
+      // Electives may omit section_id — backend rosters the elective pickers.
+      ...(params.section_id ? { section_id: params.section_id } : {}),
       subject_id: params.subject_id,
       school_year_id: params.school_year_id,
       quarter: params.quarter,

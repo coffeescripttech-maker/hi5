@@ -38,6 +38,8 @@ export interface CreateEnrollmentPayload {
   enrollment_date: string;
   program?: string;
   strand_track_id?: number;
+  /** Strengthened SHS Curriculum: elective subject ids chosen by the learner */
+  elective_ids?: number[];
   remarks?: string;
   /** STE/SPFL admission evidence — consumed by the auto-sectioning eligibility engine */
   entrance_exam_grade?: number | null;
@@ -55,6 +57,9 @@ export interface UpdateEnrollmentPayload {
   status?: 'enrolled' | 'dropped' | 'transferred';
   remarks?: string;
   program?: string;
+  strand_track_id?: number | null;
+  /** Strengthened SHS Curriculum: replaces the learner's elective picks */
+  elective_ids?: number[];
 }
 
 export interface EnrollmentRequirementRow {

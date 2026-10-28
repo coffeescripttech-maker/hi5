@@ -86,14 +86,33 @@ async function parseGradeWorkbook(doc: any): Promise<ParsedGradeRow[]> {
 
   const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
 
-  // Section roster for the document's school year
-  const roster = await query<RowDataPacket[]>(
-    `SELECT st.id AS student_id, st.lrn, st.name, e.id AS enrollment_id
-     FROM enrollments e
-     JOIN students st ON e.student_id = st.id
-     WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'`,
-    [doc.section_id, doc.school_year_id]
+  // Strengthened SHS Curriculum: elective documents roster the learners who
+  // picked the elective (across sections) instead of one section's enrollment.
+  const subjRows = await query<RowDataPacket[]>(
+    "SELECT subject_type FROM subjects WHERE id = ?",
+    [doc.subject_id]
   );
+  const isElectiveDoc =
+    subjRows.length > 0 && subjRows[0].subject_type === "elective";
+
+  // Roster for the document's school year
+  const roster = isElectiveDoc
+    ? await query<RowDataPacket[]>(
+        `SELECT st.id AS student_id, st.lrn, st.name, e.id AS enrollment_id
+         FROM student_electives se
+         JOIN students st ON st.id = se.student_id
+         JOIN enrollments e ON e.student_id = st.id
+           AND e.school_year_id = se.school_year_id AND e.status = 'enrolled'
+         WHERE se.subject_id = ? AND se.school_year_id = ?`,
+        [doc.subject_id, doc.school_year_id]
+      )
+    : await query<RowDataPacket[]>(
+        `SELECT st.id AS student_id, st.lrn, st.name, e.id AS enrollment_id
+         FROM enrollments e
+         JOIN students st ON e.student_id = st.id
+         WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'`,
+        [doc.section_id, doc.school_year_id]
+      );
   const rosterByLrn = new Map<string, any>();
   for (const r of roster as any[]) {
     rosterByLrn.set(String(r.lrn).replace(/\D/g, ""), r);
@@ -119,7 +138,9 @@ async function parseGradeWorkbook(doc: any): Promise<ParsedGradeRow[]> {
 
     if (!entry) {
       status = "invalid";
-      error = "LRN not enrolled in this section";
+      error = isElectiveDoc
+        ? "LRN is not on this elective's roster"
+        : "LRN not enrolled in this section";
     } else if (grade === null) {
       status = "skipped";
     } else if (isNaN(grade)) {
@@ -329,34 +350,70 @@ export async function getTemplate(req: Request, res: Response): Promise<void> {
     const subject_id = parseInt(req.query.subject_id as string);
     const quarter = parseInt(req.query.quarter as string);
 
-    if (!section_id || !school_year_id || !subject_id || ![1, 2, 3].includes(quarter)) {
-      res.status(400).json({ error: "section_id, school_year_id, subject_id, and quarter (1-3) are required." });
+    if (!school_year_id || !subject_id || ![1, 2, 3].includes(quarter)) {
+      res.status(400).json({ error: "school_year_id, subject_id, and quarter (1-3) are required." });
       return;
     }
 
-    const [subject, section, students] = await Promise.all([
-      query<RowDataPacket[]>("SELECT name FROM subjects WHERE id = ?", [subject_id]),
-      query<RowDataPacket[]>("SELECT name FROM sections WHERE id = ?", [section_id]),
-      query<RowDataPacket[]>(
+    const subjectRow = await query<RowDataPacket[]>(
+      "SELECT name, subject_type FROM subjects WHERE id = ?",
+      [subject_id]
+    );
+    if (subjectRow.length === 0) {
+      res.status(404).json({ error: "Subject not found." });
+      return;
+    }
+    const isElective = subjectRow[0].subject_type === "elective";
+
+    // Strengthened SHS Curriculum: electives roster the learners who picked the
+    // subject, so no section is required — an elective-only teacher (no
+    // advisory section) can still download their roster template.
+    let sectionName = "Elective";
+    if (!isElective) {
+      if (!section_id) {
+        res.status(400).json({ error: "section_id is required for this subject." });
+        return;
+      }
+      const section = await query<RowDataPacket[]>(
+        "SELECT name FROM sections WHERE id = ?",
+        [section_id]
+      );
+      if (section.length === 0) {
+        res.status(404).json({ error: "Section not found." });
+        return;
+      }
+      sectionName = String(section[0].name);
+    }
+
+    let students: RowDataPacket[];
+    if (isElective) {
+      // Strengthened SHS Curriculum: an elective's template lists the learners
+      // who picked it — across sections, not a whole section roster.
+      students = await query<RowDataPacket[]>(
+        `SELECT st.lrn, st.name FROM student_electives se
+         JOIN students st ON st.id = se.student_id
+         WHERE se.subject_id = ? AND se.school_year_id = ?
+         ORDER BY st.name ASC`,
+        [subject_id, school_year_id]
+      );
+    } else {
+      students = await query<RowDataPacket[]>(
         `SELECT st.lrn, st.name FROM enrollments e
          JOIN students st ON e.student_id = st.id
          WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
          ORDER BY st.name ASC`,
         [section_id, school_year_id]
-      ),
-    ]);
-
-    if (subject.length === 0) { res.status(404).json({ error: "Subject not found." }); return; }
-    if (section.length === 0) { res.status(404).json({ error: "Section not found." }); return; }
+      );
+    }
 
     const buf = buildGradeTemplate({
-      sectionName: section[0].name,
-      subjectName: subject[0].name,
+      sectionName,
+      subjectName: subjectRow[0].name,
       quarter,
       rows: (students as any[]).map(s => ({ lrn: String(s.lrn), name: String(s.name) })),
     });
     const safe = (s: string) => s.replace(/[^\w-]+/g, "_");
-    const fileName = `${safe(section[0].name)}_Q${quarter}_${safe(subject[0].name)}_template.xlsx`;
+    const fileName = `${safe(sectionName)}_Q${quarter}_${safe(subjectRow[0].name)}_template.xlsx`;
 
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -383,9 +440,21 @@ export async function previewDocument(req: Request, res: Response): Promise<void
     }
     const doc = docs[0];
 
-    if (!doc.section_id || !doc.school_year_id) {
-      res.status(400).json({ error: "Document is missing section/school year context. Re-upload with section selected." });
+    // Electives don't need a section — their roster is the elective pickers.
+    if (!doc.subject_id || !doc.school_year_id) {
+      res.status(400).json({ error: "Document is missing subject/school year context. Re-upload with subject and school year selected." });
       return;
+    }
+    if (!doc.section_id) {
+      const subj = await query<RowDataPacket[]>(
+        "SELECT subject_type FROM subjects WHERE id = ?",
+        [doc.subject_id]
+      );
+      const electiveOk = subj.length > 0 && subj[0].subject_type === "elective";
+      if (!electiveOk) {
+        res.status(400).json({ error: "Document is missing section/school year context. Re-upload with section selected." });
+        return;
+      }
     }
 
     const rows = await parseGradeWorkbook(doc);
@@ -412,9 +481,20 @@ export async function importDocument(req: Request, res: Response): Promise<void>
     }
     const doc = docs[0];
 
-    if (!doc.subject_id || !doc.school_year_id || !doc.section_id) {
-      res.status(400).json({ error: "Document is missing subject/section/school year context. Re-upload with the subject selected." });
+    // Electives don't need a section — their roster is the elective pickers.
+    if (!doc.subject_id || !doc.school_year_id) {
+      res.status(400).json({ error: "Document is missing subject/school year context. Re-upload with the subject selected." });
       return;
+    }
+    if (!doc.section_id) {
+      const subjEarly = await query<RowDataPacket[]>(
+        "SELECT subject_type FROM subjects WHERE id = ?",
+        [doc.subject_id]
+      );
+      if (!(subjEarly.length > 0 && subjEarly[0].subject_type === "elective")) {
+        res.status(400).json({ error: "Document is missing section context. Re-upload with the section selected." });
+        return;
+      }
     }
 
     // Grade rows are only meaningful for Q1–Q3; a workbook tagged outside that
@@ -426,6 +506,30 @@ export async function importDocument(req: Request, res: Response): Promise<void>
       return;
     }
 
+    const subjectRow = await query<RowDataPacket[]>(
+      "SELECT name, subject_type FROM subjects WHERE id = ?",
+      [doc.subject_id]
+    );
+    if (subjectRow.length === 0) {
+      res.status(404).json({ error: "Subject not found." });
+      return;
+    }
+    const isElectiveSubject = subjectRow[0].subject_type === "elective";
+
+    // Teachers may only import grades for subjects assigned to them.
+    if (req.user!.role === "teacher") {
+      const allowed = await query<RowDataPacket[]>(
+        `SELECT 1 FROM teacher_subject_assignments
+         WHERE teacher_id = ? AND subject_id = ? AND (school_year_id = ? OR school_year_id IS NULL)
+         LIMIT 1`,
+        [req.user!.userId, doc.subject_id, doc.school_year_id]
+      );
+      if (allowed.length === 0) {
+        res.status(403).json({ error: "Access denied: you may only import grades for subjects assigned to you." });
+        return;
+      }
+    }
+
     const rows = await parseGradeWorkbook(doc);
     const validRows = rows.filter(r => r.status === "valid");
 
@@ -434,13 +538,26 @@ export async function importDocument(req: Request, res: Response): Promise<void>
     let failed = 0;
 
     for (const row of validRows) {
-      const rosterRows = await query<RowDataPacket[]>(
-        `SELECT e.id AS enrollment_id FROM enrollments e
-         JOIN students st ON e.student_id = st.id
-         WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-           AND st.id = (SELECT id FROM students WHERE REPLACE(lrn, ' ', '') = ?)`,
-        [doc.section_id, doc.school_year_id, row.lrn]
-      );
+      const rosterRows = isElectiveSubject
+        // Strengthened SHS Curriculum: for electives the roster is the elective
+        // pickers — enrollment may belong to any section.
+        ? await query<RowDataPacket[]>(
+            `SELECT e.id AS enrollment_id FROM student_electives se
+             JOIN students st ON st.id = se.student_id
+             JOIN enrollments e ON e.student_id = st.id
+               AND e.school_year_id = se.school_year_id AND e.status = 'enrolled'
+             WHERE se.subject_id = ? AND se.school_year_id = ?
+               AND st.id = (SELECT id FROM students WHERE REPLACE(lrn, ' ', '') = ?)
+             LIMIT 1`,
+            [doc.subject_id, doc.school_year_id, row.lrn]
+          )
+        : await query<RowDataPacket[]>(
+            `SELECT e.id AS enrollment_id FROM enrollments e
+             JOIN students st ON e.student_id = st.id
+             WHERE e.section_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+               AND st.id = (SELECT id FROM students WHERE REPLACE(lrn, ' ', '') = ?)`,
+            [doc.section_id, doc.school_year_id, row.lrn]
+          );
       if (rosterRows.length === 0) { failed++; continue; }
       const enrollment_id = rosterRows[0].enrollment_id;
       const student_id = row.lrn; // placeholder, resolved below

@@ -68,6 +68,9 @@ export interface SF9Row {
     sy_label: string;
     grade_level: number;
     adviser_name: string | null;
+    /** Strengthened SHS Curriculum: track name (Academic / TechPro) or legacy strand */
+    strand_track_name?: string | null;
+    track_type?: string | null;
   } | null;
   general_average: number | null;
   subjects: Array<{
@@ -96,6 +99,8 @@ export interface SF10SchoolYear {
   section_name: string;
   sy_label: string;
   general_average: number | null;
+  /** Strengthened SHS Curriculum: track name (Academic / TechPro) or legacy strand */
+  strand_track_name?: string | null;
   subjects: SF10Subject[];
 }
 

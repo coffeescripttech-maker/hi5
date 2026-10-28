@@ -24,6 +24,12 @@ export interface StudentRow {
   section_id?: number | null;
   section_name?: string | null;
   program?: string;
+  /**
+   * Strengthened SHS: elective name(s) that put this learner on the teacher's
+   * roster even though the teacher does not own their section. Null = the
+   * learner is on the roster through a section only.
+   */
+  elective_via?: string | null;
 }
 
 /** Graduate/alumni row (from GET /api/students/graduates) */

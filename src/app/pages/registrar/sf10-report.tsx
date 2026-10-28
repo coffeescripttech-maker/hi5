@@ -53,6 +53,7 @@ interface ScholasticRecord {
   classifiedGrade: string;
   section: string;
   schoolYear: string;
+  track: string;
   adviser: string;
   signature: string;
   generalAverage: string;
@@ -504,6 +505,7 @@ export function SF10Report() {
           classifiedGrade: String(sy.grade_level ?? ''),
           section: sy.section_name || '',
           schoolYear: sy.sy_label,
+          track: sy.strand_track_name || '',
           adviser: sec?.adviser_name || '',
           signature: '',
           generalAverage: fmt(sy.general_average),
@@ -1283,6 +1285,20 @@ export function SF10Report() {
                         }
                         className="sf1-input inline border-b border-gray-800 w-24 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                       />
+                      {(parseInt(record.classifiedGrade, 10) >= 11 ||
+                        record.track) && (
+                        <>
+                          <span className="ml-4 font-bold">Track/ Strand:</span>
+                          <input
+                            type="text"
+                            value={record.track}
+                            onChange={e =>
+                              updateRecord(idx, 'track', e.target.value)
+                            }
+                            className="sf1-input inline border-b border-gray-800 w-28 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                          />
+                        </>
+                      )}
                       <span className="ml-4 font-bold">
                         Name of Adviser/Teacher:
                       </span>

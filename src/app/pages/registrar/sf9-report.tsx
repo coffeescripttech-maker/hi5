@@ -6,6 +6,8 @@ import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { formsApi, SF9Row } from '../../services/forms';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
+import { subjectsApi } from '../../services/subjects';
+import { electivesApi, ElectiveBatchRow } from '../../services/electives';
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import { exportToPdf } from '../../services/pdfExport';
@@ -265,6 +267,15 @@ export function SF9Report() {
   const [syId, setSyId] = useState(1);
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
 
+  /* ── Strengthened SHS: teacher's elective rosters ── */
+  // Elective subjects the teacher handles; picking one switches the student
+  // picker from "my sections" to "learners who picked this elective".
+  const [myElectives, setMyElectives] = useState<
+    { id: number; name: string; grade_level: number }[]
+  >([]);
+  const [electiveBatch, setElectiveBatch] = useState<ElectiveBatchRow[]>([]);
+  const [electiveFilter, setElectiveFilter] = useState<number | null>(null);
+
   /* ── Data ── */
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
@@ -354,9 +365,23 @@ export function SF9Report() {
       role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
       role === "teacher" ? sectionsApi.listMySections() : sectionsApi.list(),
       enrollmentsApi.list(),
-      schoolYearsApi.list()
+      schoolYearsApi.list(),
+      role === "teacher"
+        ? subjectsApi
+            .assigned()
+            .then(subs =>
+              subs
+                .filter(s => s.subject_type === 'elective' && s.is_active === 1)
+                .map(s => ({
+                  id: s.id,
+                  name: s.name,
+                  grade_level: s.grade_level
+                }))
+            )
+            .catch(() => [])
+        : Promise.resolve([])
     ])
-      .then(([studs, secs, enrs, years]) => {
+      .then(([studs, secs, enrs, years, electives]) => {
         const activeSections = secs.filter(
           (s: SectionRow) => s.is_active === 1
         );
@@ -364,6 +389,7 @@ export function SF9Report() {
         setSections(activeSections);
         setEnrollments(enrs);
         setSchoolYears(years);
+        setMyElectives(electives);
 
         // Use provided school_year_id or find current
         let targetSyId: number | null = null;
@@ -428,6 +454,20 @@ export function SF9Report() {
             setSelectedStudentId(sid);
             return;
           }
+          // Strengthened SHS: the preselected learner may be on the teacher's
+          // roster via an elective — their section (if any) belongs to someone
+          // else, so no enrollment row is visible to the teacher. Resolve the
+          // grade from the roster itself and open the report card directly.
+          if (
+            role === "teacher" &&
+            studs.some((s: StudentRow) => s.id === sid)
+          ) {
+            const stu = studs.find((s: StudentRow) => s.id === sid)!;
+            setSelectedGrade(String(stu.grade_level));
+            setSelectedSectionId(null);
+            setSelectedStudentId(sid);
+            return;
+          }
         }
 
         // Default: jump to the first *sectioned* student enrolled in the target
@@ -484,6 +524,24 @@ export function SF9Report() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Elective picks for the selected school year (teacher view: used to resolve
+  // which learners are on each elective's roster).
+  useEffect(() => {
+    if (role !== 'teacher' || !syId) return;
+    let cancelled = false;
+    electivesApi
+      .assignmentsBatch(syId)
+      .then(rows => {
+        if (!cancelled) setElectiveBatch(rows);
+      })
+      .catch(() => {
+        /* elective rosters are optional — section flow still works */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role, syId]);
+
   /* ── Derived ── */
   const gradeSections = useMemo(
     () => sections.filter(s => s.grade_level === parseInt(selectedGrade)),
@@ -502,10 +560,25 @@ export function SF9Report() {
       .map(e => e.student_id);
   }, [enrollments, selectedGrade, selectedSectionId, syId]);
 
-  const enrolledStudents = useMemo(
-    () => students.filter(s => sectionEnrollmentIds.includes(s.id)),
-    [students, sectionEnrollmentIds]
-  );
+  const enrolledStudents = useMemo(() => {
+    // Strengthened SHS: when the teacher picked one of their electives, the
+    // student list is that elective's pickers (they span sections) instead of
+    // a single section's roster.
+    if (electiveFilter != null) {
+      const rosterIds = new Set(
+        electiveBatch
+          .filter(b => b.subject_id === electiveFilter)
+          .map(b => b.student_id)
+      );
+      return students.filter(s => rosterIds.has(s.id));
+    }
+    return students.filter(s => sectionEnrollmentIds.includes(s.id));
+  }, [
+    electiveFilter,
+    electiveBatch,
+    students,
+    sectionEnrollmentIds
+  ]);
 
   // Auto-select first student when section changes
   useEffect(() => {
@@ -516,14 +589,22 @@ export function SF9Report() {
       )
         return;
       setSelectedStudentId(enrolledStudents[0].id);
+    } else if (
+      selectedStudentId &&
+      students.some(s => s.id === selectedStudentId)
+    ) {
+      // Keep a preselected learner that sits outside the section filter —
+      // elective-roster students (Strengthened SHS) reach this page via the
+      // ?student_id= deep link and must not be cleared by the empty section.
     } else {
       setSelectedStudentId(null);
     }
     setSf9Data(null);
-  }, [selectedGrade, selectedSectionId, syId]);
+  }, [selectedGrade, selectedSectionId, syId, electiveFilter, electiveBatch, students]);
 
   // Reset section when grade changes — only if current section doesn't belong to the new grade
   useEffect(() => {
+    setElectiveFilter(null);
     const gs = sections.filter(s => s.grade_level === parseInt(selectedGrade));
     if (selectedSectionId && gs.some(s => s.id === selectedSectionId)) return;
     if (gs.length > 0) setSelectedSectionId(gs[0].id);
@@ -791,7 +872,10 @@ export function SF9Report() {
                 </label>
                 <select
                   value={selectedSectionId ?? ''}
-                  onChange={e => setSelectedSectionId(parseInt(e.target.value))}
+                  onChange={e => {
+                    setElectiveFilter(null);
+                    setSelectedSectionId(parseInt(e.target.value));
+                  }}
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} bg-white transition">
                   {gradeSections.length === 0 && (
                     <option value="">No sections</option>
@@ -803,6 +887,29 @@ export function SF9Report() {
                   ))}
                 </select>
               </div>
+              {role === 'teacher' && myElectives.length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-indigo-500 mb-1 uppercase tracking-[0.05em]">
+                    My Elective
+                  </label>
+                  <select
+                    value={electiveFilter ?? ''}
+                    onChange={e => {
+                      const v = e.target.value ? parseInt(e.target.value) : null;
+                      setElectiveFilter(v);
+                      if (v != null) setSelectedSectionId(null);
+                      setSf9Data(null);
+                    }}
+                    className="w-full border border-indigo-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white transition">
+                    <option value="">By section…</option>
+                    {myElectives.map(el => (
+                      <option key={el.id} value={el.id}>
+                        ⚡ {el.name} (G{el.grade_level})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-[0.05em]">
                   Student
@@ -831,8 +938,10 @@ export function SF9Report() {
                 {enrolledStudents.length} student
                 {enrolledStudents.length !== 1 ? 's' : ''} · Grade{' '}
                 {selectedGrade} ·{' '}
-                {gradeSections.find(s => s.id === selectedSectionId)?.name ||
-                  '—'}{' '}
+                {electiveFilter != null
+                  ? `Elective: ${myElectives.find(el => el.id === electiveFilter)?.name ?? '—'}`
+                  : gradeSections.find(s => s.id === selectedSectionId)?.name ||
+                    '—'}{' '}
                 ·{' '}
                 {schoolYears.find(y => y.id === syId)?.sy_label || '—'}
               </span>
@@ -1250,7 +1359,9 @@ export function SF9Report() {
                         Track/ Strand:
                       </span>
                       <span className="flex-1 border-b border-black text-[11px] pl-1">
-                        {parseInt(selectedGrade) >= 11 ? '—' : 'N/A (JHS)'}
+                        {parseInt(selectedGrade) >= 11
+                          ? sf9Data.enrollment?.strand_track_name || '—'
+                          : 'N/A (JHS)'}
                       </span>
                     </div>
                   </div>

@@ -31,34 +31,60 @@ import { useApp } from '../../context/AppContext';
 import { formatHoursPerWeek } from '../../utils/hours';
 import { HybridTable } from '../../components/HybridTable';
 import { ModalShell } from '../../components/ModalShell';
+import {
+  electivesApi,
+  ElectiveCatalogGroup
+} from '../../services/electives';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 
 const TYPE_COLORS: Record<string, string> = {
   core: 'bg-blue-100 text-blue-700 border-blue-200',
   applied: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  specialized: 'bg-violet-100 text-violet-700 border-violet-200'
+  specialized: 'bg-violet-100 text-violet-700 border-violet-200',
+  elective: 'bg-amber-100 text-amber-700 border-amber-200',
+  field_experience: 'bg-rose-100 text-rose-700 border-rose-200',
+  work_immersion: 'bg-cyan-100 text-cyan-700 border-cyan-200'
 };
 
 const TYPE_LABEL: Record<string, string> = {
   core: 'Core',
   applied: 'Applied',
-  specialized: 'Specialized'
+  specialized: 'Specialized',
+  elective: 'Elective',
+  field_experience: 'Field Experience',
+  work_immersion: 'Work Immersion'
 };
 
-type SubjectType = 'core' | 'applied' | 'specialized';
+type SubjectType =
+  | 'core'
+  | 'applied'
+  | 'specialized'
+  | 'elective'
+  | 'field_experience'
+  | 'work_immersion';
 
 const emptyForm: {
   name: string;
   grade_level: number;
-  hours_per_week: number;
+  hours_per_week: number | null;
   subject_type: SubjectType;
   program: string;
+  elective_cluster: string;
 } = {
   name: '',
   grade_level: 7,
   hours_per_week: 4,
   subject_type: 'core',
-  program: ''
+  program: '',
+  elective_cluster: ''
 };
+
+/** Weekly hours are optional for these (curriculum-mandated totals). */
+const OPTIONAL_HOURS_TYPES: SubjectType[] = [
+  'elective',
+  'field_experience',
+  'work_immersion'
+];
 
 /* ── Program scope labels ('' = shared across all programs) ── */
 const PROGRAM_OPTIONS: { value: string; label: string }[] = [
@@ -98,7 +124,7 @@ const PROGRAM_BADGE: Record<string, { label: string; cls: string }> = {
 
 interface PresetSubjectItem {
   name: string;
-  hours_per_week: number;
+  hours_per_week: number | null;
   subject_type: SubjectType;
   program?: string | null;
 }
@@ -194,64 +220,39 @@ const ALS_STRANDS: PresetSubjectItem[] = [
   }
 ];
 
-const SHS_CORE_11: PresetSubjectItem[] = [
-  { name: 'Oral Communication', hours_per_week: 3, subject_type: 'core' },
+/**
+ * Strengthened SHS Curriculum — Grade 11 core subjects (5). The Enrollment
+ * system auto-assigns these to every Grade 11 learner, so the preset exists
+ * for school-year set-up and for manual re-population after a new migration.
+ */
+const SHS_G11_CORE: PresetSubjectItem[] = [
   {
-    name: 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino',
-    hours_per_week: 3,
-    subject_type: 'core'
-  },
-  { name: 'General Mathematics', hours_per_week: 4, subject_type: 'core' },
-  { name: 'Earth and Life Science', hours_per_week: 4, subject_type: 'core' },
-  { name: 'Personal Development', hours_per_week: 2, subject_type: 'core' },
-  {
-    name: 'Understanding Culture, Society and Politics',
-    hours_per_week: 3,
-    subject_type: 'core'
+    name: 'Effective Communication / Mabisang Komunikasyon',
+    hours_per_week: null,
+    subject_type: 'core',
+    program: 'regular'
   },
   {
-    name: 'Physical Education and Health',
-    hours_per_week: 2,
-    subject_type: 'core'
+    name: 'Pag-aaral ng Kasaysayan at Lipunang Pilipino',
+    hours_per_week: null,
+    subject_type: 'core',
+    program: 'regular'
   },
-  {
-    name: '21st Century Literature from the Philippines and the World',
-    hours_per_week: 3,
-    subject_type: 'core'
-  },
-  {
-    name: 'Contemporary Philippine Arts from the Regions',
-    hours_per_week: 2,
-    subject_type: 'core'
-  }
+  { name: 'Life and Career Skills', hours_per_week: null, subject_type: 'core', program: 'regular' },
+  { name: 'General Science', hours_per_week: null, subject_type: 'core', program: 'regular' },
+  { name: 'General Mathematics', hours_per_week: null, subject_type: 'core', program: 'regular' }
 ];
 
-const SHS_CORE_12: PresetSubjectItem[] = [
+/**
+ * Grade 12: Work Immersion (80h) plus the learner's electives. Field
+ * Experience equivalents per program are also curriculum-mandated.
+ */
+const SHS_G12_CORE: PresetSubjectItem[] = [
   {
-    name: 'Reading and Writing Skills',
-    hours_per_week: 3,
-    subject_type: 'core'
-  },
-  {
-    name: 'Media and Information Literacy',
-    hours_per_week: 3,
-    subject_type: 'core'
-  },
-  {
-    name: 'Statistics and Probability',
-    hours_per_week: 4,
-    subject_type: 'core'
-  },
-  { name: 'Physical Science', hours_per_week: 4, subject_type: 'core' },
-  {
-    name: 'Introduction to the Philosophy of the Human Person',
-    hours_per_week: 3,
-    subject_type: 'core'
-  },
-  {
-    name: 'Physical Education and Health',
-    hours_per_week: 2,
-    subject_type: 'core'
+    name: 'Work Immersion',
+    hours_per_week: null,
+    subject_type: 'work_immersion',
+    program: 'regular'
   }
 ];
 
@@ -297,12 +298,12 @@ const SUBJECT_PRESETS: SubjectPreset[] = [
   },
   {
     id: 'shs_core',
-    name: 'SHS Core Subjects',
+    name: 'Strengthened SHS Core',
     description:
-      'Core subject set for Grades 11–12, shared across all strands (strand-specific subjects are added manually)',
+      'Grade 11 core subjects (5, auto-assigned to every learner) and Grade 12 Work Immersion. Electives are seeded per track and chosen by each learner.',
     grades: [11, 12],
     icon: BookOpen,
-    getSubjects: grade => (grade === 11 ? SHS_CORE_11 : SHS_CORE_12)
+    getSubjects: grade => (grade === 11 ? SHS_G11_CORE : SHS_G12_CORE)
   }
 ];
 
@@ -482,6 +483,65 @@ export function SubjectManagement() {
   );
   const popSkippedCount = plannedItems.length - popNewItems.length;
 
+  /* ── Elective Offerings (Strengthened SHS) ── */
+  // Per-school-year on/off switch for every elective. An elective that is off
+  // for the school year does not appear on the enrollment form.
+  const [showOfferings, setShowOfferings] = useState(false);
+  const [offerSY, setOfferSY] = useState<SchoolYearRow | null>(null);
+  const [offerGroups, setOfferGroups] = useState<ElectiveCatalogGroup[]>([]);
+  const [offerBusyId, setOfferBusyId] = useState<number | null>(null);
+
+  const fetchOfferings = (syId: number) => {
+    electivesApi
+      .catalog(syId)
+      .then(setOfferGroups)
+      .catch(err =>
+        showToast(
+          'error',
+          'Failed to load elective offerings: ' +
+            (err.detail?.error || err.message)
+        )
+      );
+  };
+
+  useEffect(() => {
+    if (!showOfferings) return;
+    if (offerSY) {
+      fetchOfferings(offerSY.id);
+      return;
+    }
+    schoolYearsApi
+      .current()
+      .then(sy => {
+        setOfferSY(sy);
+        fetchOfferings(sy.id);
+      })
+      .catch(() =>
+        showToast('error', 'No current school year — cannot load offerings.')
+      );
+  }, [showOfferings]);
+
+  const toggleOffering = async (subjectId: number, offered: boolean) => {
+    if (!offerSY) return;
+    setOfferBusyId(subjectId);
+    try {
+      await electivesApi.setOfferings(offerSY.id, [subjectId], offered);
+      fetchOfferings(offerSY.id);
+      showToast(
+        'success',
+        offered ? 'Elective switched ON.' : 'Elective switched OFF.'
+      );
+    } catch (err: any) {
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to switch elective offering'
+      );
+    } finally {
+      setOfferBusyId(null);
+    }
+  };
+
+
   const handlePopulate = async () => {
     if (popNewItems.length === 0) return;
     setPopulating(true);
@@ -508,12 +568,30 @@ export function SubjectManagement() {
 
   const handleSave = async () => {
     try {
+      // Strengthened SHS Curriculum: SHS cores are Grade 11 only.
+      if (form.subject_type === 'core' && form.grade_level === 12) {
+        showToast(
+          'error',
+          'Core subjects are Grade 11 only under the Strengthened SHS Curriculum — Grade 12 has no core subjects.'
+        );
+        return;
+      }
+      const hours =
+        form.hours_per_week !== null && form.hours_per_week > 0
+          ? form.hours_per_week
+          : OPTIONAL_HOURS_TYPES.includes(form.subject_type)
+            ? null
+            : undefined;
       if (editSubject) {
         const payload: UpdateSubjectPayload = {
           name: form.name,
-          hours_per_week: form.hours_per_week,
+          hours_per_week: hours ?? undefined,
           subject_type: form.subject_type,
-          program: form.program || null
+          program: form.program || null,
+          elective_cluster:
+            form.subject_type === 'elective'
+              ? form.elective_cluster.trim() || null
+              : null
         };
         await subjectsApi.update(editSubject.id, payload);
         showToast('success', `Subject "${form.name}" updated.`);
@@ -521,9 +599,13 @@ export function SubjectManagement() {
         const payload: CreateSubjectPayload = {
           name: form.name,
           grade_level: form.grade_level,
-          hours_per_week: form.hours_per_week,
+          hours_per_week: hours ?? undefined,
           subject_type: form.subject_type,
-          program: form.program || null
+          program: form.program || null,
+          elective_cluster:
+            form.subject_type === 'elective'
+              ? form.elective_cluster.trim() || null
+              : null
         };
         await subjectsApi.create(payload);
         showToast('success', `Subject "${form.name}" created.`);
@@ -565,12 +647,16 @@ export function SubjectManagement() {
       grade_level: s.grade_level,
       hours_per_week: s.hours_per_week,
       subject_type: s.subject_type,
-      program: s.program ?? ''
+      program: s.program ?? '',
+      elective_cluster: s.elective_cluster ?? ''
     });
     setShowForm(true);
   };
 
-  const totalHours = filtered.reduce((a, s) => a + s.hours_per_week, 0);
+  const totalHours = filtered.reduce(
+    (a, s) => a + (s.hours_per_week ?? 0),
+    0
+  );
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto px-3 sm:px-0">
@@ -632,7 +718,7 @@ export function SubjectManagement() {
           </p>
           <p className="text-xs text-gray-400 mt-1">Across all grades</p>
         </div>
-        {(['core', 'applied', 'specialized'] as const).map(t => (
+        {(['core', 'applied', 'specialized', 'elective'] as const).map(t => (
           <div
             key={t}
             className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
@@ -646,7 +732,9 @@ export function SubjectManagement() {
                     ? 'bg-blue-100'
                     : t === 'applied'
                       ? 'bg-emerald-100'
-                      : 'bg-violet-100'
+                      : t === 'specialized'
+                        ? 'bg-violet-100'
+                        : 'bg-amber-100'
                 }`}>
                 <Layers
                   size={14}
@@ -655,7 +743,9 @@ export function SubjectManagement() {
                       ? 'text-blue-600'
                       : t === 'applied'
                         ? 'text-emerald-600'
-                        : 'text-violet-600'
+                        : t === 'specialized'
+                          ? 'text-violet-600'
+                          : 'text-amber-600'
                   }`}
                 />
               </div>
@@ -690,8 +780,75 @@ export function SubjectManagement() {
         ))}
         {filterGrade !== 'All' && (
           <span className="text-xs text-gray-400 ml-auto">
-            {filtered.reduce((a, s) => a + s.hours_per_week, 0)} hrs/week
+            {filtered.reduce((a, s) => a + (s.hours_per_week ?? 0), 0)}{' '}
+            hrs/week
           </span>
+        )}
+      </div>
+
+      {/* ── ELECTIVE OFFERINGS (Strengthened SHS) ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowOfferings(v => !v)}
+          className="w-full px-6 py-4 flex items-center justify-between bg-gray-50/80 hover:bg-gray-100 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="bg-amber-50 text-amber-700 text-[11px] font-bold px-3 py-1 rounded-full border border-amber-100">
+              Elective Offerings
+            </span>
+            <span className="text-xs text-gray-500 font-medium">
+              Switch electives ON/OFF for the school year — an OFF elective
+              never appears on the enrollment form
+            </span>
+          </div>
+          <span className="text-xs text-gray-400">
+            {showOfferings ? 'Hide ▲' : 'Manage ▼'}
+          </span>
+        </button>
+        {showOfferings && (
+          <div className="p-5">
+            <p className="text-xs text-gray-400 mb-4">
+              {offerSY
+                ? `School Year: ${offerSY.sy_label}`
+                : 'Loading school year…'}
+            </p>
+            {offerGroups.length === 0 ? (
+              <p className="text-sm text-gray-400">
+                No electives found for this school year.
+              </p>
+            ) : (
+              offerGroups.map(g => (
+                <div key={`${g.track_name}-${g.cluster}`} className="mb-4">
+                  <p className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.05em] mb-2">
+                    {g.cluster}
+                    <span className="ml-2 font-medium normal-case tracking-normal text-gray-400">
+                      · {g.track_name}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {g.subjects.map(s => {
+                      const on = s.is_offered === 1;
+                      const busy = offerBusyId === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => toggleOffering(s.id, !on)}
+                          className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                            on
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300'
+                          } ${busy ? 'opacity-50 cursor-wait' : ''}`}>
+                          {on ? '● ON ' : '○ OFF '}
+                          {s.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
 
@@ -742,7 +899,10 @@ export function SubjectManagement() {
                     </div>
                     <span className="text-xs text-gray-400 flex items-center gap-1">
                       <Clock size={12} />{' '}
-                      {gradeSubs.reduce((a, s) => a + s.hours_per_week, 0)}{' '}
+                      {gradeSubs.reduce(
+                        (a, s) => a + (s.hours_per_week ?? 0),
+                        0
+                      )}{' '}
                       hrs/week
                     </span>
                   </div>
@@ -1054,28 +1214,32 @@ export function SubjectManagement() {
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
-                Hours per Week
+                Hours per Week{' '}
+                {OPTIONAL_HOURS_TYPES.includes(form.subject_type) && (
+                  <span className="normal-case">(optional)</span>
+                )}
               </label>
               <input
                 type="number"
                 min={1}
                 max={10}
-                value={form.hours_per_week}
+                value={form.hours_per_week ?? ''}
                 onChange={e =>
                   setForm(p => ({
                     ...p,
-                    hours_per_week: parseInt(e.target.value) || 0
+                    hours_per_week:
+                      e.target.value === '' ? null : parseInt(e.target.value) || null
                   }))
                 }
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400"
               />
-              {form.hours_per_week > 0 && (
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  {form.hours_per_week > 0
-                    ? formatHoursPerWeek(form.hours_per_week)
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                {form.hours_per_week
+                  ? formatHoursPerWeek(form.hours_per_week)
+                  : OPTIONAL_HOURS_TYPES.includes(form.subject_type)
+                    ? 'Leave empty for curriculum-mandated subjects (e.g. Work Immersion 80h/year).'
                     : 'Enter weekly hours'}
-                </p>
-              )}
+              </p>
             </div>
           </div>
           <div>
@@ -1083,21 +1247,46 @@ export function SubjectManagement() {
               Subject Type
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {(['core', 'applied', 'specialized'] as const).map(t => {
+              {(
+                [
+                  'core',
+                  'applied',
+                  'specialized',
+                  'elective',
+                  'field_experience',
+                  'work_immersion'
+                ] as const
+              ).map(t => {
                 const colors: Record<string, string> = {
                   core: 'border-blue-500 bg-blue-50 text-blue-700',
                   applied: 'border-emerald-500 bg-emerald-50 text-emerald-700',
-                  specialized: 'border-violet-500 bg-violet-50 text-violet-700'
+                  specialized: 'border-violet-500 bg-violet-50 text-violet-700',
+                  elective: 'border-amber-500 bg-amber-50 text-amber-700',
+                  field_experience: 'border-rose-500 bg-rose-50 text-rose-700',
+                  work_immersion: 'border-cyan-500 bg-cyan-50 text-cyan-700'
                 };
                 const hover: Record<string, string> = {
                   core: 'hover:border-blue-300 hover:bg-blue-50/50',
                   applied: 'hover:border-emerald-300 hover:bg-emerald-50/50',
-                  specialized: 'hover:border-violet-300 hover:bg-violet-50/50'
+                  specialized: 'hover:border-violet-300 hover:bg-violet-50/50',
+                  elective: 'hover:border-amber-300 hover:bg-amber-50/50',
+                  field_experience: 'hover:border-rose-300 hover:bg-rose-50/50',
+                  work_immersion: 'hover:border-cyan-300 hover:bg-cyan-50/50'
                 };
                 return (
                   <button
                     key={t}
-                    onClick={() => setForm(p => ({ ...p, subject_type: t }))}
+                    onClick={() =>
+                      setForm(p => ({
+                        ...p,
+                        subject_type: t,
+                        grade_level:
+                          (t === 'elective' || t === 'work_immersion') &&
+                          p.grade_level < 11
+                            ? 11
+                            : p.grade_level
+                      }))
+                    }
                     className={`touch-target py-2.5 rounded-xl text-xs font-semibold border-2 transition-all ${
                       form.subject_type === t
                         ? colors[t]
@@ -1108,7 +1297,28 @@ export function SubjectManagement() {
                 );
               })}
             </div>
+            {form.subject_type === 'elective' && (
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Electives apply to Grade 11/12 learners by individual choice and
+                need a cluster heading.
+              </p>
+            )}
           </div>
+          {form.subject_type === 'elective' && (
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                Elective Cluster
+              </label>
+              <input
+                value={form.elective_cluster}
+                onChange={e =>
+                  setForm(p => ({ ...p, elective_cluster: e.target.value }))
+                }
+                placeholder="e.g. General Education, Business & Entrepreneurship"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-400"
+              />
+            </div>
+          )}
           <div>
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
               Program Scope

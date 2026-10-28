@@ -3,6 +3,13 @@ import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
 import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+import {
+  carryOverElectives,
+  electivesApplyToProgram,
+  saveStudentElectives,
+  validateElectivePick,
+  validateEnrollmentTrack,
+} from "../utils/shsCurriculum";
 
 /**
  * Standard enrollment-requirement documents. Used when the Student Profile's
@@ -219,7 +226,7 @@ export async function getEnrollmentById(req: Request, res: Response): Promise<vo
  */
 export async function createEnrollment(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, section_id, school_year_id, enrollment_date, program, strand_track_id, remarks, requirements, entrance_exam_grade, entrance_exam_passed, interview_passed } = req.body;
+    const { student_id, section_id, school_year_id, enrollment_date, program, strand_track_id, remarks, requirements, entrance_exam_grade, entrance_exam_passed, interview_passed, elective_ids } = req.body;
 
     if (!student_id || !school_year_id || !enrollment_date) {
       res.status(400).json({ error: "Missing required fields: student_id, school_year_id, enrollment_date." });
@@ -230,6 +237,41 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
     const student = await query<RowDataPacket[]>("SELECT id, name, status, grade_level FROM students WHERE id = ?", [student_id]);
     if (student.length === 0) {
       res.status(404).json({ error: "Student not found." });
+      return;
+    }
+
+    // Strengthened SHS Curriculum: required Track for Grades 11/12
+    // (Mainstream/Open High School), with the elective catalog available.
+    const effectiveProgram = program || "regular";
+    const trackError = await validateEnrollmentTrack(
+      effectiveProgram,
+      Number(student[0].grade_level),
+      strand_track_id ?? null
+    );
+    if (trackError) {
+      res.status(422).json({ error: trackError });
+      return;
+    }
+
+    // Elective picks are optional at enrollment (client-recommended), but the
+    // ones supplied are validated immediately so bad data never reaches the DB.
+    const electiveSubjectIds: number[] = Array.isArray(elective_ids)
+      ? [...new Set(elective_ids.map((v: unknown) => Number(v)).filter((v: number) => Number.isFinite(v) && v > 0))]
+      : [];
+    const canTakeElectives = electivesApplyToProgram(effectiveProgram) && Number(student[0].grade_level) >= 11;
+    if (electiveSubjectIds.length > 0 && !canTakeElectives) {
+      res.status(422).json({ error: `${student[0].name} is not eligible for SHS electives (electives apply to Grade 11/12 Mainstream and Open High School learners only).` });
+      return;
+    }
+    const electiveProblems: string[] = [];
+    if (canTakeElectives) {
+      for (const sid of electiveSubjectIds) {
+        const problem = await validateElectivePick(sid, Number(school_year_id), Number(student[0].grade_level));
+        if (problem) electiveProblems.push(problem);
+      }
+    }
+    if (electiveProblems.length > 0) {
+      res.status(422).json({ error: electiveProblems[0], problems: electiveProblems });
       return;
     }
 
@@ -304,17 +346,47 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
         section_id || null,
         school_year_id,
         program || "regular",
-        strand_track_id || null,
-        enrollment_date,
-        enrolled_by,
-        remarks || null,
-        entrance_exam_grade === undefined || entrance_exam_grade === null || entrance_exam_grade === ""
-          ? null
-          : parseFloat(entrance_exam_grade),
-        entrance_exam_passed == null ? null : entrance_exam_passed ? 1 : 0,
-        interview_passed == null ? null : interview_passed ? 1 : 0
+      strand_track_id || null,
+      enrollment_date,
+      enrolled_by,
+      remarks || null,
+      entrance_exam_grade === undefined || entrance_exam_grade === null || entrance_exam_grade === ""
+        ? null
+        : parseFloat(entrance_exam_grade),
+      entrance_exam_passed == null ? null : entrance_exam_passed ? 1 : 0,
+      interview_passed == null ? null : interview_passed ? 1 : 0
       ]
     );
+
+    // Persist the per-learner elective picks for this school year.
+    if (canTakeElectives && electiveSubjectIds.length > 0) {
+      await saveStudentElectives(
+        Number(student_id),
+        Number(school_year_id),
+        electiveSubjectIds,
+        strand_track_id ? Number(strand_track_id) : null,
+        req.user!.userId
+      );
+    } else if (canTakeElectives && Number(student[0].grade_level) === 12) {
+      // Grade 12 learner enrolled without picks: copy the Grade-11 electives
+      // forward as a PROPOSED list the Enrollment Committee can review/edit.
+      const prevEnrollment = await query<RowDataPacket[]>(
+        `SELECT school_year_id FROM enrollments
+          WHERE student_id = ? AND school_year_id < ? AND status IN ('enrolled','completed')
+          ORDER BY school_year_id DESC LIMIT 1`,
+        [student_id, school_year_id]
+      );
+      if (prevEnrollment.length > 0) {
+        await carryOverElectives(
+          Number(student_id),
+          Number(prevEnrollment[0].school_year_id),
+          Number(school_year_id),
+          Number(student[0].grade_level),
+          strand_track_id ? Number(strand_track_id) : null,
+          req.user!.userId
+        );
+      }
+    }
 
     // Insert requirements checklist if provided
     if (requirements && Array.isArray(requirements) && requirements.length > 0) {
@@ -365,6 +437,24 @@ export async function createEnrollment(req: Request, res: Response): Promise<voi
       "enrollments",
       result.insertId
     );
+
+    // Track/elective context for the Activity Log (Strengthened SHS Curriculum).
+    if (strand_track_id) {
+      const trackRow = await query<RowDataPacket[]>(
+        "SELECT name FROM strand_tracks WHERE id = ?",
+        [strand_track_id]
+      );
+      const trackName = trackRow.length > 0 ? String(trackRow[0].name) : `#${strand_track_id}`;
+      await logActivity(
+        req.user!.userId,
+        `Enrollment track set: ${student[0].name} → ${trackName}` +
+          (electiveSubjectIds.length > 0
+            ? ` with ${electiveSubjectIds.length} elective${electiveSubjectIds.length > 1 ? "s" : ""}`
+            : ""),
+        "student_electives",
+        result.insertId
+      );
+    }
 
     // Real-time notification: new enrollment (SSE push, no refresh).
     createNotification({
@@ -627,12 +717,117 @@ export async function updateEnrollment(req: Request, res: Response): Promise<voi
     if (remarks !== undefined) { updateFields.push("remarks = ?"); updateParams.push(remarks); }
     if (req.body.strand_track_id !== undefined) { updateFields.push("strand_track_id = ?"); updateParams.push(req.body.strand_track_id); }
 
+    // Learner grade level (students table) — needed for the SHS validations
+    // below; enrollments rows do not carry it.
+    let studentGradeLevel: number | null = null;
+    if (req.body.strand_track_id !== undefined || req.body.elective_ids !== undefined) {
+      const gl = await query<RowDataPacket[]>(
+        "SELECT grade_level FROM students WHERE id = ?",
+        [enrollment.student_id]
+      );
+      studentGradeLevel = gl.length > 0 ? Number(gl[0].grade_level) : null;
+    }
+
+    // Required-Track validation from the Strengthened SHS Curriculum.
+    if (req.body.strand_track_id !== undefined && studentGradeLevel !== null) {
+      const trackError = await validateEnrollmentTrack(
+        String(enrollment.program ?? "regular"),
+        studentGradeLevel,
+        req.body.strand_track_id
+      );
+      if (trackError) {
+        res.status(422).json({ error: trackError });
+        return;
+      }
+    }
+
     if (updateFields.length > 0) {
       updateParams.push(id);
       await query<ResultSetHeader>(
         `UPDATE enrollments SET ${updateFields.join(", ")} WHERE id = ?`,
         updateParams
       );
+    }
+
+    // Strengthened SHS Curriculum: every track or elective change is logged with
+    // the actor and the old/new values.
+    if (req.body.strand_track_id !== undefined) {
+      const trackRows = await query<RowDataPacket[]>(
+        "SELECT name FROM strand_tracks WHERE id IN (?, ?)",
+        [enrollment.strand_track_id ?? 0, req.body.strand_track_id ?? 0]
+      );
+      const oldTrackId = enrollment.strand_track_id ?? null;
+      const trackNames = new Map(trackRows.map((t: RowDataPacket) => [Number(t.id), String(t.name)]));
+      const oldName = oldTrackId ? (trackNames.get(Number(oldTrackId)) ?? `#oldTrackId`) : "none";
+      const newName = req.body.strand_track_id
+        ? (trackNames.get(Number(req.body.strand_track_id)) ?? `#${req.body.strand_track_id}`)
+        : "none";
+      if (String(oldName) !== String(newName)) {
+        await logActivity(
+          req.user!.userId,
+          `Track changed for ${enrollment.student_name}: ${oldName} → ${newName}`,
+          "enrollments",
+          id
+        );
+      }
+    }
+
+    // Elective picks may be amended with the track change (same authorization
+    // as this endpoint — admin / registrar / enrollment committee).
+    const updateElectives: number[] | undefined = req.body.elective_ids !== undefined
+      ? [...new Set(
+          (Array.isArray(req.body.elective_ids) ? (req.body.elective_ids as unknown[]) : [])
+            .map((v: unknown) => Number(v))
+            .filter((v: number) => Number.isFinite(v) && v > 0)
+        )]
+      : undefined;
+    if (updateElectives !== undefined) {
+      const eligible = electivesApplyToProgram(String(enrollment.program ?? "regular")) &&
+        studentGradeLevel !== null && studentGradeLevel >= 11;
+      if (updateElectives.length > 0 && !eligible) {
+        res.status(422).json({ error: "Electives apply only to Grade 11/12 Mainstream and Open High School learners." });
+        return;
+      }
+      const problems: string[] = [];
+      for (const sid of updateElectives) {
+        const problem = await validateElectivePick(
+          sid,
+          Number(enrollment.school_year_id),
+          studentGradeLevel ?? 0
+        );
+        if (problem) problems.push(problem);
+      }
+      if (problems.length > 0) {
+        res.status(422).json({ error: problems[0], problems });
+        return;
+      }
+      const beforeRows = await query<RowDataPacket[]>(
+        `SELECT s.name FROM student_electives se JOIN subjects s ON s.id = se.subject_id
+          WHERE se.student_id = ? AND se.school_year_id = ? ORDER BY s.name ASC`,
+        [enrollment.student_id, enrollment.school_year_id]
+      );
+      const oldNames = beforeRows.map((r: RowDataPacket) => String(r.name));
+      await saveStudentElectives(
+        Number(enrollment.student_id),
+        Number(enrollment.school_year_id),
+        updateElectives,
+        req.body.strand_track_id !== undefined ? (req.body.strand_track_id ? Number(req.body.strand_track_id) : null) : (enrollment.strand_track_id ? Number(enrollment.strand_track_id) : null),
+        req.user!.userId
+      );
+      const afterRows = await query<RowDataPacket[]>(
+        `SELECT s.name FROM student_electives se JOIN subjects s ON s.id = se.subject_id
+          WHERE se.student_id = ? AND se.school_year_id = ? ORDER BY s.name ASC`,
+        [enrollment.student_id, enrollment.school_year_id]
+      );
+      const newNames = afterRows.map((r: RowDataPacket) => String(r.name));
+      if (JSON.stringify(oldNames) !== JSON.stringify(newNames)) {
+        await logActivity(
+          req.user!.userId,
+          `Electives changed for ${enrollment.student_name}: [${oldNames.join(", ") || "none"}] → [${newNames.join(", ") || "none"}]`,
+          "student_electives",
+          String(enrollment.student_id)
+        );
+      }
     }
 
     res.json({ message: "Enrollment updated." });
@@ -947,3 +1142,4 @@ export async function getEnrollmentFlags(req: Request, res: Response): Promise<v
     res.status(500).json({ error: "Failed to detect duplicate enrollments." });
   }
 }
+

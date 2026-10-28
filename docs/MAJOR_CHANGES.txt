@@ -1,0 +1,256 @@
+Hi5 Portal:Expected System Behavior for the
+Strengthened SHS Curriculum
+Oct 22, 2026 · @Arlan
+Summary
+What the system should do once it follows the Strengthened SHS Curriculum: two tracks
+(Academic and TechPro) instead of strands, five core subjects in Grade 11, electives
+chosen per learner, and Work Immersion in Grade 12. The system goes live next school
+year, when both Grade 11 and Grade 12 follow the new curriculum, so it does not need to
+support the old strands or two curricula side by side.
+Whatto build first(the minimum)
+1. Both tracks on the SHS enrollment form. The system offers Academic and TechnicalProfessional (TechPro). The Track field replaces the strand picker for Grade 11 and
+Grade 12.
+2. Each track shows its electives. When the user clicks Academic or TechPro, the
+clusters under that track appear, and each cluster lists the electives the school offers,
+for the student to choose.
+3. The five core subjects. Seed them for Grade 11 only and assign them automatically.
+4. Electives as a simple list. For now, assume DSPMNHS offers every elective and NC II
+specialization in the reference lists at the end, except the Maritime Transport cluster,
+which is removed. Each elective has an on or off switch, so the Administrator can hide
+any the school does not offer. The Registrar or Enrollment Committee picks the
+electives per learner.
+5. Chosen electives follow the learner everywhere. When a learner is given an elective,
+that subject appears in the learner's Grade Management, so the elective's teacher can
+encode grades, and it counts in the General Average. It also prints on the learner's
+School Forms: SF9 and SF10 list the elective with its grades, and SF1 shows the track
+and electives. TechPro electives are graded like any other subject, with quarterly
+grades and the same 75 passing mark.
+6. Field Experience and Work Immersion use numerical grades only. They are graded
+like any other subject, and the system stores no hours for them.
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 1 of 9
+7. Print track and electives on SF1, SF9, and SF10 for SHS learners.
+Whatto skip for now
+A screen to manage clusters, and cluster rules. Clusters appear only as fixed headings
+on the elective list.
+Storing Work Immersion and Field Experience hours (still in the limitations).
+Support for the old strand curriculum, because the system goes live when all SHS
+learners follow the new one.
+The per-curriculum grading terms setting.
+Migration tooling for existing learners, unless real Grade 11 records already exist.
+Everything skipped goes into the manuscript's limitations or recommendations.
+Enrollmentform behavior
+The SHS Strand picker goes away. Rules marked (recommended) are our design choices,
+not DepEd rules.
+1. The SHS enrollment form for Mainstream/Regular and Open High School, Grades 11 and
+12, offers both tracks, Academic and Technical-Professional (TechPro), as a required
+Track field that replaces the SHS Strand picker.
+2. When the user clicks Academic or TechPro, the clusters under that track appear, and
+under each cluster the electives the school offers. The learner picks from that list.
+Because DepEd lets learners choose across tracks, a Show electives from the other
+track option keeps the other track's electives reachable.
+3. (Recommended) Electives may be left empty at enrollment, like the Document
+Checklist, so a missing choice never blocks enrollment. The Enrollment Committee
+must fill them before confirming a section.
+4. Grade 11: assign the five core subjects automatically; they are not selectable. Grade 12:
+assign no core subjects, and assign Work Immersion automatically.
+5. ALS SHS keeps its own learning strands and specialization, unchanged. Do not apply
+tracks or clusters to ALS.
+6. PWD learners stay auto-tagged SNED and may take any track.
+7. Log every track or elective change in the Activity Log with the actor and the old and
+new values.
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 2 of 9
+The form currently also lists SPJ, which the manuscript does not name as a program.
+Decide whether SPJ stays, then make the manuscript and the system agree.
+Subjects and grade encoding
+The big shift: electives are chosen per student, so a class roster for an elective is the
+students who picked it, not a whole section. Core subjects stay section-wide.
+Subject Management (Administrator)
+Create SHS subjects by category: core, elective, Field Experience, Work Immersion.
+Block saving a core subject for any grade other than 11.
+Each elective has an on or off switch for the school year. An elective that is off does
+not appear on the enrollment form. Electives sit under fixed cluster headings, and
+there is no screen for managing clusters.
+Teacher assignment and rosters
+Assign a teacher to each elective offering. Build the roster from student_electives .
+Core subjects keep the existing section roster.
+The class list, grade encoding, Excel upload, and the at-risk badge must all read the
+elective roster, or an elective teacher will see the wrong students.
+The schedule and room modules need to accept an elective timeslot whose roster cuts
+across sections.
+Grades
+General Average counts every graded SHS subject the learner has. Grade 11 has the
+cores plus electives; Grade 12 has electives only. Passing mark (75 default) and
+monitoring threshold (80 default) stayAdministrator settings.
+Work Immersion and Field Experience are graded with numerical grades only, like any
+other subject, and count in the General Average. The system stores no hours for them.
+The number of grading periods stays at three quarters, as in the manuscript. Confirm
+the term structure with DepEd.
+Grade locking, grade correction requests, and the Activity Log work as they do now, for
+electives too.
+Sectioning, carryover, promotion, and at-risk
+Sectioning
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 3 of 9
+SHS sections group learners by grade level and, optionally, track. Learners in one
+section take the same core subjects in Grade 11 but different electives.
+The Carryover method must carry the section from Grade 11 to Grade 12, and copy the
+learner's electives as a proposed list the Enrollment Committee can edit.
+The Enrollment Committee still confirms every placement. Teachers still cannot place
+students.
+Promotion and completion
+Keep the rule that a final grade under 75 means Retained, and apply it to electives too.
+Confirm with DepEd how a failed elective affects promotion.
+At-risk detection
+The formula does not change: quarterly General Averages, least-squares trend,
+computed on demand. Make sure it reads elective grades and uses only the current
+school year's quarters, because the subjects behind the General Average differ
+between Grade 11 and Grade 12.
+School Forms and reports
+The system generates SF1, SF5, SF9, and SF10 as PDF. For SHS learners they show the
+track and electives instead of the strand.
+Form Change for SHS learners
+SF1 School Register Show track instead of strand in the SHS rows and
+classification columns.
+SF5 Report on Promotion Group SHS by track; include elective results in the
+promotion check. It is still a class-level summary.
+SF9 Report Card Grade 11 lists the five core subjects plus electives;
+Grade 12 lists electives, Field Experience, and Work
+Immersion, all with numerical grades. Keep the
+customizable extra rows.
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 4 of 9
+Fields the system does not collect (Mother Tongue, Religion, attendance, observed
+values) are still filled in by hand before printing. That does not change.
+Subjectlist: core subjects (Grade 11, both tracks)
+Five subjects, 160 hours each, assigned automatically and not selectable.
+1. Effective Communication / Mabisang Komunikasyon
+2. Pag-aaral ng Kasaysayan at Lipunang Pilipino
+3. Life and Career Skills
+4. General Mathematics
+5. General Science
+Subjectlist: Academic track electives
+Each is 80 hours in one term. For now, assume DSPMNHS offers all of them. This list comes
+from DepEd's Grade 11 pilot memo (DepEd Memorandum No. 48, s. 2025). Check it against
+the annexes of DepEd Memorandum No. 12, s. 2026 before seeding. The full verification
+notes are in the verified subject list doc.
+Arts, Social Sciences, and Humanities
+Contemporary Literature 1
+Creative Composition 1 / Malikhaing Pagsulat
+Arts 1 (Creative Industries 1: Visual Art, LiteraryArt, Media Art, Applied Art, and
+Traditional Arts)
+Arts 2 (Creative Industries 2: Music, Dance, and TheaterArts)
+Filipino 1 (Wika at Komunikasyon sa Akademikong Filipino)
+Introduction to Philosophy
+Form Change for SHS learners
+SF10 Permanent Record Record track and electives per school year, keep
+the five core subject names exactly as DepEd
+writes them, and print Field Experience and Work
+Immersion grades. Old grades entered from before
+the system was adopted may still show the old
+strand as plain text.
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 5 of 9
+Social Sciences (Theory and Practice)
+Philippine Governance (Philippine Politics and Governance)
+Citizenship and Civic Engagement
+Contemporary Literature 2
+Creative Composition 2
+Filipino Identity Through the Arts
+Filipino 2 (Filipino sa Larang Teknikal-Propesyonal)
+Filipino 2 (Filipino sa Isports)
+Filipino 2 (Filipino sa Sining at Disenyo)
+Leadership and Management in the Arts
+Business and Entrepreneurship
+Business 1 (Basic Accounting)
+Introduction to Organization and Management
+Business 2 (Business Finance and Income Taxation)
+Business 3 (Business Economics)
+Contemporary Marketing
+Entrepreneurship
+Science, Technology, Engineering, and Mathematics (STEM)
+Finite Mathematics 1
+Finite Mathematics 2
+Biology 1 and 2
+Chemistry 1 and 2
+Earth and Space Science (1 and 2; confirm the numbering)
+Physics 1 and 2
+Sports, Health, and Wellness
+Human Movement 1 (Basic Anatomy in Sports and Exercise)
+Human Movement 2 (Motor Skills Development)
+Physical Education 1 (Fitness and Recreation)
+Physical Education 2 (Sports and Dance)
+Sports Activity Management
+Sports Coaching
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 6 of 9
+Sports Officiating
+Field Experience
+DepEd lists it as an Academic cluster of 80 to 160 hours in one term, but I found no
+official subject list for it. Not verified.
+Subjectlist:TechPro track electives
+Each is 320 hours: one full year in Grade 11, or one term in Grade 12. NC means a TESDA
+National Certificate level. For now, assume DSPMNHS offers all of the specializations
+below. The Maritime Transport cluster is removed because it is not expected at
+DSPMNHS, and the Administrator can switch off any other specialization the school does
+not offer.
+Aesthetic, Wellness, and Human Care
+Aesthetic Services (Beauty Care), NC II
+Barbering Services, NC II
+Caregiving (Adult Care), NC II
+Caregiving (Child Care), NC II
+Hairdressing Services, NC II
+Agri-Fishery Business and Food Innovation
+Agricultural Crops Production, NC II
+Agro-Entrepreneurship, NC II
+Aquaculture, NC II
+Fish Capture, NC II
+Food Processing, NC II
+Organic Agriculture Production, NC II
+Poultry Production (Chicken), NC II
+Ruminants Production, NC II
+Swine Production, NC II
+Artisanry and Creative Enterprise
+Garments and Artisanry, NC II
+Handicrafts (Weaving), NC II
+Automotive and Small Engine Technologies
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 7 of 9
+Automotive Servicing (Electrical Repair), NC II
+Automotive Servicing (Engine and Chassis Repair), NC II
+Driving and Automotive Servicing, NC I and NC II
+Motorcycle and Small Engine Servicing, NC II
+Construction and Building Technologies
+Carpentry, NC I and NC II
+Construction Operation, NC I and NC II
+Manual Metal Arc Welding, NC I and/or NC II
+Technical Drafting, NC II
+Creative Arts and Design Technologies
+Animation, NC II
+Illustration, NC II
+Visual Graphic Design, NC II
+Hospitality and Tourism
+Bakery Operations, NC II
+Events Management Services, NC II
+Food and Beverage Operations, NC II
+Hotel Operations (Front Office Services), NC II
+Hotel Operations (Housekeeping Services), NC II
+Kitchen Operations, NC II
+Tourism Services, NC II
+ICT Support and Computer Programming Technologies
+Broadband Installation, NC II
+Computer Programming (.NET Technology), NC III
+Computer Programming (Java), NC III
+Computer Programming (Oracle Database), NC III
+Computer Systems Servicing, NC II
+Contact Center Services, NC II
+Industrial Technologies
+Commercial Air-Conditioning Installation and Servicing, NC III
+Hi5 Portal: Strengthened SHS Curriculum Update Guide
+Page 8 of 9
+Domestic Refrigeration and Air-Conditioning Servicing, NC II
+Electrical Installation Maintenance, NC II
+Electronic Product and Assembly Servicing, NC II
+Mechatronics, NC II
+Photovoltaic Systems Installation, NC II
