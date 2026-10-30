@@ -163,7 +163,13 @@ export function TeacherSchedule() {
                               </p>
                               <div className="flex items-center gap-1.5 text-[11px] text-emerald-600">
                                 <Users size={11} />
-                                <span>{slot.section_name}</span>
+                                {slot.section_id == null ? (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-semibold">
+                                    ⚡ Elective — learners who picked it
+                                  </span>
+                                ) : (
+                                  <span>{slot.section_name}</span>
+                                )}
                               </div>
                               <div className="flex items-center gap-1.5 text-[11px] text-emerald-600">
                                 <Clock size={11} />
@@ -219,7 +225,14 @@ export function TeacherSchedule() {
                       {s.subject_name}
                     </p>
                     <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                      <Users size={11} /> {s.section_name}
+                      <Users size={11} />
+                      {s.section_id == null ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-semibold">
+                          ⚡ Elective
+                        </span>
+                      ) : (
+                        s.section_name
+                      )}
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-gray-400">
                       <span className="flex items-center gap-1">

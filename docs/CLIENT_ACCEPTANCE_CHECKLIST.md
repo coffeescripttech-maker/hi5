@@ -156,6 +156,21 @@ form. Switch it back ON in Subject Management → it reappears.
 **Expected:** no cluster CRUD screen — clusters exist only as fixed headings
 (seed data `elective_cluster` values).
 
+### 2.4 Elective picker UX — search, tabs, collapse ✅
+The catalog spans ~84 electives × 2 grades × 14 clusters, so all three
+elective lists (enrollment form, committee editor, admin offerings) share a
+searchable, collapsible grid:
+1. Admin → **Subject Management → Elective Offerings → Manage ▼**.
+2. Type in the **Search electives…** box (e.g. "animation").
+
+**Expected:** matching chips only, with an "n of m electives" counter; the
+G11 / G12 / All tabs appear (offerings panel spans both grades; other
+screens pre-filter so they don't show tabs). Clusters collapse via the
+chevron, each showing a picked/on count badge. New UX safety net: on the
+**enrollment form** and the **committee Assign/Edit modal**, everything
+ticked stays pinned in a **"Picked (n)"** bar with ✕ to remove — even picks
+hidden by the current search.
+
 ---
 
 ## 3. Subject Management (Administrator)
@@ -212,9 +227,23 @@ Use a teacher who has **no advisory section** (only the elective assignment):
 5. Fill one grade, upload, review the preview (invalid LRNs say *"LRN is not
    on this elective's roster"*), then **Import**.
 
-### 4.4 Schedule/room for cross-section electives ⚠️ review
-Elective teachers have no fixed section; check Schedule/Room handling with
-the team (flagged in report §H) — not a blocker for the curriculum itself.
+### 4.4 Schedule/room for cross-section electives ✅
+Elective teachers have no fixed section, so their timeslots do not need one:
+1. Registrar → **Schedule Modifier** → **New Schedule**.
+2. In **Class Type** pick **⚡ Elective timeslot** (roster = learners who
+   picked the elective, from any section) — the Section picker disappears.
+3. Teacher + Subject (only electives / Field Experience / Work Immersion are
+   listed, each badged **"— N pickers"**) + Day/Time/Room → **Create Entry**.
+4. Try a duplicate: same teacher, overlapping time → conflict warning + 409.
+5. Try the same with a section-rostered subject (e.g. General Mathematics) →
+   refused with an explanation.
+
+**Expected:** the entry saves **without a section**, shows an **⚡ Elective**
+chip in the Schedule Modifier list. **My Teaching Schedule** (the teacher) and
+**Master Schedule** show the slot with the elective marker instead of a
+section. Teacher double-booking and room occupancy still conflict. (Learner
+level: if two of a learner's electives collide in the timetable, no warning —
+the Committee resolves that at pick time; see report limitations.)
 
 ---
 
@@ -288,6 +317,18 @@ the rule. (DepEd confirmation on failed electives: open question, report §H.)
 **Expected:** the learner appears with the elective's grades included in the
 General-Average trend (least-squares, current-SY quarters only).
 
+### 6.6 At-risk is roster-scoped for teachers ✅
+Strengthened SHS rosters: an elective teacher's learner base cuts across
+sections, so at-risk access is now roster-scoped like grade encoding:
+1. Log in as a teacher who handles **only an elective** (no advisory section;
+   e.g. the Animation NC II teacher) → At-Risk Detection.
+2. **Expected:** the list shows exactly their elective pickers (e.g. Ivan,
+   although 11-Matatag has another adviser), never other learners.
+3. As that teacher, attempt a prediction (their own roster learner) → works.
+   (Verified live: a non-roster learner → **403 not on your roster**;
+   running school-wide without a target → **403**; prediction lists show
+   only own-roster rows.)
+
 ---
 
 ## 7. School Forms (PDF)
@@ -326,6 +367,26 @@ printed, and a legacy learner's old strand still prints as plain text.
 Mother Tongue, Religion, attendance, observed values stay blank/manual —
 verify on any printed form.
 
+### 7.6 SF9 for elective-roster learners (teacher access) ✅
+Elective teachers must open the report card for pickers who sit in other
+sections' sections — the SF9/SF10 access guard accepts the roster, and the
+SF9 page now has an elective-roster student picker for teachers:
+1. Log in as an **elective teacher** whose roster has pickers from sections
+   not advised by them (e.g. the Animation NC II teacher — roster includes
+   Ivan in 11-Matatag).
+2. SF9 page → grade selects the learner's grade → in the **My Elective**
+   dropdown pick **⚡ Animation, NC II (G11)**.
+3. The Student list switches from section rosters to the elective's pickers;
+   the summary line shows **"Elective: …"**; pick the learner → SF9 renders
+   (their section name + subject list, including the elective).
+4. Deep-link test: open
+   `/teacher/forms/sf9?student_id=<roster learner>&school_year_id=<sy>`
+   directly — the card opens even though none of the teacher's own sections
+   hold the learner.
+5. Switch **My Elective → By section…** — the normal section flow returns, and
+   the **My Students** list marks extra-roster learners with a **⚡ Elective:
+   <name>** chip.
+
 ---
 
 ## 8. Automated suites (already executed)
@@ -344,3 +405,105 @@ and restores it; registrar is correctly refused (403) admin-only actions;
 a core subject at Grade 12 is refused with the curriculum message while
 Grade 8 cores and no-hours Field Experience/Work Immersion subjects are
 accepted.
+
+Verified live (2026-10-30):
+
+- **At-risk roster scoping** — with a throwaway elective-only teacher: trends
+  lists exactly the elective pickers; predictions for own-roster learners
+  pass, foreign learners → 403, whole-school run → 403; prediction lists are
+  roster-only. (Test artifacts removed.)
+- **Elective timeslots** (migration 045: `schedules.section_id` nullable, in
+  production DB): electives/FE/WI schedule **without a section**; section
+  subjects must keep a section; an elective cannot be forced onto a section
+  (400 both ways); teacher overlap still conflicts (409); two elective slots
+  by different teachers may share a day/time; lists/deletes/updates verified
+  and test rows cleaned up.
+- **Elective picker grid** (shared search/grade-tabs/collapse component) wired
+  into EnrollmentModule, the committee elective editor, and the offerings
+  panel — frontend TypeScript clean.
+- **SF9 elective-roster flow** — teacher page picker (My Elective dropdown),
+  summary line, deep-link keep-preselect; roster data confirmed via
+  `/electives/assignments/batch` and `/subjects/me/assigned`.
+- **Saved School Form Edits — Phase 1** (migration 046 `sf_form_edits`,
+  applied to the production DB): explicit **Save** buttons on SF1/SF5/SF9/
+  SF10 with unsaved-count badge + before-leave warning; every saved field
+  re-applies on reopen/regenerate/print. Role gating verified live with a
+  throwaway teacher: teacher saves SF9 attendance only (own advisory → 200,
+  foreign learner → 403, non-attendance key → 403, SF1 → 403, closed SY →
+  403); Principal/Committee → 403; closed school years stay editable only
+  for Registrar/Admin; SF9 observed-value save tightened the same way
+  (own advisory 200, foreign 403, principal 403). Activity-log rows confirmed
+  (actor, learner, form, field, old → new). Test rows/accounts/logs removed;
+  the real adviser on the borrowed test section was restored.
+
+⚠️ Remember to **restart your local API** (`node dist/index.js`) to pick up
+these backend changes — migrations already applied to the Railway DB.
+
+---
+
+## 9. Saved School Form Edits (`docs/MAJOR_CHANGES_IN_FORMS.txt`)
+
+Every handwritten edit on SF1 / SF5 / SF9 / SF10 is now **saved permanently**
+against the learner + school year and re-appears the next time anyone opens,
+regenerates, or prints that form (sidebar: an explicit **Save** button in the
+no-print header bar, an **● n unsaved edits** counter, and a
+before-you-leave warning on the browser tab while edits are pending).
+
+Stored in the `sf_form_edits` table (migration 046) keyed by
+(form, school year, learner, field) — empty string = a deliberately
+**cleared** field that also re-appears. Rule references in parentheses.
+
+### 9.1 Saving works for all four forms ✅ (rules 1–6)
+1. Registrar → SF1 → type a **Address → Barangay** cell for a learner, fix
+   the **Region** header, change a BoSY/EoSY date → **Save** → success toast.
+2. Navigate away, come back → your values are still there. Other users see
+   them too.
+3. Repeat a taste test on SF9 (attendance cells, parent signature dates,
+   Certificate-of-Transfer names, Principal/Adviser signers), SF5 (a learner's
+   General Average override, a summary-table count, **Reviewed by** signer),
+   and SF10 (learner block, eligibility checkboxes + dates, per-year record
+   cells, certification block).
+4. **Expected:** the next **PDF/print** of each form uses the saved values
+   (values overlay the auto-derived system data before rendering).
+5. Save with no pending edits → "Nothing new to save" toast, no duplicate
+   rows.
+
+**Expected:** grades, General Average, promotion result, section, adviser
+stay system-derived per rule 2 — not stored by this mechanism.
+
+### 9.2 Role gating ✅ (rule 10 — decided STRICT)
+- **Registrar/Administrator** save everything on all four forms.
+- **Teacher** saves only SF9 **attendance cells** and **observed values**, and
+  only for learners of a section they **advise**. Tested live: teaching SF1 →
+  403; foreign learner attendance → 403; non-attendance cell → 403.
+- **Principal / Enrollment Committee** are view-only → 403 on both GET (when
+  scoped) and PUT.
+- Teacher *read* access mirrors the existing school-form guards (own advisory
+  section, assigned sections, or an elective roster via **My Elective**).
+
+### 9.3 Closed school years ✅ (rule 16 — implemented)
+1. Pick a past school year (is_current = 0) in any form → edit → **Save**.
+2. **Expected:** Registrar/Admin succeed; Teacher gets
+   *"This school year is closed — only the Registrar or Administrator can
+   change its school forms."* (403).
+
+### 9.4 Activity logging ✅ (rule 14)
+Every changed field writes an Activity Log row (actor, learner, form, field,
+old → new, time): `Saved SF9 edit for <learner>: attendance:No. of Days
+Present:Jun "2" -> "3"`. Unchanged saves log nothing.
+
+### 9.5 Backup ✅ (rule 17)
+`sf_form_edits` is a plain table — included in System Backup/restore as is.
+
+### 9.6 Not yet implemented (next pass — flagged by rules 8, 11/12/13/15)
+- **Shared fields are per-form, not yet cross-form** (rule 8, partial): the
+  school-identity header is stored once per form + school year (SF1's edit
+  doesn't propagate to SF5/SF9/SF10 yet). Quarterly fields (SF9 attendance /
+  observed values) already save per quarter + SY as required.
+- **"Edited" marker + Reset to system value** per cell.
+- Notice when the underlying system value changes after an edit.
+- Concurrent-edit warning (two users on the same form at once).
+- Carrying learner-level SF10/SF1 values into a new school year (quarterly
+  fields already start blank by their school-year key).
+
+---

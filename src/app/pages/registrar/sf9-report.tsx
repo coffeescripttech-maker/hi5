@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router';
-import { Loader2, Printer, Users, BookOpen, Download } from 'lucide-react';
+import { Loader2, Printer, Users, BookOpen, Download, Save as SaveIcon } from 'lucide-react';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { formsApi, SF9Row } from '../../services/forms';
+import { useFormEdits, editKey } from '../../hooks/useFormEdits';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { subjectsApi } from '../../services/subjects';
 import { electivesApi, ElectiveBatchRow } from '../../services/electives';
@@ -288,33 +289,41 @@ export function SF9Report() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* ── Editable cell state (attendance, observed values) ── */
-  const [attendance, setAttendance] = useState<Record<string, string>>({});
+  /* ── Editable cell state (observed values auto-save) ── */
   const [observedMarks, setObservedMarks] = useState<Record<string, string>>(
     {}
   );
   const [observedSaved, setObservedSaved] = useState(false);
-  const [parentSignatures, setParentSignatures] = useState<
-    Record<string, string>
-  >({});
-  const [transferFields, setTransferFields] = useState<Record<string, string>>(
-    {}
-  );
   const [signerNames, setSignerNames] = useState({ principal: '', adviser: '' });
+
+  // ── Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) ──
+  // Attendance cells, parent signatures, certificate-of-transfer fields and
+  // signer names are stored per (learner, school year) and re-applied the
+  // next time anyone opens this report card. Role note (rule 10 strict):
+  // teachers may save only attendance cells and observed values, and only
+  // for learners of a section they advise — the server enforces this, and
+  // the Save button below mirrors it.
+  const sf9Edits = useFormEdits({
+    form: 'SF9',
+    schoolYearId: syId,
+    studentId: selectedStudentId,
+    enabled: !!selectedStudentId,
+  });
+  const canSaveFormEdits = role === 'admin' || role === 'registrar' || role === 'teacher';
+  const editableStudentId = selectedStudentId ?? 0;
 
   const handleAttendanceChange = useCallback(
     (rowLabel: string, month: string, value: string) => {
-      const key = `${rowLabel}::${month}`;
-      setAttendance(p => ({ ...p, [key]: value }));
+      sf9Edits.setValue(editableStudentId, `attendance:${rowLabel}:${month}`, value);
     },
-    []
+    [sf9Edits, editableStudentId]
   );
 
   const getAttendance = useCallback(
     (rowLabel: string, month: string): string => {
-      return attendance[`${rowLabel}::${month}`] || '';
+      return sf9Edits.get(editableStudentId, `attendance:${rowLabel}:${month}`) ?? '';
     },
-    [attendance]
+    [sf9Edits, editableStudentId]
   );
 
   const handleObservedChange = useCallback(
@@ -334,28 +343,59 @@ export function SF9Report() {
 
   const handleSignatureChange = useCallback(
     (quarter: string, value: string) => {
-      setParentSignatures(p => ({ ...p, [quarter]: value }));
+      sf9Edits.setValue(editableStudentId, `parentSig:${quarter}`, value);
     },
-    []
+    [sf9Edits, editableStudentId]
   );
 
   const getSignature = useCallback(
     (quarter: string): string => {
-      return parentSignatures[quarter] || '';
+      return sf9Edits.get(editableStudentId, `parentSig:${quarter}`) ?? '';
     },
-    [parentSignatures]
+    [sf9Edits, editableStudentId]
   );
 
-  const handleTransferChange = useCallback((field: string, value: string) => {
-    setTransferFields(p => ({ ...p, [field]: value }));
-  }, []);
+  const handleTransferChange = useCallback(
+    (field: string, value: string) => {
+      sf9Edits.setValue(editableStudentId, `transfer:${field}`, value);
+    },
+    [sf9Edits, editableStudentId]
+  );
 
   const getTransfer = useCallback(
     (field: string): string => {
-      return transferFields[field] || '';
+      return sf9Edits.get(editableStudentId, `transfer:${field}`) ?? '';
     },
-    [transferFields]
+    [sf9Edits, editableStudentId]
   );
+
+  // Signer names are stored with priority: manual > saved > system prefill.
+  // `signer:principal` is a school-wide shared field for the SY (rule 8, saved
+  // once); `signer:adviser` is per learner.
+  const handleSignerChange = useCallback(
+    (key: 'principal' | 'adviser', value: string) => {
+      setSignerNames(prev => ({ ...prev, [key]: value }));
+      sf9Edits.setValue(
+        key === 'principal' ? null : editableStudentId,
+        `signer:${key}`,
+        value
+      );
+    },
+    [sf9Edits, editableStudentId]
+  );
+
+  // Re-apply saved signer names once the edits fetch completes (overrides the
+  // system prefill; a saved empty value means the prefill stays cleared).
+  useEffect(() => {
+    if (sf9Edits.loading) return;
+    const savedPrincipal = sf9Edits.valuesRef.current[editKey(null, 'signer:principal')];
+    const savedAdviser = sf9Edits.valuesRef.current[editKey(selectedStudentId, 'signer:adviser')];
+    setSignerNames(prev => ({
+      principal: savedPrincipal !== undefined ? savedPrincipal : prev.principal,
+      adviser: savedAdviser !== undefined ? savedAdviser : prev.adviser,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sf9Edits.loading, sf9Edits.error, selectedStudentId, syId]);
 
   useEffect(() => {
     // Load all sections and students (the SF9 endpoint is available to any
@@ -613,14 +653,12 @@ export function SF9Report() {
   }, [selectedGrade]);
 
   // Reset editable form fields whenever the student changes, so previously
-  // entered attendance/observed values for a different learner do not persist
-  // on screen or in the print/export.
+  // entered values for a different learner do not persist on screen or in the
+  // print/export. (Saved school-form edits clean themselves up: the
+  // sf9Edits hook drops unsaved local edits when the student/SY changes.)
   useEffect(() => {
-    setAttendance({});
     setObservedMarks({});
     setObservedSaved(false);
-    setParentSignatures({});
-    setTransferFields({});
     setSignerNames({ principal: '', adviser: '' });
   }, [selectedStudentId, syId]);
 
@@ -643,14 +681,22 @@ export function SF9Report() {
             ? sections.find(s => s.id === enrollment.section_id)
             : null;
         setSignerNames(prev => ({
-          // Prefill from the DepEd-recorded names; manual edits are preserved
-          // because we only fill empty slots.
-          principal: prev.principal || data.school?.principal_name || '',
+          // Prefill from the DepEd-recorded names. Manual edits are preserved
+          // because we only fill empty slots; a saved edit (even a cleared
+          // one) beats the system prefill.
+          principal:
+            prev.principal !== ''
+              ? prev.principal
+              : sf9Edits.get(null, 'signer:principal') ??
+                data.school?.principal_name ??
+                '',
           adviser:
-            prev.adviser ||
-            data.enrollment?.adviser_name ||
-            sec?.adviser_name ||
-            ''
+            prev.adviser !== ''
+              ? prev.adviser
+              : (sf9Edits.get(selectedStudentId, 'signer:adviser') ??
+                (data.enrollment?.adviser_name ||
+                  sec?.adviser_name ||
+                  ''))
         }));
       })
       .catch(err =>
@@ -705,6 +751,39 @@ export function SF9Report() {
   /* ── Print ── */
   const handlePrint = () => {
     window.print();
+  };
+
+  /* ── Explicit Save (docs/MAJOR_CHANGES_IN_FORMS.txt rule 3) ── */
+  // Saves the pending attendance/signature/transfer/signer edits and flushes
+  // the observed values immediately (they normally auto-save on debounce).
+  const handleSaveEdits = async () => {
+    if (!selectedStudentId) return;
+    const errors: string[] = [];
+    if (Object.keys(observedMarks).length > 0) {
+      try {
+        await formsApi.saveSF9FormData(selectedStudentId, syId, observedMarks);
+        setObservedSaved(true);
+      } catch (err: any) {
+        errors.push(err?.detail?.error || 'observed values failed to save');
+      }
+    }
+    let saved = 0;
+    try {
+      const res = await sf9Edits.save();
+      saved = res.saved;
+    } catch (err: any) {
+      errors.push(err?.message || 'form edits failed to save');
+    }
+    if (errors.length > 0) {
+      showToast('error', 'Some edits were not saved: ' + errors.join('; '));
+    } else {
+      showToast(
+        'success',
+        saved > 0
+          ? `Saved ${saved} SF9 edit${saved === 1 ? '' : 's'}.`
+          : 'Nothing new to save — SF9 is up to date.'
+      );
+    }
   };
 
   const handleExportPdf = async () => {
@@ -787,6 +866,22 @@ export function SF9Report() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {canSaveFormEdits && (
+                  <div className="flex items-center gap-2 mr-1">
+                    {sf9Edits.isDirty && (
+                      <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
+                        ● {sf9Edits.dirtyCount} unsaved edit{sf9Edits.dirtyCount === 1 ? '' : 's'}
+                      </span>
+                    )}
+                    <button
+                      onClick={handleSaveEdits}
+                      disabled={sf9Edits.saving || !selectedStudentId}
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm disabled:opacity-40">
+                      {sf9Edits.saving ? <Loader2 size={14} className="animate-spin" /> : <SaveIcon size={14} />}
+                      Save
+                    </button>
+                  </div>
+                )}
                 <button
                   onClick={() => setPreviewOpen(true)}
                   disabled={exporting}
@@ -1387,12 +1482,7 @@ export function SF9Report() {
                         type="text"
                         className="block w-full mx-2 border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] italic outline-none focus:bg-amber-50"
                         value={signerNames.principal}
-                        onChange={e =>
-                          setSignerNames(prev => ({
-                            ...prev,
-                            principal: e.target.value
-                          }))
-                        }
+                        onChange={e => handleSignerChange('principal', e.target.value)}
                         placeholder="Name"
                       />
                       <div className="italic mt-0.5">Principal IV</div>
@@ -1402,12 +1492,7 @@ export function SF9Report() {
                         type="text"
                         className="block w-full mx-2 border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
                         value={signerNames.adviser}
-                        onChange={e =>
-                          setSignerNames(prev => ({
-                            ...prev,
-                            adviser: e.target.value
-                          }))
-                        }
+                        onChange={e => handleSignerChange('adviser', e.target.value)}
                         placeholder="Name"
                       />
                       <div className="mt-0.5 font-bold">CLASS ADVISER</div>

@@ -257,8 +257,16 @@ export function MasterSchedule() {
                     <Clock size={11} className="text-emerald-500 flex-shrink-0" />
                     {fmtTime(String(s.start_time).slice(0, 5))} – {fmtTime(String(s.end_time).slice(0, 5))}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {s.section_name} · {s.teacher_name} · {s.room_name || s.room || "Room TBA"}
+                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                    {s.section_name ? (
+                      <span>{s.section_name}</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-semibold">
+                        ⚡ Elective
+                      </span>
+                    )}
+                    <span>· {s.teacher_name}</span>
+                    <span>· {s.room_name || s.room || "Room TBA"}</span>
                   </p>
                 </div>
               ))}
@@ -303,9 +311,9 @@ export function MasterSchedule() {
                           <BookOpen size={10} className="text-indigo-500 flex-shrink-0" />
                           <span className="truncate">{s.subject_name}</span>
                         </p>
-                        <p className="text-[10px] text-gray-500 mt-1 truncate">
-                          <GraduationCap size={9} className="inline text-amber-500 mr-0.5" />
-                          {s.section_name}
+                        <p className="text-[10px] text-gray-500 mt-1 truncate flex items-center gap-1">
+                          <GraduationCap size={9} className="text-amber-500 flex-shrink-0" />
+                          {s.section_name ?? "⚡ Elective"}
                         </p>
                         <p className="text-[10px] text-gray-500 truncate">
                           <Users size={9} className="inline text-sky-500 mr-0.5" />

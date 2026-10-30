@@ -538,6 +538,42 @@ export async function saveSF9FormData(req: Request, res: Response): Promise<void
       res.status(400).json({ error: "student_id and school_year_id are required." });
       return;
     }
+    // Saved-form-edits rules #10/#16: only admin/registrar/teachers may save;
+    // teachers only for their own advisory learners; closed school years are
+    // Registrar/Admin only.
+    const user = req.user!;
+    if (!["admin", "registrar", "teacher"].includes(user.role)) {
+      res.status(403).json({ error: "You are not allowed to save SF9 observed values." });
+      return;
+    }
+    if (user.role === "teacher") {
+      const advisory = await query<RowDataPacket[]>(
+        `SELECT 1 AS allowed
+           FROM enrollments e
+           JOIN sections sec ON e.section_id = sec.id
+          WHERE e.student_id = ? AND e.school_year_id = ?
+            AND e.status IN ('enrolled', 'completed')
+            AND sec.adviser_id = ?
+          LIMIT 1`,
+        [student_id, school_year_id, user.userId]
+      );
+      if (advisory.length === 0) {
+        res.status(403).json({
+          error: "You can only save SF9 observed values for learners of a section you advise.",
+        });
+        return;
+      }
+      const sy = await query<RowDataPacket[]>(
+        "SELECT is_current FROM school_years WHERE id = ? LIMIT 1",
+        [school_year_id]
+      );
+      if (sy.length > 0 && Number(sy[0].is_current) !== 1) {
+        res.status(403).json({
+          error: "This school year is closed — only the Registrar or Administrator can change its school forms.",
+        });
+        return;
+      }
+    }
     if (typeof observed_values !== "object" || observed_values === null || Array.isArray(observed_values)) {
       res.status(400).json({ error: "observed_values must be an object." });
       return;

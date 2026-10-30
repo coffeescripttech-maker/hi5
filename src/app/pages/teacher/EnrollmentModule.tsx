@@ -36,14 +36,14 @@ import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { strandTracksApi, StrandTrackRow } from '../../services/strandTracks';
 import {
   electivesApi,
-  ElectiveCatalogGroup,
-  ElectiveSubject
+  ElectiveCatalogGroup
 } from '../../services/electives';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { gradesApi, GradeHistoryYear } from '../../services/grades';
 import { settingsApi } from '../../services/settings';
 import { HybridTable } from '../../components/HybridTable';
+import { ElectiveCatalogGrid } from '../../components/electives/ElectiveCatalogGrid';
 import { z } from 'zod';
 
 // ── Zod Validation Schemas ──────────────────────────────────────────────
@@ -366,11 +366,7 @@ function ShsTrackElectives({
   program: string;
   selectedTrackId: number | null;
   onSelectTrack: (id: number | null) => void;
-  electiveGroups: {
-    cluster: string;
-    trackName?: string;
-    subjects: ElectiveSubject[];
-  }[];
+  electiveGroups: ElectiveCatalogGroup[];
   electivePicks: number[];
   onToggleElective: (id: number) => void;
   showOtherTrack: boolean;
@@ -486,41 +482,17 @@ function ShsTrackElectives({
             Electives (per learner)
           </label>
           <p className="text-xs text-gray-400 mb-3">
-            {electiveGroups.length === 0
-              ? 'No elective offerings configured for this track and school year yet — the Enrollment Committee can assign electives later.'
-              : 'Tick the electives the learner will take. The Enrollment Committee reviews these picks before section placement.'}
+            Tick the electives the learner will take. The Enrollment Committee
+            reviews these picks before section placement.
           </p>
-          {electiveGroups.map((g, gi) => (
-            <div key={`${g.trackName ?? ''}-${g.cluster}-${gi}`} className="mb-4">
-              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.05em] mb-2">
-                {g.cluster}
-                {showOtherTrack && g.trackName && (
-                  <span className="ml-2 font-medium normal-case tracking-normal text-gray-400">
-                    · {g.trackName}
-                  </span>
-                )}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {g.subjects.map(s => {
-                  const active = electivePicks.includes(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => onToggleElective(s.id)}
-                      className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-200 ${
-                        active
-                          ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-                          : 'border-gray-200 bg-gray-50/50 text-gray-500 hover:border-gray-300'
-                      }`}>
-                      {active ? '✓ ' : ''}
-                      {s.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+          <ElectiveCatalogGrid
+            groups={electiveGroups}
+            variant="pick"
+            accent="emerald"
+            selectedIds={electivePicks}
+            onTogglePick={onToggleElective}
+            emptyMessage="No elective offerings configured for this track and school year yet — the Enrollment Committee can assign electives later."
+          />
         </div>
       )}
     </div>
@@ -1176,7 +1148,7 @@ export function EnrollmentModule() {
   // Mainstream + Open High only). Grouped by cluster for the picker UI.
   const [electivePicks, setElectivePicks] = useState<number[]>([]);
   const [electiveGroups, setElectiveGroups] = useState<
-    { cluster: string; trackName?: string; subjects: ElectiveSubject[] }[]
+    ElectiveCatalogGroup[]
   >([]);
   // DepEd lets learners choose electives across tracks — this reveals the
   // other track's clusters alongside the selected track's.
@@ -1312,8 +1284,9 @@ export function EnrollmentModule() {
         setElectiveGroups(
           allowed
             .map(g => ({
+              track_id: g.track_id,
+              track_name: g.track_name,
               cluster: g.cluster,
-              trackName: g.track_name,
               subjects: g.subjects.filter(
                 s => s.grade_level === grade && s.is_offered === 1
               )

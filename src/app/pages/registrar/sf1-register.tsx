@@ -10,9 +10,11 @@ import {
   Loader2,
   Download,
   FileSpreadsheet,
-  FileText
+  FileText,
+  Save as SaveIcon
 } from 'lucide-react';
 import './sf1.css';
+import { useFormEdits, editKey } from '../../hooks/useFormEdits';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
 import { SchoolFormTitleBlock } from '../../components/school-form-title';
@@ -246,10 +248,15 @@ export function SF1Register() {
           schoolName: settings.school_name || prev.schoolName
         }));
         // School head (principal) for the signature block; the "Prepared by"
-        // name is the account generating the form.
+        // name is the account generating the form. Saved edits (even cleared
+        // ones) beat these prefills.
         setSigners(prev => ({
           ...prev,
-          certified: prev.certified || settings.principal_name || ''
+          certified:
+            prev.certified !== ''
+              ? prev.certified
+              : sf1Edits.get(null, 'signer:certified') ??
+                 (settings.principal_name || '')
         }));
         const active = secs.filter(s => s.is_active === 1);
         // Default to the first section (grade-ascending) that actually has
@@ -278,14 +285,22 @@ export function SF1Register() {
       .finally(() => setDataLoading(false));
   }, []);
 
-  // Prefill the "Prepared by" signature with the signing account's name.
+  // Prefill the "Prepared by" signature with the signing account's name
+  // (a saved edit, even a cleared one, beats this prefill).
   useEffect(() => {
     authApi
       .me()
-      .then(me =>
-        setSigners(prev => ({ ...prev, prepared: prev.prepared || me.name || '' }))
-      )
+      .then(me => {
+        setSigners(prev => ({
+          ...prev,
+          prepared:
+            prev.prepared !== ''
+              ? prev.prepared
+              : (sf1Edits.get(null, 'signer:prepared') ?? (me.name || ''))
+        }));
+      })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Track names for the REMARKS cell (legacy strands stay printable).
@@ -343,6 +358,31 @@ export function SF1Register() {
     [sections, selectedGrade]
   );
 
+  // â”€â”€ Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) â”€â”€
+  // Every handwritten SF1 cell, header identity field, signer, summary count
+  // and BoSY/EoSY date is stored per (learner, school year, field) and is
+  // re-applied by the row-builder effect below. Rule 10 (strict): teachers
+  // may not save SF1 edits — only the Registrar/Administrator can.
+  const sectionId = useMemo(
+    () =>
+      sections.find(
+        s =>
+          s.name === selectedSection &&
+          s.grade_level === parseInt(selectedGrade)
+      )?.id ?? null,
+    [sections, selectedSection, selectedGrade]
+  );
+  const sf1Edits = useFormEdits({
+    form: 'SF1',
+    schoolYearId: syId,
+    sectionId,
+    enabled: !!sectionId && !!syId
+  });
+  const canSaveFormEdits = role === 'admin' || role === 'registrar';
+  // Parallel of `rows`: which learner each row belongs to (filler rows and
+  // empty last rows have no learner and are not persisted).
+  const [rowStudentIds, setRowStudentIds] = useState<(number | null)[]>([]);
+
   // â”€â”€ Reset section selection when grade changes â”€â”€
   useEffect(() => {
     if (
@@ -393,16 +433,35 @@ export function SF1Register() {
     const male = enrolled.filter(s => s.sex === 'male').length;
     const female = enrolled.filter(s => s.sex === 'female').length;
     const total = enrolled.length;
-    setRegisteredCounts([
+    // Saved School Form Edits: saved + unsaved summary-count edits (valuesRef
+    // merges both) override the automatically derived counts.
+    const merged = sf1Edits.valuesRef.current;
+    const baseCounts = [
       [String(male), String(male)],
       [String(female), String(female)],
       [String(total), String(total)]
-    ]);
-    // BoSY/EoSY dates from the selected school year's enrollment window.
+    ];
+    for (let r = 0; r < baseCounts.length; r++) {
+      for (let c = 0; c < 2; c++) {
+        const sv = merged[editKey(null, `reg:${r}:${c}`)];
+        if (sv !== undefined) baseCounts[r][c] = sv;
+      }
+    }
+    setRegisteredCounts(baseCounts);
+    // BoSY/EoSY dates from the selected school year's enrollment window, with
+    // saved (or unsaved) manual dates taking precedence.
     const sy = schoolYears.find(y => y.id === syId);
+    const sysBosy = merged[editKey(null, 'sigdate:bosyDate')];
+    const sysEosy = merged[editKey(null, 'sigdate:eosyDate')];
     setSignatureDates({
-      bosyDate: formatDateInput(sy?.enrollment_start_date ?? null),
-      eosyDate: formatDateInput(sy?.enrollment_end_date ?? null)
+      bosyDate:
+        sysBosy !== undefined
+          ? sysBosy
+          : formatDateInput(sy?.enrollment_start_date ?? null),
+      eosyDate:
+        sysEosy !== undefined
+          ? sysEosy
+          : formatDateInput(sy?.enrollment_end_date ?? null)
     });
     const newRows: RowData[] = enrolled.map(s => {
       const enr = matchingEnrs.find(e => e.student_id === s.id);
@@ -443,6 +502,19 @@ export function SF1Register() {
       };
     });
     while (newRows.length < TOTAL_ROWS) newRows.push({});
+    // Apply saved + unsaved edits over the derived cells, and record which
+    // learner each row belongs to (filler rows stay null and never persist).
+    const sids: (number | null)[] = new Array(TOTAL_ROWS).fill(null);
+    enrolled.forEach((s, i) => {
+      sids[i] = s.id;
+      const overlay: RowData = { ...newRows[i] };
+      for (const cellKey of Object.keys(overlay)) {
+        const sv = merged[editKey(s.id, `s:${cellKey}`)];
+        if (sv !== undefined) overlay[cellKey] = sv;
+      }
+      newRows[i] = overlay;
+    });
+    setRowStudentIds(sids);
     setRows(newRows);
   }, [
     selectedSection,
@@ -453,7 +525,10 @@ export function SF1Register() {
     sections,
     schoolYears,
     trackNameById,
-    electivesByStudent
+    electivesByStudent,
+    // Re-run once the saved-edits fetch settles so saved cells overlay in.
+    sf1Edits.loading,
+    sf1Edits.error
   ]);
 
   // â”€â”€ Cell / header helpers â”€â”€
@@ -463,9 +538,81 @@ export function SF1Register() {
       next[rowIndex] = { ...next[rowIndex], [key]: val };
       return next;
     });
+    // Persist per-learner cells; filler rows (no learner) stay ephemeral.
+    const sid = rowStudentIds[rowIndex];
+    if (sid != null) sf1Edits.setValue(sid, `s:${key}`, val);
   };
-  const setH = (key: keyof typeof header, val: string) =>
+  // Header identity fields (school ID/region/division/district/school name)
+  // are savable school-wide values; grade/section/year stay system-synced
+  // (they must keep matching the selected roster, rule 2 spirit).
+  const HEADER_SAVABLE_KEYS = new Set([
+    'schoolId',
+    'region',
+    'division',
+    'district',
+    'schoolName'
+  ]);
+  const setH = (key: keyof typeof header, val: string) => {
     setHeader(prev => ({ ...prev, [key]: val }));
+    if (HEADER_SAVABLE_KEYS.has(key))
+      sf1Edits.setValue(null, `header:${key}`, val);
+  };
+  const handleSignerChange = (
+    key: 'prepared' | 'certified',
+    val: string
+  ) => {
+    setSigners(prev => ({ ...prev, [key]: val }));
+    sf1Edits.setValue(null, `signer:${key}`, val);
+  };
+  const handleSigDateChange = (key: 'bosyDate' | 'eosyDate', val: string) => {
+    setSignatureDates(prev => ({ ...prev, [key]: val }));
+    sf1Edits.setValue(null, `sigdate:${key}`, val);
+  };
+  const handleRegCountChange = (
+    row: number,
+    col: number,
+    value: string
+  ) => {
+    setRegisteredCounts(prev => {
+      const next = prev.map(r => [...r]);
+      if (!next[row]) next[row] = ['', ''];
+      next[row][col] = value;
+      return next;
+    });
+    sf1Edits.setValue(null, `reg:${row}:${col}`, value);
+  };
+  // Once the saved-edits fetch settles, overlay saved signer names (after the
+  // system prefill effects; a saved empty value wins over the prefill).
+  useEffect(() => {
+    if (sf1Edits.loading) return;
+    const merged = sf1Edits.valuesRef.current;
+    const savedSigners = {
+      prepared: merged[editKey(null, 'signer:prepared')],
+      certified: merged[editKey(null, 'signer:certified')]
+    };
+    if (savedSigners.prepared !== undefined || savedSigners.certified !== undefined) {
+      setSigners(prev => ({
+        prepared:
+          savedSigners.prepared !== undefined
+            ? savedSigners.prepared
+            : prev.prepared,
+        certified:
+          savedSigners.certified !== undefined
+            ? savedSigners.certified
+            : prev.certified
+      }));
+    }
+    const savedHeader: Partial<Record<keyof typeof header, string>> = {};
+    for (const k of HEADER_SAVABLE_KEYS) {
+      const sv = merged[editKey(null, `header:${k}`)];
+      if (sv !== undefined)
+        (savedHeader as Record<string, string>)[k] = sv;
+    }
+    if (Object.keys(savedHeader).length > 0) {
+      setHeader(prev => ({ ...prev, ...savedHeader }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sf1Edits.loading, sf1Edits.error, syId, sectionId]);
 
   // â”€â”€ Loading â”€â”€
   if (dataLoading) {
@@ -478,6 +625,25 @@ export function SF1Register() {
   }
 
   // â”€â”€ PDF Export â”€â”€
+  /* Explicit save per docs/MAJOR_CHANGES_IN_FORMS.txt rule 3. */
+  const handleSaveEdits = async () => {
+    if (!sectionId) return;
+    try {
+      const { saved } = await sf1Edits.save();
+      showToast(
+        'success',
+        saved > 0
+          ? `Saved ${saved} SF1 edit${saved === 1 ? '' : 's'}.`
+          : 'Nothing new to save — SF1 is up to date.'
+      );
+    } catch (err: any) {
+      showToast(
+        'error',
+        err?.message || 'Failed to save SF1 edits. Please try again.'
+      );
+    }
+  };
+
   const handleExportPdf = async () => {
     if (exporting) return;
     setExporting(true);
@@ -530,6 +696,27 @@ export function SF1Register() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {canSaveFormEdits && (
+                <div className="flex items-center gap-2 mr-1">
+                  {sf1Edits.isDirty && (
+                    <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
+                      ● {sf1Edits.dirtyCount} unsaved edit{sf1Edits.dirtyCount === 1 ? '' : 's'}
+                    </span>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={handleSaveEdits}
+                    disabled={sf1Edits.saving || !sectionId}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+                    {sf1Edits.saving ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <SaveIcon className="size-4" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+              )}
               <Button
                 size="sm"
                 onClick={() => setPreviewOpen(true)}
@@ -776,11 +963,11 @@ export function SF1Register() {
             {/* ---------- Legend + summary + signatures footer ---------- */}
             <SF1Footer
               registeredCounts={registeredCounts}
-              setRegisteredCounts={setRegisteredCounts}
+              onRegCountChange={handleRegCountChange}
               signatureDates={signatureDates}
-              setSignatureDates={setSignatureDates}
+              onSigDateChange={handleSigDateChange}
               signers={signers}
-              setSigners={setSigners}
+              onSignerChange={handleSignerChange}
             />
           </div>
         </div>
@@ -795,22 +982,18 @@ export function SF1Register() {
 
 function SF1Footer({
   registeredCounts,
-  setRegisteredCounts,
+  onRegCountChange,
   signatureDates,
-  setSignatureDates,
+  onSigDateChange,
   signers,
-  setSigners
+  onSignerChange
 }: {
   registeredCounts: string[][];
-  setRegisteredCounts: Dispatch<SetStateAction<string[][]>>;
+  onRegCountChange: (row: number, col: number, value: string) => void;
   signatureDates: { bosyDate: string; eosyDate: string };
-  setSignatureDates: Dispatch<
-    SetStateAction<{ bosyDate: string; eosyDate: string }>
-  >;
+  onSigDateChange: (key: 'bosyDate' | 'eosyDate', value: string) => void;
   signers: { prepared: string; certified: string };
-  setSigners: Dispatch<
-    SetStateAction<{ prepared: string; certified: string }>
-  >;
+  onSignerChange: (key: 'prepared' | 'certified', value: string) => void;
 }) {
   const leftLegend = [
     [
@@ -903,28 +1086,14 @@ function SF1Footer({
                     <input
                       className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50"
                       value={registeredCounts[i]?.[0] ?? ''}
-                      onChange={e =>
-                        setRegisteredCounts(prev => {
-                          const next = prev.map(r => [...r]);
-                          if (!next[i]) next[i] = ['', ''];
-                          next[i][0] = e.target.value;
-                          return next;
-                        })
-                      }
+                      onChange={e => onRegCountChange(i, 0, e.target.value)}
                     />
                   </td>
                   <td className="border border-black p-0">
                     <input
                       className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50"
                       value={registeredCounts[i]?.[1] ?? ''}
-                      onChange={e =>
-                        setRegisteredCounts(prev => {
-                          const next = prev.map(r => [...r]);
-                          if (!next[i]) next[i] = ['', ''];
-                          next[i][1] = e.target.value;
-                          return next;
-                        })
-                      }
+                      onChange={e => onRegCountChange(i, 1, e.target.value)}
                     />
                   </td>
                 </tr>
@@ -955,10 +1124,10 @@ function SF1Footer({
               className="mt-5 w-full border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
               value={signers[s.key as keyof typeof signers]}
               onChange={e =>
-                setSigners(prev => ({
-                  ...prev,
-                  [s.key]: e.target.value
-                }))
+                onSignerChange(
+                  s.key as 'prepared' | 'certified',
+                  e.target.value
+                )
               }
               placeholder="Name"
             />
@@ -969,24 +1138,14 @@ function SF1Footer({
                 type="date"
                 className="flex-1 border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
                 value={signatureDates.bosyDate}
-                onChange={e =>
-                  setSignatureDates(prev => ({
-                    ...prev,
-                    bosyDate: e.target.value
-                  }))
-                }
+                onChange={e => onSigDateChange('bosyDate', e.target.value)}
               />
               <span className="whitespace-nowrap">EoSY Date:</span>
               <input
                 type="date"
                 className="flex-1 border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
                 value={signatureDates.eosyDate}
-                onChange={e =>
-                  setSignatureDates(prev => ({
-                    ...prev,
-                    eosyDate: e.target.value
-                  }))
-                }
+                onChange={e => onSigDateChange('eosyDate', e.target.value)}
               />
             </div>
           </div>

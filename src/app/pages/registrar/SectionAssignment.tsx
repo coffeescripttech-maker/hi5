@@ -37,6 +37,7 @@ import {
   GenerateRulesPayload
 } from '../../services/sectioning';
 import { electivesApi, ElectiveBatchRow, ElectiveCatalogGroup } from '../../services/electives';
+import { ElectiveCatalogGrid } from '../../components/electives/ElectiveCatalogGrid';
 
 /* ──────────────────────────────────────────
    Types
@@ -1988,47 +1989,17 @@ export function SectionAssignment() {
           </p>
         ) : (
           <div className="max-h-[55vh] overflow-y-auto pr-1">
-            {editorGroups.map((g, gi) => {
-              const subs = g.subjects.filter(
-                s => s.grade_level === editingElectives?.grade_level
-              );
-              if (subs.length === 0) return null;
-              return (
-                <div key={`${g.track_name}-${g.cluster}-${gi}`} className="mb-4">
-                  <p className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.05em] mb-2">
-                    {g.cluster}
-                    <span className="ml-2 font-medium normal-case tracking-normal text-gray-400">
-                      · {g.track_name}
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {subs.map(s => {
-                      const active = editorPicks.includes(s.id);
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() =>
-                            setEditorPicks(prev =>
-                              prev.includes(s.id)
-                                ? prev.filter(x => x !== s.id)
-                                : [...prev, s.id]
-                            )
-                          }
-                          className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                            active
-                              ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-                              : 'border-gray-200 bg-gray-50/50 text-gray-500 hover:border-gray-300'
-                          }`}>
-                          {active ? '✓ ' : ''}
-                          {s.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+            <ElectiveCatalogGrid
+              groups={editorGroups}
+              variant="pick"
+              accent="indigo"
+              selectedIds={editorPicks}
+              onTogglePick={(id: number) =>
+                setEditorPicks(prev =>
+                  prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+                )
+              }
+            />
           </div>
         )}
         <div className="mt-5 flex gap-3">

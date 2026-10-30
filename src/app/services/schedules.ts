@@ -6,7 +6,8 @@ import { api } from "./api";
 export interface ScheduleRow {
   id: number;
   teacher_id: number;
-  section_id: number;
+  /** NULL for elective timeslots — the roster is the learners who picked the elective. */
+  section_id: number | null;
   subject_id: number;
   school_year_id: number;
   day_of_week: number;
@@ -18,14 +19,15 @@ export interface ScheduleRow {
   created_at: string;
   updated_at: string;
   teacher_name: string;
-  section_name: string;
+  section_name: string | null;
   subject_name: string;
   sy_label: string;
 }
 
 export interface CreateSchedulePayload {
   teacher_id: number;
-  section_id: number;
+  /** Omit/null for elective timeslots (roster from learner elective picks). */
+  section_id?: number | null;
   subject_id: number;
   school_year_id: number;
   day_of_week: number;
@@ -37,7 +39,8 @@ export interface CreateSchedulePayload {
 
 export interface UpdateSchedulePayload {
   teacher_id?: number;
-  section_id?: number;
+  /** null converts a section timeslot into an elective timeslot. */
+  section_id?: number | null;
   subject_id?: number;
   school_year_id?: number;
   day_of_week?: number;
@@ -93,7 +96,7 @@ export const schedulesApi = {
   checkConflicts: (data: {
     schedule_id?: number;
     teacher_id: number;
-    section_id: number;
+    section_id?: number | null;
     school_year_id: number;
     day_of_week: number;
     start_time: string;

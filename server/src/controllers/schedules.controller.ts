@@ -6,7 +6,8 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
 interface ScheduleRow extends RowDataPacket {
   id: number;
   teacher_id: number;
-  section_id: number;
+  /** NULL for elective timeslots — the roster is the learners who picked the elective. */
+  section_id: number | null;
   subject_id: number;
   school_year_id: number;
   day_of_week: number;
@@ -20,7 +21,7 @@ interface ScheduleRow extends RowDataPacket {
 
 interface ScheduleWithNames extends ScheduleRow {
   teacher_name: string;
-  section_name: string;
+  section_name: string | null;
   subject_name: string;
   sy_label: string;
   room_name: string | null;
@@ -29,7 +30,7 @@ interface ScheduleWithNames extends ScheduleRow {
 interface ScheduleConflict {
   type: "room" | "teacher" | "section";
   message: string;
-  existing: { subject_name: string; section_name: string; teacher_name: string; room_name: string | null };
+  existing: { subject_name: string; section_name: string | null; teacher_name: string; room_name: string | null };
 }
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -43,7 +44,7 @@ const SELECT_WITH_NAMES = `
          r.name AS room_name
     FROM schedules sc
     JOIN users u ON sc.teacher_id = u.id
-    JOIN sections sec ON sc.section_id = sec.id
+    LEFT JOIN sections sec ON sc.section_id = sec.id
     JOIN subjects sub ON sc.subject_id = sub.id
     JOIN school_years sy ON sc.school_year_id = sy.id
     LEFT JOIN rooms r ON sc.room_id = r.id
@@ -174,7 +175,8 @@ export async function checkConflicts(req: Request, res: Response): Promise<void>
       const conflicts = await findConflicts(conn, {
         school_year_id: Number(school_year_id), day_of_week: Number(day_of_week),
         start_time, end_time, room_id: room_id ?? null,
-        teacher_id: Number(teacher_id), section_id: Number(section_id),
+        teacher_id: Number(teacher_id),
+        section_id: section_id != null && Number(section_id) > 0 ? Number(section_id) : undefined,
         excludeScheduleId: schedule_id ? Number(schedule_id) : undefined,
       });
       res.json({ conflicts });
@@ -249,8 +251,13 @@ export async function createSchedule(req: Request, res: Response): Promise<void>
   try {
         const { teacher_id, section_id, subject_id, school_year_id, day_of_week, start_time, end_time, room, room_id } = req.body;
 
-    if (!teacher_id || !section_id || !subject_id || !school_year_id || !day_of_week || !start_time || !end_time) {
-      res.status(400).json({ error: "Missing required fields: teacher_id, section_id, subject_id, school_year_id, day_of_week, start_time, end_time." });
+    // Strengthened SHS: section_id is optional — a NULL section creates an
+    // elective timeslot whose roster is the learners who picked the elective
+    // (it cuts across sections).
+    const hasSection = section_id != null && Number(section_id) > 0;
+
+    if (!teacher_id || !subject_id || !school_year_id || !day_of_week || !start_time || !end_time) {
+      res.status(400).json({ error: "Missing required fields: teacher_id, subject_id, school_year_id, day_of_week, start_time, end_time." });
       return;
     }
 
@@ -268,15 +275,36 @@ export async function createSchedule(req: Request, res: Response): Promise<void>
     // Verify all foreign keys exist
     const [teacher, section, subject, schoolYear] = await Promise.all([
       query<RowDataPacket[]>("SELECT id, name FROM users WHERE id = ? AND role = 'teacher'", [teacher_id]),
-      query<RowDataPacket[]>("SELECT id, name FROM sections WHERE id = ?", [section_id]),
-      query<RowDataPacket[]>("SELECT id, name FROM subjects WHERE id = ?", [subject_id]),
+      hasSection
+        ? query<RowDataPacket[]>("SELECT id, name FROM sections WHERE id = ?", [section_id])
+        : Promise.resolve([] as RowDataPacket[]),
+      query<RowDataPacket[]>("SELECT id, name, subject_type FROM subjects WHERE id = ?", [subject_id]),
       query<RowDataPacket[]>("SELECT id, sy_label FROM school_years WHERE id = ?", [school_year_id]),
     ]);
 
     if (teacher.length === 0) { res.status(404).json({ error: "Teacher not found." }); return; }
-    if (section.length === 0) { res.status(404).json({ error: "Section not found." }); return; }
+    if (hasSection && section.length === 0) { res.status(404).json({ error: "Section not found." }); return; }
     if (subject.length === 0) { res.status(404).json({ error: "Subject not found." }); return; }
     if (schoolYear.length === 0) { res.status(404).json({ error: "School year not found." }); return; }
+
+    // Strengthened SHS rule: elective-type subjects are rostered per learner
+    // (student_electives) and cut across sections, so their timeslots must be
+    // saved WITHOUT a section; section-wide subjects keep the section.
+    const subjectType = (subject[0] as any).subject_type as string;
+    const SECTION_LESS_TYPES = new Set(["elective", "field_experience", "work_immersion"]);
+    const isSectionLessType = SECTION_LESS_TYPES.has(subjectType);
+    if (!hasSection && !isSectionLessType) {
+      res.status(400).json({
+        error: `${subject[0].name} is section-rostered — select a section for its timeslot. Only electives, Field Experience, and Work Immersion may be scheduled without one.`,
+      });
+      return;
+    }
+    if (hasSection && isSectionLessType) {
+      res.status(400).json({
+        error: `${subject[0].name} is an elective-type subject: its roster is the learners who picked it, spanning sections. Save the timeslot without a section.`,
+      });
+      return;
+    }
 
     // Verify the chosen room exists so the schedule is properly linked to it.
     if (room_id) {
@@ -292,7 +320,7 @@ export async function createSchedule(req: Request, res: Response): Promise<void>
       const conflicts = await findConflicts(conn, {
         school_year_id: Number(school_year_id), day_of_week: Number(day_of_week),
         start_time, end_time, room_id: room_id ?? null,
-        teacher_id: Number(teacher_id), section_id: Number(section_id),
+        teacher_id: Number(teacher_id), section_id: hasSection ? Number(section_id) : undefined,
       });
       if (conflicts.length > 0) {
         await conn.rollback();
@@ -303,12 +331,12 @@ export async function createSchedule(req: Request, res: Response): Promise<void>
       const result = await conn.execute<ResultSetHeader>(
         `INSERT INTO schedules (teacher_id, section_id, subject_id, school_year_id, day_of_week, start_time, end_time, room, room_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [teacher_id, section_id, subject_id, school_year_id, day_of_week, start_time, end_time, room ?? null, room_id ?? null]
+        [teacher_id, hasSection ? section_id : null, subject_id, school_year_id, day_of_week, start_time, end_time, room ?? null, room_id ?? null]
       );
       const scheduleId = result[0].insertId;
 
       await logActivity(req.user!.userId,
-        `Created schedule: ${subject[0].name} - ${section[0].name} (${DAY_NAMES[day_of_week - 1]} ${start_time.slice(0, 5)})`,
+        `Created schedule: ${subject[0].name}${isSectionLessType ? ' (Elective timeslot)' : ` - ${section[0].name}`} (${DAY_NAMES[day_of_week - 1]} ${start_time.slice(0, 5)})`,
         "schedules", scheduleId);
 
       // Keep Room Management in sync: the room is now Occupied.
@@ -356,10 +384,12 @@ export async function updateSchedule(req: Request, res: Response): Promise<void>
     }
     const old = existing[0];
 
-    // Resolve effective values (fall back to existing for omitted fields)
-    const eff: { teacher_id: number; section_id: number; school_year_id: number; day_of_week: number; start_time: string; end_time: string; room_id: number | null; room: string | null } = {
+    // Resolve effective values (fall back to existing for omitted fields).
+    // section_id may be explicitly set to null (or 0) to convert a section
+    // timeslot into an elective timeslot — Strengthened SHS.
+    const eff: { teacher_id: number; section_id: number | null; school_year_id: number; day_of_week: number; start_time: string; end_time: string; room_id: number | null; room: string | null } = {
       teacher_id: teacher_id !== undefined ? teacher_id : old.teacher_id,
-      section_id: section_id !== undefined ? section_id : old.section_id,
+      section_id: section_id !== undefined ? (section_id && Number(section_id) > 0 ? section_id : null) : old.section_id,
       school_year_id: school_year_id !== undefined ? school_year_id : old.school_year_id,
       day_of_week: day_of_week !== undefined ? day_of_week : old.day_of_week,
       start_time: start_time !== undefined ? start_time : old.start_time,
@@ -374,6 +404,32 @@ export async function updateSchedule(req: Request, res: Response): Promise<void>
       return;
     }
 
+    // Strengthened SHS rule — same as create: elective-type subjects are
+    // rostered per learner and cut across sections (NULL section), section
+    // subjects must point at a section. Resolve the effective subject first.
+    const effSubjectId = subject_id !== undefined ? subject_id : old.subject_id;
+    const effSubject = await query<RowDataPacket[]>(
+      "SELECT id, name, subject_type FROM subjects WHERE id = ?",
+      [effSubjectId]
+    );
+    if (effSubject.length > 0) {
+      const subjectType = (effSubject[0] as any).subject_type as string;
+      const SECTION_LESS_TYPES = new Set(["elective", "field_experience", "work_immersion"]);
+      const isSectionLessType = SECTION_LESS_TYPES.has(subjectType);
+      if (eff.section_id != null && isSectionLessType) {
+        res.status(400).json({
+          error: `${effSubject[0].name} is an elective-type subject: its roster is the learners who picked it, spanning sections. Save the timeslot without a section.`,
+        });
+        return;
+      }
+      if (eff.section_id == null && !isSectionLessType) {
+        res.status(400).json({
+          error: `${effSubject[0].name} is section-rostered — select a section for its timeslot. Only electives, Field Experience, and Work Immersion may be scheduled without one.`,
+        });
+        return;
+      }
+    }
+
     const conn = await getConnection();
     try {
       await conn.beginTransaction();
@@ -383,7 +439,7 @@ export async function updateSchedule(req: Request, res: Response): Promise<void>
         school_year_id: Number(eff.school_year_id), day_of_week: Number(eff.day_of_week),
         start_time: eff.start_time, end_time: eff.end_time,
         room_id: eff.room_id ?? null,
-        teacher_id: Number(eff.teacher_id), section_id: Number(eff.section_id),
+        teacher_id: Number(eff.teacher_id), section_id: eff.section_id ?? undefined,
         excludeScheduleId: Number(id),
       });
       if (conflicts.length > 0) {
@@ -396,7 +452,7 @@ export async function updateSchedule(req: Request, res: Response): Promise<void>
       const params: any[] = [];
       if (subject_id !== undefined) { fields.push("subject_id = ?"); params.push(subject_id); }
       if (teacher_id !== undefined) { fields.push("teacher_id = ?"); params.push(teacher_id); }
-      if (section_id !== undefined) { fields.push("section_id = ?"); params.push(section_id); }
+      if (section_id !== undefined) { fields.push("section_id = ?"); params.push(section_id && Number(section_id) > 0 ? section_id : null); }
       if (school_year_id !== undefined) { fields.push("school_year_id = ?"); params.push(school_year_id); }
       if (day_of_week !== undefined) { fields.push("day_of_week = ?"); params.push(day_of_week); }
       if (start_time !== undefined) { fields.push("start_time = ?"); params.push(start_time); }
@@ -467,7 +523,7 @@ export async function deleteSchedule(req: Request, res: Response): Promise<void>
       `SELECT sc.id, sc.room_id, sub.name AS subject_name, sec.name AS section_name
        FROM schedules sc
        JOIN subjects sub ON sc.subject_id = sub.id
-       JOIN sections sec ON sc.section_id = sec.id
+       LEFT JOIN sections sec ON sc.section_id = sec.id
        WHERE sc.id = ?`,
       [id]
     );
@@ -488,7 +544,7 @@ export async function deleteSchedule(req: Request, res: Response): Promise<void>
     }
 
     await logActivity(req.user!.userId,
-      `Deleted schedule: ${existing[0].subject_name} - ${existing[0].section_name}`,
+      `Deleted schedule: ${existing[0].subject_name}${existing[0].section_name ? ` - ${existing[0].section_name}` : ' (Elective timeslot)'}`,
             "schedules", Number(id));
 
     res.json({ message: "Schedule deleted successfully." });

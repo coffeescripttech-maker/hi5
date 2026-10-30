@@ -1,11 +1,13 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
+import { useFormEdits, editKey } from '../../hooks/useFormEdits';
 import {
   Loader2,
   Printer,
   Search,
   Users,
   Download,
-  FileText
+  FileText,
+  Save as SaveIcon
 } from 'lucide-react';
 import { studentsApi, StudentRow } from '../../services/students';
 import { sectionsApi, SectionRow } from '../../services/sections';
@@ -337,6 +339,21 @@ export function SF10Report() {
   const [records, setRecords] = useState<ScholasticRecord[]>([]);
   const [cert, setCert] = useState<CertState>(EMPTY_CERT);
 
+  // ── Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) ──
+  // SF10 is learner-scoped: every handwritten field (learner block,
+  // eligibility block, per-school-year scholastic records, certification) is
+  // stored per (learner, school year, field key) and re-applied by the bridge
+  // effect after both the SF10 fetch and the edits fetch settle. Rule 10
+  // (strict): only the Registrar/Administrator may save SF10 edits.
+  const sf10Edits = useFormEdits({
+    form: 'SF10',
+    schoolYearId: syId,
+    studentId: selectedStudentId,
+    enabled: !!selectedStudentId && !!syId
+  });
+  const canSaveFormEdits = role === 'admin' || role === 'registrar';
+  const sf10Sid = selectedStudentId ?? 0;
+
   useEffect(() => {
     Promise.all([
       role === "teacher" ? studentsApi.listMyStudents() : studentsApi.list(),
@@ -548,26 +565,69 @@ export function SF10Report() {
   }
 
   /* â”€â”€ Update helpers â”€â”€ */
-  const setLearnerField = (key: keyof LearnerState, val: string) =>
+  /* Update helpers — each also persists the edit (docs/MAJOR_CHANGES_IN_FORMS.txt rule 4). */
+  const setLearnerField = (key: keyof LearnerState, val: string) => {
     setLearner(prev => ({ ...prev, [key]: val }));
+    sf10Edits.setValue(sf10Sid, `learner:${key}`, val);
+  };
 
-  const setEligField = (key: keyof EligibilityState, val: string | boolean) =>
+  const setEligField = (key: keyof EligibilityState, val: string | boolean) => {
     setEligibility(prev => ({ ...prev, [key]: val }));
+    // Checkboxes persist as '1' / '' (a cleared box is a valid edit, rule 7).
+    sf10Edits.setValue(sf10Sid, `elig:${key}`, val === true ? '1' : String(val));
+  };
 
-  const setCertField = (key: keyof CertState, val: string) =>
+  const setCertField = (key: keyof CertState, val: string) => {
     setCert(prev => ({ ...prev, [key]: val }));
+    sf10Edits.setValue(sf10Sid, `cert:${key}`, val);
+  };
 
-  const updateRecord = (idx: number, field: keyof ScholasticRecord, val: string) =>
+  const RECORD_TEXT_FIELDS: (keyof ScholasticRecord)[] = [
+    'school',
+    'schoolId',
+    'district',
+    'division',
+    'region',
+    'classifiedGrade',
+    'section',
+    'schoolYear',
+    'track',
+    'adviser',
+    'signature',
+    'generalAverage',
+    'remedialsFrom',
+    'remedialsTo'
+  ];
+
+  // Header edits persist only the school-identity fields; SY/grade/section
+  // stay system-derived from the record's last school year.
+  const SF10_HEADER_SAVABLE_KEYS = [
+    'schoolId',
+    'region',
+    'division',
+    'district',
+    'schoolName'
+  ];
+  const handleHeaderChange = (key: any, val: string) => {
+    setHeader(key, val);
+    if (SF10_HEADER_SAVABLE_KEYS.includes(key))
+      sf10Edits.setValue(null, `header:${key}`, val);
+  };
+
+  const updateRecord = (idx: number, field: keyof ScholasticRecord, val: string) => {
     setRecords(prev =>
       prev.map((r, i) => (i === idx ? { ...r, [field]: val } : r))
     );
+    if ((RECORD_TEXT_FIELDS as string[]).includes(field))
+      sf10Edits.setValue(sf10Sid, `record:${idx}:${field}`, val);
+  };
 
   const updateLearningArea = (
     idx: number,
     lIdx: number,
     field: keyof LearningAreaRow,
     val: string
-  ) =>
+  ) => {
     setRecords(prev =>
       prev.map((r, i) =>
         i === idx
@@ -580,13 +640,15 @@ export function SF10Report() {
           : r
       )
     );
+    sf10Edits.setValue(sf10Sid, `area:${idx}:${lIdx}:${field}`, val);
+  };
 
   const updateRemedial = (
     idx: number,
     rIdx: number,
     field: keyof RemedialRow,
     val: string
-  ) =>
+  ) => {
     setRecords(prev =>
       prev.map((r, i) =>
         i === idx
@@ -599,8 +661,136 @@ export function SF10Report() {
           : r
       )
     );
+    sf10Edits.setValue(sf10Sid, `remedial:${idx}:${rIdx}:${field}`, val);
+  };
+
+  // Once the SF10 fetch AND the saved-edits fetch have settled, re-apply
+  // every saved edit over the system-derived build (a saved value — including
+  // a saved empty one — wins; rule 5/7). Header identity fields persist as
+  // form-level keys (rule 8, saved once per SY).
+  const sf10AppliedFor = useRef<string>('');
+  useEffect(() => {
+    if (!sf10Data || sf10Edits.loading) return;
+    const v = sf10Edits.valuesRef.current;
+    const appliedKey = `${selectedStudentId}:${syId}:${Object.keys(v).length}`;
+    if (sf10AppliedFor.current === appliedKey) return;
+    sf10AppliedFor.current = appliedKey;
+    const pick = (key: string) => v[editKey(sf10Sid, key)];
+    const learnerOverlay: Partial<Record<keyof LearnerState, string>> = {};
+    for (const f of Object.keys(EMPTY_LEARNER) as (keyof LearnerState)[]) {
+      const sv = pick(`learner:${f}`);
+      if (sv !== undefined) (learnerOverlay as Record<string, string>)[f] = sv;
+    }
+    if (Object.keys(learnerOverlay).length > 0) {
+      setLearner(prev => ({ ...prev, ...learnerOverlay }));
+    }
+    const eligOverlay: Partial<Record<keyof EligibilityState, string | boolean>> = {};
+    for (const f of Object.keys(EMPTY_ELIGIBILITY) as (keyof EligibilityState)[]) {
+      const sv = pick(`elig:${f}`);
+      if (sv === undefined) continue;
+      if (typeof EMPTY_ELIGIBILITY[f] === 'boolean') {
+        (eligOverlay as Record<string, boolean>)[f] = sv === '1';
+      } else {
+        (eligOverlay as Record<string, string>)[f] = sv;
+      }
+    }
+    if (Object.keys(eligOverlay).length > 0) {
+      setEligibility(
+        prev =>
+          ({ ...prev, ...eligOverlay }) as EligibilityState
+      );
+    }
+    const certOverlay: Partial<Record<keyof CertState, string>> = {};
+    for (const f of Object.keys(EMPTY_CERT) as (keyof CertState)[]) {
+      const sv = pick(`cert:${f}`);
+      if (sv !== undefined) (certOverlay as Record<string, string>)[f] = sv;
+    }
+    if (Object.keys(certOverlay).length > 0) {
+      setCert(prev => ({ ...prev, ...certOverlay }));
+    }
+    const headerOverlay: Record<string, string> = {};
+    for (const k of ['schoolId', 'region', 'division', 'district', 'schoolName']) {
+      const sv = v[editKey(null, `header:${k}`)];
+      if (sv !== undefined) headerOverlay[k] = sv;
+    }
+    if (Object.keys(headerOverlay).length > 0) {
+      // useSchoolHeader exposes a (key, value) signature like buildForm uses.
+      for (const [k, sv] of Object.entries(headerOverlay)) {
+        setHeader(k as any, sv);
+      }
+    }
+    setRecords(prev => {
+      if (prev.length === 0) return prev;
+      let anyEdit = false;
+      const next = prev.map((r, idx) => {
+        const recOverlay: Partial<ScholasticRecord> = {};
+        for (const f of RECORD_TEXT_FIELDS) {
+          const sv = pick(`record:${idx}:${f}`);
+          if (sv !== undefined) (recOverlay as Record<string, string>)[f] = sv;
+        }
+        let learningAreas = r.learningAreas;
+        let remedialsClasses = r.remedialsClasses;
+        let touched = false;
+        learningAreas = learningAreas.map((la, lIdx) => {
+          const laOverlay: Partial<LearningAreaRow> = {};
+          for (const f of Object.keys(la) as (keyof LearningAreaRow)[]) {
+            const sv = pick(`area:${idx}:${lIdx}:${f}`);
+            if (sv !== undefined) (laOverlay as Record<string, string>)[f] = sv;
+          }
+          if (Object.keys(laOverlay).length > 0) {
+            touched = true;
+            return { ...la, ...laOverlay };
+          }
+          return la;
+        });
+        remedialsClasses = remedialsClasses.map((rem, rIdx) => {
+          const remOverlay: Partial<RemedialRow> = {};
+          for (const f of Object.keys(rem) as (keyof RemedialRow)[]) {
+            const sv = pick(`remedial:${idx}:${rIdx}:${f}`);
+            if (sv !== undefined) (remOverlay as Record<string, string>)[f] = sv;
+          }
+          if (Object.keys(remOverlay).length > 0) {
+            touched = true;
+            return { ...rem, ...remOverlay };
+          }
+          return rem;
+        });
+        if (Object.keys(recOverlay).length > 0 || touched) {
+          anyEdit = true;
+          return {
+            ...r,
+            ...recOverlay,
+            learningAreas,
+            remedialsClasses
+          };
+        }
+        return r;
+      });
+      return anyEdit ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sf10Data, sf10Edits.loading, sf10Edits.error, selectedStudentId, syId]);
 
   /* â”€â”€ Print â”€â”€ */
+  /* Explicit save per docs/MAJOR_CHANGES_IN_FORMS.txt rule 3. */
+  const handleSaveEdits = async () => {
+    if (!selectedStudentId) return;
+    try {
+      const { saved } = await sf10Edits.save();
+      showToast(
+        'success',
+        saved > 0
+          ? `Saved ${saved} SF10 edit${saved === 1 ? '' : 's'}.`
+          : 'Nothing new to save — SF10 is up to date.'
+      );
+    } catch (err: any) {
+      showToast(
+        'error',
+        err?.message || 'Failed to save SF10 edits. Please try again.'
+      );
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -692,6 +882,22 @@ export function SF10Report() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {canSaveFormEdits && (
+                  <div className="flex items-center gap-2 mr-1">
+                    {sf10Edits.isDirty && (
+                      <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
+                        ● {sf10Edits.dirtyCount} unsaved edit{sf10Edits.dirtyCount === 1 ? '' : 's'}
+                      </span>
+                    )}
+                    <button
+                      onClick={handleSaveEdits}
+                      disabled={sf10Edits.saving || !selectedStudentId}
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm disabled:opacity-40">
+                      {sf10Edits.saving ? <Loader2 size={14} className="animate-spin" /> : <SaveIcon size={14} />}
+                      Save
+                    </button>
+                  </div>
+                )}
                 <button
                   onClick={() => setPreviewOpen(true)}
                   disabled={!sf10Data || exporting}
@@ -958,7 +1164,7 @@ export function SF10Report() {
               />
 
               {/* â”€â”€ Shared header fields â”€â”€ */}
-              <SchoolFormHeader header={header} onChange={setHeader} />
+              <SchoolFormHeader header={header} onChange={handleHeaderChange} />
 
               {/* â”€â”€ LEARNER'S INFORMATION â”€â”€ */}
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2">

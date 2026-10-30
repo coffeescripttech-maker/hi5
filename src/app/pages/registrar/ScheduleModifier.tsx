@@ -29,6 +29,7 @@ import { schoolYearsApi, SchoolYearRow } from "../../services/schoolYears";
 import { sectionsApi, SectionRow, TeacherBrief } from "../../services/sections";
 import { subjectsApi, SubjectRow } from "../../services/subjects";
 import { roomsApi, RoomRow } from "../../services/rooms";
+import { electivesApi } from "../../services/electives";
 import { useApp } from "../../context/AppContext";
 import { ModalShell } from "../../components/ModalShell";
 
@@ -44,6 +45,9 @@ const EMPTY_FORM = {
   room: "",
   room_id: 0
 };
+
+/** Subjects rostered per learner (Strengthened SHS) — scheduled without a section. */
+const SECTION_LESS_TYPES = ["elective", "field_experience", "work_immersion"];
 
 interface Conflict {
   kind: "teacher" | "section" | "room";
@@ -72,6 +76,13 @@ export function ScheduleModifier() {
   const [editing, setEditing] = useState<ScheduleRow | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
+  // Strengthened SHS: 'section' = regular class (roster = the section);
+  // 'elective' = elective timeslot (roster = learners who picked the elective,
+  // spanning sections — saved without a section).
+  const [classType, setClassType] = useState<'section' | 'elective'>('section');
+  // Learner count per elective subject for the current SY — shown on each
+  // elective option so the Registrar sees how many pickers the timeslot joins.
+  const [electiveCounts, setElectiveCounts] = useState<Record<number, number>>({});
 
   // ── Load reference data once ──
   useEffect(() => {
@@ -126,12 +137,33 @@ export function ScheduleModifier() {
     if (selectedSY) loadSchedules(selectedSY);
   }, [selectedSY, loadSchedules]);
 
+  // Elective pickers per subject for the selected SY (used to badge each
+  // elective option with its roster size). Optional — failures are silent.
+  useEffect(() => {
+    if (!selectedSY) return;
+    let cancelled = false;
+    electivesApi
+      .assignmentsBatch(selectedSY)
+      .then(rows => {
+        if (cancelled) return;
+        const counts: Record<number, number> = {};
+        for (const r of rows) counts[r.subject_id] = (counts[r.subject_id] ?? 0) + 1;
+        setElectiveCounts(counts);
+      })
+      .catch(() => {
+        if (!cancelled) setElectiveCounts({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSY]);
+
   // ── Live conflict pre-check against the current schedule list ──
   const selectedRoom = rooms.find(r => r.id === form.room_id);
   const formRoomName = selectedRoom?.name || form.room || "";
 
   const conflicts = useMemo<Conflict[]>(() => {
-    if (!form.teacher_id || !form.section_id) return [];
+    if (!form.teacher_id || (classType === 'section' && !form.section_id)) return [];
     const candidate = {
       day: form.day_of_week,
       start: form.start_time,
@@ -147,10 +179,11 @@ export function ScheduleModifier() {
       ) {
         result.push({
           kind: "teacher",
-          label: `Teacher is busy: ${s.subject_name} · ${s.section_name}`
+          label: `Teacher is busy: ${s.subject_name} · ${s.section_name ?? "Elective"}`
         });
       }
       if (
+        classType === 'section' &&
         s.section_id === form.section_id &&
         overlaps(candidate, { day: s.day_of_week, start: s.start_time, end: s.end_time })
       ) {
@@ -173,17 +206,18 @@ export function ScheduleModifier() {
       ) {
         result.push({
           kind: "room",
-          label: `Room ${s.room_name || s.room} is occupied: ${s.subject_name} · ${s.section_name}`
+          label: `Room ${s.room_name || s.room} is occupied: ${s.subject_name} · ${s.section_name ?? "Elective"}`
         });
       }
     }
     return result;
-  }, [form, schedules, editing, formRoomName]);
+  }, [form, schedules, editing, formRoomName, classType]);
 
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormError("");
+    setClassType('section');
     setShowForm(true);
   };
 
@@ -196,10 +230,11 @@ export function ScheduleModifier() {
         r => (s.room || "").toLowerCase() === r.name.toLowerCase()
       )?.id ??
       0;
+    setClassType(s.section_id == null ? 'elective' : 'section');
     setEditing(s);
     setForm({
       teacher_id: s.teacher_id,
-      section_id: s.section_id,
+      section_id: s.section_id ?? 0,
       subject_id: s.subject_id,
       day_of_week: s.day_of_week,
       start_time: s.start_time.slice(0, 5),
@@ -217,8 +252,10 @@ export function ScheduleModifier() {
       setFormError("Select a school year first.");
       return;
     }
-    if (!form.teacher_id || !form.section_id || !form.subject_id) {
-      setFormError("Teacher, section, and subject are required.");
+    // Elective timeslots skip the section requirement — their roster is the
+    // learners who picked the elective, spanning sections.
+    if (!form.teacher_id || !form.subject_id || (classType === 'section' && !form.section_id)) {
+      setFormError("Teacher and subject are required" + (classType === 'section' ? ", plus a section." : "."));
       return;
     }
     if (form.start_time >= form.end_time) {
@@ -235,7 +272,7 @@ export function ScheduleModifier() {
     try {
       const payload = {
         teacher_id: form.teacher_id,
-        section_id: form.section_id,
+        section_id: classType === 'elective' ? null : form.section_id,
         subject_id: form.subject_id,
         school_year_id: selectedSY,
         day_of_week: form.day_of_week,
@@ -266,7 +303,7 @@ export function ScheduleModifier() {
   };
 
   const handleDelete = async (s: ScheduleRow) => {
-    if (!window.confirm(`Delete "${s.subject_name} · ${s.section_name}"?`))
+    if (!window.confirm(`Delete "${s.subject_name}${s.section_name ? ` · ${s.section_name}` : ' · Elective timeslot'}"?`))
       return;
     try {
       await schedulesApi.delete(s.id);
@@ -371,7 +408,15 @@ export function ScheduleModifier() {
                       {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}
                     </td>
                     <td className="px-4 py-3 text-gray-700">{s.teacher_name}</td>
-                    <td className="px-4 py-3 text-gray-700">{s.section_name}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {s.section_name ? (
+                        s.section_name
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-semibold">
+                          ⚡ Elective
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-700">{s.subject_name}</td>
                     <td className="px-4 py-3 text-gray-500">{s.room || "—"}</td>
                     <td className="px-4 py-3">
@@ -420,6 +465,40 @@ export function ScheduleModifier() {
               </button>
             </div>
             <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Class type — section class vs elective timeslot */}
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Class Type
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setClassType('section')}
+                    className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                      classType === 'section'
+                        ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+                    }`}>
+                    Section class
+                    <span className="block font-normal text-[10px] text-gray-400">
+                      Roster = one section
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClassType('elective')}
+                    className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                      classType === 'elective'
+                        ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+                    }`}>
+                    ⚡ Elective timeslot
+                    <span className="block font-normal text-[10px] text-gray-400">
+                      Roster = learners who picked the elective
+                    </span>
+                  </button>
+                </div>
+              </div>
               <div className="sm:col-span-2">
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                   Teacher
@@ -437,25 +516,34 @@ export function ScheduleModifier() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Section
-                </label>
-                <select
-                  value={form.section_id}
-                  onChange={e =>
-                    setForm({ ...form, section_id: parseInt(e.target.value) })
-                  }
-                  className={inputClass}
-                >
-                  <option value={0}>Select section…</option>
-                  {sections.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} (G{s.grade_level})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {classType === 'section' ? (
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Section
+                  </label>
+                  <select
+                    value={form.section_id}
+                    onChange={e =>
+                      setForm({ ...form, section_id: parseInt(e.target.value) })
+                    }
+                    className={inputClass}
+                  >
+                    <option value={0}>Select section…</option>
+                    {sections.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} (G{s.grade_level})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="flex items-end">
+                  <p className="text-[11px] text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2.5 w-full">
+                    No section needed — the roster is all learners who picked
+                    the elective, from any section.
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                   Subject
@@ -468,9 +556,16 @@ export function ScheduleModifier() {
                   className={inputClass}
                 >
                   <option value={0}>Select subject…</option>
-                  {subjects.map(sub => (
+                  {(classType === 'elective'
+                    ? subjects.filter(sub => SECTION_LESS_TYPES.includes(sub.subject_type))
+                    : subjects
+                  ).map(sub => (
                     <option key={sub.id} value={sub.id}>
+                      {SECTION_LESS_TYPES.includes(sub.subject_type) ? '⚡ ' : ''}
                       {sub.name}
+                      {classType === 'elective' && electiveCounts[sub.id]
+                        ? ` — ${electiveCounts[sub.id]} picker${electiveCounts[sub.id] !== 1 ? 's' : ''}`
+                        : ''}
                     </option>
                   ))}
                 </select>

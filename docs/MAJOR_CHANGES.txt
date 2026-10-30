@@ -254,3 +254,8 @@ Electrical Installation Maintenance, NC II
 Electronic Product and Assembly Servicing, NC II
 Mechatronics, NC II
 Photovoltaic Systems Installation, NC II
+
+
+
+
+Everything from MAJOR_CHANGES.txt that's codable is now built; remaining items sit on client decisions (SPJ, failed-elective promotion, Page 9 contents, Field Experience list). Commit still on hold until you say the word.

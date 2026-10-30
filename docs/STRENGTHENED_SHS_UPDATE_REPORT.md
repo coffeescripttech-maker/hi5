@@ -54,6 +54,11 @@ production Railway DB (2026-10-28) and verified.**
 - New tables: `student_electives` (unique per student+subject+SY),
   `elective_year_exclusions` (per subject+SY off switch).
 - Pre-migration backup: `server/backups/pre-044-2026-10-28T07-40-09.875Z.sql`.
+- **Migration 045 (applied 2026-10-30)** — `schedules.section_id` made nullable
+  for **elective timeslots**: a schedule row without a section is rostered
+  from the learners who picked the elective (per-learner picks cut across
+  sections). `uk_section_time` still allows multiple NULL-section rows, so
+  several electives/teachers can share the same timeslot.
 
 ## D. Backend Changes
 
@@ -89,11 +94,35 @@ production Railway DB (2026-10-28) and verified.**
 - **Forms (SF1/SF5/SF9/SF10)** — enrollment queries join `strand_tracks`
   (`strand_track_name`, `track_type`); subject lists preserve legacy rows that
   still have grades (`is_active=0` but graded) so old SF10s keep printing.
+- **Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) — Phase 1**:
+  - **Migration 046** — `sf_form_edits` table keyed
+    `(form, school_year_id, student_id NULL=form-level, field_key)` with
+    unique `uk_sf_edit`; value TEXT (≤5000 chars), actor + timestamps, FKs to
+    students/school_years/users.
+  - **`controllers/formEdits.controller.ts` (new)** — `GET/PUT /api/forms/edits`
+    in `routes/forms.routes.ts`: role gating (rule 10 strict — teachers write
+    only SF9 `attendance:*` keys for own-advisory learners, one learner per
+    batch), closed-SY lock (rule 16: only Registrar/Admin), field-key regex
+    + 400-edit/5000-char limits, empty-string = cleared field (rule 7),
+    SELECT-then-upsert (NULL-safe), per-field Activity Log old → new
+    (rule 14). Teacher GET mirrors the existing form read guards.
+  - **`controllers/forms.controller.ts`** — `saveSF9FormData` (observed
+    values) tightened the same way: teacher saves only for own-advisory
+    learners; closed SY is Registrar/Admin only; Principal/Committee → 403.
 - **PDF renderer** — renders are now **serialized** on the shared headless
   Chrome with a 180 s per-step timeout and crash-recovery relaunch (fixes a
   wedged-browser deadlock when renders queued up).
 - **Teacher roster** — `students/my-students` includes elective pickers for
   elective-only teachers (no advisory section needed).
+- **At-risk roster scoping** — a shared `teacherScopeCondition` mirrors the
+  my-students rule (advised/assigned sections OR elective pickers) across
+  trends, prediction lists (were school-wide for teachers), and predictions
+  (teachers may target only their own roster; no-target school-wide runs are
+  refused for teachers).
+- **Schedules** — elective timeslots: `section_id` optional; create/update
+  validate the XOR rule (elective/FE/WI subjects → no section; section‑wide
+  subjects → section required), conflict detection still enforces teacher and
+  room overlaps (section overlap checked only when a section applies).
 
 ## E. Frontend Changes
 
@@ -124,6 +153,42 @@ production Railway DB (2026-10-28) and verified.**
 - **`teacher/UploadGrades.tsx` + `services/documents.ts`** — elective subjects
   need no section; roster comes from elective picks; "(Elective)" labels and
   hints; template/upload omit `section_id` for electives.
+- **`components/electives/ElectiveCatalogGrid.tsx` (new)** — shared elective
+  grid with **search**, automatic **grade tabs** (G11/G12/All), **collapsible
+  clusters** with picked/on badges, and a pinned **"Picked (n)"** bar so a
+  selection hidden by the search stays removable. Wired into
+  EnrollmentModule (learner picks), the committee elective editor
+  (SectionAssignment), and the admin Elective Offerings panel.
+- **`registrar/ScheduleModifier.tsx`** — **Class Type** toggle:
+  *Section class* vs *⚡ Elective timeslot* (section picker hidden; elective
+  subjects badged with their picker count from the batch API). List rows show
+  an **⚡ Elective** chip for section-less slots.
+- **`registrar/MasterSchedule.tsx` / `teacher/TeacherSchedule.tsx`** —
+  elective slots render an elective marker instead of a section name.
+- **`registrar/sf9-report.tsx`** — teacher **My Elective** dropdown switches
+  the student list to an elective roster; summary line shows the elective;
+  deep-linked roster learners are kept as the selected student.
+- **Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) — Phase 1**:
+  - **`services/forms.ts`** — `formEdits`/`saveFormEdits` + `FormEditRow`.
+  - **`hooks/useFormEdits.ts` (new)** — loaded/local value maps, dirty
+    tracking, `get`/`setValue`/`save`/`reset`, merged `valuesRef` for build
+    effects, before-leave warning while dirty.
+  - **`registrar/sf9-report.tsx`** — attendance cells, parent signatures,
+    Certificate-of-Transfer fields and signer names persist (observed values
+    keep their auto-save; Save flushes them immediately).
+  - **`registrar/sf1-register.tsx`** — per-learner cells, header identity,
+    signers, BoSY/EoSY dates and REGISTERED summary cells persist; row
+    overlays re-apply saved + unsaved values on rebuilds.
+  - **`registrar/sf5-report.tsx`** — per-learner cells (incl. General
+    Average/action overrides), summary/progress count tables and the
+    Reviewed signer persist.
+  - **`registrar/sf10-report.tsx`** — learner block (incl. checkbox
+    eligibility), certification block, header identity, and per-school-year
+    record cells + learning areas + remedial rows persist; saved values are
+    re-applied once both the SF10 and the edits fetch settle.
+  - Explicit **Save** button + **● n unsaved edits** badge on every form
+    (visible to admin/registrar; teacher sees it on SF9 only, principal and
+    committee never).
 
 ## F. Test & Verification Results
 
@@ -148,6 +213,24 @@ E2E notes:
   SF1 flow (login → SF1 → preview → export → blob captured in 11 s) passed.
   Rerun `npm run test:e2e` once the connection is stable.
 
+Live saved-form-edit probes (temp API on :3005, throwaway teacher account):
+
+| Probe | Result |
+|---|---|
+| Admin PUT SF1 form-level + learner cells (current SY) | 200 |
+| Admin PUT SF9 on closed SY | 200 (allowed for Admin) |
+| Teacher GET: foreign learner / own advisory learner | 403 / 200 |
+| Teacher PUT SF1 / foreign-learner attendance / non-attendance key | 403 / 403 / 403 |
+| Teacher PUT SF9 attendance, own advisory learner | 200 |
+| Teacher PUT on closed SY | 403 |
+| Principal / Committee GET + PUT | 403 / 403 |
+| `sf9-data` observed values: teacher own 200, foreign 403, principal 403 | ✅ |
+| Activity Log rows (actor, learner, form, field, old → new) | ✅ verified |
+| Duplicate key / bad field key / unknown learner / unknown form | 400 / 400 / 404 / 400 |
+
+All test rows, the throwaway account, and probe activity-log rows were removed
+afterwards; the borrowed test section's real adviser was restored.
+
 ## G. Known Limitations
 
 - `hours_per_week` is NULL for curriculum-mandated subjects; UI shows
@@ -159,6 +242,20 @@ E2E notes:
   regressions; only elective subjects are learner-scoped.
 - The old `strand_tracks` TLE rows (JHS) still drive the JHS TLE selector
   unchanged.
+- Elective timeslot conflict detection is teacher/room/section-based only — a
+  learner whose two picked electives land on the same timeslot gets no
+  automatic warning (the Committee resolves collisions when picking/confirming).
+- At-risk `AVG(grade)` is subject-agnostic by design — elective and core
+  grade rows both feed the quarterly General-Average trend.
+- **Saved School Form Edits, Phase 1** (mirrors checklist §9.6):
+  - Shared fields are stored per form + school year — an edit on SF1's
+    school-identity header doesn't propagate to SF5/SF9/SF10 yet (rule 8,
+    partial; quarterly fields already work as specified).
+  - No "Edited" marker / Reset-to-system value (rule 11), no notice when the
+    underlying record changes after an edit (rule 12), no concurrent-edit
+    warning (rule 13), and learner-level details are not auto-carried into a
+    new school year (rule 15 — quarterly fields start blank by their SY key,
+    which is the required part).
 
 ## H. Open Questions for the Client
 
@@ -179,7 +276,8 @@ E2E notes:
 
 ## I. Deployment & Rollback
 
-- **Applied:** migration 044 is already live on the production Railway DB.
+- **Applied:** migrations 044 (elective timeslots) **and 046 (`sf_form_edits`)**
+  are already live on the production Railway DB.
 - **Deploy:** deploy the updated server (`server/dist`) and frontend
   (`npm run build`) together; the API is backward-compatible with the old
   frontend except for the new elective flows, which old clients simply don't

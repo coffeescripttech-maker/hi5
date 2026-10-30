@@ -7,9 +7,11 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
-  BarChart2
+  BarChart2,
+  Save as SaveIcon
 } from 'lucide-react';
 import './sf1.css';
+import { useFormEdits, editKey } from '../../hooks/useFormEdits';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
 import { studentsApi, StudentRow } from '../../services/students';
@@ -367,6 +369,31 @@ export function SF5Report() {
     [sections, selectedGrade]
   );
 
+  // ── Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) ──
+  // Per-learner cells, the Reviewed signer, the school-identity header and
+  // the two count tables are stored per (learner, school year, field) and
+  // re-applied by the build/derive effects below. Rule 10 (strict): only the
+  // Registrar/Administrator may save SF5 edits.
+  const sectionId = useMemo(
+    () =>
+      sections.find(
+        s =>
+          s.name === selectedSection &&
+          s.grade_level === parseInt(selectedGrade)
+      )?.id ?? null,
+    [sections, selectedSection, selectedGrade]
+  );
+  const sf5Edits = useFormEdits({
+    form: 'SF5',
+    schoolYearId: syId,
+    sectionId,
+    enabled: !!sectionId && !!syId
+  });
+  const canSaveFormEdits = role === 'admin' || role === 'registrar';
+  // Parallel of `rows`: which learner each row belongs to (filler rows never
+  // persist).
+  const [rowStudentIds, setRowStudentIds] = useState<(number | null)[]>([]);
+
   // ── Reset section selection when grade changes ──
   useEffect(() => {
     if (
@@ -418,6 +445,20 @@ export function SF5Report() {
       };
     });
     while (newRows.length < TOTAL_ROWS) newRows.push({});
+    // Saved School Form Edits: overlay saved + unsaved per-learner cells
+    // (valuesRef merges both) so user edits survive rebuilds.
+    const merged = sf5Edits.valuesRef.current;
+    const sids: (number | null)[] = new Array(TOTAL_ROWS).fill(null);
+    enrolled.forEach((s, i) => {
+      sids[i] = s.id;
+      const overlay: RowData = { ...newRows[i] };
+      for (const cellKey of Object.keys(overlay)) {
+        const sv = merged[editKey(s.id, `s:${cellKey}`)];
+        if (sv !== undefined) overlay[cellKey] = sv;
+      }
+      newRows[i] = overlay;
+    });
+    setRowStudentIds(sids);
     setRows(newRows);
     setEnrolledStudents(enrolled);
     // Clear derived tables while the section's grade data loads.
@@ -536,6 +577,32 @@ export function SF5Report() {
               String(x.total)
             ])
           );
+          // Saved/manual count-table edits have priority over the derived
+          // counts (valuesRef merges saved + unsaved).
+          const countOverlay = (
+            keyPrefix: string,
+            setter: (rows: string[][]) => void,
+            base: string[][]
+          ) => {
+            const rows = base.map(r => [...r]);
+            rows.forEach((_r, ri) => {
+              for (let ci = 0; ci < 3; ci++) {
+                const sv = merged[editKey(null, `${keyPrefix}:${ri}:${ci}`)];
+                if (sv !== undefined) rows[ri][ci] = sv;
+              }
+            });
+            setter(rows);
+          };
+          countOverlay(
+            'summary',
+            setSummaryCounts,
+            summary.map(x => [String(x.male), String(x.female), String(x.total)])
+          );
+          countOverlay(
+            'progress',
+            setProgressCounts,
+            progress.map(x => [String(x.male), String(x.female), String(x.total)])
+          );
 
           setRows(prev => {
             const next = [...prev];
@@ -549,6 +616,18 @@ export function SF5Report() {
                   incomplete_completed: st.incompleteCompleted,
                   incomplete_current: st.incompleteCurrent
                 };
+              }
+              // Saved/manual per-learner cell edits keep priority over the
+              // derived stats (valuesRef merges saved + unsaved).
+              for (const cellKey of [
+                'average',
+                'action',
+                'incomplete_completed',
+                'incomplete_current'
+              ]) {
+                const sv = merged[editKey(s.id, `s:${cellKey}`)];
+                if (sv !== undefined)
+                  next[i] = { ...next[i], [cellKey]: sv };
               }
             });
             return next;
@@ -569,7 +648,10 @@ export function SF5Report() {
     students,
     sections,
     schoolYears,
-    trackNameById
+    trackNameById,
+    // Re-run once the saved-edits fetch settles so saved edits overlay in.
+    sf5Edits.loading,
+    sf5Edits.error
   ]);
 
   // ── Cell helper ──
@@ -583,6 +665,9 @@ export function SF5Report() {
       next[rowIndex] = { ...next[rowIndex], [key]: val };
       return next;
     });
+    // Persist per-learner cells; filler rows (no learner) stay ephemeral.
+    const sid = rowStudentIds[rowIndex];
+    if (sid != null) sf5Edits.setValue(sid, `s:${key}`, val);
   };
   const sanitizeGradeInput = (value: string): string => {
     if (value === '') {
@@ -598,8 +683,80 @@ export function SF5Report() {
     const clamped = Math.min(100, Math.max(0, truncated));
     return clamped.toString();
   };
-  const setH = (key: keyof typeof header, val: string) =>
+  // Header identity fields are savable school-wide values; grade/section/year
+  // stay system-synced with the selected roster.
+  const HEADER_SAVABLE_KEYS = new Set([
+    'schoolId',
+    'region',
+    'division',
+    'district',
+    'schoolName'
+  ]);
+  const setH = (key: keyof typeof header, val: string) => {
     setHeader(prev => ({ ...prev, [key]: val }));
+    if (HEADER_SAVABLE_KEYS.has(key))
+      sf5Edits.setValue(null, `header:${key}`, val);
+  };
+  const handleReviewSignerChange = (val: string) => {
+    setSigners(prev => ({ ...prev, reviewed: val }));
+    sf5Edits.setValue(null, 'signer:reviewed', val);
+  };
+  const handleSummaryChange = (row: number, col: number, val: string) => {
+    setSummaryCounts(prev => {
+      const next = prev.map(r => [...r]);
+      if (!next[row]) next[row] = ['', '', ''];
+      next[row][col] = val;
+      return next;
+    });
+    sf5Edits.setValue(null, `summary:${row}:${col}`, val);
+  };
+  const handleProgressChange = (row: number, col: number, val: string) => {
+    setProgressCounts(prev => {
+      const next = prev.map(r => [...r]);
+      if (!next[row]) next[row] = ['', '', ''];
+      next[row][col] = val;
+      return next;
+    });
+    sf5Edits.setValue(null, `progress:${row}:${col}`, val);
+  };
+  // Once the saved-edits fetch settles, apply the saved Reviewed signer (it
+  // overrides a previously prefilled name; a saved empty value wins too).
+  useEffect(() => {
+    if (sf5Edits.loading) return;
+    const merged = sf5Edits.valuesRef.current;
+    const savedReview = merged[editKey(null, 'signer:reviewed')];
+    const savedHeader: Partial<Record<keyof typeof header, string>> = {};
+    for (const k of HEADER_SAVABLE_KEYS) {
+      const sv = merged[editKey(null, `header:${k}`)];
+      if (sv !== undefined) (savedHeader as Record<string, string>)[k] = sv;
+    }
+    if (savedReview !== undefined) {
+      setSigners(prev => ({ ...prev, reviewed: savedReview }));
+    }
+    if (Object.keys(savedHeader).length > 0) {
+      setHeader(prev => ({ ...prev, ...savedHeader }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sf5Edits.loading, sf5Edits.error, syId, sectionId]);
+
+  /* Explicit save per docs/MAJOR_CHANGES_IN_FORMS.txt rule 3. */
+  const handleSaveEdits = async () => {
+    if (!sectionId) return;
+    try {
+      const { saved } = await sf5Edits.save();
+      showToast(
+        'success',
+        saved > 0
+          ? `Saved ${saved} SF5 edit${saved === 1 ? '' : 's'}.`
+          : 'Nothing new to save — SF5 is up to date.'
+      );
+    } catch (err: any) {
+      showToast(
+        'error',
+        err?.message || 'Failed to save SF5 edits. Please try again.'
+      );
+    }
+  };
 
   // ── Loading ──
   if (dataLoading) {
@@ -686,6 +843,27 @@ export function SF5Report() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {canSaveFormEdits && (
+                <div className="flex items-center gap-2 mr-1">
+                  {sf5Edits.isDirty && (
+                    <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
+                      ● {sf5Edits.dirtyCount} unsaved edit{sf5Edits.dirtyCount === 1 ? '' : 's'}
+                    </span>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={handleSaveEdits}
+                    disabled={sf5Edits.saving || !sectionId}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+                    {sf5Edits.saving ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <SaveIcon className="size-4" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+              )}
               <Button
                 size="sm"
                 onClick={() => setPreviewOpen(true)}
@@ -933,14 +1111,7 @@ export function SF5Report() {
                   title="SUMMARY TABLE"
                   rows={SUMMARY_STATUS.map(s => [s, ''])}
                   values={summaryCounts}
-                  onChange={(i, c, v) =>
-                    setSummaryCounts(prev => {
-                      const next = prev.map(r => [...r]);
-                      if (!next[i]) next[i] = ['', '', ''];
-                      next[i][c] = v;
-                      return next;
-                    })
-                  }
+                  onChange={handleSummaryChange}
                   total={
                     summaryCounts.length ? colTotals(summaryCounts) : undefined
                   }
@@ -949,14 +1120,7 @@ export function SF5Report() {
                   title="LEVEL OF PROGRESS AND ACHIEVEMENT"
                   rows={PROGRESS_LEVELS}
                   values={progressCounts}
-                  onChange={(i, c, v) =>
-                    setProgressCounts(prev => {
-                      const next = prev.map(r => [...r]);
-                      if (!next[i]) next[i] = ['', '', ''];
-                      next[i][c] = v;
-                      return next;
-                    })
-                  }
+                  onChange={handleProgressChange}
                   total={
                     progressCounts.length
                       ? colTotals(progressCounts)
@@ -991,10 +1155,12 @@ export function SF5Report() {
                         placeholder={s.caption}
                         value={signers[s.key as keyof typeof signers]}
                         onChange={e =>
-                          setSigners(prev => ({
-                            ...prev,
-                            [s.key]: e.target.value
-                          }))
+                          s.key === 'reviewed'
+                            ? handleReviewSignerChange(e.target.value)
+                            : setSigners(prev => ({
+                                ...prev,
+                                [s.key]: e.target.value
+                              }))
                         }
                       />
                       <div className="text-center text-[9px]">

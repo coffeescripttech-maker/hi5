@@ -127,6 +127,15 @@ export interface SF10Row {
   school_years: Record<string, SF10SchoolYear>;
 }
 
+/** One saved school-form edit row (student_id null = form-level value). */
+export interface FormEditRow {
+  student_id: number | null;
+  field_key: string;
+  value: string;
+  updated_by: number;
+  updated_at: string;
+}
+
 export const formsApi = {
   sf1: (sectionId: number, schoolYearId: number) =>
     api.get<{ section: string; grade_level: number; students: SF1Row[] }>(
@@ -155,4 +164,30 @@ export const formsApi = {
     ),
   sf10: (studentId: number) =>
     api.get<SF10Row>(`/forms/sf10?student_id=${studentId}`),
+
+  // ── Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) ──
+  /** Batch of saved edits for a form/SY, scoped to student, section, or ids. */
+  formEdits: (
+    form: 'SF1' | 'SF5' | 'SF9' | 'SF10',
+    schoolYearId: number,
+    scope: { student_id?: number; section_id?: number; student_ids?: number[] } = {}
+  ) => {
+    const q = new URLSearchParams({ form, school_year_id: String(schoolYearId) });
+    if (scope.student_id) q.set('student_id', String(scope.student_id));
+    if (scope.section_id) q.set('section_id', String(scope.section_id));
+    if (scope.student_ids?.length)
+      q.set('student_ids', scope.student_ids.join(','));
+    return api.get<{ edits: FormEditRow[] }>(`/forms/edits?${q.toString()}`);
+  },
+  /** Save a batch of per-field edits (empty string value = cleared field). */
+  saveFormEdits: (
+    form: 'SF1' | 'SF5' | 'SF9' | 'SF10',
+    schoolYearId: number,
+    edits: { student_id?: number | null; field_key: string; value: string }[]
+  ) =>
+    api.put<{ message: string }>('/forms/edits', {
+      form,
+      school_year_id: schoolYearId,
+      edits,
+    }),
 };

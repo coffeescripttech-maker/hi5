@@ -1,0 +1,53 @@
+Hi5 Portal:ExpectedBehavior for Saved
+School Form Edits
+Oct 23, 2026 · @Arlan
+Summary
+Today, text typed on a School Form before printing applies to that printout only. The
+expected behavior is that every edited field is saved permanently against the learner and
+shows up the next time anyone opens, regenerates, or prints that form, with no re-typing.
+Rules marked (decide) need a choice from the team or the Registrar.
+What can be edited and saved
+1. All fields on the School Forms should be editable, and every edit should be saved.
+2. Fields that come from other modules stay read-only on the form: grades, General
+Average, promotion result, section, and adviser. They can only be changed in Grade
+Management, Promotions, and Sectioning. This keeps the form from disagreeing with
+the records.
+Saving
+3. The form has an explicit Save button. Leaving the page with unsaved changes shows a
+warning.
+4. A save stores each changed field with the learner, the school year, the form (SF1, SF9,
+or SF10), the field, and the new value.
+5. A saved value is the value shown the next time the form is opened, on the web and on
+the Android app, by any user allowed to open it.
+6. Printing or exporting a PDF always uses the saved values. Nothing has to be typed
+again for the same learner and school year.
+7. Clearing a field and saving is a valid edit. The empty value is saved and printed as
+empty.
+Hi5 Portal: Expected Behavior for Saved School Form Edits
+Page 1 of 2
+Shared fields
+8. Every field that appears on more than one School Form is saved once on the learner
+and shared across all the forms. An edit made on one form shows on the others
+without being typed again. Fields that change each quarter, such as SF9 attendance
+and observed values, are saved per quarter and per school year.
+Who can edit
+10. The Registrar can edit all saved fields. Teachers can edit only SF9 attendance and
+observed values for learners in their own advisory section (decide). The Principal stays
+view-only. Role permissions are otherwise unchanged.
+Visibility and changes
+11. A field whose saved value differs from the system's own value shows an Edited marker,
+with a Reset to system value action for users allowed to edit.
+12. If the underlying record changes after a field was edited, the saved edit stays and the
+form shows a notice that the system value changed, so the user can choose to keep or
+reset it.
+13. If two users edit the same field, the second save is warned that the value changed
+since the form was opened, and the user chooses to overwrite or reload.
+14. Every save is written to the Activity Log with the actor, the learner, the form, the field,
+the old value, the new value, and the time.
+School year and locking
+15. Saved edits belong to one school year. A new school year starts with the learner-level
+details carried over and the quarterly fields blank.
+16. After a school year is closed, edits to its forms require the Registrar and are logged.
+(decide)
+Exports and backups
+17. Saved edits are included in the System Backup and in restores.

@@ -31,6 +31,7 @@ import { useApp } from '../../context/AppContext';
 import { formatHoursPerWeek } from '../../utils/hours';
 import { HybridTable } from '../../components/HybridTable';
 import { ModalShell } from '../../components/ModalShell';
+import { ElectiveCatalogGrid } from '../../components/electives/ElectiveCatalogGrid';
 import {
   electivesApi,
   ElectiveCatalogGroup
@@ -816,37 +817,15 @@ export function SubjectManagement() {
                 No electives found for this school year.
               </p>
             ) : (
-              offerGroups.map(g => (
-                <div key={`${g.track_name}-${g.cluster}`} className="mb-4">
-                  <p className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.05em] mb-2">
-                    {g.cluster}
-                    <span className="ml-2 font-medium normal-case tracking-normal text-gray-400">
-                      · {g.track_name}
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {g.subjects.map(s => {
-                      const on = s.is_offered === 1;
-                      const busy = offerBusyId === s.id;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          disabled={busy}
-                          onClick={() => toggleOffering(s.id, !on)}
-                          className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                            on
-                              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                              : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300'
-                          } ${busy ? 'opacity-50 cursor-wait' : ''}`}>
-                          {on ? '● ON ' : '○ OFF '}
-                          {s.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
+              <ElectiveCatalogGrid
+                groups={offerGroups}
+                variant="offering"
+                accent="emerald"
+                onToggleOffer={toggleOffering}
+                busyIds={
+                  offerBusyId !== null ? new Set([offerBusyId]) : undefined
+                }
+              />
             )}
           </div>
         )}

@@ -7,6 +7,37 @@ import { getAiProvider, predictWithPython } from "../services/aiService";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
+ * Teacher visibility scope, mirroring the students.controller `my-students`
+ * rule (Strengthened SHS): learners enrolled in sections the teacher advises
+ * or is assigned to, PLUS learners on the roster of any elective the teacher
+ * handles — elective rosters cut across sections, so they are matched through
+ * `student_electives` instead of a section.
+ *
+ * All conditions assume the outer query exposes `e` (enrollments) and bind to
+ * the current school year.
+ */
+function teacherScopeCondition(userId: number, schoolYearId: number) {
+  return {
+    sql: `(e.section_id IN (
+        SELECT sec2.id FROM sections sec2
+        WHERE sec2.is_active = 1
+          AND (sec2.adviser_id = ?
+            OR EXISTS (
+              SELECT 1 FROM teacher_section_assignments tsa
+              WHERE tsa.section_id = sec2.id AND tsa.teacher_id = ?)))
+      OR EXISTS (
+        SELECT 1 FROM student_electives se
+        JOIN teacher_subject_assignments tsa2
+          ON tsa2.subject_id = se.subject_id
+         AND (tsa2.school_year_id = ? OR tsa2.school_year_id IS NULL)
+        WHERE se.school_year_id = ?
+          AND se.student_id = e.student_id
+          AND tsa2.teacher_id = ?))`,
+    params: [userId, userId, schoolYearId, schoolYearId, userId],
+  };
+}
+
+/**
  * GET /api/at-risk/trends — Live linear-regression classification of enrolled
  * students (always fresh — computed on-the-fly, no storage required).
  * Query: ?school_year_id=3&section_id=2&grade_level=7
@@ -32,11 +63,13 @@ export async function getStudentRiskTrends(req: Request, res: Response): Promise
 
     const params: any[] = [schoolYearId];
     const filters: string[] = ["e.status = 'enrolled'", "e.school_year_id = ?"];
-    // Teachers only see their own students — restrict to sections where they
-    // are the adviser. Admins, registrars, and principals see everyone.
+    // Teachers only see their own students — sections they advise/are assigned
+    // to, plus learners on their elective rosters (Strengthened SHS).
+    // Admins, registrars, and principals see everyone.
     if (req.user!.role === "teacher") {
-      filters.push("sec.adviser_id = ?");
-      params.push(req.user!.userId);
+      const scope = teacherScopeCondition(req.user!.userId, schoolYearId);
+      filters.push(scope.sql);
+      params.push(...scope.params);
     }
     if (section_id) {
       filters.push("e.section_id = ?");
@@ -162,6 +195,12 @@ export async function listPredictions(req: Request, res: Response): Promise<void
   try {
     const { risk_level, school_year_id, section_id, grade_level } = req.query;
 
+    // Resolve an SY for the teacher scope — teacher-scoped or not, an explicit
+    // ?school_year_id wins; otherwise the prediction's own SY drives the join.
+    let scopeSyId = school_year_id
+      ? parseInt(school_year_id as string, 10)
+      : null;
+
     let sql = `
       SELECT ar.*, s.name AS student_name, s.student_id, s.grade_level, s.lrn,
              u.name AS predicted_by_name
@@ -178,6 +217,24 @@ export async function listPredictions(req: Request, res: Response): Promise<void
     if (section_id) {
       sql += ` JOIN enrollments e ON e.student_id = ar.student_id AND e.school_year_id = ar.school_year_id`;
       conditions.push("e.section_id = ?"); params.push(parseInt(section_id as string));
+    }
+
+    // Teachers see predictions only for their own roster (sections they
+    // advise/are assigned to, plus learners on their elective rosters).
+    if (req.user!.role === "teacher") {
+      const userId = req.user!.userId;
+      if (!scopeSyId) {
+        const sy = await query<RowDataPacket[]>(
+          "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
+        );
+        scopeSyId = sy[0]?.id ?? null;
+      }
+      if (!sql.includes("JOIN enrollments")) {
+        sql += ` JOIN enrollments e ON e.student_id = ar.student_id AND e.school_year_id = ar.school_year_id AND e.status = 'enrolled'`;
+      }
+      const scope = teacherScopeCondition(userId, scopeSyId ?? 0);
+      conditions.push(scope.sql);
+      params.push(...scope.params);
     }
 
     if (conditions.length > 0) sql += " WHERE " + conditions.join(" AND ");
@@ -202,6 +259,52 @@ export async function runPrediction(req: Request, res: Response): Promise<void> 
     if (!school_year_id) {
       res.status(400).json({ error: "school_year_id is required." });
       return;
+    }
+
+    // Teacher guard: predictions may only target the teacher's own roster —
+    // learners on their advised/assigned sections or elective rosters. Without
+    // this a teacher could run predictions for the entire school.
+    if (req.user!.role === "teacher") {
+      const userId = req.user!.userId;
+      const scope = teacherScopeCondition(userId, school_year_id);
+      if (student_id) {
+        const owned = await query<RowDataPacket[]>(
+          `SELECT 1 FROM enrollments e
+           WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+             AND ${scope.sql} LIMIT 1`,
+          [student_id, school_year_id, ...scope.params]
+        );
+        if (owned.length === 0) {
+          res.status(403).json({
+            error: "Access denied: this learner is not on your roster.",
+          });
+          return;
+        }
+      } else if (section_id) {
+        const owned = await query<RowDataPacket[]>(
+          `SELECT 1 FROM sections sec
+           WHERE sec.id = ? AND sec.is_active = 1
+             AND (sec.adviser_id = ?
+               OR EXISTS (
+                 SELECT 1 FROM teacher_section_assignments tsa
+                 WHERE tsa.section_id = sec.id AND tsa.teacher_id = ?))`,
+          [section_id, userId, userId]
+        );
+        if (owned.length === 0) {
+          res.status(403).json({
+            error: "Access denied: this section is not assigned to you.",
+          });
+          return;
+        }
+      } else {
+        // No target given means "all enrolled students" — that must never run
+        // under a teacher account.
+        res.status(403).json({
+          error:
+            "Access denied: teachers must specify a student or section on their roster.",
+        });
+        return;
+      }
     }
 
     // Get students to evaluate
