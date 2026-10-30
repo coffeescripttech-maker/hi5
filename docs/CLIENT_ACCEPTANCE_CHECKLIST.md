@@ -435,6 +435,13 @@ Verified live (2026-10-30):
   (own advisory 200, foreign 403, principal 403). Activity-log rows confirmed
   (actor, learner, form, field, old → new). Test rows/accounts/logs removed;
   the real adviser on the borrowed test section was restored.
+- **Saved School Form Edits — Phase 2** (migration 047 `SHARED` form value):
+  cross-form shared fields verified live — SF1's school-identity header +
+  SF10's learner identity edits surface on the other forms (even on a closed
+  school year view), and a new school year starts carried over (SF1 learner
+  cells, SF10 learner + eligibility blocks; quarterly fields blank; remarks
+  excluded; current-SY saves shadow the carried values). Test rows/logs
+  removed afterwards.
 
 ⚠️ Remember to **restart your local API** (`node dist/index.js`) to pick up
 these backend changes — migrations already applied to the Railway DB.
@@ -495,15 +502,37 @@ Present:Jun "2" -> "3"`. Unchanged saves log nothing.
 ### 9.5 Backup ✅ (rule 17)
 `sf_form_edits` is a plain table — included in System Backup/restore as is.
 
-### 9.6 Not yet implemented (next pass — flagged by rules 8, 11/12/13/15)
-- **Shared fields are per-form, not yet cross-form** (rule 8, partial): the
-  school-identity header is stored once per form + school year (SF1's edit
-  doesn't propagate to SF5/SF9/SF10 yet). Quarterly fields (SF9 attendance /
-  observed values) already save per quarter + SY as required.
+### 9.6a Cross-form shared fields ✅ (rule 8 — implemented)
+Fields printed by more than one form are stored **once** under the `SHARED`
+form and show everywhere (verified live):
+1. On SF1 (or SF10), fix the **school-identity header** (School ID, Region,
+   Division, District, School Name) → Save. Open **any** of SF5/SF9/SF10,
+   even for a closed school year → the same header values are there.
+2. On SF10, edit a learner's **Sex / LRN / Birth Date** → open SF1 for that
+   learner → the same values appear (SF1 `s:sex/s:lrn/s:birthdate` answer
+   to SF10's learner block).
+3. A form-specific correction still wins on that form only (per-form rows
+   shadow the shared copy), and shared header fields refuse a learner scope
+   (they are school-wide).
+
+### 9.6b New school year carry-over ✅ (rule 15 — implemented)
+Every new school year starts **carried over**:
+- **SF1**: learner cells (address, parents, guardian, contact, IP, religion,
+  mother tongue, …) come from the immediately previous school year as a
+  prefill. `Remarks` is deliberately NOT carried (it belongs to the year's
+  own elective picks + legend).
+- **SF10**: the **learner identity block** (names, etc.) and the
+  **eligibility block** (elementary school, PEPT/ALS entries, …) carry over.
+  Scholastic records / learning areas / remedials are per-year by design.
+- **Quarterly fields start blank** (SF9 attendance, SF9 observed values,
+  parent signatures, SF5 grade tables).
+- A carried value is read-only prefill until someone edits + **Saves** it
+  into the new year; a field saved in the new year always wins over the
+  carried one.
+
+### 9.7 Not yet implemented (next pass — flagged by rules 11/12/13)
 - **"Edited" marker + Reset to system value** per cell.
 - Notice when the underlying system value changes after an edit.
 - Concurrent-edit warning (two users on the same form at once).
-- Carrying learner-level SF10/SF1 values into a new school year (quarterly
-  fields already start blank by their school-year key).
 
 ---

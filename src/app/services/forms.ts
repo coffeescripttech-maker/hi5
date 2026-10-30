@@ -177,7 +177,9 @@ export const formsApi = {
     if (scope.section_id) q.set('section_id', String(scope.section_id));
     if (scope.student_ids?.length)
       q.set('student_ids', scope.student_ids.join(','));
-    return api.get<{ edits: FormEditRow[] }>(`/forms/edits?${q.toString()}`);
+    return api.get<{ edits: FormEditRow[]; carried?: FormEditRow[] }>(
+      `/forms/edits?${q.toString()}`
+    );
   },
   /** Save a batch of per-field edits (empty string value = cleared field). */
   saveFormEdits: (

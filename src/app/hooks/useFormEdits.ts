@@ -22,7 +22,7 @@
  *   edits; values typed before the fetch completes are preserved.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formsApi } from '../services/forms';
+import { formsApi, FormEditRow } from '../services/forms';
 
 export type FormName = 'SF1' | 'SF5' | 'SF9' | 'SF10';
 
@@ -63,6 +63,10 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
   const { form, schoolYearId, studentId, sectionId, studentIds, enabled = true } = opts;
 
   const loadedRef = useRef<ValueMap>({});
+  // Rule 15 — previous school year's learner-level details, returned by the
+  // server separately and layered UNDER the current-SY saved values so a new
+  // year starts carried over while every field remains over-writable.
+  const carriedRef = useRef<ValueMap>({});
   const localRef = useRef<ValueMap>({});
   const [loadedTick, setLoadedTick] = useState(0); // re-render triggers
   const [local, setLocalState] = useState<ValueMap>({});
@@ -77,7 +81,9 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
   }, []);
 
   const recomputeMerged = useCallback(() => {
-    valuesRef.current = { ...loadedRef.current, ...localRef.current };
+    // Layering (rule 15): carried (previous-SY prefill) is the base, current
+    // school-year saved values win over it, unsaved edits win over both.
+    valuesRef.current = { ...carriedRef.current, ...loadedRef.current, ...localRef.current };
   }, []);
 
   const setLoaded = useCallback((next: ValueMap) => {
@@ -120,6 +126,12 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
         const map: ValueMap = {};
         for (const r of res.edits) map[editKey(r.student_id, r.field_key)] = r.value;
         setLoaded(map);
+        const cMap: ValueMap = {};
+        for (const r of (res as { carried?: FormEditRow[] }).carried ?? [])
+          cMap[editKey(r.student_id, r.field_key)] = r.value;
+        carriedRef.current = cMap;
+        recomputeMerged();
+        setLoadedTick(t => t + 1);
       })
       .catch(err => {
         if (cancelled) return;
@@ -136,7 +148,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, schoolYearId, scopeKey, enabled, buildScope, setLoaded]);
+  }, [form, schoolYearId, scopeKey, enabled, buildScope, setLoaded, recomputeMerged]);
 
   useEffect(() => {
     // New target → discard unsaved edits typed for the previous one, then
@@ -152,7 +164,10 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
       const key = editKey(studentId2, fieldKey);
       const l = localRef.current[key];
       if (l !== undefined) return l;
-      return loadedRef.current[key];
+      const ld = loadedRef.current[key];
+      if (ld !== undefined) return ld;
+      // Rule 15 — carried-over previous-SY value is the last fallback.
+      return carriedRef.current[key];
     },
     // re-render trigger so callers see fresh values
     [local, loadedTick]

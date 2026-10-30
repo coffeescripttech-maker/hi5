@@ -109,6 +109,15 @@ production Railway DB (2026-10-28) and verified.**
   - **`controllers/forms.controller.ts`** — `saveSF9FormData` (observed
     values) tightened the same way: teacher saves only for own-advisory
     learners; closed SY is Registrar/Admin only; Principal/Committee → 403.
+  - **Phase 2 — rules 8 + 15** (`utils/formSharedKeys.ts` + migration 047):
+    shared fields (school-identity header on all four forms; learner identity
+    `sex/lrn/birthDate` SF1↔SF10) are stored ONCE under `form='SHARED'` and
+    translated into each requesting form's namespace on read (per-form rows
+    shadow the shared copy). `GET /forms/edits` additionally returns
+    `carried` rows — the previous school year's learner-level namespaces
+    (SF1 `s:*` minus per-SY `remarks`, SF10 `learner:*`/`elig:*`) as a
+    read-only prefill; quarterly fields start blank and current-SY saves
+    always shadow carried values.
 - **PDF renderer** — renders are now **serialized** on the shared headless
   Chrome with a 180 s per-step timeout and crash-recovery relaunch (fixes a
   wedged-browser deadlock when renders queued up).
@@ -189,6 +198,10 @@ production Railway DB (2026-10-28) and verified.**
   - Explicit **Save** button + **● n unsaved edits** badge on every form
     (visible to admin/registrar; teacher sees it on SF9 only, principal and
     committee never).
+  - **Phase 2** — `hooks/useFormEdits.ts` layers `carried` (previous-SY
+    prefill, rule 15) UNDER the current school year's saved values, and
+    shared fields arrive pre-translated (rule 8) so no per-form change was
+    needed beyond the hook.
 
 ## F. Test & Verification Results
 
@@ -228,6 +241,18 @@ Live saved-form-edit probes (temp API on :3005, throwaway teacher account):
 | Activity Log rows (actor, learner, form, field, old → new) | ✅ verified |
 | Duplicate key / bad field key / unknown learner / unknown form | 400 / 400 / 404 / 400 |
 
+Phase-2 probes (temp API on :3005, admin account):
+
+| Probe | Result |
+|---|---|
+| Admin PUT SF10 `learner:sex` → stored once as `SHARED` `shared:learner:sex` | ✅ |
+| GET SF1 same learner → appears translated as `s:sex` | ✅ |
+| Admin PUT SF1 `header:schoolId` → GET SF9 (even closed SY 1 view) shows it | ✅ |
+| Rule 15: SF10 `elig:*` + `learner:middleName` saved in prev SY → appear in `carried` of SY3 | ✅ |
+| SF1 `s:remarks` excluded from carry; SF9/SF5 carry nothing (quarterly blank) | ✅ |
+| Current-SY save shadows the carried value | ✅ |
+| Shared header scoped to a learner → 400; shared learner field without a learner → 400 | ✅ |
+
 All test rows, the throwaway account, and probe activity-log rows were removed
 afterwards; the borrowed test section's real adviser was restored.
 
@@ -247,15 +272,15 @@ afterwards; the borrowed test section's real adviser was restored.
   automatic warning (the Committee resolves collisions when picking/confirming).
 - At-risk `AVG(grade)` is subject-agnostic by design — elective and core
   grade rows both feed the quarterly General-Average trend.
-- **Saved School Form Edits, Phase 1** (mirrors checklist §9.6):
-  - Shared fields are stored per form + school year — an edit on SF1's
-    school-identity header doesn't propagate to SF5/SF9/SF10 yet (rule 8,
-    partial; quarterly fields already work as specified).
+- **Saved School Form Edits, Phase 1+2** (mirrors checklist §9.6/§9.7):
+  - Shared fields cover the school-identity header + learner identity
+    (`sex/lrn/birthDate` SF1↔SF10). Other learner details printed on several
+    forms (names, addresses, guardian) are system-derived from the students
+    record, so the forms already agree on them; splitting SF10's name parts
+    ↔ SF1's full name is intentionally not shared (lossy mapping).
   - No "Edited" marker / Reset-to-system value (rule 11), no notice when the
     underlying record changes after an edit (rule 12), no concurrent-edit
-    warning (rule 13), and learner-level details are not auto-carried into a
-    new school year (rule 15 — quarterly fields start blank by their SY key,
-    which is the required part).
+    warning (rule 13).
 
 ## H. Open Questions for the Client
 
@@ -276,8 +301,8 @@ afterwards; the borrowed test section's real adviser was restored.
 
 ## I. Deployment & Rollback
 
-- **Applied:** migrations 044 (elective timeslots) **and 046 (`sf_form_edits`)**
-  are already live on the production Railway DB.
+- **Applied:** migrations 044 (elective timeslots), **046 (`sf_form_edits`)**
+  **and 047 (SHARED form value)** are already live on the production Railway DB.
 - **Deploy:** deploy the updated server (`server/dist`) and frontend
   (`npm run build`) together; the API is backward-compatible with the old
   frontend except for the new elective flows, which old clients simply don't

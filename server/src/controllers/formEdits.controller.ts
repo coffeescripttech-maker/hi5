@@ -2,6 +2,14 @@ import { Request, Response } from "express";
 import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
 import { logActivity } from "../utils/activityLogger";
+import {
+  normalizeForStorage,
+  sharedKeyForForm,
+  CARRY_OVER_KEYS,
+  CARRY_OVER_EXCLUDED,
+  CarryRow,
+  StorageEdit,
+} from "../utils/formSharedKeys";
 
 /**
  * Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt).
@@ -13,9 +21,12 @@ import { logActivity } from "../utils/activityLogger";
  * Rules implemented here:
  *  #4  save keyed (learner, SY, form, field, value)
  *  #7  clearing a field is a valid edit (stored as "")
- *  #8  shared fields (header/signers) saved once — student_id NULL rows
+ *  #8  shared fields (school-identity header, learner identity) saved ONCE
+ *      under form='SHARED' and shown on every form via key translation
  *  #10 strict teacher scope: SF9 attendance cells only, own advisory
  *  #14 every save -> Activity Log entry (actor, field, old -> new)
+ *  #15 new school year: learner-level details carried over (read-only
+ *      prefill until saved into the new year), quarterly fields blank
  *  #16 closed school years (is_current = 0): Registrar/Admin only
  */
 
@@ -182,6 +193,10 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
         .join(",")}))`;
       params.push(...studentIds);
     }
+    // The SHARED scope reuses the exact same student scope (the enrollment
+    // subquery is form-agnostic); params are everything after (form, SY).
+    const sharedScopeSql = studentScopeSql;
+    const sharedParams = params.slice(2);
 
     const rows = await query<EditRow[]>(
       `SELECT id, form, school_year_id, student_id, field_key, value, updated_by, updated_at
@@ -189,15 +204,91 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
         WHERE form = ? AND school_year_id = ?${studentScopeSql}`,
       params
     );
-    res.json({
-      edits: rows.map(r => ({
-        student_id: r.student_id,
-        field_key: r.field_key,
-        value: r.value ?? "",
-        updated_by: r.updated_by,
-        updated_at: r.updated_at,
-      })),
-    });
+
+    // Rule 8 — pull the SHARED (cross-form) rows. They are SY-agnostic for
+    // reading (a school-identity fix shows on historical forms too); if the
+    // same key was ever written under several school years, the latest write
+    // wins. Canonical keys are then translated into this form's namespace.
+    const sharedRows = await query<EditRow[]>(
+      `SELECT id, form, school_year_id, student_id, field_key, value, updated_by, updated_at
+         FROM sf_form_edits
+        WHERE form = 'SHARED'${sharedScopeSql}`,
+      sharedParams
+    );
+    const sharedLatest = new Map<string, EditRow>();
+    for (const r of sharedRows) {
+      const key = `${r.student_id ?? 0}|${r.field_key}`;
+      const prev = sharedLatest.get(key);
+      if (
+        !prev ||
+        new Date(r.updated_at).getTime() > new Date(prev.updated_at).getTime()
+      ) {
+        sharedLatest.set(key, r);
+      }
+    }
+    // Per-form rows win over SHARED for the exact same form key (more
+    // specific, and lets a registrar correct one form without touching the
+    // rest — the SHARED copy still serves the other forms).
+    const ownKeys = new Set(rows.map(r => `${r.student_id ?? 0}|${r.field_key}`));
+    const sharedMerged: EditRow[] = [];
+    for (const [, r] of sharedLatest) {
+      const fk = sharedKeyForForm(form, r.field_key);
+      if (!fk) continue; // canonical key has no counterpart on this form
+      if (ownKeys.has(`${r.student_id ?? 0}|${fk}`)) continue;
+      sharedMerged.push({ ...r, field_key: fk });
+    }
+
+    const edits = [...rows, ...sharedMerged].map(r => ({
+      student_id: r.student_id,
+      field_key: r.field_key,
+      value: r.value ?? "",
+      updated_by: r.updated_by,
+      updated_at: r.updated_at,
+    }));
+
+    // Rule 15 — learner-level details carried over from the previous school
+    // year as a read-only prefill (quarterly fields start blank). Returned
+    // separately so the client layers it UNDER the current-SY saved values.
+    const carried: CarryRow[] = [];
+    const carryPatterns = CARRY_OVER_KEYS[form] ?? [];
+    if (carryPatterns.length > 0) {
+      const prevSyRows = await query<SyRow[]>(
+        `SELECT id FROM school_years WHERE id < ? ORDER BY id DESC LIMIT 1`,
+        [school_year_id]
+      );
+      if (prevSyRows.length > 0) {
+        const prevSyId = prevSyRows[0].id;
+        const excluded = CARRY_OVER_EXCLUDED[form] ?? [];
+        const likeSql = carryPatterns
+          .map(() => "field_key LIKE ?")
+          .join(" OR ");
+        const excludedSql =
+          excluded.length > 0
+            ? ` AND field_key NOT IN (${excluded.map(() => "?").join(",")})`
+            : "";
+        const carriedRows = await query<EditRow[]>(
+          `SELECT id, form, school_year_id, student_id, field_key, value, updated_by, updated_at
+             FROM sf_form_edits
+            WHERE form = ? AND school_year_id = ? AND (${likeSql})${excludedSql}`,
+          [form, prevSyId, ...carryPatterns, ...excluded]
+        );
+        const carriedKeys = new Set(edits.map(e => `${e.student_id ?? 0}|${e.field_key}`));
+        for (const r of carriedRows) {
+          const key = `${r.student_id ?? 0}|${r.field_key}`;
+          if (carriedKeys.has(key)) continue; // current-SY (or shared) value wins
+          carriedKeys.add(key);
+          carried.push({
+            student_id: r.student_id,
+            field_key: r.field_key,
+            value: r.value ?? "",
+            updated_at: r.updated_at,
+            carried_from_sy: prevSyId,
+          });
+        }
+      }
+    }
+
+    res.json({ edits, carried });
   } catch (error) {
     console.error("Get form edits error:", error);
     res.status(500).json({ error: "Failed to load saved form edits." });
@@ -256,8 +347,17 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
     }
 
     // Validate + normalize first so a bad key aborts everything up-front.
+    // Rule 8: shared fields (school-identity header, learner identity
+    // SF1<->SF10) are stored ONCE on the SHARED form and shown on every
+    // form via key translation.
     const seen = new Set<string>();
-    type NormEdit = { student_id: number | null; field_key: string; value: string };
+    type NormEdit = {
+      storage: StorageEdit;
+      requested_form: string;
+      student_id: number | null;
+      field_key: string;
+      value: string;
+    };
     const normEdits: NormEdit[] = [];
     for (const e of edits) {
       const student_id = e.student_id == null ? null : Number(e.student_id);
@@ -269,18 +369,40 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
         res.status(400).json({ error: `Invalid field key: ${e.field_key ?? "(empty)"}` });
         return;
       }
+      const storage = normalizeForStorage(form as string, e.field_key);
+      if (storage && storage.shared) {
+        if (storage.field_key.startsWith("header:") && student_id !== null) {
+          res.status(400).json({
+            error: `Header field ${e.field_key} is a school-wide value — it must not be scoped to one learner.`,
+          });
+          return;
+        }
+        if (storage.field_key.startsWith("shared:learner:") && student_id === null) {
+          res.status(400).json({
+            error: `Shared learner field ${e.field_key} requires a learner (student_id).`,
+          });
+          return;
+        }
+      }
       if (typeof e.value !== "string" || e.value.length > 5000) {
         res.status(400).json({ error: `Invalid or too-long value at ${e.field_key} (max 5000 chars).` });
         return;
       }
       // Rule 7: clearing a field is a valid edit — empty string is stored.
-      const key = `${student_id ?? 0}|${e.field_key}`;
+      const norm = storage ?? { form: form as string, field_key: e.field_key, shared: false };
+      const key = `${student_id ?? 0}|${norm.form}|${norm.field_key}`;
       if (seen.has(key)) {
         res.status(400).json({ error: `Duplicate edit for ${e.field_key}.` });
         return;
       }
       seen.add(key);
-      normEdits.push({ student_id, field_key: e.field_key, value: e.value });
+      normEdits.push({
+        storage: norm,
+        requested_form: form as string,
+        student_id,
+        field_key: e.field_key,
+        value: e.value,
+      });
     }
 
     const isAdminOrRegistrar = role === "admin" || role === "registrar";
@@ -342,11 +464,14 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
           WHERE form = ? AND school_year_id = ? AND field_key = ?
             AND (${e.student_id === null ? "student_id IS NULL" : "student_id = ?"})`,
         e.student_id === null
-          ? [form, school_year_id, e.field_key]
-          : [form, school_year_id, e.field_key, e.student_id]
+          ? [e.storage.form, school_year_id, e.storage.field_key]
+          : [e.storage.form, school_year_id, e.storage.field_key, e.student_id]
       );
       if (rows.length > 0) {
-        existingValues.set(rowKey(e.student_id, e.field_key), rows[0].value ?? "");
+        existingValues.set(
+          `${e.student_id ?? 0}|${e.storage.form}|${e.storage.field_key}`,
+          rows[0].value ?? ""
+        );
       }
     }
 
@@ -357,10 +482,13 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
           WHERE form = ? AND school_year_id = ? AND field_key = ?
             AND (${e.student_id === null ? "student_id IS NULL" : "student_id = ?"}) LIMIT 1`,
         e.student_id === null
-          ? [form, school_year_id, e.field_key]
-          : [form, school_year_id, e.field_key, e.student_id]
+          ? [e.storage.form, school_year_id, e.storage.field_key]
+          : [e.storage.form, school_year_id, e.storage.field_key, e.student_id]
       );
-      const oldValue = existingValues.get(rowKey(e.student_id, e.field_key)) ?? "";
+      const oldValue =
+        existingValues.get(
+          `${e.student_id ?? 0}|${e.storage.form}|${e.storage.field_key}`
+        ) ?? "";
       if (existingRows.length > 0) {
         await query(
           "UPDATE sf_form_edits SET value = ?, updated_by = ? WHERE id = ?",
@@ -370,27 +498,38 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
         await query(
           `INSERT INTO sf_form_edits (form, school_year_id, student_id, field_key, value, updated_by)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [form, school_year_id, e.student_id, e.field_key, e.value, user.userId]
+          [
+            e.storage.form,
+            school_year_id,
+            e.student_id,
+            e.storage.field_key,
+            e.value,
+            user.userId,
+          ]
         );
       }
       savedCount++;
       if (oldValue !== e.value) {
-        // Rule 14 — actor, learner, form, field, old -> new. Time is on the log row.
+        // Rule 14 — actor, learner, form, field, old -> new. Time is on the
+        // log row. SHARED rows are labeled with both the shared store and the
+        // form the edit was typed on.
         const target =
           e.student_id != null
             ? studentNames.get(e.student_id) ?? `student ${e.student_id}`
             : "form-level";
         await logActivity(
           user.userId,
-          `Saved ${form} edit for ${target}: ${e.field_key} "${oldValue}" -> "${e.value}"`,
+          `Saved ${e.storage.shared ? "SHARED" : e.storage.form} edit${
+            e.storage.shared ? ` (typed on ${e.requested_form})` : ""
+          } for ${target}: ${e.field_key} "${oldValue}" -> "${e.value}"`,
           "sf_form_edits",
-          `${form}:${school_year_id}:${e.student_id ?? 0}:${e.field_key}`
+          `${e.storage.form}:${school_year_id}:${e.student_id ?? 0}:${e.storage.field_key}`
         );
       }
     }
 
     res.json({
-      message: `Saved ${savedCount} ${form} edit${savedCount === 1 ? "" : "s"}.`,
+      message: `Saved ${savedCount} edit${savedCount === 1 ? "" : "s"} on ${form}.`,
     });
   } catch (error) {
     console.error("Save form edits error:", error);
