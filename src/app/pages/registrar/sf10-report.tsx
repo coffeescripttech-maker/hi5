@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import { useFormEdits, editKey } from '../../hooks/useFormEdits';
+import { FormEditsMenu } from '../../components/FormEditsMenu';
 import {
   Loader2,
   Printer,
@@ -898,6 +899,7 @@ export function SF10Report() {
                     </button>
                   </div>
                 )}
+                <FormEditsMenu api={sf10Edits} canSave={canSaveFormEdits} />
                 <button
                   onClick={() => setPreviewOpen(true)}
                   disabled={!sf10Data || exporting}

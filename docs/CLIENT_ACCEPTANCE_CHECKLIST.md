@@ -442,6 +442,21 @@ Verified live (2026-10-30):
   cells, SF10 learner + eligibility blocks; quarterly fields blank; remarks
   excluded; current-SY saves shadow the carried values). Test rows/logs
   removed afterwards.
+- **Saved School Form Edits — Phase 3** (migration 048
+  `sf_form_edits.system_value`, applied to the production DB): Edited
+  markers + per-field **Reset to system value**, "system value changed"
+  notices, and the concurrent-edit (409) warning verified live on a temp
+  server: baseline round-trip (GET returns `system_value`), reset of saved
+  rows (idempotent, logged `"..." -> system value`), 409 on a stale
+  `opened_at` with a different value → **force** overwrite 200 → "Keep" base-
+  line refresh 200, identical-value saves never conflict, teacher DELETE
+  reset gating mirrors the save gating (own advisory 200; SF1/non-attendance/
+  foreign learner/closed SY → 403, two learners in one batch → 400); admin on
+  a closed SY allowed. The conflict clock is the **database's own time**
+  (GET/PUT exchange `opened_at` as a DB-side timestamp and the `updated_at >
+  opened_at` compare runs inside SQL), so it is immune to client clock skew
+  and the DB/API timezone mismatch observed on Railway. Test rows/users/logs
+  cleaned; the real adviser was restored.
 
 ⚠️ Remember to **restart your local API** (`node dist/index.js`) to pick up
 these backend changes — migrations already applied to the Railway DB.
@@ -530,9 +545,38 @@ Every new school year starts **carried over**:
   into the new year; a field saved in the new year always wins over the
   carried one.
 
-### 9.7 Not yet implemented (next pass — flagged by rules 11/12/13)
-- **"Edited" marker + Reset to system value** per cell.
-- Notice when the underlying system value changes after an edit.
-- Concurrent-edit warning (two users on the same form at once).
+### 9.7 Edited markers, Reset to system value, change notices, concurrency ✅ (rules 11–13 — implemented)
+
+- **Edited marker (rule 11)**: every school-form header bar now has an
+  **Edited fields** menu (next to **Save**, role-gated the same way). The
+  SF1/SF5 leaf cells that were taken over from the system-derived value carry
+  a small **amber dot** (hidden in print/PDF output).
+- **Per-item Reset (rule 11)**: each menu entry shows learner + field +
+  value, with a **Reset** button that removes the stored edit so the form
+  shows the system value again (carried-over prefills are hidden with an
+  explicit empty edit instead of a DELETE). **Reset all** clears every listed
+  field in one go; deletes are logged as `Reset <form> edit for <learner>:
+  <field> "<old>" -> system value`. Resetting the form-level count/date cells
+  works the same way.
+- **"System value changed" notice (rule 12)**: when the record an edit was
+  taken from changed since the edit (its stored baseline `system_value`
+  differs from the freshly derived value at render time), the entry gains a
+  red `system value changed` tag and two actions — **Keep** (accept the new
+  system value as the edit's new baseline) or **Reset**. Baselines are
+  recorded for SF1 learner cells / registration counts / BoSY-EoSY dates and
+  SF5 learner cells / summary + progress counts; fields without a derivable
+  base (signers, pure-text cells) simply show as edited.
+- **Concurrent-edit warning (rule 13)**: saved edits made by someone else
+  after a form was opened are refused with **409 + the conflicting fields**,
+  and the menu shows a banner — *Keep mine, overwrite* (forced save) or
+  *Load theirs, drop mine* (reload). Identical-value saves never conflict.
+  The comparison runs on the **database clock**, so it is timezone-safe
+  (documented in §8 Phase 3).
+- Gating for Reset mirrors saving (rule 10/16): teachers reset only SF9
+  attendance of their own advisory learners, one learner per request;
+  Registrar/Admin on everything; closed school years Registrar/Admin only.
+
+After each form's edits load, an **Edited fields** pill shows the count (and
+a Δn badge when any baseline has drifted).
 
 ---

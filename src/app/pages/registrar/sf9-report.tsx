@@ -6,6 +6,7 @@ import { sectionsApi, SectionRow } from '../../services/sections';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
 import { formsApi, SF9Row } from '../../services/forms';
 import { useFormEdits, editKey } from '../../hooks/useFormEdits';
+import { FormEditsMenu } from '../../components/FormEditsMenu';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { subjectsApi } from '../../services/subjects';
 import { electivesApi, ElectiveBatchRow } from '../../services/electives';
@@ -882,6 +883,7 @@ export function SF9Report() {
                     </button>
                   </div>
                 )}
+                <FormEditsMenu api={sf9Edits} canSave={canSaveFormEdits} />
                 <button
                   onClick={() => setPreviewOpen(true)}
                   disabled={exporting}

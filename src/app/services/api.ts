@@ -175,8 +175,8 @@ export const api = {
     return request<T>(path, { method: 'PUT', body });
   },
 
-  del<T = { message: string }>(path: string): Promise<T> {
-    return request<T>(path, { method: 'DELETE' });
+  del<T = { message: string }>(path: string, body?: unknown): Promise<T> {
+    return request<T>(path, { method: 'DELETE', body: body != null ? JSON.stringify(body) : undefined });
   },
 
   /**

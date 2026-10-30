@@ -8,7 +8,7 @@ import {
   getSF9FormData,
   saveSF9FormData,
 } from "../controllers/forms.controller";
-import { getFormEdits, saveFormEdits } from "../controllers/formEdits.controller";
+import { getFormEdits, saveFormEdits, resetFormEdits } from "../controllers/formEdits.controller";
 
 const router = Router();
 
@@ -26,5 +26,7 @@ router.put("/sf9-data", saveSF9FormData);
 // gating lives in the controller (rule 10 strict, rule 16 closed-SY).
 router.get("/edits", getFormEdits);
 router.put("/edits", saveFormEdits);
+// Rule 11 reset-to-system: removes saved edits so the system value shows.
+router.delete("/edits", resetFormEdits);
 
 export default router;

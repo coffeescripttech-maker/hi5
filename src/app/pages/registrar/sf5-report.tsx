@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import './sf1.css';
 import { useFormEdits, editKey } from '../../hooks/useFormEdits';
+import { FormEditsMenu } from '../../components/FormEditsMenu';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
 import { studentsApi, StudentRow } from '../../services/students';
@@ -453,6 +454,8 @@ export function SF5Report() {
       sids[i] = s.id;
       const overlay: RowData = { ...newRows[i] };
       for (const cellKey of Object.keys(overlay)) {
+        // Rule 11/12: the derived value is the system baseline.
+        sf5Edits.setBase(s.id, `s:${cellKey}`, String(newRows[i][cellKey] ?? ''));
         const sv = merged[editKey(s.id, `s:${cellKey}`)];
         if (sv !== undefined) overlay[cellKey] = sv;
       }
@@ -587,6 +590,12 @@ export function SF5Report() {
             const rows = base.map(r => [...r]);
             rows.forEach((_r, ri) => {
               for (let ci = 0; ci < 3; ci++) {
+                // Rule 11/12: derived count = system baseline.
+                sf5Edits.setBase(
+                  null,
+                  `${keyPrefix}:${ri}:${ci}`,
+                  rows[ri][ci]
+                );
                 const sv = merged[editKey(null, `${keyPrefix}:${ri}:${ci}`)];
                 if (sv !== undefined) rows[ri][ci] = sv;
               }
@@ -604,6 +613,15 @@ export function SF5Report() {
             progress.map(x => [String(x.male), String(x.female), String(x.total)])
           );
 
+          // Rule 11/12: derived statistics are the system baseline for
+          // the per-learner stat cells (Edited marker + menu drift).
+          enrolled.forEach(s => {
+            const st = nextStats[s.id];
+            sf5Edits.setBase(s.id, 's:average', String(st?.average ?? ''));
+            sf5Edits.setBase(s.id, 's:action', String(st?.action ?? ''));
+            sf5Edits.setBase(s.id, 's:incomplete_completed', String(st?.incompleteCompleted ?? ''));
+            sf5Edits.setBase(s.id, 's:incomplete_current', String(st?.incompleteCurrent ?? ''));
+          });
           setRows(prev => {
             const next = [...prev];
             enrolled.forEach((s, i) => {
@@ -864,6 +882,7 @@ export function SF5Report() {
                   </Button>
                 </div>
               )}
+              <FormEditsMenu api={sf5Edits} canSave={canSaveFormEdits} />
               <Button
                 size="sm"
                 onClick={() => setPreviewOpen(true)}
@@ -1092,7 +1111,12 @@ export function SF5Report() {
                                     : e.target.value
                                 )
                               }
-                              className="sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50"
+                              className={`sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50${
+                                rowStudentIds[r] != null &&
+                                sf5Edits.isEdited(rowStudentIds[r], `s:${c.key}`)
+                                  ? ' sf-edited-cell'
+                                  : ''
+                              }`}
                             />
                           </td>
                         ))}

@@ -42,6 +42,8 @@ interface EditRow extends RowDataPacket {
   student_id: number | null;
   field_key: string;
   value: string | null;
+  /** Rule 11/12 — the system value the edit replaced (NULL = unknown/legacy). */
+  system_value: string | null;
   updated_by: number;
   updated_at: Date;
 }
@@ -103,6 +105,19 @@ async function isTeacherAllowedForSection(
     [sectionId, schoolYearId, userId, userId, schoolYearId]
   );
   return rows.length > 0;
+}
+
+/**
+ * The database's own wall-clock ("YYYY-MM-DD HH:MM:SS"). Used for rule 13:
+ * both `opened_at` and `updated_at` live on the same clock so the
+ * `updated_at > opened_at` comparison can run inside SQL and stay immune to
+ * client clock skew and mixed timezones between the DB and the API host.
+ */
+async function dbNow(): Promise<string> {
+  const rows = await query<RowDataPacket[]>(
+    "SELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s') AS dbnow"
+  );
+  return String(rows[0]?.dbnow ?? "");
 }
 
 /**
@@ -199,7 +214,7 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
     const sharedParams = params.slice(2);
 
     const rows = await query<EditRow[]>(
-      `SELECT id, form, school_year_id, student_id, field_key, value, updated_by, updated_at
+      `SELECT id, form, school_year_id, student_id, field_key, value, system_value, updated_by, updated_at
          FROM sf_form_edits
         WHERE form = ? AND school_year_id = ?${studentScopeSql}`,
       params
@@ -210,7 +225,7 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
     // same key was ever written under several school years, the latest write
     // wins. Canonical keys are then translated into this form's namespace.
     const sharedRows = await query<EditRow[]>(
-      `SELECT id, form, school_year_id, student_id, field_key, value, updated_by, updated_at
+      `SELECT id, form, school_year_id, student_id, field_key, value, system_value, updated_by, updated_at
          FROM sf_form_edits
         WHERE form = 'SHARED'${sharedScopeSql}`,
       sharedParams
@@ -242,6 +257,7 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
       student_id: r.student_id,
       field_key: r.field_key,
       value: r.value ?? "",
+      system_value: r.system_value ?? null,
       updated_by: r.updated_by,
       updated_at: r.updated_at,
     }));
@@ -288,7 +304,8 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
       }
     }
 
-    res.json({ edits, carried });
+    const opened = await dbNow();
+    res.json({ edits, carried, opened_at: opened });
   } catch (error) {
     console.error("Get form edits error:", error);
     res.status(500).json({ error: "Failed to load saved form edits." });
@@ -303,10 +320,20 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
  */
 export async function saveFormEdits(req: Request, res: Response): Promise<void> {
   try {
-    const { form, school_year_id, edits } = req.body as {
+    const { form, school_year_id, edits, opened_at, force } = req.body as {
       form?: string;
       school_year_id?: number;
-      edits?: { student_id?: number | null; field_key: string; value: string }[];
+      edits?: {
+        student_id?: number | null;
+        field_key: string;
+        value: string;
+        /** Optional rule 11/12 baseline: the system value this edit replaces. */
+        system_value?: string | null;
+      }[];
+      /** When the form was opened — used for rule 13 conflict detection. */
+      opened_at?: string;
+      /** Set on the confirmed overwrite after a rule 13 conflict. */
+      force?: boolean;
     };
     if (!FORMS.has(form ?? "") || !school_year_id) {
       res.status(400).json({ error: "form (SF1/SF5/SF9/SF10) and school_year_id are required." });
@@ -357,6 +384,7 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
       student_id: number | null;
       field_key: string;
       value: string;
+      system_value: string | null;
     };
     const normEdits: NormEdit[] = [];
     for (const e of edits) {
@@ -367,6 +395,10 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
       }
       if (typeof e.field_key !== "string" || !FIELD_KEY_RE.test(e.field_key)) {
         res.status(400).json({ error: `Invalid field key: ${e.field_key ?? "(empty)"}` });
+        return;
+      }
+      if (e.system_value != null && (typeof e.system_value !== "string" || e.system_value.length > 5000)) {
+        res.status(400).json({ error: `Invalid system_value at ${e.field_key} (max 5000 chars).` });
         return;
       }
       const storage = normalizeForStorage(form as string, e.field_key);
@@ -402,6 +434,7 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
         student_id,
         field_key: e.field_key,
         value: e.value,
+        system_value: e.system_value ?? null,
       });
     }
 
@@ -457,21 +490,71 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
 
     // Pre-fetch existing values once (SELECT-then-upsert because MySQL unique
     // keys treat NULLs as distinct — ON DUPLICATE KEY cannot match them).
-    const existingValues = new Map<string, string>();
+    // Rule 13: the client echoes the database-side clock captured when the
+    // form loaded (`opened_at`, returned by GET). Rows whose updated_at is
+    // newer than that belong to someone else's saved edit — refuse with 409
+    // unless the caller confirmed the overwrite (force) or the incoming value
+    // is identical (harmless no-op). The comparison runs inside SQL so both
+    // sides share one session timezone.
+    const openedAt =
+      opened_at != null && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(opened_at)
+        ? opened_at
+        : null;
+    const existingValues = new Map<
+      string,
+      { value: string; stale: boolean; updated_at: Date }
+    >();
     for (const e of normEdits) {
-      const rows = await query<EditRow[]>(
-        `SELECT value FROM sf_form_edits
+      const rows = await query<
+        (EditRow & { stale?: number })[]
+      >(
+        `SELECT value, updated_at${openedAt ? ", (updated_at > ?) AS stale" : ""}
+          FROM sf_form_edits
           WHERE form = ? AND school_year_id = ? AND field_key = ?
             AND (${e.student_id === null ? "student_id IS NULL" : "student_id = ?"})`,
-        e.student_id === null
-          ? [e.storage.form, school_year_id, e.storage.field_key]
-          : [e.storage.form, school_year_id, e.storage.field_key, e.student_id]
+        openedAt
+          ? e.student_id === null
+            ? [openedAt, e.storage.form, school_year_id, e.storage.field_key]
+            : [openedAt, e.storage.form, school_year_id, e.storage.field_key, e.student_id]
+          : e.student_id === null
+            ? [e.storage.form, school_year_id, e.storage.field_key]
+            : [e.storage.form, school_year_id, e.storage.field_key, e.student_id]
       );
       if (rows.length > 0) {
         existingValues.set(
           `${e.student_id ?? 0}|${e.storage.form}|${e.storage.field_key}`,
-          rows[0].value ?? ""
+          {
+            value: rows[0].value ?? "",
+            stale: Number(rows[0].stale ?? 0) === 1,
+            updated_at: rows[0].updated_at,
+          }
         );
+      }
+    }
+    if (openedAt && !force) {
+      const conflicts = normEdits
+        .filter(e => {
+          const ex = existingValues.get(
+            `${e.student_id ?? 0}|${e.storage.form}|${e.storage.field_key}`
+          );
+          if (!ex) return false;
+          if (ex.value === e.value) return false; // identical write is a no-op
+          return ex.stale;
+        })
+        .map(e => ({
+          student_id: e.student_id,
+          field_key: e.field_key,
+          updated_at:
+            existingValues.get(
+              `${e.student_id ?? 0}|${e.storage.form}|${e.storage.field_key}`
+            )?.updated_at.toISOString() ?? null,
+        }));
+      if (conflicts.length > 0) {
+        res.status(409).json({
+          error: `Changed by someone else since this form was opened (${conflicts.length} field${conflicts.length === 1 ? "" : "s"}). Overwrite or reload to continue.`,
+          conflicts,
+        });
+        return;
       }
     }
 
@@ -488,22 +571,25 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
       const oldValue =
         existingValues.get(
           `${e.student_id ?? 0}|${e.storage.form}|${e.storage.field_key}`
-        ) ?? "";
+        )?.value ?? "";
       if (existingRows.length > 0) {
         await query(
-          "UPDATE sf_form_edits SET value = ?, updated_by = ? WHERE id = ?",
-          [e.value, user.userId, existingRows[0].id]
+          `UPDATE sf_form_edits
+              SET value = ?, system_value = COALESCE(?, system_value), updated_by = ?
+            WHERE id = ?`,
+          [e.value, e.system_value, user.userId, existingRows[0].id]
         );
       } else {
         await query(
-          `INSERT INTO sf_form_edits (form, school_year_id, student_id, field_key, value, updated_by)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO sf_form_edits (form, school_year_id, student_id, field_key, value, system_value, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             e.storage.form,
             school_year_id,
             e.student_id,
             e.storage.field_key,
             e.value,
+            e.system_value,
             user.userId,
           ]
         );
@@ -528,8 +614,11 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
       }
     }
 
+    // Rule 13 — hand the client a fresh database-side clock stamp so the
+    // next save from the same session compares against this save's turn.
     res.json({
       message: `Saved ${savedCount} edit${savedCount === 1 ? "" : "s"} on ${form}.`,
+      opened_at: await dbNow(),
     });
   } catch (error) {
     console.error("Save form edits error:", error);
@@ -539,4 +628,177 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
 
 function rowKey(student_id: number | null, field_key: string): string {
   return `${student_id ?? 0}|${field_key}`;
+}
+
+/**
+ * DELETE /api/forms/edits — rule 11 "Reset to system value": remove saved
+ * edits so the form shows the system-derived value again.
+ * Body: { form, school_year_id, keys: [{ student_id?, field_key }] }
+ * Gating mirrors saveFormEdits (rule 10 strict / rule 16 closed SY); every
+ * removal is logged with the value that was discarded (rule 14).
+ */
+export async function resetFormEdits(req: Request, res: Response): Promise<void> {
+  try {
+    const { form, school_year_id, keys } = req.body as {
+      form?: string;
+      school_year_id?: number;
+      keys?: { student_id?: number | null; field_key: string }[];
+    };
+    if (!FORMS.has(form ?? "") || !school_year_id) {
+      res.status(400).json({ error: "form (SF1/SF5/SF9/SF10) and school_year_id are required." });
+      return;
+    }
+    if (!Array.isArray(keys) || keys.length === 0) {
+      res.status(400).json({ error: "keys must be a non-empty array." });
+      return;
+    }
+    if (keys.length > MAX_EDITS_PER_PUT) {
+      res.status(400).json({ error: `Too many keys in one request (max ${MAX_EDITS_PER_PUT}).` });
+      return;
+    }
+
+    const user = req.user!;
+    const role = user.role;
+    if (!["admin", "registrar", "teacher"].includes(role)) {
+      res.status(403).json({ error: "You are not allowed to reset school form edits." });
+      return;
+    }
+    // Rule 16: closed school years — only Registrar/Admin.
+    const syRows = await query<SyRow[]>(
+      "SELECT id, sy_label, is_current FROM school_years WHERE id = ? LIMIT 1",
+      [school_year_id]
+    );
+    if (syRows.length === 0) {
+      res.status(404).json({ error: "School year not found." });
+      return;
+    }
+    if (Number(syRows[0].is_current) !== 1 && !["admin", "registrar"].includes(role)) {
+      res.status(403).json({
+        error: `School year ${syRows[0].sy_label} is closed — only the Registrar or Administrator can change its school forms.`,
+      });
+      return;
+    }
+
+    // Normalize to storage coordinates (shared keys included) + validate.
+    const seen = new Set<string>();
+    type NormKey = {
+      storage: StorageEdit;
+      student_id: number | null;
+      field_key: string;
+    };
+    const normKeys: NormKey[] = [];
+    for (const k of keys) {
+      const student_id = k.student_id == null ? null : Number(k.student_id);
+      if (student_id != null && (!Number.isInteger(student_id) || student_id <= 0)) {
+        res.status(400).json({ error: `Invalid student id: ${student_id}` });
+        return;
+      }
+      if (typeof k.field_key !== "string" || !FIELD_KEY_RE.test(k.field_key)) {
+        res.status(400).json({ error: `Invalid field key: ${k.field_key ?? "(empty)"}` });
+        return;
+      }
+      const storage = normalizeForStorage(form as string, k.field_key);
+      if (storage && storage.shared) {
+        if (storage.field_key.startsWith("header:") && student_id !== null) {
+          res.status(400).json({
+            error: `Header field ${k.field_key} is a school-wide value — it must not be scoped to one learner.`,
+          });
+          return;
+        }
+        if (storage.field_key.startsWith("shared:learner:") && student_id === null) {
+          res.status(400).json({
+            error: `Shared learner field ${k.field_key} requires a learner (student_id).`,
+          });
+          return;
+        }
+      }
+      const norm = storage ?? { form: form as string, field_key: k.field_key, shared: false };
+      const key = `${student_id ?? 0}|${norm.form}|${norm.field_key}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      normKeys.push({ storage: norm, student_id, field_key: k.field_key });
+    }
+
+    // Rule 10 (strict) — teachers reset only SF9 attendance keys, one
+    // learner at a time, own advisory only.
+    if (role === "teacher") {
+      if (form !== "SF9") {
+        res.status(403).json({ error: "Teachers can only reset SF9 attendance entries." });
+        return;
+      }
+      if (!normKeys.every(e => e.field_key.startsWith("attendance:"))) {
+        res.status(403).json({ error: "Teachers can only reset attendance cells on SF9." });
+        return;
+      }
+      const firstStudent = normKeys[0].student_id;
+      if (firstStudent === null || !normKeys.every(e => e.student_id === firstStudent)) {
+        res.status(400).json({ error: "Attendance resets must target a single student." });
+        return;
+      }
+      if (!(await isAdviserOfStudent(user.userId, firstStudent, Number(school_year_id)))) {
+        res.status(403).json({
+          error: "You can only reset attendance for learners of a section you advise.",
+        });
+        return;
+      }
+    }
+
+    // Fetch ids + values for logging; verify referenced students for everyone.
+    const studentIds = [...new Set(normKeys.map(e => e.student_id).filter((n): n is number => n != null))];
+    if (studentIds.length > 0) {
+      const found = await query<RowDataPacket[]>(
+        `SELECT id FROM students WHERE id IN (${studentIds.map(() => "?").join(",")})`,
+        studentIds
+      );
+      if (found.length !== studentIds.length) {
+        res.status(404).json({ error: "One or more students not found." });
+        return;
+      }
+    }
+    const studentNames = new Map<number, string>();
+    if (studentIds.length > 0) {
+      const rows = await query<StudentRow[]>(
+        `SELECT id, name FROM students WHERE id IN (${studentIds.map(() => "?").join(",")})`,
+        studentIds
+      );
+      for (const r of rows) studentNames.set(r.id, r.name ?? `student ${r.id}`);
+    }
+
+    let resetCount = 0;
+    for (const e of normKeys) {
+      const rows = await query<EditRow[]>(
+        `SELECT id, value FROM sf_form_edits
+          WHERE form = ? AND school_year_id = ? AND field_key = ?
+            AND (${e.student_id === null ? "student_id IS NULL" : "student_id = ?"}) LIMIT 1`,
+        e.student_id === null
+          ? [e.storage.form, school_year_id, e.storage.field_key]
+          : [e.storage.form, school_year_id, e.storage.field_key, e.student_id]
+      );
+      if (rows.length === 0) {
+        resetCount++; // nothing saved — the effective value again is the system value
+        continue;
+      }
+      await query("DELETE FROM sf_form_edits WHERE id = ?", [rows[0].id]);
+      resetCount++;
+      const target =
+        e.student_id != null
+          ? studentNames.get(e.student_id) ?? `student ${e.student_id}`
+          : "form-level";
+      await logActivity(
+        user.userId,
+        `Reset ${e.storage.shared ? "SHARED" : e.storage.form} edit${
+          e.storage.shared ? ` (typed on ${form})` : ""
+        } for ${target}: ${e.field_key} "${rows[0].value ?? ""}" -> system value`,
+        "sf_form_edits",
+        `${e.storage.form}:${school_year_id}:${e.student_id ?? 0}:${e.storage.field_key}`
+      );
+    }
+
+    res.json({
+      message: `Reset ${resetCount} edit${resetCount === 1 ? "" : "s"} on ${form} to system values.`,
+    });
+  } catch (error) {
+    console.error("Reset form edits error:", error);
+    res.status(500).json({ error: "Failed to reset form edits." });
+  }
 }

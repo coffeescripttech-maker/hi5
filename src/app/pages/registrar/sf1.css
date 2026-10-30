@@ -102,3 +102,18 @@
     border: none !important;
   }
 }
+
+/* Saved School Form Edits, Phase 3 (rules 11-13) — Edited marker: a small
+   amber dot at the cell's upper-right marks values that differ from the
+   system-derived value. Hidden in print/PDF so official copies stay clean. */
+.sf-edited-cell {
+  background-image: radial-gradient(circle, #f59e0b 3px, transparent 3.5px);
+  background-repeat: no-repeat;
+  background-position: top 2px right 2px;
+}
+
+@media print {
+  .sf-edited-cell {
+    background-image: none !important;
+  }
+}

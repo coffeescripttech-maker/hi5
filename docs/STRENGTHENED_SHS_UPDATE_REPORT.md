@@ -118,6 +118,22 @@ production Railway DB (2026-10-28) and verified.**
     (SF1 `s:*` minus per-SY `remarks`, SF10 `learner:*`/`elig:*`) as a
     read-only prefill; quarterly fields start blank and current-SY saves
     always shadow carried values.
+- **Saved School Form Edits — Phase 3 (rules 11–13)** (migration 048):
+  - **Migration 048** — `sf_form_edits.system_value` TEXT NULL: each edit
+    stores the system value it was taken over from (rule 11/12 baseline).
+  - `PUT /api/forms/edits` accepts optional per-edit `system_value` (UPDATE
+    uses `COALESCE`, so an omitted baseline never clobbers a stored one) and
+    optional `opened_at` + `force`: rows changed after `opened_at` refuse the
+    save with **409 + `conflicts[]`** unless the client confirmed the
+    overwrite (rule 13); identical-value writes never conflict. The clock is
+    the **database's own time** — GET/PUT exchange `opened_at` as a DB-side
+    `NOW()` timestamp and the `updated_at > opened_at` comparison runs inside
+    SQL, so client clock skew and the DB↔API timezone difference on Railway
+    cannot skew it.
+  - **`DELETE /api/forms/edits`** (`resetFormEdits`) — rule 11 reset to
+    system value: same role/closed-SY gating as the save (rule 10/16),
+    shared-key normalization included, deletes each stored row and logs
+    `"..." -> system value` (rule 14).
 - **PDF renderer** — renders are now **serialized** on the shared headless
   Chrome with a 180 s per-step timeout and crash-recovery relaunch (fixes a
   wedged-browser deadlock when renders queued up).
@@ -202,6 +218,22 @@ production Railway DB (2026-10-28) and verified.**
     prefill, rule 15) UNDER the current school year's saved values, and
     shared fields arrive pre-translated (rule 8) so no per-form change was
     needed beyond the hook.
+  - **Phase 3 (rules 11–13)** — `hooks/useFormEdits.ts` gains `setBase`
+    (records the freshly derived system value from the forms' build
+    effects), `isEdited` (marker compare), `listEdits`/`resetEdits`
+    (per-item **Reset**), `refreshBaseline` (**Keep**), and
+    `conflicts`/`resolveConflict` (409 banner Overwrite/Reload); sends the
+    DB-clock `opened_at` with every save.
+  - **`components/FormEditsMenu.tsx` (new)** — the **Edited fields** menu in
+    every form header bar (admin/registrar; teacher on SF9): lists
+    saved/unsaved/carried edits, amber Δ badge when baselines drifted,
+    per-item **Reset** + **Reset all**, `system value changed` tags with
+    **Keep**, and the concurrent-edit banner. Wired into
+    `sf1-register.tsx`, `sf5-report.tsx`, `sf9-report.tsx`,
+    `sf10-report.tsx`.
+  - **`registrar/sf1.css`** — `.sf-edited-cell` amber marker on cells that
+    differ from the system-derived value (hidden in print/PDF); markers
+    render on the SF1/SF5 leaf-cell grids.
 
 ## F. Test & Verification Results
 
@@ -253,6 +285,24 @@ Phase-2 probes (temp API on :3005, admin account):
 | Current-SY save shadows the carried value | ✅ |
 | Shared header scoped to a learner → 400; shared learner field without a learner → 400 | ✅ |
 
+Phase-3 probes (temp API on :3005, admin + throwaway teacher):
+
+| Probe | Result |
+|---|---|
+| PUT with `system_value` → GET returns the stored baseline | ✅ |
+| DELETE reset of a saved row (idempotent; row gone after) | ✅ |
+| GET returns DB-clock `opened_at` | ✅ |
+| Stale `opened_at` + different value → **409 + conflicts[]** | ✅ |
+| Same request with `force:true` → 200 | ✅ |
+| "Keep" (same value + new `system_value`) → 200, baseline refreshed | ✅ |
+| Identical-value save with stale `opened_at` | 200 (no conflict) |
+| Admin PUT/DELETE reset on a closed SY | 200 |
+| Teacher DELETE reset SF9 attendance, own learner | 200 |
+| Teacher DELETE on SF1 / foreign learner / closed SY | 403 |
+| Teacher DELETE batch with two learners | 400 |
+| Teacher PUT non-attendance SF9 key | 403 |
+| Activity Log `Reset ... -> system value` rows | ✅ verified |
+
 All test rows, the throwaway account, and probe activity-log rows were removed
 afterwards; the borrowed test section's real adviser was restored.
 
@@ -278,9 +328,11 @@ afterwards; the borrowed test section's real adviser was restored.
     forms (names, addresses, guardian) are system-derived from the students
     record, so the forms already agree on them; splitting SF10's name parts
     ↔ SF1's full name is intentionally not shared (lossy mapping).
-  - No "Edited" marker / Reset-to-system value (rule 11), no notice when the
-    underlying record changes after an edit (rule 12), no concurrent-edit
-    warning (rule 13).
+  - Edited markers render only on the SF1/SF5 leaf-cell grids plus the
+    SF1 count/date cells; other edit targets (signers, SF10 cells, SF9
+    certificate fields) appear correctly in the Edited-fields menu but
+    without an on-cell dot. SF9 observed values keep their separate
+    endpoint and are out of this menu's scope.
 
 ## H. Open Questions for the Client
 
@@ -303,6 +355,8 @@ afterwards; the borrowed test section's real adviser was restored.
 
 - **Applied:** migrations 044 (elective timeslots), **046 (`sf_form_edits`)**
   **and 047 (SHARED form value)** are already live on the production Railway DB.
+  **048 (`sf_form_edits.system_value`) is applied as well** (column add,
+  data-preserving).
 - **Deploy:** deploy the updated server (`server/dist`) and frontend
   (`npm run build`) together; the API is backward-compatible with the old
   frontend except for the new elective flows, which old clients simply don't

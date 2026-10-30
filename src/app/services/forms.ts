@@ -132,6 +132,8 @@ export interface FormEditRow {
   student_id: number | null;
   field_key: string;
   value: string;
+  /** The system value the edit replaced (rule 11/12 baseline; may be null). */
+  system_value: string | null;
   updated_by: number;
   updated_at: string;
 }
@@ -177,7 +179,7 @@ export const formsApi = {
     if (scope.section_id) q.set('section_id', String(scope.section_id));
     if (scope.student_ids?.length)
       q.set('student_ids', scope.student_ids.join(','));
-    return api.get<{ edits: FormEditRow[]; carried?: FormEditRow[] }>(
+    return api.get<{ edits: FormEditRow[]; carried?: FormEditRow[]; opened_at?: string }>(
       `/forms/edits?${q.toString()}`
     );
   },
@@ -185,11 +187,30 @@ export const formsApi = {
   saveFormEdits: (
     form: 'SF1' | 'SF5' | 'SF9' | 'SF10',
     schoolYearId: number,
-    edits: { student_id?: number | null; field_key: string; value: string }[]
+    edits: {
+      student_id?: number | null;
+      field_key: string;
+      value: string;
+      /** Optional rule 11/12 baseline: the system value this edit replaces. */
+      system_value?: string | null;
+    }[],
+    opts: { /** When the form was opened (rule 13 conflict detection). */ opened_at?: string; /** Confirmed overwrite after a 409. */ force?: boolean } = {}
   ) =>
-    api.put<{ message: string }>('/forms/edits', {
+    api.put<{ message: string; opened_at?: string }>('/forms/edits', {
       form,
       school_year_id: schoolYearId,
       edits,
+      ...opts,
+    }),
+  /** Rule 11: delete saved edits so the system value shows again. */
+  resetFormEdits: (
+    form: 'SF1' | 'SF5' | 'SF9' | 'SF10',
+    schoolYearId: number,
+    keys: { student_id?: number | null; field_key: string }[]
+  ) =>
+    api.del<{ message: string }>('/forms/edits', {
+      form,
+      school_year_id: schoolYearId,
+      keys,
     }),
 };

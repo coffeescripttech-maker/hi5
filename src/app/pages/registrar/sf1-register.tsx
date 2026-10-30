@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import './sf1.css';
 import { useFormEdits, editKey } from '../../hooks/useFormEdits';
+import { FormEditsMenu } from '../../components/FormEditsMenu';
 import { Button } from '../../components/ui/button';
 import { SchoolFormHeader } from '../../components/school-form-header';
 import { SchoolFormTitleBlock } from '../../components/school-form-title';
@@ -443,6 +444,8 @@ export function SF1Register() {
     ];
     for (let r = 0; r < baseCounts.length; r++) {
       for (let c = 0; c < 2; c++) {
+        // Rule 11/12: derived count = system baseline for the marker/menu.
+        sf1Edits.setBase(null, `reg:${r}:${c}`, baseCounts[r][c]);
         const sv = merged[editKey(null, `reg:${r}:${c}`)];
         if (sv !== undefined) baseCounts[r][c] = sv;
       }
@@ -453,6 +456,17 @@ export function SF1Register() {
     const sy = schoolYears.find(y => y.id === syId);
     const sysBosy = merged[editKey(null, 'sigdate:bosyDate')];
     const sysEosy = merged[editKey(null, 'sigdate:eosyDate')];
+    // Rule 11/12: the enrollment-window dates are the system baseline.
+    sf1Edits.setBase(
+      null,
+      'sigdate:bosyDate',
+      formatDateInput(sy?.enrollment_start_date ?? null)
+    );
+    sf1Edits.setBase(
+      null,
+      'sigdate:eosyDate',
+      formatDateInput(sy?.enrollment_end_date ?? null)
+    );
     setSignatureDates({
       bosyDate:
         sysBosy !== undefined
@@ -509,6 +523,9 @@ export function SF1Register() {
       sids[i] = s.id;
       const overlay: RowData = { ...newRows[i] };
       for (const cellKey of Object.keys(overlay)) {
+        // Rule 11/12: record the freshly derived system value as the edit's
+        // baseline so the Edited marker and menu can compare against it.
+        sf1Edits.setBase(s.id, `s:${cellKey}`, String(newRows[i][cellKey] ?? ''));
         const sv = merged[editKey(s.id, `s:${cellKey}`)];
         if (sv !== undefined) overlay[cellKey] = sv;
       }
@@ -717,6 +734,7 @@ export function SF1Register() {
                   </Button>
                 </div>
               )}
+              <FormEditsMenu api={sf1Edits} canSave={canSaveFormEdits} />
               <Button
                 size="sm"
                 onClick={() => setPreviewOpen(true)}
@@ -951,7 +969,12 @@ export function SF1Register() {
                         <input
                           value={row[c.key] ?? ''}
                           onChange={e => setCell(r, c.key, e.target.value)}
-                          className="sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50"
+                          className={`sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50${
+                      rowStudentIds[r] != null &&
+                      sf1Edits.isEdited(rowStudentIds[r], `s:${c.key}`)
+                        ? ' sf-edited-cell'
+                        : ''
+                      }`}
                         />
                       </td>
                     ))}
