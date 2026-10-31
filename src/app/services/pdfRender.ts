@@ -250,6 +250,14 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
       const cls = hEl.className || "";
       const pinSize = shouldPinSize(hEl, cls);
 
+      // getComputedStyle resolves `auto` margins to USED pixel value (the
+      // off-screen clone's layout), which would freeze e.g. `margin: 0 auto`
+      // centering at whatever px happened to be computed on the screen card.
+      // In the wider preview iframe / page-sized PDF the sheet would then sit
+      // hard-left. The width/height guard below is what the loop actually
+      // overwrites with, so the auto-vs-pinned decision is enforced THERE —
+      // see the margin skip inside the loop.
+
       for (let i = 0; i < cs.length; i++) {
         const prop = cs[i];
         if (isDenied(prop)) continue;
@@ -288,6 +296,20 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
           prop === "inline-size"
         ) {
           if (!pinSize && !isFluidSize(value)) continue;
+        }
+        // getComputedStyle resolves authored `auto` margins to the USED pixel
+        // values of the off-screen clone's layout. Writing them freezes
+        // `margin: 0 auto` centering at whatever px the on-screen card
+        // computed — in the wider preview iframe / page-sized PDF the sheet
+        // would then sit hard-left. Keep the authored inline value (with its
+        // literal `auto`) untouched instead.
+        if (
+          (prop === "margin" ||
+            prop === "margin-left" ||
+            prop === "margin-right") &&
+          /auto/.test(hEl.style.margin)
+        ) {
+          continue;
         }
         // min/max sizes are only preserved when they were explicitly set.
         // (camelCase lookup covers both physical and logical property names.)
@@ -453,35 +475,43 @@ ${innerHtml}
 /* ── Public API ── */
 
 /**
- * Collect every print-related stylesheet block currently in the document.
+ * Collect every print-related stylesheet block currently in the document,
+ * in true document order.
  *
  * The SF forms (SF1/SF5/SF9/SF10) rely on @media print rules — page size and
  * margins (@page), .no-print hiding, page breaks, and the zoom that scales the
  * wide register down to the page width — none of which computed-style inlining
  * captures (they only apply while printing). Puppeteer prints with the print
  * media type active, so embedding the same rules in the standalone page makes
- * the PDF match the browser's Print Preview exactly. Document order is
- * preserved so @page overrides resolve like the live page's cascade.
- * Certificates have no persistent print styles, so this returns "" for them.
+ * the PDF match the browser's Print Preview exactly.
+ *
+ * `document.styleSheets` is ordered by document position, so a single pass
+ * over it preserves the live page's cascade exactly: each form's own
+ * in-body <style> block comes after the sf1.css <link>, and its
+ * `@page { size: letter landscape; margin: 0.3in }` wins just like on the
+ * live page. The old two-pass version (all <style> blocks, then all <link>
+ * rules) inverted that order — sf1.css's `@page { size: legal landscape;
+ * margin: 0.2in }` overrode SF9/SF10's letter page in the standalone print,
+ * producing big blank side margins around the smaller sheet.
+ * Certificates have no persistent print styles, so they pass printCss
+ * explicitly.
  */
 function collectPrintCss(): string {
   const blocks: string[] = [];
-  for (const style of document.querySelectorAll("style")) {
-    const css = style.textContent || "";
-    if (css.includes("@media print") || css.includes("@page")) {
-      blocks.push(css);
-    }
-  }
-  // Production builds ship stylesheets as <link> tags, which the <style> scan
-  // above never sees. The SF registers' print rules (zoom that fits the wide
-  // sheet to the page, .sf1-sheet reset, @page size/margins) live in sf1.css —
-  // losing them un-zooms the page so the right-most columns and outer table
-  // borders are clipped off the paper. Pull @media print and @page rules out
-  // of every accessible stylesheet via CSSOM. Cross-origin sheets throw on
-  // cssRules access and are skipped; same-origin Vite assets are readable.
   for (const sheet of Array.from(document.styleSheets)) {
     const owner = sheet.ownerNode as HTMLElement | null;
-    if (owner && owner.tagName === "STYLE") continue; // already captured above
+    if (owner && owner.tagName === "STYLE") {
+      // Forms' component <style> blocks: embed whole — their @media print
+      // rules are self-contained and were captured as full text before.
+      const css = (owner as HTMLStyleElement).textContent || "";
+      if (css.includes("@media print") || css.includes("@page")) {
+        blocks.push(css);
+      }
+      continue;
+    }
+    // <link> sheets (sf1.css in production): @media print and @page rules can
+    // only be reachable via CSSOM. Cross-origin sheets throw on cssRules
+    // access and are skipped; same-origin Vite assets are readable.
     let rules: CSSRuleList;
     try {
       rules = sheet.cssRules;
