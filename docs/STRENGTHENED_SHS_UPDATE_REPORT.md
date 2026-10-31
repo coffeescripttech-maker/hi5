@@ -223,7 +223,11 @@ production Railway DB (2026-10-28) and verified.**
     effects), `isEdited` (marker compare), `listEdits`/`resetEdits`
     (per-item **Reset**), `refreshBaseline` (**Keep**), and
     `conflicts`/`resolveConflict` (409 banner Overwrite/Reload); sends the
-    DB-clock `opened_at` with every save.
+    DB-clock `opened_at` with every save. A `resetTick` counter bumps on
+    every reset so the SF1/SF5 build effects and SF9/SF10 overlay effects
+    re-run and the open form rebuilds from system data **live, without a
+    page refresh** (`applyLocal` also recomputes `valuesRef`
+    synchronously).
   - **`components/FormEditsMenu.tsx` (new)** — the **Edited fields** menu in
     every form header bar (admin/registrar; teacher on SF9): lists
     saved/unsaved/carried edits, amber Δ badge when baselines drifted,

@@ -385,18 +385,39 @@ export function SF9Report() {
     [sf9Edits, editableStudentId]
   );
 
+  // Full-set signer assignment: saved edit (manual/unsaved included via the
+  // hook layers) > system prefill. Used on the SF9 fetch AND after a Reset
+  // in the Edited-fields menu, so removed edits stop showing immediately.
+  const applySignersFor = useCallback(
+    (data: typeof sf9Data) => {
+      const enrollment = enrollments.find(
+        e => e.student_id === selectedStudentId && e.school_year_id === syId
+      );
+      const sec =
+        enrollment?.section_id != null
+          ? sections.find(s => s.id === enrollment.section_id)
+          : null;
+      setSignerNames({
+        principal:
+          sf9Edits.get(null, 'signer:principal') ??
+          data?.school?.principal_name ??
+          '',
+        adviser:
+          sf9Edits.get(selectedStudentId, 'signer:adviser') ??
+          (data?.enrollment?.adviser_name || sec?.adviser_name || '')
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sf9Edits, selectedStudentId, syId, enrollments, sections]
+  );
+
   // Re-apply saved signer names once the edits fetch completes (overrides the
   // system prefill; a saved empty value means the prefill stays cleared).
   useEffect(() => {
     if (sf9Edits.loading) return;
-    const savedPrincipal = sf9Edits.valuesRef.current[editKey(null, 'signer:principal')];
-    const savedAdviser = sf9Edits.valuesRef.current[editKey(selectedStudentId, 'signer:adviser')];
-    setSignerNames(prev => ({
-      principal: savedPrincipal !== undefined ? savedPrincipal : prev.principal,
-      adviser: savedAdviser !== undefined ? savedAdviser : prev.adviser,
-    }));
+    applySignersFor(sf9Data);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sf9Edits.loading, sf9Edits.error, selectedStudentId, syId]);
+  }, [sf9Edits.loading, sf9Edits.error, sf9Edits.resetTick, selectedStudentId, syId]);
 
   useEffect(() => {
     // Load all sections and students (the SF9 endpoint is available to any
@@ -672,33 +693,6 @@ export function SF9Report() {
       .sf9(selectedStudentId, syId)
       .then(data => {
         setSf9Data(data);
-        // Prefill Class Adviser from the student's section for that SY
-        // (manual edits are preserved — this only runs on selection change).
-        const enrollment = enrollments.find(
-          e => e.student_id === selectedStudentId && e.school_year_id === syId
-        );
-        const sec =
-          enrollment?.section_id != null
-            ? sections.find(s => s.id === enrollment.section_id)
-            : null;
-        setSignerNames(prev => ({
-          // Prefill from the DepEd-recorded names. Manual edits are preserved
-          // because we only fill empty slots; a saved edit (even a cleared
-          // one) beats the system prefill.
-          principal:
-            prev.principal !== ''
-              ? prev.principal
-              : sf9Edits.get(null, 'signer:principal') ??
-                data.school?.principal_name ??
-                '',
-          adviser:
-            prev.adviser !== ''
-              ? prev.adviser
-              : (sf9Edits.get(selectedStudentId, 'signer:adviser') ??
-                (data.enrollment?.adviser_name ||
-                  sec?.adviser_name ||
-                  ''))
-        }));
       })
       .catch(err =>
         setError(err.detail?.error || err.message || 'Failed to generate SF9')

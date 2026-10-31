@@ -667,9 +667,11 @@ export function SF5Report() {
     sections,
     schoolYears,
     trackNameById,
-    // Re-run once the saved-edits fetch settles so saved edits overlay in.
+    // Re-run once the saved-edits fetch settles so saved edits overlay in,
+    // and whenever edits were reset so the grid rebuilds from system data.
     sf5Edits.loading,
-    sf5Edits.error
+    sf5Edits.error,
+    sf5Edits.resetTick
   ]);
 
   // ── Cell helper ──

@@ -670,12 +670,21 @@ export function SF10Report() {
   // a saved empty one — wins; rule 5/7). Header identity fields persist as
   // form-level keys (rule 8, saved once per SY).
   const sf10AppliedFor = useRef<string>('');
+  // Track the last Reset pass (rules 11) so the display state can be rebuilt
+  // from the system record — the overlay pass alone cannot REMOVE a value.
+  const sf10RebuiltAtRef = useRef(0);
   useEffect(() => {
     if (!sf10Data || sf10Edits.loading) return;
     const v = sf10Edits.valuesRef.current;
-    const appliedKey = `${selectedStudentId}:${syId}:${Object.keys(v).length}`;
+    const appliedKey = `${selectedStudentId}:${syId}:${sf10Edits.resetTick}:${Object.keys(v).length}`;
     if (sf10AppliedFor.current === appliedKey) return;
     sf10AppliedFor.current = appliedKey;
+    if (sf10Edits.resetTick !== sf10RebuiltAtRef.current) {
+      // A reset happened (or the guard never ran yet): rebuild the fillable
+      // state from the system record first, then overlay what remains saved.
+      sf10RebuiltAtRef.current = sf10Edits.resetTick;
+      buildForm(sf10Data);
+    }
     const pick = (key: string) => v[editKey(sf10Sid, key)];
     const learnerOverlay: Partial<Record<keyof LearnerState, string>> = {};
     for (const f of Object.keys(EMPTY_LEARNER) as (keyof LearnerState)[]) {
@@ -770,7 +779,7 @@ export function SF10Report() {
       return anyEdit ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sf10Data, sf10Edits.loading, sf10Edits.error, selectedStudentId, syId]);
+  }, [sf10Data, sf10Edits.loading, sf10Edits.error, sf10Edits.resetTick, selectedStudentId, syId]);
 
   /* â”€â”€ Print â”€â”€ */
   /* Explicit save per docs/MAJOR_CHANGES_IN_FORMS.txt rule 3. */

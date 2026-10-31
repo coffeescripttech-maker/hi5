@@ -557,7 +557,10 @@ Every new school year starts **carried over**:
   explicit empty edit instead of a DELETE). **Reset all** clears every listed
   field in one go; deletes are logged as `Reset <form> edit for <learner>:
   <field> "<old>" -> system value`. Resetting the form-level count/date cells
-  works the same way.
+  works the same way. **The reset reflects immediately on the open form** —
+  the grid rebuilt from the system data in place (SF9/SF10 also rebuild their
+  signer names / fillable state from the system record first), so no page
+  refresh is needed.
 - **"System value changed" notice (rule 12)**: when the record an edit was
   taken from changed since the edit (its stored baseline `system_value`
   differs from the freshly derived value at render time), the entry gains a

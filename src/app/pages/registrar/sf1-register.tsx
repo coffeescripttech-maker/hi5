@@ -2,6 +2,7 @@
   useState,
   useEffect,
   useMemo,
+  useRef,
   type Dispatch,
   type SetStateAction
 } from 'react';
@@ -251,6 +252,14 @@ export function SF1Register() {
         // School head (principal) for the signature block; the "Prepared by"
         // name is the account generating the form. Saved edits (even cleared
         // ones) beat these prefills.
+        signersSystemRef.current.principal = settings.principal_name || '';
+        signersSystemRef.current.header = {
+          schoolId: settings.school_id || '',
+          region: settings.region || '',
+          division: settings.division || '',
+          district: settings.district || '',
+          schoolName: settings.school_name || ''
+        };
         setSigners(prev => ({
           ...prev,
           certified:
@@ -287,11 +296,13 @@ export function SF1Register() {
   }, []);
 
   // Prefill the "Prepared by" signature with the signing account's name
-  // (a saved edit, even a cleared one, beats this prefill).
+  // (a saved edit, even a cleared one, beats this prefill; the raw system
+  // name is kept for the post-Reset rebuild).
   useEffect(() => {
     authApi
       .me()
       .then(me => {
+        signersSystemRef.current.meName = me.name || '';
         setSigners(prev => ({
           ...prev,
           prepared:
@@ -543,9 +554,11 @@ export function SF1Register() {
     schoolYears,
     trackNameById,
     electivesByStudent,
-    // Re-run once the saved-edits fetch settles so saved cells overlay in.
+    // Re-run once the saved-edits fetch settles so saved cells overlay in,
+    // and whenever edits were reset so the grid rebuilds from system data.
     sf1Edits.loading,
-    sf1Edits.error
+    sf1Edits.error,
+    sf1Edits.resetTick
   ]);
 
   // â”€â”€ Cell / header helpers â”€â”€
@@ -600,28 +613,47 @@ export function SF1Register() {
   };
   // Once the saved-edits fetch settles, overlay saved signer names (after the
   // system prefill effects; a saved empty value wins over the prefill).
+  // After a Reset (rules 11), rebuild from the system prefill instead so
+  // removed edits stop showing without a page refresh.
+  const signersSystemRef = useRef<{ meName: string; principal: string; header: Partial<typeof header> }>({
+    meName: '',
+    principal: '',
+    header: {}
+  });
+  const signersRebuiltAtRef = useRef(0);
   useEffect(() => {
     if (sf1Edits.loading) return;
     const merged = sf1Edits.valuesRef.current;
-    const savedSigners = {
-      prepared: merged[editKey(null, 'signer:prepared')],
-      certified: merged[editKey(null, 'signer:certified')]
+    const appliedForTick = signersRebuiltAtRef.current;
+    const afterReset = sf1Edits.resetTick !== appliedForTick;
+    if (afterReset) signersRebuiltAtRef.current = sf1Edits.resetTick;
+    const saveable = (k: string): string | undefined => {
+      const sv = merged[editKey(null, k)];
+      if (sv !== undefined) return sv;
+      if (!afterReset) return undefined;
+      // Reset pass: fall back to the system prefill when nothing remains.
+      const sysMap: Record<string, string> = {
+        'signer:prepared': signersSystemRef.current.meName,
+        'signer:certified': signersSystemRef.current.principal,
+        'header:schoolId': signersSystemRef.current.header.schoolId ?? '',
+        'header:region': signersSystemRef.current.header.region ?? '',
+        'header:division': signersSystemRef.current.header.division ?? '',
+        'header:district': signersSystemRef.current.header.district ?? '',
+        'header:schoolName': signersSystemRef.current.header.schoolName ?? ''
+      };
+      return sysMap[k];
     };
-    if (savedSigners.prepared !== undefined || savedSigners.certified !== undefined) {
+    const prepared = saveable('signer:prepared');
+    const certified = saveable('signer:certified');
+    if (prepared !== undefined || certified !== undefined) {
       setSigners(prev => ({
-        prepared:
-          savedSigners.prepared !== undefined
-            ? savedSigners.prepared
-            : prev.prepared,
-        certified:
-          savedSigners.certified !== undefined
-            ? savedSigners.certified
-            : prev.certified
+        prepared: prepared !== undefined ? prepared : prev.prepared,
+        certified: certified !== undefined ? certified : prev.certified
       }));
     }
     const savedHeader: Partial<Record<keyof typeof header, string>> = {};
     for (const k of HEADER_SAVABLE_KEYS) {
-      const sv = merged[editKey(null, `header:${k}`)];
+      const sv = saveable(`header:${k}`);
       if (sv !== undefined)
         (savedHeader as Record<string, string>)[k] = sv;
     }
@@ -629,7 +661,7 @@ export function SF1Register() {
       setHeader(prev => ({ ...prev, ...savedHeader }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sf1Edits.loading, sf1Edits.error, syId, sectionId]);
+  }, [sf1Edits.loading, sf1Edits.error, sf1Edits.resetTick, syId, sectionId]);
 
   // â”€â”€ Loading â”€â”€
   if (dataLoading) {

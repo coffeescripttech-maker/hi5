@@ -108,6 +108,10 @@ export interface UseFormEditsApi {
   loading: boolean;
   saving: boolean;
   error: string | null;
+  /** Bumped whenever stored edits were removed (Reset) — school pages add
+   *  it to their build-effect deps so the grids rebuild from the system
+   *  data without a page refresh. */
+  resetTick: number;
   /** Merged saved+unsaved+carried values, kept in sync for build effects. */
   valuesRef: React.MutableRefObject<ValueMap>;
 }
@@ -136,6 +140,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
   const [conflicts, setConflicts] = useState<
     { student_id: number | null; field_key: string; updated_at: string | null }[]
   >([]);
+  const [resetTick, setResetTick] = useState(0);
   const hasConflict = conflicts.length > 0;
   const valuesRef = useRef<ValueMap>({});
   // The database-side clock stamp (`opened_at`) captured when the form
@@ -143,11 +148,6 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
   // opened_at` check runs on ONE clock (the DB's), immune to client clock
   // skew and timezones. Empty means "conflict checks unavailable".
   const openedAtRef = useRef<string>('');
-
-  const applyLocal = useCallback((next: ValueMap) => {
-    localRef.current = next;
-    setLocalState(next);
-  }, []);
 
   const recomputeMerged = useCallback(() => {
     // Layering: carried (previous-SY prefill) is the base, current school
@@ -157,6 +157,15 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
     for (const [k, v] of Object.entries(localRef.current)) merged[k] = v;
     valuesRef.current = merged;
   }, []);
+
+  const applyLocal = useCallback((next: ValueMap) => {
+    localRef.current = next;
+    // Rebuild the merged valuesRef synchronously so build effects and the
+    // Edited markers see the new merge without waiting for a refetch.
+    recomputeMerged();
+    setLocalState(next);
+    setTick(t => t + 1);
+  }, [recomputeMerged]);
 
   const setLoaded = useCallback(
     (entries: Record<string, LoadedEntry>) => {
@@ -428,6 +437,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
       }
       applyLocal(next2);
       setTick(t => t + 1);
+      setResetTick(t => t + 1);
       setConflicts([]);
       return saved.length;
     },
@@ -593,6 +603,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
     loading,
     saving,
     error,
+    resetTick,
     valuesRef,
   };
 }
