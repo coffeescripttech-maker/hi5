@@ -296,17 +296,30 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
           prop === "inline-size"
         ) {
           if (!pinSize && !isFluidSize(value)) continue;
+          // A height that was never authored by the designer (neither an
+          // inline height nor an h-* utility) is the used pixel result of
+          // the SCREEN layout and must not pin: the print page can reflow
+          // taller and a pinned height would let following blocks overlap
+          // the tail of this one (probe: the SF10 sheet serialized with
+          // height: 1681.75px). Widths stay pinned — the sheet's fixed
+          // 996px is what makes every device agree.
+          if (
+            (prop === "height" || prop === "block-size") &&
+            !(hEl.style.height || /(?:^|\s)(?:[a-z]+:)?h-/.test(cls))
+          ) {
+            continue;
+          }
         }
         // getComputedStyle resolves authored `auto` margins to the USED pixel
         // values of the off-screen clone's layout. Writing them freezes
         // `margin: 0 auto` centering at whatever px the on-screen card
         // computed — in the wider preview iframe / page-sized PDF the sheet
-        // would then sit hard-left. Keep the authored inline value (with its
-        // literal `auto`) untouched instead.
+        // would then sit hard-left (probe: sheet at x=69 instead of 222 in a
+        // 1440px viewport). Chrome enumerates the logical longhands
+        // (margin-inline[-start/end]) SEPARATELY from margin-left/right, so
+        // every margin* property must be guarded, not just the physical ones.
         if (
-          (prop === "margin" ||
-            prop === "margin-left" ||
-            prop === "margin-right") &&
+          prop.startsWith("margin") &&
           /auto/.test(hEl.style.margin)
         ) {
           continue;
