@@ -128,7 +128,27 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // gzip compression for large payloads (LIS exports, report JSON).
 app.use(compression());
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '10mb', strict: false }));
+// Defensive unwrap: when a client DOUBLE-encodes its JSON (body-parser's
+// strict mode used to reject that outright), the request body arrives as a
+// JSON string that itself parses to an object. Decode it once here so such
+// clients keep working; the warning surfaces the stale/misbehaving client.
+app.use((req, _res, next) => {
+  if (typeof req.body === 'string') {
+    const t = req.body.trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      try {
+        req.body = JSON.parse(t);
+        console.warn(
+          `Unwrapped double-encoded JSON body on ${req.method} ${req.path} — client should stringify once`
+        );
+      } catch {
+        /* not a JSON object string — leave as-is */
+      }
+    }
+  }
+  next();
+});
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
