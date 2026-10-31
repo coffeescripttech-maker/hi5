@@ -31,39 +31,15 @@ export function FormEditsMenu({
   api: UseFormEditsApi;
   canSave: boolean;
 }) {
+  // All hooks MUST run unconditionally — the early returns below may flip
+  // between renders (items reset to zero, role change), and React forbids a
+  // changing hook count ("Should have a queue" crash).
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<'reset' | 'keep' | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-
-  if (!canSave) return null;
-  const items = api.listEdits();
-  if (items.length === 0 && !api.hasConflict) return null;
-  const sysChangedCount = items.filter(i => i.sysChanged).length;
-
-  const run = async (
-    kind: 'reset' | 'keep',
-    fn: (its: EditedItem[]) => Promise<number>,
-    its: EditedItem[]
-  ) => {
-    setBusy(kind);
-    setMenuError(null);
-    try {
-      const n = await fn(its);
-      if (n === 0) {
-        setMenuError(
-          kind === 'reset' ? 'Nowhere to reset.' : 'Baselines are already current.'
-        );
-      }
-      setOpen(false);
-    } catch (err: any) {
-      setMenuError(err?.message || 'Action failed.');
-    } finally {
-      setBusy(null);
-    }
-  };
 
   // Close when clicking outside the button / panel, or pressing Escape.
   useEffect(() => {
@@ -111,6 +87,41 @@ export function FormEditsMenu({
       window.removeEventListener('scroll', place, true);
     };
   }, [open]);
+
+  if (!canSave) return null;
+  const items = api.listEdits();
+  if (items.length === 0 && !api.hasConflict) return null;
+  const sysChangedCount = items.filter(i => i.sysChanged).length;
+
+  const fmtWhen = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : 'not saved yet';
+
+  const run = async (
+    kind: 'reset' | 'keep',
+    fn: (its: EditedItem[]) => Promise<number>,
+    its: EditedItem[]
+  ) => {
+    setBusy(kind);
+    setMenuError(null);
+    try {
+      const n = await fn(its);
+      if (n === 0) {
+        setMenuError(
+          kind === 'reset' ? 'Nowhere to reset.' : 'Baselines are already current.'
+        );
+      }
+      setOpen(false);
+    } catch (err: any) {
+      setMenuError(err?.message || 'Action failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="relative" ref={wrapRef}>
@@ -193,6 +204,9 @@ export function FormEditsMenu({
                         was on “{item.currentSystem === '' ? '(blank)' : item.currentSystem}”
                       </p>
                     )}
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {fmtWhen(item.updatedAt)}
+                    </p>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     {item.sysChanged && !item.unsaved && (

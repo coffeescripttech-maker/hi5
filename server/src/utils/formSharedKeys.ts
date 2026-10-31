@@ -97,7 +97,7 @@ export interface CarryRow {
   student_id: number | null;
   field_key: string;
   value: string;
-  updated_at: Date;
+  updated_at: string; // true-epoch ISO (converted from the DB wall clock)
   carried_from_sy: number;
 }
 

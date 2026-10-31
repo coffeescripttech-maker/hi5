@@ -46,6 +46,8 @@ interface EditRow extends RowDataPacket {
   system_value: string | null;
   updated_by: number;
   updated_at: Date;
+  /** DB wall-clock of the row ("2026-01-02T03:04:05") — decoded timezone-safely. */
+  updated_wall?: string | null;
 }
 
 interface StudentRow extends RowDataPacket {
@@ -118,6 +120,32 @@ async function dbNow(): Promise<string> {
     "SELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s') AS dbnow"
   );
   return String(rows[0]?.dbnow ?? "");
+}
+
+/**
+ * The DB session may run in a different timezone than this host (Railway:
+ * wall clocks happened to sit 16 h apart), which makes decoded `updated_at`
+ * Dates wrong for human display. Learn the DB-vs-host offset once per
+ * process by comparing the DB's own NOW() to the host clock, then convert
+ * each row's wall-clock string to a true epoch.
+ */
+let dbTzOffsetMs: number | null = null;
+async function getDbTzOffsetMs(): Promise<number> {
+  if (dbTzOffsetMs === null) {
+    const wall = await dbNow();
+    const asIfUtc = Date.parse(wall.replace(" ", "T") + "Z");
+    dbTzOffsetMs = Number.isFinite(asIfUtc) ? asIfUtc - Date.now() : 0;
+  }
+  return dbTzOffsetMs;
+}
+
+/** DB wall-clock ("YYYY-MM-DDTHH:MM:SS") → true epoch ISO string. */
+function dbWallToIso(wall: string | null, offset: number): string {
+  if (wall) {
+    const asIfUtc = Date.parse(wall + "Z");
+    if (Number.isFinite(asIfUtc)) return new Date(asIfUtc - offset).toISOString();
+  }
+  return new Date().toISOString();
 }
 
 /**
@@ -213,8 +241,12 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
     const sharedScopeSql = studentScopeSql;
     const sharedParams = params.slice(2);
 
+    // Timestamps leave the server as true epochs (see getDbTzOffsetMs).
+    const tzOffset = await getDbTzOffsetMs();
+
     const rows = await query<EditRow[]>(
-      `SELECT id, form, school_year_id, student_id, field_key, value, system_value, updated_by, updated_at
+      `SELECT id, form, school_year_id, student_id, field_key, value, system_value, updated_by, updated_at,
+              DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s') AS updated_wall
          FROM sf_form_edits
         WHERE form = ? AND school_year_id = ?${studentScopeSql}`,
       params
@@ -225,7 +257,8 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
     // same key was ever written under several school years, the latest write
     // wins. Canonical keys are then translated into this form's namespace.
     const sharedRows = await query<EditRow[]>(
-      `SELECT id, form, school_year_id, student_id, field_key, value, system_value, updated_by, updated_at
+      `SELECT id, form, school_year_id, student_id, field_key, value, system_value, updated_by, updated_at,
+              DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s') AS updated_wall
          FROM sf_form_edits
         WHERE form = 'SHARED'${sharedScopeSql}`,
       sharedParams
@@ -259,7 +292,8 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
       value: r.value ?? "",
       system_value: r.system_value ?? null,
       updated_by: r.updated_by,
-      updated_at: r.updated_at,
+      // DB session timezone-timezone-proof: converted to the true epoch.
+      updated_at: dbWallToIso(r.updated_wall ?? null, tzOffset),
     }));
 
     // Rule 15 — learner-level details carried over from the previous school
@@ -283,7 +317,8 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
             ? ` AND field_key NOT IN (${excluded.map(() => "?").join(",")})`
             : "";
         const carriedRows = await query<EditRow[]>(
-          `SELECT id, form, school_year_id, student_id, field_key, value, updated_by, updated_at
+          `SELECT id, form, school_year_id, student_id, field_key, value, updated_by, updated_at,
+                  DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s') AS updated_wall
              FROM sf_form_edits
             WHERE form = ? AND school_year_id = ? AND (${likeSql})${excludedSql}`,
           [form, prevSyId, ...carryPatterns, ...excluded]
@@ -297,7 +332,7 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
             student_id: r.student_id,
             field_key: r.field_key,
             value: r.value ?? "",
-            updated_at: r.updated_at,
+            updated_at: dbWallToIso(r.updated_wall ?? null, tzOffset),
             carried_from_sy: prevSyId,
           });
         }
@@ -502,13 +537,14 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
         : null;
     const existingValues = new Map<
       string,
-      { value: string; stale: boolean; updated_at: Date }
+      { value: string; stale: boolean; updated_wall: string | null }
     >();
     for (const e of normEdits) {
       const rows = await query<
         (EditRow & { stale?: number })[]
       >(
-        `SELECT value, updated_at${openedAt ? ", (updated_at > ?) AS stale" : ""}
+        `SELECT value,
+                DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s') AS updated_wall${openedAt ? ", (updated_at > ?) AS stale" : ""}
           FROM sf_form_edits
           WHERE form = ? AND school_year_id = ? AND field_key = ?
             AND (${e.student_id === null ? "student_id IS NULL" : "student_id = ?"})`,
@@ -526,12 +562,13 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
           {
             value: rows[0].value ?? "",
             stale: Number(rows[0].stale ?? 0) === 1,
-            updated_at: rows[0].updated_at,
+            updated_wall: rows[0].updated_wall ?? null,
           }
         );
       }
     }
     if (openedAt && !force) {
+      const tzOffset = await getDbTzOffsetMs();
       const conflicts = normEdits
         .filter(e => {
           const ex = existingValues.get(
@@ -544,10 +581,12 @@ export async function saveFormEdits(req: Request, res: Response): Promise<void> 
         .map(e => ({
           student_id: e.student_id,
           field_key: e.field_key,
-          updated_at:
+          updated_at: dbWallToIso(
             existingValues.get(
               `${e.student_id ?? 0}|${e.storage.form}|${e.storage.field_key}`
-            )?.updated_at.toISOString() ?? null,
+            )?.updated_wall ?? null,
+            tzOffset
+          ),
         }));
       if (conflicts.length > 0) {
         res.status(409).json({

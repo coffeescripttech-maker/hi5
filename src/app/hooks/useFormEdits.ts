@@ -73,6 +73,8 @@ export interface EditedItem {
   /** true when the underlying system value changed since the edit (rule 12). */
   sysChanged: boolean;
   currentSystem: string | null;
+  /** when the edit was last saved (true epoch ISO); null for unsaved items. */
+  updatedAt: string | null;
 }
 
 export interface UseFormEditsApi {
@@ -118,6 +120,9 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
   // server separately and layered UNDER the current-SY saved values so a new
   // year starts carried over while every field remains over-writable.
   const carriedRef = useRef<ValueMap>({});
+  // When each carried row was originally saved — surfaced in the Edited
+  // fields menu next to a full "carried over" badge.
+  const carriedAtRef = useRef<Record<string, string>>({});
   const localRef = useRef<ValueMap>({});
   // Rule 11/12 — freshly derived system values (from the form's build
   // effects) and the baseline recorded with each stored edit.
@@ -214,9 +219,14 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
             updated_at: r.updated_at,
           };
         const carried: ValueMap = {};
-        for (const r of res.carried ?? [])
-          carried[editKey(r.student_id, r.field_key)] = r.value;
+        const carriedAt: Record<string, string> = {};
+        for (const r of res.carried ?? []) {
+          const k = editKey(r.student_id, r.field_key);
+          carried[k] = r.value;
+          carriedAt[k] = r.updated_at;
+        }
         carriedRef.current = carried;
+        carriedAtRef.current = carriedAt;
         openedAtRef.current = res.opened_at ?? '';
         setLoaded(map);
       })
@@ -328,6 +338,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
         unsaved: false,
         sysChanged: entry.system_value !== null && base !== null && entry.system_value !== base,
         currentSystem: base,
+        updatedAt: entry.updated_at,
       });
     }
     for (const [key, value] of Object.entries(localRef.current)) {
@@ -348,6 +359,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
           base !== null &&
           localSystemRef.current[key] !== base,
         currentSystem: base,
+        updatedAt: null,
       });
     }
     for (const key of Object.keys(carriedRef.current)) {
@@ -363,9 +375,20 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
         unsaved: false,
         sysChanged: false,
         currentSystem: baseRef.current[key] ?? null,
+        updatedAt: carriedAtRef.current[key] ?? null,
       });
     }
-    return [...items.values()].sort((a, b) => a.label.localeCompare(b.label));
+    // Newest first: unsaved edits (typing right now) on top, then stored
+    // edits by their save time, oldest at the bottom.
+    const rank = (i: EditedItem) =>
+      i.unsaved
+        ? Number.MAX_SAFE_INTEGER
+        : i.updatedAt
+          ? Date.parse(i.updatedAt)
+          : Number.MIN_SAFE_INTEGER;
+    return [...items.values()].sort(
+      (a, b) => rank(b) - rank(a) || a.label.localeCompare(b.label)
+    );
   }, [labelStudent, local, tick]);
 
   const resetEdits = useCallback(
