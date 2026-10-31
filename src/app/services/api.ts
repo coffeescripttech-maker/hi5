@@ -101,7 +101,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: hdrs,
-    body: isFormData ? body : body ? JSON.stringify(body) : undefined
+    body: isFormData ? body : body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
   });
 
   if (!res.ok) {
@@ -176,7 +176,9 @@ export const api = {
   },
 
   del<T = { message: string }>(path: string, body?: unknown): Promise<T> {
-    return request<T>(path, { method: 'DELETE', body: body != null ? JSON.stringify(body) : undefined });
+    // `request` stringifies object bodies itself — pass raw, or the server
+    // receives double-encoded JSON ("{\"form\":…}") and 400s on parse.
+    return request<T>(path, { method: 'DELETE', body });
   },
 
   /**
