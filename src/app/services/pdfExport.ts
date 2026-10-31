@@ -432,6 +432,16 @@ export function replaceFormControls(root: HTMLElement) {
         // Inputs never wrap their text — the replacement span must not either,
         // or wider font metrics on some devices broke one-line fields.
         span.style.whiteSpace = "nowrap";
+        // Underline-style fields marked `sf-fill-input` (flex/grid-fill
+        // inputs without an explicit width) would shrink to their text
+        // width once the inline-block span loses the input's flex sizing.
+        // Keep them filling their row so the underfields look like the
+        // on-screen form in the serialized PDF page.
+        if (el.classList.contains("sf-fill-input")) {
+          span.style.display = "inline-block";
+          span.style.width = "100%";
+          span.style.boxSizing = "border-box";
+        }
       }
     } else if (el instanceof HTMLSelectElement) {
       span.textContent = el.selectedOptions[0]?.text ?? "";

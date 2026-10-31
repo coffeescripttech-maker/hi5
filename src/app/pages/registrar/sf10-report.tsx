@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useFormEdits, editKey } from '../../hooks/useFormEdits';
 import { FormEditsMenu } from '../../components/FormEditsMenu';
 import {
@@ -29,7 +29,7 @@ import {
 import './sf1.css';
 import { DocumentViewer } from '../../components/DocumentViewer';
 
-/* â”€â”€ Types â”€â”€ */
+/* ── Types ── */
 interface LearningAreaRow {
   subject: string;
   q1: string;
@@ -135,7 +135,7 @@ const EMPTY_REMEDIAL = (): RemedialRow => ({
   remarks: ''
 });
 
-/* â”€â”€ Helpers â”€â”€ */
+/* ── Helpers ── */
 
 /** Parse "Last, First Middle" or "First Middle Last" into parts */
 function parseName(name: string): {
@@ -199,7 +199,7 @@ function remarksFor(avg: number | null | undefined): string {
   return Number(avg) >= 75 ? 'Passed' : 'Failed';
 }
 
-/* â”€â”€ MAPEH grouping (mirrors SF9 / Grade Management) â”€â”€ */
+/* ── MAPEH grouping (mirrors SF9 / Grade Management) ── */
 const MAPEH_ORDER = ['Music', 'Arts', 'Physical Education', 'Health'];
 
 function isMapehSubject(name: string): boolean {
@@ -271,7 +271,7 @@ function buildLearningAreaDisplay(
   };
 
   // Like SF9: keep the regular learning areas in their listed (alphabetical)
-  // order, then append the grouped MAPEH block — header + components.
+  // order, then append the grouped MAPEH block � header + components.
   result.push(
     header,
     ...ordered.map(c => ({ kind: 'row' as const, index: c.index, area: c.area }))
@@ -297,13 +297,13 @@ function checkboxInput(props: {
   );
 }
 
-/* â”€â”€ Component â”€â”€ */
+/* ── Component ── */
 export function SF10Report() {
   const { showToast, role } = useApp();
   const accent = useRoleAccent();
   const [header, setHeader] = useSchoolHeader();
 
-  /* â”€â”€ Student picker â”€â”€ */
+  /* ── Student picker ── */
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -321,26 +321,26 @@ export function SF10Report() {
   const [schoolYears, setSchoolYears] = useState<SchoolYearRow[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
 
-  /* â”€â”€ Report â”€â”€ */
+  /* ── Report ── */
   const [sf10Data, setSf10Data] = useState<SF10Row | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  // Print confirmation preview — no form goes straight to window.print().
+  // Print confirmation preview � no form goes straight to window.print().
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  /* â”€â”€ Lookups â”€â”€ */
+  /* ── Lookups ── */
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [settings, setSettings] = useState<SchoolSettingsRow | null>(null);
 
-  /* â”€â”€ Form state â”€â”€ */
+  /* ── Form state ── */
   const [learner, setLearner] = useState<LearnerState>(EMPTY_LEARNER);
   const [eligibility, setEligibility] =
     useState<EligibilityState>(EMPTY_ELIGIBILITY);
   const [records, setRecords] = useState<ScholasticRecord[]>([]);
   const [cert, setCert] = useState<CertState>(EMPTY_CERT);
 
-  // ── Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) ──
+  // -- Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) --
   // SF10 is learner-scoped: every handwritten field (learner block,
   // eligibility block, per-school-year scholastic records, certification) is
   // stored per (learner, school year, field key) and re-applied by the bridge
@@ -444,7 +444,7 @@ export function SF10Report() {
     setSf10Data(null);
   }, [selectedGrade, selectedSectionId, syId]);
 
-  // Reset section when grade changes — only if it no longer belongs to the grade.
+  // Reset section when grade changes � only if it no longer belongs to the grade.
   useEffect(() => {
     const gs = sections.filter(
       s => s.is_active === 1 && s.grade_level === parseInt(selectedGrade)
@@ -565,8 +565,8 @@ export function SF10Report() {
     setHeader('section', last?.section_name || '');
   }
 
-  /* â”€â”€ Update helpers â”€â”€ */
-  /* Update helpers — each also persists the edit (docs/MAJOR_CHANGES_IN_FORMS.txt rule 4). */
+  /* ── Update helpers ── */
+  /* Update helpers � each also persists the edit (docs/MAJOR_CHANGES_IN_FORMS.txt rule 4). */
   const setLearnerField = (key: keyof LearnerState, val: string) => {
     setLearner(prev => ({ ...prev, [key]: val }));
     sf10Edits.setValue(sf10Sid, `learner:${key}`, val);
@@ -666,12 +666,12 @@ export function SF10Report() {
   };
 
   // Once the SF10 fetch AND the saved-edits fetch have settled, re-apply
-  // every saved edit over the system-derived build (a saved value — including
-  // a saved empty one — wins; rule 5/7). Header identity fields persist as
+  // every saved edit over the system-derived build (a saved value � including
+  // a saved empty one � wins; rule 5/7). Header identity fields persist as
   // form-level keys (rule 8, saved once per SY).
   const sf10AppliedFor = useRef<string>('');
   // Track the last Reset pass (rules 11) so the display state can be rebuilt
-  // from the system record — the overlay pass alone cannot REMOVE a value.
+  // from the system record � the overlay pass alone cannot REMOVE a value.
   const sf10RebuiltAtRef = useRef(0);
   useEffect(() => {
     if (!sf10Data || sf10Edits.loading) return;
@@ -781,7 +781,7 @@ export function SF10Report() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sf10Data, sf10Edits.loading, sf10Edits.error, sf10Edits.resetTick, selectedStudentId, syId]);
 
-  /* â”€â”€ Print â”€â”€ */
+  /* ── Print ── */
   /* Explicit save per docs/MAJOR_CHANGES_IN_FORMS.txt rule 3. */
   const handleSaveEdits = async () => {
     if (!selectedStudentId) return;
@@ -791,7 +791,7 @@ export function SF10Report() {
         'success',
         saved > 0
           ? `Saved ${saved} SF10 edit${saved === 1 ? '' : 's'}.`
-          : 'Nothing new to save — SF10 is up to date.'
+          : 'Nothing new to save � SF10 is up to date.'
       );
     } catch (err: any) {
       showToast(
@@ -821,10 +821,10 @@ export function SF10Report() {
       await downloadRenderedPdf(options);
       showToast('success', 'PDF exported successfully.');
     } catch {
-      // Server render unavailable — fall back to the client-side pdfmake export.
+      // Server render unavailable � fall back to the client-side pdfmake export.
       try {
         await exportToPdf(options);
-        showToast('info', 'Server render unavailable — used local fallback.');
+        showToast('info', 'Server render unavailable � used local fallback.');
       } catch {
         showToast('error', 'Failed to export PDF. Please try again.');
       }
@@ -833,7 +833,7 @@ export function SF10Report() {
     }
   };
 
-  /* â”€â”€ Loading skeleton â”€â”€ */
+  /* ── Loading skeleton ── */
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto space-y-5 animate-pulse">
@@ -856,21 +856,25 @@ export function SF10Report() {
 
   return (
     <div className="space-y-5 pb-10">
-      {/* â”€â”€ Print styles â”€â”€ */}
+      {/* ── Print styles ── */}
       <style>{`
         @media print {
           /* !important is required: the app-wide dark theme remaps the body
              element, and without this the record prints on themed paper. */
           html, body { font-family: 'Times New Roman', Times, serif; color: #000 !important; background: #fff !important; margin: 0; padding: 0; }
           .no-print { display: none !important; }
-          #sf10-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0.15in; }
+          /* No extra padding: the 0.3in @page margin is the only inset, so the
+             996px sheet fills the letter-landscape printable width exactly.
+             !important also beats the computed inline padding that PDF
+             serialization copies from the screen-sized sheet (p-4/p-6). */
+          #sf10-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; }
           #sf10-print-area .print-page { page-break-after: always; }
           #sf10-print-area .print-page:last-child { page-break-after: avoid; }
           @page { size: letter landscape; margin: 0.3in; }
         }
       `}</style>
 
-      {/* â”€â”€ Filter Bar â”€â”€ */}
+      {/* ── Filter Bar ── */}
       <div className="no-print">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
@@ -882,7 +886,7 @@ export function SF10Report() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
-                    SF10 — Learner's Permanent Academic Record
+                    SF10 � Learner's Permanent Academic Record
                   </h2>
                   <p className="text-sm text-gray-500 mt-0.5">
                     Filter by grade and section, or search a learner to open
@@ -896,7 +900,7 @@ export function SF10Report() {
                   <div className="flex items-center gap-2 mr-1">
                     {sf10Edits.isDirty && (
                       <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
-                        ● {sf10Edits.dirtyCount} unsaved edit{sf10Edits.dirtyCount === 1 ? '' : 's'}
+                        ? {sf10Edits.dirtyCount} unsaved edit{sf10Edits.dirtyCount === 1 ? '' : 's'}
                       </span>
                     )}
                     <button
@@ -918,7 +922,7 @@ export function SF10Report() {
                   ) : (
                     <Download size={14} />
                   )}
-                  {exporting ? 'Generating…' : 'PDF'}
+                  {exporting ? 'Generating�' : 'PDF'}
                 </button>
                 <button
                   onClick={() => setPreviewOpen(true)}
@@ -931,7 +935,7 @@ export function SF10Report() {
 
             <FormPrintPreview
               open={previewOpen}
-              title="SF10 — Permanent Record"
+              title="SF10 � Permanent Record"
               elementId="sf10-print-area"
               onClose={() => setPreviewOpen(false)}
               onExportPdf={handleExportPdf}
@@ -1005,7 +1009,7 @@ export function SF10Report() {
                     const chosen = enrolledStudents.find(s => s.id === sid);
                     setSelectedStudentId(sid);
                     setSearchQuery(
-                      chosen ? `${chosen.lrn} — ${chosen.name}` : ''
+                      chosen ? `${chosen.lrn} � ${chosen.name}` : ''
                     );
                     setSf10Data(null);
                   }}
@@ -1015,7 +1019,7 @@ export function SF10Report() {
                   )}
                   {enrolledStudents.map(s => (
                     <option key={s.id} value={s.id}>
-                      {s.lrn} — {s.name}
+                      {s.lrn} � {s.name}
                     </option>
                   ))}
                 </select>
@@ -1044,7 +1048,7 @@ export function SF10Report() {
                 <input
                   type="text"
                   value={searchQuery}
-                  placeholder="Search by name, LRN, or ID number…"
+                  placeholder="Search by name, LRN, or ID number�"
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() =>
                     setTimeout(() => setShowSuggestions(false), 150)
@@ -1069,7 +1073,7 @@ export function SF10Report() {
                       type="button"
                       onPointerDown={() => {
                         setSelectedStudentId(s.id);
-                        setSearchQuery(`${s.lrn} — ${s.name}`);
+                        setSearchQuery(`${s.lrn} � ${s.name}`);
                         setShowSuggestions(false);
                         setSf10Data(null);
                       }}
@@ -1090,15 +1094,15 @@ export function SF10Report() {
               <span>
                 {students.length} learner{students.length !== 1 ? 's' : ''}
                 {selectedStudent
-                  ? ` Â· Selected: ${selectedStudent.name}`
-                  : ' Â· Search to open a permanent record'}
+                  ? ` · Selected: ${selectedStudent.name}`
+                  : ' · Search to open a permanent record'}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* â”€â”€ Loading / Error / Empty â”€â”€ */}
+      {/* ── Loading / Error / Empty ── */}
       {loadingReport && (
         <div className="no-print max-w-5xl mx-auto">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
@@ -1107,7 +1111,7 @@ export function SF10Report() {
               className={`animate-spin ${accent.text} mx-auto mb-3`}
             />
             <p className="text-gray-500 font-semibold">
-              Loading Permanent Academic Record…
+              Loading Permanent Academic Record�
             </p>
             <p className="text-gray-400 text-sm mt-1">
               Compiling grades across school years from database
@@ -1158,26 +1162,32 @@ export function SF10Report() {
         </div>
       )}
 
-      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ────────────────────────────────────────────────────────────── */}
       {/* SF10 Official DepEd Learner's Permanent Academic Record        */}
-      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ────────────────────────────────────────────────────────────── */}
       {!loadingReport && sf10Data && selectedStudent && (
         <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-x-auto print:border-transparent print:shadow-none">
           <DocumentViewer>
           <div
             id="sf10-print-area"
             className="p-4 sm:p-6 text-[10px] leading-tight text-black">
-            <div style={{ minWidth: '960px' }}>
-              {/* â”€â”€ Shared letterhead title block (same as SF1) â”€â”€ */}
+            {/* Fixed sheet width � letter landscape (11in) minus the 0.3in
+                page margins = 998px printable at 96dpi; 996 leaves ~2px for
+                rounding. A fixed width, not a min-width, is what makes the
+                sheet identical on every device AND in the exported PDF: the
+                serialization pins the sheet's measured width, and w-full
+                tables/banners inside then measure to the same number. */}
+            <div style={{ width: '996px', margin: '0 auto' }}>
+              {/* ── Shared letterhead title block (same as SF1) ── */}
               <SchoolFormTitleBlock
                 title="Learner's Permanent Academic Record for Junior High School (SF10-JHS)"
                 subtitle="(Formerly Form 137)"
               />
 
-              {/* â”€â”€ Shared header fields â”€â”€ */}
+              {/* ── Shared header fields ── */}
               <SchoolFormHeader header={header} onChange={handleHeaderChange} />
 
-              {/* â”€â”€ LEARNER'S INFORMATION â”€â”€ */}
+              {/* ── LEARNER'S INFORMATION ── */}
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2">
                 LEARNER'S INFORMATION
               </div>
@@ -1191,7 +1201,7 @@ export function SF10Report() {
                       ['middleName', 'MIDDLE NAME']
                     ] as [keyof LearnerState, string][]
                   ).map(([key, label]) => (
-                    <div key={key} className="flex items-end gap-1">
+                    <div key={key} className="flex min-w-0 items-end gap-1">
                       <span className="font-bold whitespace-nowrap">
                         {label}:
                       </span>
@@ -1201,13 +1211,13 @@ export function SF10Report() {
                         onChange={e =>
                           setLearnerField(key, e.target.value)
                         }
-                        className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                       />
                     </div>
                   ))}
                 </div>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="flex items-end gap-1">
+                  <div className="flex min-w-0 items-end gap-1">
                     <span className="font-bold whitespace-nowrap">
                       Learner Reference Number (LRN):
                     </span>
@@ -1217,10 +1227,10 @@ export function SF10Report() {
                       onChange={e =>
                         setLearnerField('lrn', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
-                  <div className="flex items-end gap-1">
+                  <div className="flex min-w-0 items-end gap-1">
                     <span className="font-bold whitespace-nowrap">
                       Birthdate:
                     </span>
@@ -1230,10 +1240,10 @@ export function SF10Report() {
                       onChange={e =>
                         setLearnerField('birthDate', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
-                  <div className="flex items-end gap-1">
+                  <div className="flex min-w-0 items-end gap-1">
                     <span className="font-bold">Sex:</span>
                     <input
                       type="text"
@@ -1247,12 +1257,12 @@ export function SF10Report() {
                 </div>
               </div>
 
-              {/* â”€â”€ ELIGIBILITY FOR JHS ENROLMENT â”€â”€ */}
+              {/* ── ELIGIBILITY FOR JHS ENROLMENT ── */}
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2">
                 ELIGIBILITY FOR JHS ENROLMENT
               </div>
               <div className="border-2 border-gray-800 p-3 mb-2">
-                {/* Row 1 — Elementary completer + general average + citation */}
+                {/* Row 1 � Elementary completer + general average + citation */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-3">
                   <div className="col-span-12 sm:col-span-4 flex items-center gap-2">
                     {checkboxInput({
@@ -1271,7 +1281,7 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('generalAverage', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-4 flex items-baseline gap-1">
@@ -1284,12 +1294,12 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('citation', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] text-center outline-none focus:bg-amber-50"
                     />
                   </div>
                 </div>
 
-                {/* Row 2 — Elementary school details */}
+                {/* Row 2 � Elementary school details */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-3">
                   <div className="col-span-12 sm:col-span-5 flex items-baseline gap-1">
                     <span className="font-bold whitespace-nowrap">
@@ -1301,7 +1311,7 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('elementarySchoolName', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3 flex items-baseline gap-1">
@@ -1312,7 +1322,7 @@ export function SF10Report() {
                       type="text"
                       value={eligibility.schoolId}
                       onChange={e => setEligField('schoolId', e.target.value)}
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-4 flex items-baseline gap-1">
@@ -1325,17 +1335,17 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('schoolAddress', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
                 </div>
 
-                {/* Sub-header — Other Credential Presented */}
+                {/* Sub-header � Other Credential Presented */}
                 <div className="border border-gray-800 bg-gray-200 px-2 py-1 font-bold text-center text-[11px] mb-3">
                   OTHER CREDENTIALS PRESENTED
                 </div>
 
-                {/* Row 3 — PEPT / ALS */}
+                {/* Row 3 � PEPT / ALS */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-2">
                   <div className="col-span-6 flex items-center gap-2">
                     {checkboxInput({
@@ -1375,7 +1385,7 @@ export function SF10Report() {
                   </div>
                 </div>
 
-                {/* Row 4 — Others + exam date + testing center */}
+                {/* Row 4 � Others + exam date + testing center */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2">
                   <div className="col-span-12 sm:col-span-4 flex items-center gap-2">
                     {checkboxInput({
@@ -1389,7 +1399,7 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('othersSpecify', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
                   <div className="col-span-12 sm:col-span-4 flex items-baseline gap-1">
@@ -1400,7 +1410,7 @@ export function SF10Report() {
                       type="date"
                       value={eligibility.examDate}
                       onChange={e => setEligField('examDate', e.target.value)}
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
                   <div className="col-span-12 sm:col-span-4 flex items-baseline gap-1">
@@ -1413,134 +1423,168 @@ export function SF10Report() {
                       onChange={e =>
                         setEligField('testingCenter', e.target.value)
                       }
-                      className="sf1-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* â”€â”€ SCHOLASTIC RECORDS (one per school year) â”€â”€ */}
+              {/* ── SCHOLASTIC RECORDS (one per school year) ── */}
               {records.map((record, idx) => (
                 <div key={record.schoolYear || idx} className="print-page">
                   <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2 mt-4">
-                    SCHOLASTIC RECORD — SY {record.schoolYear || '—'}
+                    SCHOLASTIC RECORD � SY {record.schoolYear || '�'}
                   </div>
 
                   <div className="border-2 border-gray-800 p-2">
-                    <div className="text-[11px] flex items-end gap-1 flex-wrap">
-                      <span className="font-bold">School:</span>
-                      <input
-                        type="text"
-                        value={record.school}
-                        onChange={e =>
-                          updateRecord(idx, 'school', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-72 bg-transparent px-1 text-[8px] outline-none focus:bg-amber-50"
-                      />
-                      <span className="ml-4 font-bold">School ID:</span>
-                      <input
-                        type="text"
-                        value={record.schoolId}
-                        onChange={e =>
-                          updateRecord(idx, 'schoolId', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-20 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                      <span className="ml-4 font-bold">District:</span>
-                      <input
-                        type="text"
-                        value={record.district}
-                        onChange={e =>
-                          updateRecord(idx, 'district', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-24 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                      <span className="ml-4 font-bold">Division:</span>
-                      <input
-                        type="text"
-                        value={record.division}
-                        onChange={e =>
-                          updateRecord(idx, 'division', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-24 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                      <span className="ml-4 font-bold">Region:</span>
-                      <input
-                        type="text"
-                        value={record.region}
-                        onChange={e =>
-                          updateRecord(idx, 'region', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-20 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
+                    {/* Two proportional 12-col rows (not flex-wrap) so every
+                        field aligns and the bordered box spans exactly the
+                        same width as the learning-areas table below it. */}
+                    <div className="grid grid-cols-12 items-end gap-x-4 gap-y-2">
+                      <div className="col-span-4 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">School:</span>
+                        <input
+                          type="text"
+                          value={record.school}
+                          onChange={e =>
+                            updateRecord(idx, 'school', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">School ID:</span>
+                        <input
+                          type="text"
+                          value={record.schoolId}
+                          onChange={e =>
+                            updateRecord(idx, 'schoolId', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">District:</span>
+                        <input
+                          type="text"
+                          value={record.district}
+                          onChange={e =>
+                            updateRecord(idx, 'district', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">Division:</span>
+                        <input
+                          type="text"
+                          value={record.division}
+                          onChange={e =>
+                            updateRecord(idx, 'division', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">Region:</span>
+                        <input
+                          type="text"
+                          value={record.region}
+                          onChange={e =>
+                            updateRecord(idx, 'region', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
                     </div>
-                    <div className="text-[11px] mt-2 flex items-end gap-1 flex-wrap">
-                      <span className="font-bold">Classified as Grade:</span>
-                      <input
-                        type="text"
-                        value={record.classifiedGrade}
-                        onChange={e =>
-                          updateRecord(idx, 'classifiedGrade', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-12 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                      <span className="ml-4 font-bold">Section:</span>
-                      <input
-                        type="text"
-                        value={record.section}
-                        onChange={e =>
-                          updateRecord(idx, 'section', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-24 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                      <span className="ml-4 font-bold">School Year:</span>
-                      <input
-                        type="text"
-                        value={record.schoolYear}
-                        onChange={e =>
-                          updateRecord(idx, 'schoolYear', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-24 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
+                    <div className="mt-2 grid grid-cols-12 items-end gap-x-4 gap-y-2">
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">Classified as Grade:</span>
+                        <input
+                          type="text"
+                          value={record.classifiedGrade}
+                          onChange={e =>
+                            updateRecord(idx, 'classifiedGrade', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">Section:</span>
+                        <input
+                          type="text"
+                          value={record.section}
+                          onChange={e =>
+                            updateRecord(idx, 'section', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">School Year:</span>
+                        <input
+                          type="text"
+                          value={record.schoolYear}
+                          onChange={e =>
+                            updateRecord(idx, 'schoolYear', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
                       {(parseInt(record.classifiedGrade, 10) >= 11 ||
                         record.track) && (
-                        <>
-                          <span className="ml-4 font-bold">Track/ Strand:</span>
+                        <div className="col-span-2 flex min-w-0 items-end gap-1">
+                          <span className="font-bold">Track/ Strand:</span>
                           <input
                             type="text"
                             value={record.track}
                             onChange={e =>
                               updateRecord(idx, 'track', e.target.value)
                             }
-                            className="sf1-input inline border-b border-gray-800 w-28 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                            className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                           />
-                        </>
+                        </div>
                       )}
-                      <span className="ml-4 font-bold">
-                        Name of Adviser/Teacher:
-                      </span>
-                      <input
-                        type="text"
-                        value={record.adviser}
-                        onChange={e =>
-                          updateRecord(idx, 'adviser', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-40 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
-                      <span className="ml-4 font-bold">Signature:</span>
-                      <input
-                        type="text"
-                        value={record.signature}
-                        onChange={e =>
-                          updateRecord(idx, 'signature', e.target.value)
-                        }
-                        className="sf1-input inline border-b border-gray-800 w-24 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
-                      />
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">
+                          Name of Adviser/Teacher:
+                        </span>
+                        <input
+                          type="text"
+                          value={record.adviser}
+                          onChange={e =>
+                            updateRecord(idx, 'adviser', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                        <span className="font-bold">Signature:</span>
+                        <input
+                          type="text"
+                          value={record.signature}
+                          onChange={e =>
+                            updateRecord(idx, 'signature', e.target.value)
+                          }
+                          className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Learning areas table */}
-                  <table className="w-full border-collapse text-[11px] border-2 border-gray-800 border-t-0">
+                  {/* Learning areas table � table-fixed + proportional
+                      column widths so the columns can never drift/overlap
+                      between devices; the table fills the same 996px the
+                      SCHOLASTIC RECORD banner spans. */}
+                  <table className="w-full table-fixed border-collapse text-[11px] border-2 border-gray-800 border-t-0">
+                    <colgroup>
+                      <col style={{ width: '36%' }} />
+                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '28%' }} />
+                    </colgroup>
                     <thead>
                       <tr className="bg-gray-300">
                         <th
@@ -1725,7 +1769,7 @@ export function SF10Report() {
                           className="border border-gray-800 p-1 text-center italic font-bold">
                           General Average
                         </td>
-                        <td className="border border-gray-800 p-1">
+                        <td className="border border-gray-800 p-0 text-center">
                           <input
                             type="text"
                             value={record.generalAverage}
@@ -1736,15 +1780,23 @@ export function SF10Report() {
                                 e.target.value
                               )
                             }
-                            className="sf1-input w-full text-center border-0 bg-transparent text-[11px] font-bold outline-none focus:bg-amber-50"
+                            className="sf1-input w-full h-6 text-center border-0 bg-transparent text-[11px] font-bold outline-none focus:bg-amber-50"
                           />
                         </td>
+                        {/* The REMARKS column stays bordered/empty so the
+                            final row is an even, full-width strip. */}
+                        <td className="border border-gray-800 p-1" />
                       </tr>
                     </tbody>
                   </table>
 
                   {/* Remedial classes */}
-                  <table className="w-full border-collapse text-[11px] border-2 border-gray-800 mb-2">
+                  <table className="w-full table-fixed border-collapse text-[11px] border-2 border-gray-800 mb-2">
+                    <colgroup>
+                      <col style={{ width: '20%' }} />
+                      <col style={{ width: '40%' }} />
+                      <col style={{ width: '40%' }} />
+                    </colgroup>
                     <thead>
                       <tr className="bg-gray-200">
                         <th className="border border-gray-800 p-1 font-bold text-left w-1/5">
@@ -1793,7 +1845,14 @@ export function SF10Report() {
                     </tbody>
                   </table>
 
-                  <table className="w-full border-collapse text-[11px] border-2 border-gray-800 mb-4">
+                  <table className="w-full table-fixed border-collapse text-[11px] border-2 border-gray-800 mb-4">
+                    <colgroup>
+                      <col style={{ width: '34%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '16%' }} />
+                    </colgroup>
                     <thead>
                       <tr className="bg-gray-200">
                         <th className="border border-gray-800 p-1 font-bold text-left">
@@ -1898,7 +1957,7 @@ export function SF10Report() {
                 </div>
               ))}
 
-              {/* â”€â”€ CERTIFICATION â”€â”€ */}
+              {/* ── CERTIFICATION ── */}
               <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2 mt-4">
                 CERTIFICATION
               </div>
