@@ -466,6 +466,15 @@ async function buildPdfDocumentHtml(
     font-weight: 700;
     src: url(data:font/ttf;base64,${bold}) format('truetype');
   }
+  /* Screen-only fit (Print Preview iframe). Wide legal-size sheets (SF1 at
+     1460px) overflow a narrower iframe at scale 1 and sit left with a
+     scrollbar. Scale the document down so the WHOLE page width is visible
+     and centered, the way the exported PDF shows it. Declared under
+     @media screen ONLY — printing and the puppeteer PDF render keep zoom 1,
+     so the print zoom (sf1.css) still owns the paper layout. */
+  @media screen {
+    html { zoom: var(--doc-fit, 1); }
+  }
 </style>
 ${printCss ? `\n<style>\n${printCss}\n</style>` : ""}
 <script>
@@ -476,6 +485,23 @@ ${printCss ? `\n<style>\n${printCss}\n</style>` : ""}
       document.fonts.load("16px Tinos");
       document.fonts.load("bold 16px Tinos");
     } catch (e) {}
+  })();
+  // Screen fit: robust to repeated calls (fonts arriving late) by dividing
+  // the measured scroll width by the zoom currently in effect; capped at 1.
+  (function () {
+    function fit() {
+      try {
+        var el = document.documentElement;
+        var avail = el.clientWidth;
+        var cur = parseFloat(el.style.getPropertyValue("--doc-fit")) || 1;
+        var unzoomed = Math.max(el.scrollWidth, avail) / cur;
+        el.style.setProperty("--doc-fit", (Math.min(1, avail / unzoomed)).toFixed(4));
+      } catch (e) {}
+    }
+    document.addEventListener("DOMContentLoaded", fit);
+    addEventListener("load", fit);
+    if (document.fonts && document.fonts.ready)
+      document.fonts.ready.then(fit);
   })();
 </script>
 </head>

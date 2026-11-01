@@ -1,6 +1,12 @@
 Hi5 Portal:Expected System Behavior for the
 Strengthened SHS Curriculum
-Oct 22, 2026 · @Arlan
+
+
+
+
+
+
+
 Summary
 What the system should do once it follows the Strengthened SHS Curriculum: two tracks
 (Academic and TechPro) instead of strands, five core subjects in Grade 11, electives

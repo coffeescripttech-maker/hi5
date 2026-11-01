@@ -176,7 +176,7 @@ function MiniCountTable({
             {[0, 1, 2].map(c => (
               <td key={c} className="border border-black p-0">
                 <input
-                  className="sf1-input h-9 w-full text-center outline-none focus:bg-amber-50"
+                  className="sf1-input sf-fill-input h-9 w-full text-center outline-none focus:bg-amber-50"
                   value={values?.[i]?.[c] ?? ''}
                   onChange={
                     onChange ? e => onChange(i, c, e.target.value) : undefined
@@ -994,8 +994,8 @@ export function SF5Report() {
           <div
             className="sf1-page sf5-page"
             style={{
-              width: '100%',
-              minWidth: '760px'
+              width: '1304px',
+              margin: '0 auto'
             }}>
 {/* ---------- Title block ---------- */}
             <div className="mb-4 flex items-center justify-between gap-6">
@@ -1113,7 +1113,7 @@ export function SF5Report() {
                                     : e.target.value
                                 )
                               }
-                              className={`sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50${
+                              className={`sf1-input sf-fill-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50${
                                 rowStudentIds[r] != null &&
                                 sf5Edits.isEdited(rowStudentIds[r], `s:${c.key}`)
                                   ? ' sf-edited-cell'
@@ -1177,7 +1177,7 @@ export function SF5Report() {
                       <p className="font-semibold">{s.role}</p>
                       <input
                         type="text"
-                        className="mt-5 w-full border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
+                        className="mt-5 w-full sf-fill-input border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
                         placeholder={s.caption}
                         value={signers[s.key as keyof typeof signers]}
                         onChange={e =>

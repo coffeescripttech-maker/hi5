@@ -1,4 +1,4 @@
-﻿import {
+import {
   useState,
   useEffect,
   useMemo,
@@ -49,7 +49,7 @@ type Leaf = {
 
 // Flat list of data columns (used to render body rows in order).
 // These are exactly the columns required by the official DepEd SF1 School
-// Register (no quarterly-grade columns — those belong to the SF9/SF10).
+// Register (no quarterly-grade columns � those belong to the SF9/SF10).
 // The widths sum to 1460px: legal-landscape print area is 1306px wide at
 // 96dpi and `.sf1-page` is scaled with zoom 0.89, so 1306 / 0.89 = 1467px is
 // the layout budget. Staying just under it fills the printable width without
@@ -162,7 +162,7 @@ export function SF1Register() {
   const { schoolName, schoolYearLabel, showToast, role } = useApp();
   const accent = useRoleAccent();
 
-  // â”€â”€ API data â”€â”€
+  // ── API data ──
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
@@ -172,12 +172,12 @@ export function SF1Register() {
   // Print confirmation preview no form goes straight to window.print().
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  // â”€â”€ Filter selections â”€â”€
+  // ── Filter selections ──
   const [syId, setSyId] = useState(1);
   const [selectedGrade, setSelectedGrade] = useState('7');
   const [selectedSection, setSelectedSection] = useState('');
 
-  // â”€â”€ Form state â”€â”€
+  // ── Form state ──
   const [rows, setRows] = useState<RowData[]>(() =>
     Array.from({ length: TOTAL_ROWS }, () => ({}))
   );
@@ -211,7 +211,7 @@ export function SF1Register() {
     Record<number, string[]>
   >({});
 
-  // â”€â”€ Load data on mount â”€â”€
+  // ── Load data on mount ──
   useEffect(() => {
     Promise.all([
       role === 'teacher' ? studentsApi.listMyStudents() : studentsApi.list(),
@@ -340,7 +340,7 @@ export function SF1Register() {
       .catch(() => {});
   }, [syId]);
 
-  // â”€â”€ Sync school name & year (selected school year takes precedence) â”€â”€
+  // ── Sync school name & year (selected school year takes precedence) ──
   useEffect(() => {
     setHeader(prev => ({
       ...prev,
@@ -352,7 +352,7 @@ export function SF1Register() {
     }));
   }, [schoolName, schoolYearLabel, schoolYears, syId]);
 
-  // â”€â”€ Sync grade/section to header â”€â”€
+  // ── Sync grade/section to header ──
   useEffect(() => {
     setHeader(prev => ({
       ...prev,
@@ -361,7 +361,7 @@ export function SF1Register() {
     }));
   }, [selectedGrade, selectedSection]);
 
-  // â”€â”€ Sections for current grade â”€â”€
+  // ── Sections for current grade ──
   const gradeSections = useMemo(
     () =>
       sections.filter(
@@ -370,11 +370,11 @@ export function SF1Register() {
     [sections, selectedGrade]
   );
 
-  // â”€â”€ Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) â”€â”€
+  // ── Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) ──
   // Every handwritten SF1 cell, header identity field, signer, summary count
   // and BoSY/EoSY date is stored per (learner, school year, field) and is
   // re-applied by the row-builder effect below. Rule 10 (strict): teachers
-  // may not save SF1 edits — only the Registrar/Administrator can.
+  // may not save SF1 edits � only the Registrar/Administrator can.
   const sectionId = useMemo(
     () =>
       sections.find(
@@ -395,7 +395,7 @@ export function SF1Register() {
   // empty last rows have no learner and are not persisted).
   const [rowStudentIds, setRowStudentIds] = useState<(number | null)[]>([]);
 
-  // â”€â”€ Reset section selection when grade changes â”€â”€
+  // ── Reset section selection when grade changes ──
   useEffect(() => {
     if (
       selectedSection &&
@@ -407,7 +407,7 @@ export function SF1Register() {
     }
   }, [selectedGrade, gradeSections, selectedSection]);
 
-  // â”€â”€ Populate rows when section changes â”€â”€
+  // ── Populate rows when section changes ──
   useEffect(() => {
     if (!selectedSection || !enrollments.length || !students.length) return;
     const section = sections.find(
@@ -503,7 +503,7 @@ export function SF1Register() {
               picks.length ? `Electives: ${picks.join(', ')}` : ''
             ]
               .filter(Boolean)
-              .join(' · ')
+              .join(' � ')
           : '';
       return {
         lrn: s.lrn || '',
@@ -561,7 +561,7 @@ export function SF1Register() {
     sf1Edits.resetTick
   ]);
 
-  // â”€â”€ Cell / header helpers â”€â”€
+  // ── Cell / header helpers ──
   const setCell = (rowIndex: number, key: string, val: string) => {
     setRows(prev => {
       const next = [...prev];
@@ -663,7 +663,7 @@ export function SF1Register() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sf1Edits.loading, sf1Edits.error, sf1Edits.resetTick, syId, sectionId]);
 
-  // â”€â”€ Loading â”€â”€
+  // ── Loading ──
   if (dataLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-gray-400 text-sm">
@@ -673,7 +673,7 @@ export function SF1Register() {
     );
   }
 
-  // â”€â”€ PDF Export â”€â”€
+  // ── PDF Export ──
   /* Explicit save per docs/MAJOR_CHANGES_IN_FORMS.txt rule 3. */
   const handleSaveEdits = async () => {
     if (!sectionId) return;
@@ -683,7 +683,7 @@ export function SF1Register() {
         'success',
         saved > 0
           ? `Saved ${saved} SF1 edit${saved === 1 ? '' : 's'}.`
-          : 'Nothing new to save — SF1 is up to date.'
+          : 'Nothing new to save � SF1 is up to date.'
       );
     } catch (err: any) {
       showToast(
@@ -724,7 +724,7 @@ export function SF1Register() {
 
   return (
     <div className="space-y-5 pb-10">
-      {/* â”€â”€ Header Card â”€â”€ */}
+      {/* ── Header Card ── */}
       <div className="no-print bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className={`h-1.5 bg-gradient-to-r ${accent.gradient}`} />
         <div className="p-5 sm:p-6">
@@ -749,7 +749,7 @@ export function SF1Register() {
                 <div className="flex items-center gap-2 mr-1">
                   {sf1Edits.isDirty && (
                     <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
-                      ● {sf1Edits.dirtyCount} unsaved edit{sf1Edits.dirtyCount === 1 ? '' : 's'}
+                      ? {sf1Edits.dirtyCount} unsaved edit{sf1Edits.dirtyCount === 1 ? '' : 's'}
                     </span>
                   )}
                   <Button
@@ -777,7 +777,7 @@ export function SF1Register() {
                 ) : (
                   <Download className="size-4" />
                 )}
-                {exporting ? 'Generatingâ€¦' : 'PDF'}
+                {exporting ? 'Generating…' : 'PDF'}
               </Button>
               <Button
                 size="sm"
@@ -1001,7 +1001,7 @@ export function SF1Register() {
                         <input
                           value={row[c.key] ?? ''}
                           onChange={e => setCell(r, c.key, e.target.value)}
-                          className={`sf1-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50${
+                          className={`sf1-input sf-fill-input h-6 w-full bg-transparent px-1 text-[10px] outline-none focus:bg-amber-50${
                       rowStudentIds[r] != null &&
                       sf1Edits.isEdited(rowStudentIds[r], `s:${c.key}`)
                         ? ' sf-edited-cell'
@@ -1139,14 +1139,14 @@ function SF1Footer({
                   </td>
                   <td className="border border-black p-0">
                     <input
-                      className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input h-5 w-full text-center outline-none focus:bg-amber-50"
                       value={registeredCounts[i]?.[0] ?? ''}
                       onChange={e => onRegCountChange(i, 0, e.target.value)}
                     />
                   </td>
                   <td className="border border-black p-0">
                     <input
-                      className="sf1-input h-5 w-full text-center outline-none focus:bg-amber-50"
+                      className="sf1-input sf-fill-input h-5 w-full text-center outline-none focus:bg-amber-50"
                       value={registeredCounts[i]?.[1] ?? ''}
                       onChange={e => onRegCountChange(i, 1, e.target.value)}
                     />
@@ -1176,7 +1176,7 @@ function SF1Footer({
             <p className="font-semibold">{s.role}</p>
             <input
               type="text"
-              className="mt-5 w-full border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
+              className="mt-5 w-full sf-fill-input border-0 border-b border-black bg-transparent px-1 py-1 text-center text-[10px] font-semibold outline-none focus:bg-amber-50"
               value={signers[s.key as keyof typeof signers]}
               onChange={e =>
                 onSignerChange(
@@ -1191,14 +1191,14 @@ function SF1Footer({
               <span className="whitespace-nowrap">BoSY Date:</span>
               <input
                 type="date"
-                className="flex-1 border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
+                className="flex-1 sf-fill-input border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
                 value={signatureDates.bosyDate}
                 onChange={e => onSigDateChange('bosyDate', e.target.value)}
               />
               <span className="whitespace-nowrap">EoSY Date:</span>
               <input
                 type="date"
-                className="flex-1 border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
+                className="flex-1 sf-fill-input border-0 border-b border-black bg-transparent px-1 py-0.5 text-center text-[10px] outline-none focus:bg-amber-50"
                 value={signatureDates.eosyDate}
                 onChange={e => onSigDateChange('eosyDate', e.target.value)}
               />
