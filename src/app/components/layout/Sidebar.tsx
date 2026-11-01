@@ -68,7 +68,7 @@ export function Sidebar({
   return (
     <aside
       aria-label="Sidebar navigation"
-      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-gradient-to-b ${ROLE_GRADIENTS[roleKey]} pb-safe text-white shadow-xl transition-all duration-300 md:static ${
+      className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b ${ROLE_GRADIENTS[roleKey]} pb-safe text-white shadow-xl transition-all duration-300 md:static ${
         mobileSidebarOpen
           ? 'translate-x-0'
           : '-translate-x-full md:translate-x-0'

@@ -965,9 +965,9 @@ export function GradeManagement() {
                         <tr className="bg-gradient-to-r from-emerald-50/80 via-emerald-50/80 to-emerald-50/50 border-b border-emerald-100">
                           {[
                             'Subject',
-                            'Q1',
-                            'Q2',
-                            'Q3',
+                            'T1',
+                            'T2',
+                            'T3',
                             'Final',
                             'Remarks'
                           ].map(h => (
@@ -1399,16 +1399,16 @@ export function GradeManagement() {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
-                  Quarter
+                  Term
                 </label>
                 <select
                   value={correctionQuarter}
                   onChange={e => setCorrectionQuarter(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition">
-                  <option value="">All quarters</option>
-                  <option value="1">1st Quarter</option>
-                  <option value="2">2nd Quarter</option>
-                  <option value="3">3rd Quarter</option>
+                  <option value="">All terms</option>
+                  <option value="1">1st Term</option>
+                  <option value="2">2nd Term</option>
+                  <option value="3">3rd Term</option>
                 </select>
               </div>
               <div>

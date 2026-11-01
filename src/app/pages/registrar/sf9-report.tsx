@@ -1171,19 +1171,22 @@ export function SF9Report() {
                     </h4>
                     <div className="mt-2 space-y-3 text-[11px]">
                       {[
-                        '1st Quarter',
-                        '2nd Quarter',
-                        '3rd Quarter'
+                        { label: '1st Term', term: '1st Quarter' },
+                        { label: '2nd Term', term: '2nd Quarter' },
+                        { label: '3rd Term', term: '3rd Quarter' }
                       ].map(q => (
-                        <div key={q} className="flex items-end gap-1">
+                        // Display says "Term" (school's current scheme), but the
+                        // saved-edit key stays parentSig:1st Quarter so previously
+                        // stored parent-signature edits keep resolving.
+                        <div key={q.term} className="flex items-end gap-1">
                           <span className="text-[11px] font-semibold whitespace-nowrap">
-                            {q}:
+                            {q.label}:
                           </span>
                           <input
                             type="text"
-                            value={getSignature(q)}
+                            value={getSignature(q.term)}
                             onChange={e =>
-                              handleSignatureChange(q, e.target.value)
+                              handleSignatureChange(q.term, e.target.value)
                             }
                             className="sf1-input flex-1 border-b border-black bg-transparent text-[11px] pl-1 outline-none focus:bg-amber-50"
                           />
@@ -1549,7 +1552,7 @@ export function SF9Report() {
                         <th
                           colSpan={3}
                           className="border border-black px-1 py-0.5 font-bold text-center">
-                          Quarter
+                          Term
                         </th>
                         <th
                           rowSpan={2}
@@ -1644,7 +1647,7 @@ export function SF9Report() {
                         <th
                           colSpan={3}
                           className="border border-black px-1 py-0.5 font-bold text-center">
-                          Quarter
+                          Term
                         </th>
                       </tr>
                       <tr className="font-bold">

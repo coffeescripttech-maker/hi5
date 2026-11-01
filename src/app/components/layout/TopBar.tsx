@@ -5,8 +5,7 @@
  * for accents — breadcrumb highlight, focus rings and the notification badge.
  * Left: mobile hamburger + desktop collapse toggle + breadcrumb/title.
  * Center: global search trigger (⌘K hint) on desktop.
- * Right: mobile search icon, notifications, theme toggle,
- * profile dropdown.
+ * Right: notifications, theme toggle, profile dropdown.
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -16,7 +15,6 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  Search,
   Sun
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -130,13 +128,6 @@ export function TopBar({
 
         {/* Right cluster */}
         <div className="ml-auto flex flex-shrink-0 items-center gap-1 md:gap-1.5">
-          <button
-            onClick={() => setSearchOpen(true)}
-            aria-label="Search students or pages"
-            className={`inline-flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 lg:hidden dark:text-slate-400 dark:hover:bg-slate-800 ${ringClass}`}>
-            <Search size={20} />
-          </button>
-
           <NotificationsDropdown />
 
           <button
