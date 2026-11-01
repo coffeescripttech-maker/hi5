@@ -550,7 +550,7 @@ Every new school year starts **carried over**:
 - **Edited marker (rule 11)**: every school-form header bar now has an
   **Edited fields** menu (next to **Save**, role-gated the same way). The
   SF1/SF5 leaf cells that were taken over from the system-derived value carry
-  a small **amber dot** (hidden in print/PDF output).
+  a small **amber dot** (screen-only editing aid - hidden in the Print Preview window and the exported PDF so official copies stay clean).
 - **Per-item Reset (rule 11)**: each menu entry shows learner + field +
   value, with a **Reset** button that removes the stored edit so the form
   shows the system value again (carried-over prefills are hidden with an
