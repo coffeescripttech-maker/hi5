@@ -418,7 +418,7 @@ export function UploadGrades() {
             </div>
             <div>
               <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">
-                <ClipboardList size={13} className="text-emerald-600" /> Quarter
+                <ClipboardList size={13} className="text-emerald-600" /> Term
               </label>
               <select
                 value={quarter}
@@ -426,7 +426,7 @@ export function UploadGrades() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
                 {[1, 2, 3].map(q => (
                   <option key={q} value={q}>
-                    Quarter {q}
+                    Term {q}
                   </option>
                 ))}
               </select>

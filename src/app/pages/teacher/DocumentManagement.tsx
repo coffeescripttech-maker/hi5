@@ -281,10 +281,10 @@ export function DocumentManagement() {
             value={filterQuarter}
             onChange={e => setFilterQuarter(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
-            <option value="All">All Quarters</option>
-            <option>Q1</option>
-            <option>Q2</option>
-            <option>Q3</option>
+            <option value="All">All Terms</option>
+            <option value="Q1">T1</option>
+            <option value="Q2">T2</option>
+            <option value="Q3">T3</option>
           </select>
         </div>
       </div>
@@ -345,7 +345,7 @@ export function DocumentManagement() {
                         'File Name',
                         'Section',
                         'Subject',
-                        'Quarter',
+                        'Term',
                         'Records',
                         'Uploaded By',
                         'Date',
@@ -389,7 +389,7 @@ export function DocumentManagement() {
                           </td>
                           <td className="px-5 py-3">
                             <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded font-medium">
-                              {doc.quarter ? `Q${doc.quarter}` : '—'}
+                              {doc.quarter ? `T${doc.quarter}` : '—'}
                             </span>
                           </td>
                           <td className="px-5 py-3 text-gray-600 text-xs">
@@ -464,7 +464,7 @@ export function DocumentManagement() {
                               {doc.subject_name || '—'}
                             </span>
                             <span className="bg-gray-100 text-gray-600 text-[11px] px-2 py-0.5 rounded font-medium">
-                              {doc.quarter ? `Q${doc.quarter}` : '—'}
+                              {doc.quarter ? `T${doc.quarter}` : '—'}
                             </span>
                             <span className="text-xs text-gray-500">
                               {doc.section_name || 'No section'}

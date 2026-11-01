@@ -1724,7 +1724,7 @@ export function EnrollmentModule() {
         highlight: false
       },
       {
-        label: 'Quarterly Complete',
+        label: 'Term Complete',
         value:
           subsTotal != null && subsComplete === subsTotal
             ? 'Yes'

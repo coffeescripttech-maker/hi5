@@ -84,7 +84,7 @@ const NODE_ROUTES: [string, string, string][] = [
   // Teacher grades
   ['Grade Management', '/teacher/grades', 'Grade Management'],
   ['My Students', '/teacher/my-students', 'My Students'],
-  ['Q1-Q3 grades', '/teacher/grades', 'Encode Grades'],
+  ['T1-T3 grades', '/teacher/grades', 'Encode Grades'],
   ['locks grades', '/teacher/grades', 'Lock Grades'],
   ['School Forms', '/teacher/forms/sf1', 'School Forms'],
 
@@ -156,7 +156,7 @@ flowchart TB
   CONFIRM-->GRADE_PHASE
 
   subgraph GRADE_PHASE[Phase 3 - Teacher: Grade Encoding]
-    TEACH_GRADE[Teacher opens My Students or Grade Management]:::teacher-->SELECT_CLASS[Selects section and student]:::teacher-->ENTER_GRADES[Enters Q1-Q3 grades for each of 12 subjects]:::teacher-->LOCK[Teacher locks grades per subject]:::teacher-->FORMS[Teacher generates School Forms<br/>SF1 - SF5 - SF9 - SF10]:::teacher
+    TEACH_GRADE[Teacher opens My Students or Grade Management]:::teacher-->SELECT_CLASS[Selects section and student]:::teacher-->ENTER_GRADES[Enters T1-T3 grades for each of 12 subjects]:::teacher-->LOCK[Teacher locks grades per subject]:::teacher-->FORMS[Teacher generates School Forms<br/>SF1 - SF5 - SF9 - SF10]:::teacher
     FORMS-->YEAR_END{End of school year?}:::decision
     YEAR_END-->|Not yet|TEACH_GRADE
     YEAR_END-->|Yes|PROMOTE_CHECK
@@ -211,7 +211,7 @@ flowchart LR
 
   A[👤 Admin Setup]:::admin-->B[🧑‍🏫 Teacher Enroll Student<br/><small>no section</small>]:::teacher
   B-->C[📋 Registrar Assign Section]:::registrar
-  C-->D[🧑‍🏫 Teacher Encode Grades Q1-Q3]:::teacher
+  C-->D[🧑‍🏫 Teacher Encode Grades T1-T3]:::teacher
   D-->E[🧑‍🏫 Teacher Lock Grades]:::teacher
   E-->F[🧑‍🏫 Teacher Generate Forms<br/>SF1 / SF5 / SF9 / SF10]:::teacher
   F-->G[⚙️ System Bulk Promotion -> next grade]:::system
@@ -239,7 +239,7 @@ const QUICK_REF = [
     textColor: 'text-emerald-700',
     steps: [
       'Enroll Students (no section)',
-      'Encode Q1-Q3 Grades',
+      'Encode T1-T3 Grades',
       'Lock Grades',
       'Generate School Forms',
       'Bulk Promotion / Completers'

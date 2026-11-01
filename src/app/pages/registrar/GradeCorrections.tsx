@@ -31,9 +31,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const QUARTER_LABEL: Record<number, string> = {
-  1: '1st Quarter',
-  2: '2nd Quarter',
-  3: '3rd Quarter'
+  // Displayed as Terms (school's current scheme); the correction rows' quarter
+  // numbers (1/2/3) in the DB are untouched — this is a display-only map.
+  1: '1st Term',
+  2: '2nd Term',
+  3: '3rd Term'
 };
 
 const FILTERS: { key: StatusFilter; label: string }[] = [
@@ -211,7 +213,7 @@ export function GradeCorrections() {
                   Subject
                 </th>
                 <th className="text-left px-4 py-3.5 text-indigo-800 font-semibold text-xs uppercase tracking-wider">
-                  Quarter
+                  Term
                 </th>
                 <th className="text-left px-4 py-3.5 text-indigo-800 font-semibold text-xs uppercase tracking-wider">
                   Justification
@@ -397,11 +399,11 @@ export function GradeCorrections() {
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Quarter</span>
+              <span className="text-gray-500">Term</span>
               <span className="font-semibold text-gray-900">
                 {confirmingRow.quarter
                   ? QUARTER_LABEL[confirmingRow.quarter]
-                  : 'All quarters'}
+                  : 'All terms'}
               </span>
             </div>
             {confirmingRow.common_mistake && (

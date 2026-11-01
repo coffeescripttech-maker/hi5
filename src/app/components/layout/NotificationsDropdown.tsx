@@ -71,7 +71,7 @@ const ALL_NOTIFICATIONS: Record<
     {
       id: 3,
       icon: '🟡',
-      text: 'Needs Monitoring: Ana Reyes (8-Silver) — Q3 average dropped below 82.',
+      text: 'Needs Monitoring: Ana Reyes (8-Silver) — T3 average dropped below 82.',
       time: 'Today 08:45'
     },
     {
@@ -129,7 +129,7 @@ const ALL_NOTIFICATIONS: Record<
     {
       id: 2,
       icon: '📝',
-      text: 'Grade submission progress: 14/24 sections have submitted Q3 grades.',
+      text: 'Grade submission progress: 14/24 sections have submitted T3 grades.',
       time: 'Today 09:45'
     },
     {

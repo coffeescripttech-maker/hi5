@@ -730,8 +730,8 @@ export function BulkPromotion() {
               ) : (
                 <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2.5">
                   <AlertTriangle size={13} className="flex-shrink-0" />
-                  Students are promoted only if every subject has all 3 quarters
-                  (Q1–Q3) of grades. An average below 75 means retention;
+                  Students are promoted only if every subject has all 3 terms
+                  (T1–T3) of grades. An average below 75 means retention;
                   incomplete grades hold a student back until their record is
                   complete.
                 </div>

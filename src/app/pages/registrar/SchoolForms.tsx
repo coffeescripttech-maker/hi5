@@ -74,7 +74,7 @@ const SCHOOL_FORMS: SchoolForm[] = [
     code: 'SF9',
     title: 'School Form 9',
     subtitle: "Learner's Progress Report Card",
-    desc: 'Quarterly report card per learner showing grades per subject, general average, attendance summary, and class adviser remarks.',
+    desc: 'Term report card per learner showing grades per subject, general average, attendance summary, and class adviser remarks.',
     icon: <ClipboardList size={22} className="text-violet-600" />,
     accessible: true,
     color: 'violet',
@@ -903,13 +903,13 @@ export function SchoolForms() {
                                     Learning Area
                                   </th>
                                   <th className="border border-violet-900 px-2 py-2 text-center">
-                                    Q1
+                                    T1
                                   </th>
                                   <th className="border border-violet-900 px-2 py-2 text-center">
-                                    Q2
+                                    T2
                                   </th>
                                   <th className="border border-violet-900 px-2 py-2 text-center">
-                                    Q3
+                                    T3
                                   </th>
                                   <th className="border border-violet-900 px-2 py-2 text-center">
                                     Final Rating
@@ -976,7 +976,7 @@ export function SchoolForms() {
                                   <thead>
                                     <tr className="bg-gray-100">
                                       <th className="border border-gray-200 px-2 py-1">
-                                        Quarter
+                                        Term
                                       </th>
                                       <th className="border border-gray-200 px-2 py-1 text-center">
                                         No. of Days
@@ -988,9 +988,9 @@ export function SchoolForms() {
                                   </thead>
                                   <tbody>
                                     {[
-                                      ['Q1', '47', '2'],
-                                      ['Q2', '48', '1'],
-                                      ['Q3', '45', '0']
+                                      ['T1', '47', '2'],
+                                      ['T2', '48', '1'],
+                                      ['T3', '45', '0']
                                     ].map(([q, days, abs]) => (
                                       <tr key={q}>
                                         <td className="border border-gray-200 px-2 py-1 text-center font-medium">
@@ -1104,13 +1104,13 @@ export function SchoolForms() {
                                     Learning Area
                                   </th>
                                   <th className="border border-indigo-900 px-2 py-2 text-center">
-                                    Q1
+                                    T1
                                   </th>
                                   <th className="border border-indigo-900 px-2 py-2 text-center">
-                                    Q2
+                                    T2
                                   </th>
                                   <th className="border border-indigo-900 px-2 py-2 text-center">
-                                    Q3
+                                    T3
                                   </th>
                                   <th className="border border-indigo-900 px-2 py-2 text-center">
                                     Final Rating

@@ -1389,9 +1389,9 @@ export function StudentProfile() {
                                     <tr className="bg-gray-50/80">
                                       {[
                                         'Subject',
-                                        'Q1',
-                                        'Q2',
-                                        'Q3',
+                                        'T1',
+                                        'T2',
+                                        'T3',
                                         'Final Rating',
                                         'Descriptor'
                                       ].map(h => (
