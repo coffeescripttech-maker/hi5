@@ -229,6 +229,15 @@ async function inlineComputedStylesForChromium(root: HTMLElement) {
     const batch = queue.splice(0, INLINE_CHUNK);
     for (const el of batch) {
       const hEl = el as HTMLElement;
+      // Amber Edited markers are screen-only editing aids (live form). The
+      // Print Preview modal and the exported PDF are the official paper, so
+      // they must show the clean sheet without the dots. Strip the class and
+      // its background BEFORE the computed-style snapshot so the radial
+      // gradient never reaches the serialized page.
+      if (hEl.classList.contains("sf-edited-cell")) {
+        hEl.classList.remove("sf-edited-cell");
+        hEl.style.backgroundImage = "none";
+      }
       const cs = getComputedStyle(hEl);
 
       // Drop anything marked not-print (and its subtree).
