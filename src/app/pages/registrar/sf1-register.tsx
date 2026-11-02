@@ -49,7 +49,7 @@ type Leaf = {
 
 // Flat list of data columns (used to render body rows in order).
 // These are exactly the columns required by the official DepEd SF1 School
-// Register (no quarterly-grade columns ó those belong to the SF9/SF10).
+// Register (no quarterly-grade columns ‚Äî those belong to the SF9/SF10).
 // The widths sum to 1460px: legal-landscape print area is 1306px wide at
 // 96dpi and `.sf1-page` is scaled with zoom 0.89, so 1306 / 0.89 = 1467px is
 // the layout budget. Staying just under it fills the printable width without
@@ -374,7 +374,7 @@ export function SF1Register() {
   // Every handwritten SF1 cell, header identity field, signer, summary count
   // and BoSY/EoSY date is stored per (learner, school year, field) and is
   // re-applied by the row-builder effect below. Rule 10 (strict): teachers
-  // may not save SF1 edits ó only the Registrar/Administrator can.
+  // may not save SF1 edits ‚Äî only the Registrar/Administrator can.
   const sectionId = useMemo(
     () =>
       sections.find(
@@ -388,7 +388,10 @@ export function SF1Register() {
     form: 'SF1',
     schoolYearId: syId,
     sectionId,
-    enabled: !!sectionId && !!syId
+    enabled: !!sectionId && !!syId,
+    // T57: show the learner's name in the Edited-fields menu, not "student 183".
+    labelStudent: sid =>
+      students.find(s => s.id === sid)?.name || `Student ${sid}`
   });
   const canSaveFormEdits = role === 'admin' || role === 'registrar';
   // Parallel of `rows`: which learner each row belongs to (filler rows and
@@ -503,7 +506,7 @@ export function SF1Register() {
               picks.length ? `Electives: ${picks.join(', ')}` : ''
             ]
               .filter(Boolean)
-              .join(' ∑ ')
+              .join(' ¬∑ ')
           : '';
       return {
         lrn: s.lrn || '',
@@ -683,7 +686,7 @@ export function SF1Register() {
         'success',
         saved > 0
           ? `Saved ${saved} SF1 edit${saved === 1 ? '' : 's'}.`
-          : 'Nothing new to save ó SF1 is up to date.'
+          : 'Nothing new to save ‚Äî SF1 is up to date.'
       );
     } catch (err: any) {
       showToast(
@@ -749,7 +752,7 @@ export function SF1Register() {
                 <div className="flex items-center gap-2 mr-1">
                   {sf1Edits.isDirty && (
                     <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
-                      ? {sf1Edits.dirtyCount} unsaved edit{sf1Edits.dirtyCount === 1 ? '' : 's'}
+                      ‚óè {sf1Edits.dirtyCount} unsaved edit{sf1Edits.dirtyCount === 1 ? '' : 's'}
                     </span>
                   )}
                   <Button
@@ -997,7 +1000,13 @@ export function SF1Register() {
                 {rows.map((row, r) => (
                   <tr key={r}>
                     {LEAF_COLUMNS.map(c => (
-                      <td key={c.key} className="border border-black p-0">
+                      <td
+                        key={c.key}
+                        // T41: clip every cell to its own column ‚Äî long
+                        // Remarks values (Track + Electives) used to run
+                        // past the Remarks column / the sheet edge in the
+                        // print preview.
+                        className="border border-black p-0 overflow-hidden">
                         <input
                           value={row[c.key] ?? ''}
                           onChange={e => setCell(r, c.key, e.target.value)}

@@ -496,9 +496,14 @@ export async function confirmAssignments(req: Request, res: Response): Promise<v
           [school_year_id, school_year_id, ...candidateIds]
         );
         if (shsMissing.length > 0) {
+          const syLabel = await query<RowDataPacket[]>(
+            "SELECT sy_label FROM school_years WHERE id = ?",
+            [school_year_id]
+          );
+          const syName = syLabel[0]?.sy_label ?? `#${school_year_id}`;
           const names = shsMissing.map((s: any) => String(s.name)).join(", ");
           res.status(422).json({
-            error: `Complete the elective selections before confirming section placement for: ${names}`,
+            error: `Complete the elective selections for ${syName} before confirming section placement for: ${names}`,
             missing_electives: shsMissing.map((s: any) => ({ student_id: s.id, name: s.name })),
           });
           return;

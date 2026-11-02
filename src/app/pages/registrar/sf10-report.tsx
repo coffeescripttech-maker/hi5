@@ -271,7 +271,7 @@ function buildLearningAreaDisplay(
   };
 
   // Like SF9: keep the regular learning areas in their listed (alphabetical)
-  // order, then append the grouped MAPEH block � header + components.
+  // order, then append the grouped MAPEH block — header + components.
   result.push(
     header,
     ...ordered.map(c => ({ kind: 'row' as const, index: c.index, area: c.area }))
@@ -326,7 +326,7 @@ export function SF10Report() {
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  // Print confirmation preview � no form goes straight to window.print().
+  // Print confirmation preview — no form goes straight to window.print().
   const [previewOpen, setPreviewOpen] = useState(false);
 
   /* ── Lookups ── */
@@ -350,7 +350,10 @@ export function SF10Report() {
     form: 'SF10',
     schoolYearId: syId,
     studentId: selectedStudentId,
-    enabled: !!selectedStudentId && !!syId
+    enabled: !!selectedStudentId && !!syId,
+    // T57: show the learner's name in the Edited-fields menu, not "student 183".
+    labelStudent: sid =>
+      students.find(s => s.id === sid)?.name || `Student ${sid}`
   });
   const canSaveFormEdits = role === 'admin' || role === 'registrar';
   const sf10Sid = selectedStudentId ?? 0;
@@ -444,7 +447,7 @@ export function SF10Report() {
     setSf10Data(null);
   }, [selectedGrade, selectedSectionId, syId]);
 
-  // Reset section when grade changes � only if it no longer belongs to the grade.
+  // Reset section when grade changes — only if it no longer belongs to the grade.
   useEffect(() => {
     const gs = sections.filter(
       s => s.is_active === 1 && s.grade_level === parseInt(selectedGrade)
@@ -566,7 +569,7 @@ export function SF10Report() {
   }
 
   /* ── Update helpers ── */
-  /* Update helpers � each also persists the edit (docs/MAJOR_CHANGES_IN_FORMS.txt rule 4). */
+  /* Update helpers — each also persists the edit (docs/MAJOR_CHANGES_IN_FORMS.txt rule 4). */
   const setLearnerField = (key: keyof LearnerState, val: string) => {
     setLearner(prev => ({ ...prev, [key]: val }));
     sf10Edits.setValue(sf10Sid, `learner:${key}`, val);
@@ -666,12 +669,12 @@ export function SF10Report() {
   };
 
   // Once the SF10 fetch AND the saved-edits fetch have settled, re-apply
-  // every saved edit over the system-derived build (a saved value � including
-  // a saved empty one � wins; rule 5/7). Header identity fields persist as
+  // every saved edit over the system-derived build (a saved value — including
+  // a saved empty one — wins; rule 5/7). Header identity fields persist as
   // form-level keys (rule 8, saved once per SY).
   const sf10AppliedFor = useRef<string>('');
   // Track the last Reset pass (rules 11) so the display state can be rebuilt
-  // from the system record � the overlay pass alone cannot REMOVE a value.
+  // from the system record — the overlay pass alone cannot REMOVE a value.
   const sf10RebuiltAtRef = useRef(0);
   useEffect(() => {
     if (!sf10Data || sf10Edits.loading) return;
@@ -791,7 +794,7 @@ export function SF10Report() {
         'success',
         saved > 0
           ? `Saved ${saved} SF10 edit${saved === 1 ? '' : 's'}.`
-          : 'Nothing new to save � SF10 is up to date.'
+          : 'Nothing new to save — SF10 is up to date.'
       );
     } catch (err: any) {
       showToast(
@@ -821,10 +824,10 @@ export function SF10Report() {
       await downloadRenderedPdf(options);
       showToast('success', 'PDF exported successfully.');
     } catch {
-      // Server render unavailable � fall back to the client-side pdfmake export.
+      // Server render unavailable — fall back to the client-side pdfmake export.
       try {
         await exportToPdf(options);
-        showToast('info', 'Server render unavailable � used local fallback.');
+        showToast('info', 'Server render unavailable — used local fallback.');
       } catch {
         showToast('error', 'Failed to export PDF. Please try again.');
       }
@@ -886,11 +889,11 @@ export function SF10Report() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
-                    SF10 � Learner's Permanent Academic Record
+                    SF10 — Learner's Permanent Academic Record
                   </h2>
                   <p className="text-sm text-gray-500 mt-0.5">
                     Filter by grade and section, or search a learner to open
-                    their SF10-JHS (Formerly Form 137) with grades auto-filled from the
+                    their Learner's Permanent Academic Record (SF10) with grades auto-filled from the
                     database.
                   </p>
                 </div>
@@ -900,7 +903,7 @@ export function SF10Report() {
                   <div className="flex items-center gap-2 mr-1">
                     {sf10Edits.isDirty && (
                       <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">
-                        ? {sf10Edits.dirtyCount} unsaved edit{sf10Edits.dirtyCount === 1 ? '' : 's'}
+                        ● {sf10Edits.dirtyCount} unsaved edit{sf10Edits.dirtyCount === 1 ? '' : 's'}
                       </span>
                     )}
                     <button
@@ -922,7 +925,7 @@ export function SF10Report() {
                   ) : (
                     <Download size={14} />
                   )}
-                  {exporting ? 'Generating�' : 'PDF'}
+                  {exporting ? 'Generating…' : 'PDF'}
                 </button>
                 <button
                   onClick={() => setPreviewOpen(true)}
@@ -935,7 +938,7 @@ export function SF10Report() {
 
             <FormPrintPreview
               open={previewOpen}
-              title="SF10 � Permanent Record"
+              title="SF10 — Permanent Record"
               elementId="sf10-print-area"
               onClose={() => setPreviewOpen(false)}
               onExportPdf={handleExportPdf}
@@ -1009,7 +1012,7 @@ export function SF10Report() {
                     const chosen = enrolledStudents.find(s => s.id === sid);
                     setSelectedStudentId(sid);
                     setSearchQuery(
-                      chosen ? `${chosen.lrn} � ${chosen.name}` : ''
+                      chosen ? `${chosen.lrn} — ${chosen.name}` : ''
                     );
                     setSf10Data(null);
                   }}
@@ -1019,7 +1022,7 @@ export function SF10Report() {
                   )}
                   {enrolledStudents.map(s => (
                     <option key={s.id} value={s.id}>
-                      {s.lrn} � {s.name}
+                      {s.lrn} — {s.name}
                     </option>
                   ))}
                 </select>
@@ -1048,7 +1051,7 @@ export function SF10Report() {
                 <input
                   type="text"
                   value={searchQuery}
-                  placeholder="Search by name, LRN, or ID number�"
+                  placeholder="Search by name, LRN, or ID number…"
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() =>
                     setTimeout(() => setShowSuggestions(false), 150)
@@ -1073,7 +1076,7 @@ export function SF10Report() {
                       type="button"
                       onPointerDown={() => {
                         setSelectedStudentId(s.id);
-                        setSearchQuery(`${s.lrn} � ${s.name}`);
+                        setSearchQuery(`${s.lrn} — ${s.name}`);
                         setShowSuggestions(false);
                         setSf10Data(null);
                       }}
@@ -1111,7 +1114,7 @@ export function SF10Report() {
               className={`animate-spin ${accent.text} mx-auto mb-3`}
             />
             <p className="text-gray-500 font-semibold">
-              Loading Permanent Academic Record�
+              Loading Permanent Academic Record…
             </p>
             <p className="text-gray-400 text-sm mt-1">
               Compiling grades across school years from database
@@ -1171,7 +1174,7 @@ export function SF10Report() {
           <div
             id="sf10-print-area"
             className="p-4 sm:p-6 text-[10px] leading-tight text-black">
-            {/* Fixed sheet width � letter landscape (11in) minus the 0.3in
+            {/* Fixed sheet width — letter landscape (11in) minus the 0.3in
                 page margins = 998px printable at 96dpi; 996 leaves ~2px for
                 rounding. A fixed width, not a min-width, is what makes the
                 sheet identical on every device AND in the exported PDF: the
@@ -1180,8 +1183,8 @@ export function SF10Report() {
             <div style={{ width: '996px', margin: '0 auto' }}>
               {/* ── Shared letterhead title block (same as SF1) ── */}
               <SchoolFormTitleBlock
-                title="Learner's Permanent Academic Record for Junior High School (SF10-JHS)"
-                subtitle="(Formerly Form 137)"
+                title="Learner's Permanent Academic Record"
+                subtitle="SF10 (formerly Form 137)"
               />
 
               {/* ── Shared header fields ── */}
@@ -1262,7 +1265,7 @@ export function SF10Report() {
                 ELIGIBILITY FOR JHS ENROLMENT
               </div>
               <div className="border-2 border-gray-800 p-3 mb-2">
-                {/* Row 1 � Elementary completer + general average + citation */}
+                {/* Row 1 — Elementary completer + general average + citation */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-3">
                   <div className="col-span-12 sm:col-span-4 flex items-center gap-2">
                     {checkboxInput({
@@ -1299,7 +1302,7 @@ export function SF10Report() {
                   </div>
                 </div>
 
-                {/* Row 2 � Elementary school details */}
+                {/* Row 2 — Elementary school details */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-3">
                   <div className="col-span-12 sm:col-span-5 flex items-baseline gap-1">
                     <span className="font-bold whitespace-nowrap">
@@ -1340,12 +1343,12 @@ export function SF10Report() {
                   </div>
                 </div>
 
-                {/* Sub-header � Other Credential Presented */}
+                {/* Sub-header — Other Credential Presented */}
                 <div className="border border-gray-800 bg-gray-200 px-2 py-1 font-bold text-center text-[11px] mb-3">
                   OTHER CREDENTIALS PRESENTED
                 </div>
 
-                {/* Row 3 � PEPT / ALS */}
+                {/* Row 3 — PEPT / ALS */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2 mb-2">
                   <div className="col-span-6 flex items-center gap-2">
                     {checkboxInput({
@@ -1385,7 +1388,7 @@ export function SF10Report() {
                   </div>
                 </div>
 
-                {/* Row 4 � Others + exam date + testing center */}
+                {/* Row 4 — Others + exam date + testing center */}
                 <div className="grid grid-cols-12 gap-x-3 gap-y-2">
                   <div className="col-span-12 sm:col-span-4 flex items-center gap-2">
                     {checkboxInput({
@@ -1433,7 +1436,7 @@ export function SF10Report() {
               {records.map((record, idx) => (
                 <div key={record.schoolYear || idx} className="print-page">
                   <div className="bg-yellow-100 border-2 border-gray-800 p-2 font-bold text-center mb-2 mt-4">
-                    SCHOLASTIC RECORD � SY {record.schoolYear || '�'}
+                    SCHOLASTIC RECORD — SY {record.schoolYear || '—'}
                   </div>
 
                   <div className="border-2 border-gray-800 p-2">
@@ -1572,7 +1575,7 @@ export function SF10Report() {
                     </div>
                   </div>
 
-                  {/* Learning areas table � table-fixed + proportional
+                  {/* Learning areas table — table-fixed + proportional
                       column widths so the columns can never drift/overlap
                       between devices; the table fills the same 996px the
                       SCHOLASTIC RECORD banner spans. */}
@@ -1595,7 +1598,7 @@ export function SF10Report() {
                         <th
                           colSpan={3}
                           className="border border-gray-800 p-1 font-bold">
-                          QUARTERS
+                          TERMS
                         </th>
                         <th
                           rowSpan={2}

@@ -1,9 +1,5 @@
-# Strengthened SHS Curriculum — Client Acceptance Tests (Filtered Copy)
+# Strengthened SHS Curriculum — Client Acceptance Tests 
 
-This is the client-facing extract of
-`docs/CLIENT_ACCEPTANCE_CHECKLIST_SIMPLE.md` (which maps 1-on-1 to
-`MAJOR_CHANGES.txt`). Report any failed test by its number, e.g.
-"T14 failed — expected X, saw Y".
 
 ---
 

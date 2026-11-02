@@ -472,6 +472,11 @@ export async function getSF10(req: Request, res: Response): Promise<void> {
         grade_level: enroll.grade_level,
         section_name: enroll.section_name,
         sy_label: enroll.sy_label,
+        // Track/strand the learner held in that school year (T44: the SF10
+        // "Track/ Strand" line was always blank because the API never
+        // forwarded this column even though the SELECT already fetched it).
+        strand_track_name: enroll.strand_track_name || null,
+        program: enroll.program || null,
         general_average: genAvg,
         subjects: syGrades,
       };

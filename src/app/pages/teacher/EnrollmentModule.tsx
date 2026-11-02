@@ -374,6 +374,11 @@ function ShsTrackElectives({
 }) {
   const isShs = (grade ?? 0) >= 11;
   const electivesApply = isShs && ['regular', 'open_high'].includes(program);
+  // T16: ALS learners follow the ALS learning strands — never show the SHS
+  // Track picker or the elective picker for an ALS program.
+  if (isShs && program.startsWith('als')) {
+    return null;
+  }
 
   if (!isShs) {
     // JHS still picks a TLE specialization the old way.
@@ -1153,6 +1158,18 @@ export function EnrollmentModule() {
   // DepEd lets learners choose electives across tracks — this reveals the
   // other track's clusters alongside the selected track's.
   const [showOtherTrackElectives, setShowOtherTrackElectives] = useState(false);
+  // Strengthened SHS Curriculum (T11): Grade 11/12 Mainstream and Open High
+  // School learners must pick a strand/track before the wizard can advance.
+  // ALS programs never pick a track (they follow the ALS learning strands).
+  const shsTrackRequired = (grade: number | null) =>
+    (grade ?? 0) >= 11 && ['regular', 'open_high'].includes(program);
+  // T13: names for the preview summary (Track + elective picks).
+  const selectedTrackName =
+    strandTracks.find(t => t.id === selectedStrandTrackId)?.name || '';
+  const pickedElectiveNames = electiveGroups
+    .flatMap(g => g.subjects)
+    .filter(s => electivePicks.includes(s.id))
+    .map(s => s.name);
   const [requirements, setRequirements] = useState<Record<string, boolean>>({
     psa_birth_cert: false,
     previous_grade_card: false,
@@ -1248,6 +1265,12 @@ export function EnrollmentModule() {
     setSelectedStrandTrackId(null);
     setElectivePicks([]);
     setElectiveGroups([]);
+    // T16: ALS learners follow the ALS learning strands — they never pick a
+    // JHS TLE specialization or an SHS Track, so clear the cards entirely.
+    if (program.startsWith('als')) {
+      setStrandTracks([]);
+      return;
+    }
     const trackType = grade >= 11 ? 'shs_track' : 'tle';
     strandTracksApi
       .list(
@@ -1257,7 +1280,7 @@ export function EnrollmentModule() {
       )
       .then(setStrandTracks)
       .catch(() => setStrandTracks([]));
-  }, [newGrade, retGrade]);
+  }, [newGrade, retGrade, program]);
 
   // Strengthened SHS Curriculum: elective offerings per track + school year.
   // Only mainstream and OHS learners pick electives, and only for grades 11–12.
@@ -1443,7 +1466,13 @@ export function EnrollmentModule() {
 
   const handleNewNext = () => {
     if (newStep === 1 && !validateNewStep1()) return;
-    if (newStep === 2 && !newGrade) return;
+    // T11: SHS Mainstream / Open High must have a strand/track picked — the
+    // track was never enforced here, so learners could confirm without one.
+    if (
+      newStep === 2 &&
+      (!newGrade || (shsTrackRequired(newGrade) && !selectedStrandTrackId))
+    )
+      return;
     if (newStep === 3) {
       setNewStudentID(genStudentID(newGrade!));
     }
@@ -1806,7 +1835,12 @@ export function EnrollmentModule() {
   const handleRetNext = () => {
     if (retStep === 3) {
       // Block advancing unless a grade that is valid for this student is selected
-      if (retGrade != null && allowedRetGrades.includes(retGrade))
+      // (T11: SHS Mainstream / Open High also needs a strand/track picked).
+      if (
+        retGrade != null &&
+        allowedRetGrades.includes(retGrade) &&
+        !(shsTrackRequired(retGrade) && !selectedStrandTrackId)
+      )
         setRetStep(4);
       return;
     }
@@ -1898,6 +1932,14 @@ export function EnrollmentModule() {
   const handleConfirmNewEnrollment = async () => {
     if (submitting) return;
     if (!newGrade) return;
+    // T11 last-line guard: SHS Mainstream / Open High needs a strand/track.
+    if (shsTrackRequired(newGrade) && !selectedStrandTrackId) {
+      showToast(
+        'error',
+        'Select a Senior High School track before confirming the enrollment.'
+      );
+      return;
+    }
     // Required documents are tracked but never block enrollment — staff may enrol
     // the student first and collect the remaining documents afterwards. Warn when
     // a required document for the chosen classifications is still unchecked.
@@ -1991,6 +2033,14 @@ export function EnrollmentModule() {
   const handleConfirmReturning = async () => {
     if (submitting) return;
     if (!foundStudent || !retGrade) return;
+    // T11 last-line guard: SHS Mainstream / Open High needs a strand/track.
+    if (shsTrackRequired(retGrade) && !selectedStrandTrackId) {
+      showToast(
+        'error',
+        'Select a Senior High School track before confirming the enrollment.'
+      );
+      return;
+    }
     // Graduated students are soft-archived and cannot be re-enrolled.
     if (foundStudent.status === 'graduated') {
       showToast(
@@ -3389,6 +3439,48 @@ export function EnrollmentModule() {
                 </div>
               </div>
 
+              {/* T13: Curriculum summary — the preview never showed the chosen
+                  Track/Strand, the elective picks, or how subjects attach. */}
+              <div className="bg-gray-50/70 border border-gray-100 rounded-xl p-5 space-y-3">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.06em] flex items-center gap-2">
+                  <BookOpen size={13} /> Curriculum
+                </p>
+                {[
+                  [
+                    'Track / Strand',
+                    (newGrade ?? 0) >= 11
+                      ? selectedTrackName ||
+                        (program.startsWith('als')
+                          ? 'None — ALS uses its own learning strands'
+                          : '—')
+                      : 'None — Junior High (TLE specialization chosen instead)'
+                  ],
+                  [
+                    'Elective Picks',
+                    pickedElectiveNames.length > 0
+                      ? pickedElectiveNames.join(', ')
+                      : (newGrade ?? 0) >= 11 &&
+                          ['regular', 'open_high'].includes(program)
+                        ? '— (pick electives in Step 2)'
+                        : 'None for this program'
+                  ]
+                ].map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="flex justify-between text-sm border-b border-gray-100/80 pb-2 last:border-0 last:pb-0">
+                    <span className="text-gray-500">{k}:</span>
+                    <span className="font-medium text-gray-800 text-right max-w-[60%]">
+                      {v}
+                    </span>
+                  </div>
+                ))}
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  Learning areas are assigned automatically from the program and
+                  track/strand once section placement is confirmed (elective
+                  subjects follow the picks above).
+                </p>
+              </div>
+
               {/* Requirements summary */}
               <div className="bg-gray-50/70 border border-gray-100 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -3459,7 +3551,11 @@ export function EnrollmentModule() {
           {newStep < 5 ? (
             <button
               onClick={handleNewNext}
-              disabled={newStep === 2 && !newGrade}
+              disabled={
+                newStep === 2 &&
+                (!newGrade ||
+                  (shsTrackRequired(newGrade) && !selectedStrandTrackId))
+              }
               className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               {newStep === 4 ? 'Continue to Preview' : 'Next Step'}{' '}
               <ChevronRight size={15} />
@@ -4239,7 +4335,26 @@ export function EnrollmentModule() {
                   ['New Grade Level', `Grade ${retGrade}`],
                   ['School Year', currentSYLabel || '—'],
                   ['Assigned Section', getSection()],
-                  ['Program', PROGRAM_BADGES[program]?.label || 'Regular']
+                  ['Program', PROGRAM_BADGES[program]?.label || 'Regular'],
+                  // T13: surface the Track and elective picks on the confirm step.
+                  [
+                    'Track / Strand',
+                    (retGrade ?? 0) >= 11
+                      ? selectedTrackName ||
+                        (program.startsWith('als')
+                          ? 'None — ALS uses its own learning strands'
+                          : '—')
+                      : 'None — Junior High'
+                  ],
+                  [
+                    'Elective Picks',
+                    pickedElectiveNames.length > 0
+                      ? pickedElectiveNames.join(', ')
+                      : (retGrade ?? 0) >= 11 &&
+                          ['regular', 'open_high'].includes(program)
+                        ? '— (choose in Step 3)'
+                        : 'None for this program'
+                  ]
                 ].map(([k, v]) => (
                   <div
                     key={k}
@@ -4278,7 +4393,8 @@ export function EnrollmentModule() {
                   !allowedRetGrades.includes(retGrade) ||
                   (promoCheck?.status != null &&
                     promoCheck.status !== 'promotable' &&
-                    !promoOverrideAccepted))
+                    !promoOverrideAccepted) ||
+                  (shsTrackRequired(retGrade) && !selectedStrandTrackId))
               }
               className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               Next Step <ChevronRight size={15} />

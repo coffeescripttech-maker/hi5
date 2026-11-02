@@ -309,6 +309,9 @@ export function SF9Report() {
     schoolYearId: syId,
     studentId: selectedStudentId,
     enabled: !!selectedStudentId,
+    // T57: show the learner's name in the Edited-fields menu, not "student 183".
+    labelStudent: sid =>
+      students.find(s => s.id === sid)?.name || `Student ${sid}`
   });
   const canSaveFormEdits = role === 'admin' || role === 'registrar' || role === 'teacher';
   const editableStudentId = selectedStudentId ?? 0;

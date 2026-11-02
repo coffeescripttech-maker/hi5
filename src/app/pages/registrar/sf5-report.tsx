@@ -388,7 +388,10 @@ export function SF5Report() {
     form: 'SF5',
     schoolYearId: syId,
     sectionId,
-    enabled: !!sectionId && !!syId
+    enabled: !!sectionId && !!syId,
+    // T57: show the learner's name in the Edited-fields menu, not "student 183".
+    labelStudent: sid =>
+      students.find(s => s.id === sid)?.name || `Student ${sid}`
   });
   const canSaveFormEdits = role === 'admin' || role === 'registrar';
   // Parallel of `rows`: which learner each row belongs to (filler rows never

@@ -117,8 +117,86 @@ export interface UseFormEditsApi {
 }
 
 export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
-  const { form, schoolYearId, studentId, sectionId, studentIds, enabled = true, labelStudent } = opts;
+  /* ------------------------------------------------------------------ */
+/* Friendly field names (T57) — the Edited-fields menu used to print   */
+/* raw storage keys like "DevelopmentAddress · addr_barangay".         */
+/* ------------------------------------------------------------------ */
 
+const FIELD_LABELS: Record<string, string> = {
+  lrn: 'LRN',
+  name: 'Name (Last, First, Middle)',
+  sex: 'Sex',
+  birthdate: 'Birth date',
+  age: 'Age',
+  mothertongue: 'Mother tongue',
+  ip: 'IP (Ethnic group)',
+  religion: 'Religion',
+  addr_house: 'House No./Street/Sitio/Purok',
+  addr_barangay: 'Barangay',
+  addr_city: 'Municipality/City',
+  addr_province: 'Province',
+  father: "Father's name",
+  mother: "Mother's maiden name",
+  guardian_name: 'Guardian name',
+  guardian_rel: 'Guardian relationship',
+  contact: 'Parent/Guardian contact',
+  remarks: 'Remarks',
+  average: 'Average',
+  action: 'Action taken',
+  incomplete_completed: 'Incomplete — date completed',
+  incomplete_current: 'Incomplete — year/level now',
+  q1: 'Term 1 grade',
+  q2: 'Term 2 grade',
+  q3: 'Term 3 grade',
+  finalRating: 'Final rating',
+  final_rating: 'Final rating',
+  subject: 'Subject',
+  track: 'Track/Strand',
+  adviser: 'Adviser',
+  signature: 'Signature',
+  generalAverage: 'General average',
+  general_average: 'General average',
+  schoolYear: 'School year',
+  school_year: 'School year',
+  section: 'Section',
+  classifiedGrade: 'Grade level',
+  reviewed: 'Reviewed by',
+  prepared: 'Prepared by',
+};
+
+const PREFIX_LABELS: Record<string, string> = {
+  header: 'Form header',
+  signer: 'Signatory',
+  sigdate: 'Date signed',
+  s: 'Cell',
+  learner: 'Learner info',
+  elig: 'Eligibility',
+  cert: 'Certificate',
+  record: 'Record block',
+  area: 'Learning area',
+  remedial: 'Remedial',
+  reg: 'Age count',
+  summary: 'Summary count',
+  progress: 'Promotion progress',
+  attendance: 'Attendance',
+  parentSig: 'Parent signature',
+  transfer: 'Certificate of transfer',
+};
+
+const friendlyField = (fieldKey: string) => {
+  const segs = fieldKey.split(':');
+  return segs
+    .map(seg =>
+      seg in FIELD_LABELS
+        ? FIELD_LABELS[seg]
+        : seg in PREFIX_LABELS
+          ? PREFIX_LABELS[seg]
+          : seg.replace(/_/g, ' ')
+    )
+    .join(' · ');
+};
+
+  const { form, schoolYearId, studentId, sectionId, studentIds, enabled = true, labelStudent } = opts;
   const loadedRef = useRef<Record<string, LoadedEntry>>({});
   // Rule 15 — previous school year's learner-level details, returned by the
   // server separately and layered UNDER the current-SY saved values so a new
@@ -342,7 +420,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
       items.set(key, {
         sid,
         fieldKey,
-        label: `${label(sid)} — ${fieldKey.replace(/:/g, ' · ')}`,
+        label: `${label(sid)} — ${friendlyField(fieldKey)}`,
         value: entry.value,
         unsaved: false,
         sysChanged: entry.system_value !== null && base !== null && entry.system_value !== base,
@@ -359,7 +437,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
       items.set(key, {
         sid,
         fieldKey,
-        label: `${label(sid)} — ${fieldKey.replace(/:/g, ' · ')}`,
+        label: `${label(sid)} — ${friendlyField(fieldKey)}`,
         value,
         unsaved: true,
         sysChanged:
@@ -379,7 +457,7 @@ export function useFormEdits(opts: UseFormEditsOptions): UseFormEditsApi {
       items.set(key, {
         sid,
         fieldKey,
-        label: `${label(sid)} — ${fieldKey.replace(/:/g, ' · ')}`,
+        label: `${label(sid)} — ${friendlyField(fieldKey)}`,
         value: carriedRef.current[key],
         unsaved: false,
         sysChanged: false,

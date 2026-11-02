@@ -287,6 +287,13 @@ export function ElectiveCatalogGrid({
             </span>
           ))}
         </div>
+      ) : variant === 'pick' ? (
+        // T23: give the wizard/committee pickers the same "n of m" summary the
+        // admin offerings screen has, so staff can see how far along they are.
+        <p className="text-[11px] font-semibold text-gray-400 mb-3">
+          {allSelected.length} of {totalCount} electives picked
+          {searching ? ' matching the search' : ''}
+        </p>
       ) : variant === 'offering' ? (
         <p className="text-[11px] font-semibold text-gray-400 mb-3">
           {offeredInView} of {totalCount} electives
