@@ -1,0 +1,81 @@
+Hi5 Portal: Expected Behavior for Subject Teachers and Section Assignment
+Summary
+In a school, a section has one adviser and many subject teachers. Before the school year
+opens, the school sets up sections, names the adviser of each, and gives every subject in
+each section a teacher (the class program and teaching loads). Grades are then encoded by
+those teachers. The system should follow that same order. A grade belongs to one teacher,
+one subject, and one section, and being the adviser does not by itself give grading rights.
+Rules marked (decide) need a choice from the team, the Registrar, or the school head.
+Assigning teachers in Section Creation
+1. The Section Creation page (Create and Edit Section) lets the Administrator and the
+Registrar assign teachers (decide: Registrar too). Besides Adviser, Capacity, and Min./Max.
+Average, the section has a Subject Teachers part.
+2. The Subject Teachers part lists every subject of the section's grade level and program,
+taken from Subject Management. For STE and SPFL sections it includes their extra subjects.
+For each subject there is a teacher dropdown. MAPEH shows Music, Arts, PE, and Health as
+four lines. TLE shows one line with its specializations.
+3. Each subject in a section has one teacher (decide: allow co-teachers). The same teacher
+may be chosen for many subjects and many sections.
+4. A teacher can be assigned to one subject across several sections at once (for example
+Math 7 in 7-A to 7-F). This saves the Administrator from repeating the same choice.
+5. Electives are not assigned here. They are assigned to the elective offering in Subject
+Management, with no section, because the class is the learners who chose it.
+6. The adviser is chosen in the same window. The adviser must be a teacher. One teacher
+advises at most one section. The adviser may or may not teach in the advisory section.
+7. The system shows a warning, not a block, when a teacher is assigned two classes that
+overlap in the Master Schedule, or goes over the teaching load set by the school (decide the
+maximum). The Administrator can still save.
+8. A section with subjects that have no teacher is flagged, so the Administrator sees what is
+missing before grading starts.
+9. The assignments of a closed school year stay as history. A new school year starts with the
+sections blank, with the option to copy the previous year's assignments for the Administrator
+to edit (decide).
+10. Every assignment or change is written to the Activity Log with the actor, section, subject,
+old teacher, new teacher, and time.
+What a subject teacher sees
+11. Grade Management lists every section where the teacher is assigned at least one
+subject, not only the advisory section. Each shows only the learners enrolled in it this school
+year.
+12. For a core subject the class list is the whole section. For an elective it is the learners who
+chose that elective, from any section.
+13. The class list, schedule, and at-risk lists show the same classes.
+14. A teacher cannot open a section where he has no assignment and is not the adviser. A
+direct link is refused with a permission message.
+Grading
+15. A teacher can encode, import, and submit grades only for the subject and section
+combinations assigned to him. Other subjects in the same section are read-only or hidden
+(decide).
+16. The Excel template lists only the learners in the class. A row for a learner outside the
+class is refused with a message such as "LRN is not on this class roster."
+17. The server refuses any save for a subject or section that is not assigned, even if the
+request is changed. The refusal is a permission-denied message (decide: log denied
+attempts).
+18. Grades lock when the teacher submits them. A locked cell cannot be edited. The teacher
+files a correction request with a justification, and the Registrar approves it. After approval,
+the teacher can re-enter grades only in the subjects he handles, and subjects handled by
+other teachers stay read-only.
+19. The General Average and the final grade are computed by the system and cannot be
+edited.
+The adviser
+20. The adviser sees all learners in the advisory section and every subject's grades. The
+adviser can edit only the subjects assigned to him. Subjects taught by others are read-only.
+21. The adviser can see which subjects are missing grades and which teacher owns each
+one, so he can follow them up.
+22. The adviser can run bulk promotion for the advisory section once every subject has
+grades for all three terms, and can generate SF1, SF5, SF9, and SF10 for it.
+23. The adviser can save SF9 attendance and observed values only for learners in the
+advisory section.
+24. The adviser can tag a learner as Non-Reader (decide: only advisory learners, or any
+learner he teaches).
+What a teacher cannot do
+25. A teacher cannot enroll learners, place them in sections, approve transfers, or change
+teacher assignments.
+When things change mid-year
+26. If a teacher leaves or is replaced, the Administrator changes the assignment. The old
+grades stay and the old teacher can no longer edit them. The new teacher can edit them
+(decide).
+27. If a learner transfers to another section, the new section's teachers see the learner, and
+the old section's teachers do not.
+Records
+28. Assignment changes, grade saves, locks, corrections, and approvals are written to the
+Activity Log with the actor, learner, subject, old value, new value, and time.

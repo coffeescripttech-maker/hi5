@@ -583,3 +583,143 @@ After each form's edits load, an **Edited fields** pill shows the count (and
 a Δn badge when any baseline has drifted).
 
 ---
+
+## 10. New Requirements — Subject Teachers & Section Assignment
+**Source:** `docs/new_requirement.txt` (client, 2026-11-03). Numbered **R1–R28**
+below = the numbered rules in that file.
+
+### 10.0 Status legend & phase plan
+
+| Symbol | Meaning |
+|---|---|
+| ⬜ | Not started |
+| 🔶 | In progress |
+| ✅ | Done + verified |
+| 🔷 | Blocked on a "decide" choice (see 10.9) |
+
+Implementation is phased so nothing breaks mid-way:
+
+| Phase | Scope | Covers |
+|---|---|---|
+| A — Schema & section API | Migration: per-section teacher-subject assignments (+ year scoping history), adviser validation (teacher-only, one adviser = one section), assignment change logging, closed-year history, copy-previous-year option | R1, R2, R3, R6, R9, R10 |
+| B — Section Creation & Section list UI | Subject Teachers part (grade+program subjects, MAPEH 4 lines, TLE + specializations), multi-section apply for one subject, electives excluded, overlap/teaching-load warnings (warn-only), teacherless-subject flags | R2, R3, R4, R5, R7, R8 |
+| C — Teacher class lists & access | Grade Management + my-students + at-risk + forms scope switch to per-section-subject grants; elective class = pickers (no section); direct-link refusal | R11, R12, R13, R14, R25 |
+| D — Grading enforcement | Grade save/lock/import restricted to assigned (section, subject); other subjects read-only (or hidden); Excel roster refusal message; server refuse + log denied (optional); locked-cell/corrections alignment; system-computed averages | R15, R16, R17, R18, R19, R28 |
+| E — Adviser view & tools | Adviser sees all subjects' grades (others read-only), missing-grades tracker with owner, bulk promotion/forms for advisory section, SF9 attendance advisory-only (unchanged), Non-Reader tagging scope | R20, R21, R22, R23, R24 |
+| F — Mid-year changes | Teacher replacement keeps grades + reassigns edit rights; learner section transfer moves rosters; full grade-lifecycle logging | R26, R27, R28 |
+
+Progress table (tick off as each lands):
+
+| Req | One-line summary | Phase | Status |
+|---|---|---|---|
+| R1 | Grade = 1 teacher + 1 subject + 1 section; adviser alone ≠ grading rights | A/C/D | 🔶 A done+verified |
+| R2 | Section Creation assigns teachers (admin + registrar); Subject Teachers part lists grade+program subjects (STE/SPFL extras included) | A/B | 🔶 API verified, UI in B |
+| R3 | One teacher per subject in a section; teacher may hold many subjects/sections | A/B | 🔶 co-teachers verified, UI in B |
+| R4 | One subject across several sections assignable at once | B | ⬜ API exists (`POST /teachers/apply`), UI in B |
+| R5 | Electives never assigned in sections — they live on the elective offering | A/B/C | 🔶 API refuses electives+excludes from catalog, UI in B |
+| R6 | Adviser picked in same window; must be a teacher; max 1 advisory section | A/B | 🔶 API verified (409 non-teacher), UI in B |
+| R7 | Overlap/teaching-load conflicts warn (never block); save still allowed | B | ⬜ API exists, UI in B |
+| R8 | Section flagged while it has teacherless subjects | B | ⬜ API exists (`GET /teaching-coverage`), UI in B |
+| R9 | Closed years keep assignments as history; new year starts blank; optional copy-forward | A | 🔶 copy-previous-year verified |
+| R10 | Every assignment change → Activity Log (actor, section, subject, old→new) | A | ✅ verified live |
+| R11 | Grade Management = every section the teacher is assigned a subject in (not only advisory) | C | ⬜ |
+| R12 | Core class list = whole section; elective class = the pickers across sections | C | ⬜ |
+| R13 | Class list / schedule / at-risk all share the same class sets | C | ⬜ |
+| R14 | No assignment + not adviser → section refused (permission message) | C | ⬜ |
+| R15 | Encode/import/submit only for assigned subject+section pairs | D | ⬜ |
+| R16 | Excel rows outside the class roster are refused ("LRN is not on this class roster.") | D | ⬜ |
+| R17 | Server refuses unassigned saves even with tampered requests | D | ⬜ |
+| R18 | Submit locks cells; corrections via Registrar; re-entry only own subjects | D | ⬜ |
+| R19 | General Average / final grade system-computed, not editable | D | ⬜ |
+| R20 | Adviser sees advisory learners + every subject's grades; edits only own | E | ⬜ |
+| R21 | Adviser sees missing-grades per subject + which teacher owns it | E | ⬜ |
+| R22 | Adviser runs bulk promotion + SF1/SF5/SF9/SF10 for advisory section | E | ⬜ |
+| R23 | SF9 attendance saves advisory-only | E | ⬜ |
+| R24 | Adviser tags Non-Reader (scope: decide 10.9-7) | E | ⬜ |
+| R25 | Teacher cannot enroll / place / transfer / change assignments | C | ⬜ |
+| R26 | Teacher replacement: grades stay; old teacher loses edit, new gains | F | ⬜ |
+| R27 | Learner moves section → rosters follow | F | ⬜ |
+| R28 | Grade saves/locks/corrections/approvals logged with old→new | D+F | ⬜ |
+
+### 10.1 Acceptance steps (to be exercised per phase)
+
+These summarize the client's rules as testable steps. Numbering = rule numbers
+so a failure can be reported as "R14 failed".
+
+- **R1** — Log in as a teacher who is an adviser but is NOT assigned any subject
+  in the advisory section: Grade Management shows no writable cells there for
+  unassigned subjects; server refuses direct API saves.
+- **R2/R3** — Admin → Section Creation → Create/Edit section: Subject Teachers
+  part lists every subject of that grade + program (STE/SPFL sections include
+  the STE/SPFL extras; MAPEH shows Music, Arts, PE, Health; TLE shows one line
+  with its specializations); every subject has exactly one teacher dropdown.
+- **R4** — In the Subject Teachers part, pick one teacher for a subject and
+  use the multi-section apply to add the same teacher+subject to other sections
+  of the same grade in one save.
+- **R5** — Elective subjects never appear in a section's Subject Teachers part
+  (regardless of grade/program); their teachers remain on Subject Management →
+  Elective Offerings.
+- **R6** — The adviser field accepts only user accounts with the Teacher role;
+  choosing a teacher already advising another section is refused (or clearly
+  warned, per decide 10.9-5); an adviser who does not teach the advisory
+  section is allowed.
+- **R7** — Give a teacher two classes that overlap in the Master Schedule (or
+  exceed the teaching-load setting): a warning appears naming the conflict,
+  and Save still succeeds.
+- **R8** — Open the section list while some subject rows in a section have no
+  teacher: the section is visibly flagged (e.g. "3 subjects need a teacher").
+- **R9** — On a past school year, section + assignments remain viewable
+  read-only. Create a new school year: sections start with no subject
+  teachers; use Copy previous year (if enabled per decide 10.9-4) to preload
+  assignments for editing.
+- **R10** — Change one subject's teacher: Activity Logs show actor, section,
+  subject, old teacher → new teacher, timestamp.
+- **R11/R12** — As a subject teacher assigned to Math 7 in 7-A and 7-B (and NOT
+  adviser): Grade Management lists 7-A and 7-B, each scoped to that section's
+  learners; an elective teacher sees the cross-section picker roster.
+- **R13** — The same classes appear for the count/screening in at-risk and the
+  teacher's schedule view.
+- **R14** — Student Profile / gradebook URL of another section opens as
+  permission-denied, never with data.
+- **R15/R17** — As the Math 7 teacher of 7-A only, attempt (UI and direct API)
+  to save an English 7 grade in 7-A: refused permission-denied; English cells
+  are read-only or hidden per decide 10.9-6.
+- **R16** — Download the Excel template, add a row whose LRN is not on the
+  class roster, import: that row is skipped with
+  *"LRN is not on this class roster."*
+- **R18** — Lock & Finalize a class's grades as its teacher, confirm cells go
+  read-only; file a correction; Registrar approves; only the corrected
+  subject/term reopens, and only for its owning teacher.
+- **R19** — Aggregate cells (General Average, final ratings, SF5 averages)
+  show as system-computed placeholders that cannot be typed into.
+- **R20/R21** — As an adviser who teaches only one subject: the advisory
+  section shows every subject's grades (others read-only) and a missing-grades
+  list naming the owning teacher per subject.
+- **R22/R23** — Adviser runs Bulk Promotion and generates SF1/SF5/SF9/SF10 for
+  the advisory section only; SF9 attendance saves remain advisory-only.
+- **R24** — Tag a learner Non-Reader per the decided scope (decide 10.9-7) —
+  still requires the existing reading-assessment evidence.
+- **R25** — Verify teachers have no enroll/place/transfer/assign UI and the
+  APIs refuse.
+- **R26** — Replace Math 7-A's teacher mid-year: history grades remain, the
+  old teacher's Grade Management no longer shows writable cells, the new
+  teacher can edit per decide 10.9-8.
+- **R27** — Transfer a learner between sections: new section's subject
+  teachers gain access; old ones lose it automatically.
+- **R28** — Exercise one save, one lock, one correction, one approval and
+  confirm each is in Activity Logs with actor, learner, subject, old→new.
+
+### 10.9 Decide — **ALL DECIDED** (client/team, 2026-11-03)
+
+| # | Question | **Decision** |
+|---|---|---|
+| 10.9-1 (R2) | Who assigns teachers in Section Creation? | **Administrator + Registrar** (API already allows both — no route change) |
+| 10.9-2 (R3) | Co-teachers? | **YES — co-teachers allowed.** Subject-teacher rows store multiple teachers per (section, subject); UI = primary teacher per row + "Add co-teacher" chips; grade-write grants follow any assigned teacher; Activity Log records every teacher added/removed |
+| 10.9-3 (R7) | Teaching-load maximum? | **None yet — warn only on Master-Schedule overlap.** Load cap can be added later in School Settings |
+| 10.9-4 (R9) | Copy previous year's assignments? | **Yes — Administrator opt-in "Copy previous year"** button; new SY sections otherwise start blank |
+| 10.9-5 (R6) | Adviser of another section already? | **Hard error** (keeps "at most one advisory section" true) |
+| 10.9-6 (R15) | Non-owned subjects in an open section? | **Read-only** (never hidden — advisers see whole sections) |
+| 10.9-7 (R24) | Non-Reader tagging scope for teachers? | **Advisory learners only** (matches today's evidence-gated rule — no change) |
+| 10.9-8 (R26) | New teacher edits old grades? | **Yes — edit rights follow the CURRENT assignment; grade history is preserved** |
+
+---
