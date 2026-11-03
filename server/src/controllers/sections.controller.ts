@@ -443,6 +443,28 @@ async function sectionSubjectCatalog(gradeLevel: number, sectionType: string) {
 }
 
 /**
+ * GET /api/sections/subject-catalog?grade_level=&section_type=
+ * The grade+program subject list for the Subject Teachers part of Section
+ * Creation WITHOUT needing an existing section id (create mode). Electives
+ * are excluded (R5) — they are assigned on the elective offering.
+ */
+export async function getSubjectCatalog(req: Request, res: Response): Promise<void> {
+  try {
+    const gradeLevel = Number(req.query.grade_level);
+    const sectionType = String(req.query.section_type ?? "");
+    if (!Number.isInteger(gradeLevel) || gradeLevel <= 0 || !sectionType) {
+      res.status(400).json({ error: "grade_level and section_type are required." });
+      return;
+    }
+    const catalog = await sectionSubjectCatalog(gradeLevel, sectionType);
+    res.json(catalog);
+  } catch (error) {
+    console.error("Subject catalog error:", error);
+    res.status(500).json({ error: "Failed to fetch the subject catalog." });
+  }
+}
+
+/**
  * GET /api/sections/:id/teachers?school_year_id=
  * Returns { subjects: [{subject..., teacher_ids, teachers:[{id,name}]}],
  *           warnings: [] } — the Section Creation "Subject Teachers part".
@@ -501,6 +523,8 @@ export async function updateSectionTeachers(req: Request, res: Response): Promis
     const id = req.params.id as string;
     const schoolYearId = Number(req.body?.school_year_id);
     const assignments = Array.isArray(req.body?.assignments) ? req.body.assignments : null;
+    // Missing assignments key = keep stored rows as-is; [] = clear them all.
+    const wantsReplace = assignments !== null;
     if (!Number.isInteger(schoolYearId) || schoolYearId <= 0) {
       res.status(400).json({ error: "school_year_id is required." });
       return;
@@ -523,7 +547,7 @@ export async function updateSectionTeachers(req: Request, res: Response): Promis
     // Validate the incoming list
     type Item = { subject_id: number; teacher_ids: number[] };
     const items: Item[] = [];
-    if (assignments) {
+    if (assignments !== null) {
       for (const a of assignments) {
         const subjectId = Number(a?.subject_id);
         if (!Number.isInteger(subjectId) || subjectId <= 0) {
@@ -644,17 +668,21 @@ export async function updateSectionTeachers(req: Request, res: Response): Promis
     }
 
     const removalIds: number[] = [];
-    for (const r of current) {
-      const k = keyOf(Number(r.subject_id), Number(r.teacher_id));
-      if (!targetSet.has(k)) removalIds.push(Number(r.id));
+    if (wantsReplace) {
+      for (const r of current) {
+        const k = keyOf(Number(r.subject_id), Number(r.teacher_id));
+        if (!targetSet.has(k)) removalIds.push(Number(r.id));
+      }
     }
     const additions: { subject_id: number; teacher_id: number }[] = [];
-    for (const item of items) {
-      for (const tid of item.teacher_ids) {
-        const k = keyOf(item.subject_id, tid);
-        if (!currentKeys.has(k) && !targetSet.has(`dup:${k}`)) {
-          if (!additions.some((a) => a.subject_id === item.subject_id && a.teacher_id === tid)) {
-            additions.push({ subject_id: item.subject_id, teacher_id: tid });
+    if (wantsReplace) {
+      for (const item of items) {
+        for (const tid of item.teacher_ids) {
+          const k = keyOf(item.subject_id, tid);
+          if (!currentKeys.has(k) && !targetSet.has(`dup:${k}`)) {
+            if (!additions.some((a) => a.subject_id === item.subject_id && a.teacher_id === tid)) {
+              additions.push({ subject_id: item.subject_id, teacher_id: tid });
+            }
           }
         }
       }
@@ -692,11 +720,13 @@ export async function updateSectionTeachers(req: Request, res: Response): Promis
     }
 
     // R7 — Master-Schedule overlap warnings (warn only)
-    const warnings = await scheduleConflictWarnings(
-      { id: Number(id), name: String(section.name) },
-      [...new Set(items.flatMap((i) => i.teacher_ids))],
-      schoolYearId
-    );
+    const warnings = wantsReplace
+      ? await scheduleConflictWarnings(
+          { id: Number(id), name: String(section.name) },
+          [...new Set(items.flatMap((i) => i.teacher_ids))],
+          schoolYearId
+        )
+      : [];
 
     res.json({ id: Number(id), added: additions.length, removed: removalIds.length, warnings });
   } catch (error) {
@@ -832,30 +862,45 @@ export async function getTeachingCoverage(req: Request, res: Response): Promise<
       res.status(400).json({ error: "school_year_id is required." });
       return;
     }
-    const sections = await query<RowDataPacket[]>(
-      "SELECT id, name, grade_level, section_type FROM sections WHERE is_active = 1 ORDER BY grade_level, name"
+    // One query: per active section, the section-eligible (grade + program,
+    // elective-free — R2/R5) subject count and how many of them have no
+    // section-subject teacher for this school year. Places are positional
+    // because MySQL correlated subqueries need the values twice.
+    const rows = await query<RowDataPacket[]>(
+      `SELECT sec.id,
+              sec.name,
+              sec.grade_level,
+              sec.section_type,
+              (SELECT COUNT(*) FROM subjects s
+                 WHERE s.is_active = 1
+                   AND s.grade_level = sec.grade_level
+                   AND (s.subject_type IS NULL OR s.subject_type <> 'elective')
+                   AND (s.program IS NULL OR (s.program IN ('ste','spfl','spj','sned') AND s.program = sec.section_type))) AS subjects_total,
+              (SELECT COUNT(*) FROM subjects s
+                 WHERE s.is_active = 1
+                   AND s.grade_level = sec.grade_level
+                   AND (s.subject_type IS NULL OR s.subject_type <> 'elective')
+                   AND (s.program IS NULL OR (s.program IN ('ste','spfl','spj','sned') AND s.program = sec.section_type))
+                   AND NOT EXISTS (
+                     SELECT 1 FROM section_teacher_assignments sta
+                      WHERE sta.section_id = sec.id
+                        AND sta.subject_id = s.id
+                        AND sta.school_year_id = ?)) AS subjects_without_teacher
+         FROM sections sec
+        WHERE sec.is_active = 1
+        ORDER BY sec.grade_level, sec.name`,
+      [schoolYearId]
     );
-    const out: Array<{ section_id: number; name: string; grade_level: number; section_type: string; subjects_total: number; subjects_without_teacher: number }> = [];
-    for (const s of sections) {
-      const catalog = (await sectionSubjectCatalog(Number(s.grade_level), String(s.section_type))) as any[];
-      if (catalog.length === 0) continue;
-      const ph = catalog.map((c: any) => "?").join(",");
-      const rows = await query<RowDataPacket[]>(
-        `SELECT DISTINCT subject_id FROM section_teacher_assignments
-          WHERE section_id = ? AND school_year_id = ? AND subject_id IN (${ph})`,
-        [Number(s.id), schoolYearId, ...catalog.map((c: any) => Number(c.id))]
-      );
-      const covered = new Set(rows.map((r: any) => Number(r.subject_id)));
-      const missing = catalog.filter((c: any) => !covered.has(Number(c.id)));
-      out.push({
-        section_id: Number(s.id),
-        name: String(s.name),
-        grade_level: Number(s.grade_level),
-        section_type: String(s.section_type),
-        subjects_total: catalog.length,
-        subjects_without_teacher: missing.length,
-      });
-    }
+    const out = rows
+      .map((r) => ({
+        section_id: Number(r.id),
+        name: String(r.name),
+        grade_level: Number(r.grade_level),
+        section_type: String(r.section_type),
+        subjects_total: Number(r.subjects_total),
+        subjects_without_teacher: Number(r.subjects_without_teacher),
+      }))
+      .filter((r) => r.subjects_total > 0);
     res.json(out);
   } catch (error) {
     console.error("Teaching coverage error:", error);

@@ -12,16 +12,27 @@ import {
   ChevronRight,
   GraduationCap,
   Palette,
-  Lock
+  Lock,
+  Copy
 } from 'lucide-react';
 import {
   sectionsApi,
   SectionRow,
   CreateSectionPayload,
   UpdateSectionPayload,
-  TeacherBrief
+  TeacherBrief,
+  SubjectTeachersRow,
+  TeacherDraft,
+  assignmentsFromDraft,
+  updateTeachers,
+  getSectionTeachers,
+  subjectCatalog,
+  applyTeachers,
+  teachingCoverage,
+  copyPreviousYear
 } from '../../services/sections';
 import { sectionTypesApi, SectionType } from '../../services/sectionTypes';
+import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
 import { HybridTable } from '../../components/HybridTable';
 import { ModalShell } from '../../components/ModalShell';
@@ -188,8 +199,109 @@ function getSectionColor(
   return FALLBACK_COLORS;
 }
 
+/* ── Subject Teachers rows (new_requirement.txt R2, R3, R5) ──────────────
+ * One row per grade+program subject (electives excluded — they live on the
+ * elective offering). Teachers are chips; adding a second is a co-teacher.
+ * "Apply to sections…" fans one subject's teachers out to other sections.
+ */
+function SubjectTeacherRows({
+  subjects,
+  draft,
+  teachers,
+  onSet,
+  onApply
+}: {
+  subjects: Pick<
+    SubjectTeachersRow,
+    'id' | 'name' | 'subject_group' | 'program' | 'subject_type'
+  >[];
+  draft: TeacherDraft;
+  teachers: TeacherBrief[];
+  onSet: (subjectId: number, ids: number[]) => void;
+  onApply?: (subject: SubjectTeachersRow) => void;
+}) {
+  if (subjects.length === 0) {
+    return (
+      <p className="text-xs text-gray-400 px-1 py-3">
+        No graded subjects found for this grade level and track yet.
+      </p>
+    );
+  }
+  const teacherName = (id: number) =>
+    teachers.find(t => t.id === id)?.name ?? `ID ${id}`;
+  return (
+    <div className="border border-gray-100 rounded-xl divide-y divide-gray-50 max-h-72 overflow-y-auto bg-white">
+      {subjects.map(sub => {
+        const ids = draft[sub.id] ?? [];
+        return (
+          <div
+            key={sub.id}
+            className="px-3.5 py-2.5 flex items-center gap-2.5 flex-wrap">
+            <div className="min-w-0 flex-1 basis-40">
+              <p className="text-sm text-gray-800 font-medium truncate leading-tight">
+                {sub.name}
+              </p>
+              {sub.subject_group && (
+                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md mt-0.5 inline-block">
+                  {sub.subject_group.toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              {ids.length === 0 && (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                  No teacher
+                </span>
+              )}
+              {ids.map(tid => (
+                <span
+                  key={tid}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                  {teacherName(tid)}
+                  <button
+                    type="button"
+                    onClick={() => onSet(sub.id, ids.filter(i => i !== tid))}
+                    className="text-blue-400 hover:text-red-500 transition"
+                    title="Remove teacher">
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+              <select
+                value=""
+                onChange={e => {
+                  const tid = Number(e.target.value);
+                  if (tid) onSet(sub.id, [...ids, tid]);
+                }}
+                className="text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-full px-2 py-1 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-100 max-w-[9.5rem]">
+                <option value="">+ teacher…</option>
+                {teachers
+                  .filter(t => !ids.includes(t.id))
+                  .map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name.length > 20 ? `${t.name.slice(0, 20)}…` : t.name}
+                    </option>
+                  ))}
+              </select>
+              {onApply && ids.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onApply(sub as SubjectTeachersRow)}
+                  className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 rounded-full px-2 py-1 hover:bg-blue-50 transition"
+                  title="Assign these teachers to the same subject in other sections">
+                  Apply to sections…
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SectionCreation() {
-  const { showToast } = useApp();
+  const { showToast, role } = useApp();
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [teachers, setTeachers] = useState<TeacherBrief[]>([]);
   const [sectionTypes, setSectionTypes] = useState<SectionType[]>([]);
@@ -213,6 +325,37 @@ export function SectionCreation() {
     minAvg: '85',
     maxAvg: ''
   });
+
+  // ── Subject teachers per section (new_requirement.txt R1-R10) ──
+  const canEditTeachers = role === 'admin' || role === 'registrar';
+  const canViewCoverage =
+    role === 'admin' || role === 'registrar' || role === 'principal';
+  const [currentYear, setCurrentYear] = useState<SchoolYearRow | null>(null);
+  const [prevYear, setPrevYear] = useState<SchoolYearRow | null>(null);
+  // section_id -> number of its grade-level subjects without a teacher
+  const [coverage, setCoverage] = useState<Record<number, number>>({});
+  // Create-mode: catalog rows + draft (saved only after the section exists)
+  const [catRows, setCatRows] = useState<SubjectTeachersRow[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [draft, setDraft] = useState<TeacherDraft>({});
+  // Edit-mode: stored rows + draft + warn-only schedule notes
+  const [editSubjects, setEditSubjects] = useState<SubjectTeachersRow[]>([]);
+  const [editTeachers, setEditTeachers] = useState<TeacherDraft>({});
+  const [editTeachersLoading, setEditTeachersLoading] = useState(false);
+  const [editWarnings, setEditWarnings] = useState<string[]>([]);
+  // R4 — apply one subject's teachers to many sections
+  const [applyTarget, setApplyTarget] = useState<{
+    subjectId: number;
+    name: string;
+    teacherIds: number[];
+    teacherNames: string;
+  } | null>(null);
+  const [applyIds, setApplyIds] = useState<number[]>([]);
+  const [applyBusy, setApplyBusy] = useState(false);
+  // R9 — admin copy-forward
+  const [showCopy, setShowCopy] = useState(false);
+  const [copyOverwrite, setCopyOverwrite] = useState(false);
+  const [copyBusy, setCopyBusy] = useState(false);
 
   // ── Manage Types modal state ──
   const [showManageTypes, setShowManageTypes] = useState(false);
@@ -280,6 +423,55 @@ export function SectionCreation() {
       .catch(() => {});
   }, []);
 
+  // Current + previous school year (assignments and copy-forward are year-scoped)
+  useEffect(() => {
+    if (!canEditTeachers) return;
+    schoolYearsApi
+      .current()
+      .then(cur => {
+        setCurrentYear(cur);
+        setPrevYear(null);
+        schoolYearsApi
+          .list()
+          .then(all => {
+            const older = all.filter(y => y.id < cur.id).sort((a, b) => b.id - a.id);
+            setPrevYear(older[0] ?? null);
+          })
+          .catch(() => {});
+      })
+      .catch(() => {});
+  }, [canEditTeachers]);
+
+  // R8 — teacherless-subject counts per section (current school year)
+  const fetchCoverage = useCallback(() => {
+    if (!currentYear || !canViewCoverage) return;
+    teachingCoverage(currentYear.id)
+      .then(rows =>
+        setCoverage(
+          Object.fromEntries(rows.map(r => [r.section_id, r.subjects_without_teacher]))
+        )
+      )
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentYear, canViewCoverage]);
+
+  useEffect(() => {
+    fetchCoverage();
+  }, [fetchCoverage]);
+
+  // Create mode — catalog for the chosen grade + track (electives excluded, R5)
+  useEffect(() => {
+    if (!showForm || !canEditTeachers || !currentYear) return;
+    setDraft({});
+    setCatRows([]);
+    setCatLoading(true);
+    subjectCatalog(parseInt(form.gradeLevel), form.type)
+      .then(rows => setCatRows(rows as SubjectTeachersRow[]))
+      .catch(() => {})
+      .finally(() => setCatLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, form.gradeLevel, form.type, currentYear, canEditTeachers]);
+
   const createConflict = (): SectionRow | null => {
     if (!form.adviser_id) return null;
     return findAdviserConflict(parseInt(form.gradeLevel), form.adviser_id);
@@ -304,9 +496,23 @@ export function SectionCreation() {
         max_average: form.maxAvg ? parseFloat(form.maxAvg) : null,
         adviser_id: form.adviser_id ? parseInt(form.adviser_id) : undefined
       };
-      await sectionsApi.create(payload);
+      const created = await sectionsApi.create(payload);
+      // Subject Teachers part — save the drafted teachers onto the new section
+      let warnings: string[] = [];
+      if (currentYear) {
+        const assignments = assignmentsFromDraft(draft);
+        if (assignments.length > 0) {
+          const resp = await updateTeachers(created.id, {
+            school_year_id: currentYear.id,
+            assignments
+          });
+          warnings = resp.warnings;
+        }
+      }
       setShowForm(false);
       setSaved(true);
+      setDraft({});
+      setCatRows([]);
       setForm({
         gradeLevel: '7',
         sectionName: '',
@@ -317,7 +523,16 @@ export function SectionCreation() {
         maxAvg: ''
       });
       setTimeout(() => setSaved(false), 2500);
+      if (warnings.length > 0) {
+        showToast(
+          'warning',
+          `Section created. ${warnings.length} schedule note(s) — review in Edit. Example: ${warnings[0]}`
+        );
+      } else {
+        showToast('success', 'Section created.');
+      }
       fetchSections();
+      fetchCoverage();
     } catch (err: any) {
       showToast(
         'error',
@@ -328,12 +543,90 @@ export function SectionCreation() {
 
   const openEdit = (sec: SectionRow) => {
     setEditTarget(sec);
+    setEditWarnings([]);
+    setEditSubjects([]);
+    setEditTeachers({});
     setEditForm({
       capacity: String(sec.capacity),
       adviser_id: sec.adviser_id ? String(sec.adviser_id) : '',
       minAvg: String(sec.min_average),
       maxAvg: sec.max_average ? String(sec.max_average) : ''
     });
+    if (canEditTeachers && currentYear) {
+      setEditTeachersLoading(true);
+      getSectionTeachers(sec.id, currentYear.id)
+        .then(resp => {
+          setEditSubjects(resp.subjects);
+          const d: TeacherDraft = {};
+          resp.subjects.forEach(s => {
+            if (s.teacher_ids.length > 0) d[s.id] = s.teacher_ids;
+          });
+          setEditTeachers(d);
+        })
+        .catch(() => {})
+        .finally(() => setEditTeachersLoading(false));
+    }
+  };
+
+  // R4 — apply the draft's teachers for one subject to other sections
+  const openApply = (sub: SubjectTeachersRow | Pick<SubjectTeachersRow, 'id' | 'name' | 'subject_group' | 'program' | 'subject_type'>) => {
+    if (!editTarget || !currentYear) return;
+    const ids = editTeachers[sub.id] ?? [];
+    if (ids.length === 0) return;
+    const names = ids
+      .map(tid => teachers.find(t => t.id === tid)?.name ?? `ID ${tid}`)
+      .join(', ');
+    setApplyTarget({
+      subjectId: sub.id,
+      name: sub.name,
+      teacherIds: ids,
+      teacherNames: names
+    });
+    // Default: the other active sections of the same grade level
+    setApplyIds(
+      sections
+        .filter(s => s.id !== editTarget.id && s.grade_level === editTarget.grade_level)
+        .map(s => s.id)
+    );
+  };
+
+  const handleApply = async () => {
+    if (!applyTarget || !currentYear || !editTarget) return;
+    setApplyBusy(true);
+    try {
+      const resp = await applyTeachers({
+        school_year_id: currentYear.id,
+        subject_id: applyTarget.subjectId,
+        teacher_ids: applyTarget.teacherIds,
+        section_ids: applyIds
+      });
+      const skippedNote =
+        resp.skipped.length > 0
+          ? ` · ${resp.skipped.length} skipped (${resp.skipped
+              .slice(0, 2)
+              .map(s => {
+                const nm = sections.find(x => x.id === s.section_id)?.name ?? `#${s.section_id}`;
+                return `${nm}: ${s.reason}`;
+              })
+              .join('; ')}${resp.skipped.length > 2 ? '…' : ''})`
+          : '';
+      const warnNote = resp.warnings.length > 0 ? ` · ${resp.warnings.length} schedule note(s)` : '';
+      showToast(
+        resp.assigned.length > 0 ? 'success' : 'info',
+        `"${applyTarget.name}": ${resp.assigned.length} section(s) updated${skippedNote}${warnNote}`
+      );
+      setApplyTarget(null);
+      // The list may need a reload if apply touched other grade/track sections
+      sectionsApi.list().then(setSections).catch(() => {});
+      fetchCoverage();
+    } catch (err: any) {
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to apply teachers to sections'
+      );
+    } finally {
+      setApplyBusy(false);
+    }
   };
 
   const editConflict = (): SectionRow | null => {
@@ -362,11 +655,30 @@ export function SectionCreation() {
         min_average: parseInt(editForm.minAvg),
         max_average: editForm.maxAvg ? parseFloat(editForm.maxAvg) : null
       };
+      // Full replace of the stored (section, subject) -> teacher rows.
+      let warnings: string[] = [];
+      if (currentYear) {
+        const resp = await updateTeachers(editTarget.id, {
+          school_year_id: currentYear.id,
+          assignments: assignmentsFromDraft(editTeachers)
+        });
+        warnings = resp.warnings;
+      }
       await sectionsApi.update(editTarget.id, payload);
+      // R7 — schedule overlaps warn but never block the save
+      if (warnings.length > 0) {
+        setEditWarnings(warnings);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+        fetchSections();
+        fetchCoverage();
+        return; // keep the modal open so the notes are visible
+      }
       setEditTarget(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       fetchSections();
+      fetchCoverage();
     } catch (err: any) {
       showToast(
         'error',
@@ -388,6 +700,41 @@ export function SectionCreation() {
       );
     }
   };
+
+  // R9 — administrator opt-in copy-forward from the previous school year
+  const handleCopy = async () => {
+    if (!prevYear || !currentYear) return;
+    setCopyBusy(true);
+    try {
+      const resp = await copyPreviousYear({
+        from_school_year_id: prevYear.id,
+        to_school_year_id: currentYear.id,
+        overwrite: copyOverwrite
+      });
+      showToast(
+        resp.copied > 0 ? 'success' : 'info',
+        resp.message ||
+          `Copied ${resp.copied} assignment(s) across ${resp.sections_touched} section(s).` +
+            (resp.sections_without_match && resp.sections_without_match.length > 0
+              ? ` No match for: ${resp.sections_without_match.join(', ')}.`
+              : '')
+      );
+      setShowCopy(false);
+      fetchSections();
+      fetchCoverage();
+    } catch (err: any) {
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Failed to copy assignments'
+      );
+    } finally {
+      setCopyBusy(false);
+    }
+  };
+
+  // R8 — missing-teacher count for a section row (null = cannot determine)
+  const missingFor = (sec: SectionRow): number | null =>
+    canViewCoverage && coverage[sec.id] !== undefined ? coverage[sec.id] : null;
 
   const byGrade = [7, 8, 9, 10, 11, 12].map(g => ({
     grade: g,
@@ -442,6 +789,17 @@ export function SectionCreation() {
               className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-1 sm:flex-none">
               <Plus size={15} /> Create Section
             </button>
+            {role === 'admin' && currentYear && prevYear && (
+              <button
+                onClick={() => {
+                  setShowCopy(true);
+                  setCopyOverwrite(false);
+                }}
+                title={`Copy subject-teacher assignments from ${prevYear.sy_label} into ${currentYear.sy_label}`}
+                className="flex items-center justify-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-1 sm:flex-none">
+                <Copy size={15} /> Copy Teachers
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -579,10 +937,22 @@ export function SectionCreation() {
                               key={sec.id}
                               className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-blue-50/50 transition-colors duration-150`}>
                               <td className="px-4 py-3.5">
-                                <span
-                                  className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
-                                  {sec.name}
-                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
+                                    {sec.name}
+                                  </span>
+                                  {(() => {
+                                    const missing = missingFor(sec);
+                                    return missing !== null && missing > 0 ? (
+                                      <span
+                                        className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1"
+                                        title={`${missing} subject(s) in this section still have no teacher`}>
+                                        <AlertTriangle size={10} /> {missing} no teacher
+                                      </span>
+                                    ) : null;
+                                  })()}
+                                </div>
                               </td>
                               <td className="px-4 py-3.5">
                                 {sec.adviser_name ? (
@@ -655,11 +1025,19 @@ export function SectionCreation() {
                         <li key={sec.id} className="p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span
                                   className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getSectionColor(sec.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
                                   {sec.name}
                                 </span>
+                                {(() => {
+                                  const missing = missingFor(sec);
+                                  return missing !== null && missing > 0 ? (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
+                                      <AlertTriangle size={10} /> {missing} no teacher
+                                    </span>
+                                  ) : null;
+                                })()}
                                 <span className="text-xs text-gray-400 font-medium">
                                   {sec.max_average
                                     ? `thresh ${sec.min_average} – ${sec.max_average}`
@@ -860,6 +1238,35 @@ export function SectionCreation() {
                 }}
               />
             </div>
+            {canEditTeachers && currentYear && (
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em]">
+                    Subject Teachers
+                  </label>
+                  <span className="text-[10px] text-gray-400">
+                    Saved after the section is created
+                  </span>
+                </div>
+                {catLoading ? (
+                  <div className="border border-gray-100 rounded-xl px-4 py-5 text-center text-xs text-gray-400">
+                    Loading subjects…
+                  </div>
+                ) : (
+                  <SubjectTeacherRows
+                    subjects={catRows}
+                    draft={draft}
+                    teachers={teachers}
+                    onSet={(sid, ids) => setDraft(p => ({ ...p, [sid]: ids }))}
+                  />
+                )}
+                <p className="text-[10px] text-gray-400 mt-1.5">
+                  Elective subjects (NC II areas) are never listed here — their
+                  teachers are assigned on the elective offering. Adding a
+                  second teacher makes them co-teachers.
+                </p>
+              </div>
+            )}
           </div>
           <div className="bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700">
             Section:{' '}
@@ -924,6 +1331,24 @@ export function SectionCreation() {
             </button>
           </div>
           <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+            {editWarnings.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <AlertTriangle size={12} /> Saved, with{' '}
+                  {editWarnings.length} schedule note
+                  {editWarnings.length !== 1 && 's'}:
+                </p>
+                <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                  {editWarnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+                <p className="mt-1 opacity-80">
+                  These notes never block saving — adjust the Master Schedule if
+                  needed.
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
                 Adviser
@@ -944,6 +1369,42 @@ export function SectionCreation() {
                 }}
               />
             </div>
+            {canEditTeachers &&
+              currentYear &&
+              (() => (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em]">
+                      Subject Teachers
+                      <span className="ml-1 font-medium normal-case text-gray-400">
+                        {currentYear.sy_label}
+                      </span>
+                    </label>
+                    <span className="text-[10px] text-gray-400">
+                      Co-teachers allowed · electives excluded
+                    </span>
+                  </div>
+                  {editTeachersLoading ? (
+                    <div className="border border-gray-100 rounded-xl px-4 py-5 text-center text-xs text-gray-400">
+                      Loading assignments…
+                    </div>
+                  ) : (
+                    <SubjectTeacherRows
+                      subjects={editSubjects}
+                      draft={editTeachers}
+                      teachers={teachers}
+                      onSet={(sid, ids) =>
+                        setEditTeachers(p => ({ ...p, [sid]: ids }))
+                      }
+                      onApply={sub => openApply(sub)}
+                    />
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-1.5">
+                    “Apply to sections…” assigns these teachers to the same
+                    subject in other sections (one save for all).
+                  </p>
+                </div>
+              ))()}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
@@ -1032,6 +1493,136 @@ export function SectionCreation() {
               onClick={() => handleDelete(deleteId)}
               className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
               Delete
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {/* ── Apply Subject to Other Sections (R4) ── */}
+      {applyTarget !== null && (
+        <ModalShell
+          open
+          onClose={() => setApplyTarget(null)}
+          maxWidth="max-w-md"
+          bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-400 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <Users size={18} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white">Apply to sections</h3>
+                <p className="text-blue-200 text-xs truncate max-w-[16rem]">
+                  {applyTarget.name} · {applyTarget.teacherNames}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setApplyTarget(null)}
+              className="p-2 hover:bg-white/10 rounded-lg text-white/80 transition">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="p-5 space-y-1.5 max-h-[50vh] overflow-y-auto">
+            <p className="text-xs text-gray-500 mb-2">
+              Pick the sections that will get this subject's teacher(s). Same
+              grade sections are pre-ticked; mismatched grades/tracks are
+              skipped by the server.
+            </p>
+            {sections
+              .filter(s => s.id !== editTarget?.id)
+              .map(s => (
+                <label
+                  key={s.id}
+                  className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-gray-50 rounded-xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyIds.includes(s.id)}
+                    onChange={() =>
+                      setApplyIds(prev =>
+                        prev.includes(s.id)
+                          ? prev.filter(i => i !== s.id)
+                          : [...prev, s.id]
+                      )
+                    }
+                    className="accent-blue-600 w-4 h-4"
+                  />
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${getSectionColor(s.section_type, sectionTypes, DEFAULT_SECTION_COLORS)}`}>
+                    {s.name}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    Grade {s.grade_level} · {s.section_type}
+                  </span>
+                </label>
+              ))}
+          </div>
+          <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+            <button
+              onClick={() => setApplyTarget(null)}
+              className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+              Cancel
+            </button>
+            <button
+              onClick={handleApply}
+              disabled={applyBusy || applyIds.length === 0}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all">
+              Apply ({applyIds.length})
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {/* ── Copy Teachers from Previous Year (R9, admin) ── */}
+      {showCopy && currentYear && prevYear && (
+        <ModalShell
+          open
+          onClose={() => setShowCopy(false)}
+          maxWidth="max-w-sm"
+          bodyClassName="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <Copy size={22} className="text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">Copy Subject Teachers</h3>
+              <p className="text-gray-500 text-xs">
+                {prevYear.sy_label} → {currentYear.sy_label}
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 mb-3">
+            Copies every section's subject-teacher assignments from{' '}
+            <strong>{prevYear.sy_label}</strong> into{' '}
+            <strong>{currentYear.sy_label}</strong>. Advisers live on each
+            section and are not part of this copy.
+          </p>
+          <label className="flex items-center gap-2.5 text-sm text-gray-700 mb-5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={copyOverwrite}
+              onChange={e => setCopyOverwrite(e.target.checked)}
+              className="accent-blue-600 w-4 h-4"
+            />
+            Replace existing {currentYear.sy_label} assignments first
+          </label>
+          {copyOverwrite && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4">
+              Existing {currentYear.sy_label} assignments will be deleted before
+              copying.
+            </p>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowCopy(false)}
+              className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+              Cancel
+            </button>
+            <button
+              onClick={handleCopy}
+              disabled={copyBusy}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+              Copy
             </button>
           </div>
         </ModalShell>

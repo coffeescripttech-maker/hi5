@@ -613,13 +613,13 @@ Progress table (tick off as each lands):
 | Req | One-line summary | Phase | Status |
 |---|---|---|---|
 | R1 | Grade = 1 teacher + 1 subject + 1 section; adviser alone ≠ grading rights | A/C/D | 🔶 A done+verified |
-| R2 | Section Creation assigns teachers (admin + registrar); Subject Teachers part lists grade+program subjects (STE/SPFL extras included) | A/B | 🔶 API verified, UI in B |
-| R3 | One teacher per subject in a section; teacher may hold many subjects/sections | A/B | 🔶 co-teachers verified, UI in B |
-| R4 | One subject across several sections assignable at once | B | ⬜ API exists (`POST /teachers/apply`), UI in B |
-| R5 | Electives never assigned in sections — they live on the elective offering | A/B/C | 🔶 API refuses electives+excludes from catalog, UI in B |
+| R2 | Section Creation assigns teachers (admin + registrar); Subject Teachers part lists grade+program subjects (STE/SPFL extras included) | A/B | 🔶 API + UI built & probed — needs a manual walkthrough |
+| R3 | One teacher per subject in a section; teacher may hold many subjects/sections | A/B | 🔶 co-teachers verified live; UI chips built |
+| R4 | One subject across several sections assignable at once | B | 🔶 apply verified live (2 sections in one save); UI built |
+| R5 | Electives never assigned in sections — they live on the elective offering | A/B/C | 🔶 server refuses + catalog excludes electives (verified); Phase C read-scope pending |
 | R6 | Adviser picked in same window; must be a teacher; max 1 advisory section | A/B | 🔶 API verified (409 non-teacher), UI in B |
-| R7 | Overlap/teaching-load conflicts warn (never block); save still allowed | B | ⬜ API exists, UI in B |
-| R8 | Section flagged while it has teacherless subjects | B | ⬜ API exists (`GET /teaching-coverage`), UI in B |
+| R7 | Overlap/teaching-load conflicts warn (never block); save still allowed | B | 🔶 warning endpoint wired warn-only; no real overlap exercised yet |
+| R8 | Section flagged while it has teacherless subjects | B | 🔶 teaching-coverage verified live; row badges built |
 | R9 | Closed years keep assignments as history; new year starts blank; optional copy-forward | A | 🔶 copy-previous-year verified |
 | R10 | Every assignment change → Activity Log (actor, section, subject, old→new) | A | ✅ verified live |
 | R11 | Grade Management = every section the teacher is assigned a subject in (not only advisory) | C | ⬜ |

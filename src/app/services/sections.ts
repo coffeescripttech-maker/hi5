@@ -57,3 +57,93 @@ export const sectionsApi = {
     api.put<SectionRow>(`/sections/${id}`, data),
   delete: (id: number) => api.del(`/sections/${id}`),
 };
+
+/* ── Subject teachers per section (docs/new_requirement.txt R1-R10) ─────── */
+
+export interface SubjectTeachersRow {
+  id: number;
+  name: string;
+  subject_type: string | null;
+  subject_group: string | null;
+  program: string | null;
+  hours_per_week: number | null;
+  teacher_ids: number[];
+  teachers: { id: number; name: string }[];
+}
+
+export interface UpdateTeachersResponse {
+  id: number;
+  added: number;
+  removed: number;
+  /** Master-Schedule overlap notes — warn only, the save itself succeeded. */
+  warnings: string[];
+}
+
+export interface ApplyTeachersResponse {
+  assigned: number[];
+  skipped: { section_id: number; reason: string }[];
+  warnings: string[];
+}
+
+export interface TeachingCoverageRow {
+  section_id: number;
+  name: string;
+  grade_level: number;
+  section_type: string;
+  subjects_total: number;
+  subjects_without_teacher: number;
+}
+
+export interface CopyTeachersResponse {
+  copied: number;
+  sections_touched: number;
+  sections_without_match?: string[];
+  message?: string;
+}
+
+/** subject_id -> teacher ids for one save (full replace per section). */
+export type TeacherDraft = Record<number, number[]>;
+
+export const assignmentsFromDraft = (draft: TeacherDraft) =>
+  Object.entries(draft)
+    .filter(([, ids]) => ids.length > 0)
+    .map(([subject_id, teacher_ids]) => ({
+      subject_id: Number(subject_id),
+      teacher_ids,
+    }));
+
+export const updateTeachers = (
+  sectionId: number,
+  data: {
+    school_year_id: number;
+    assignments: { subject_id: number; teacher_ids: number[] }[];
+  }
+) => api.put<UpdateTeachersResponse>(`/sections/${sectionId}/teachers`, data);
+
+export const getSectionTeachers = (sectionId: number, schoolYearId: number) =>
+  api.get<{ subjects: SubjectTeachersRow[] }>(
+    `/sections/${sectionId}/teachers?school_year_id=${schoolYearId}`
+  );
+
+export const subjectCatalog = (gradeLevel: number, sectionType: string) =>
+  api.get<Omit<SubjectTeachersRow, "teacher_ids" | "teachers">[]>(
+    `/sections/subject-catalog?grade_level=${gradeLevel}&section_type=${encodeURIComponent(sectionType)}`
+  );
+
+export const applyTeachers = (data: {
+  school_year_id: number;
+  subject_id: number;
+  teacher_ids: number[];
+  section_ids: number[];
+}) => api.post<ApplyTeachersResponse>("/sections/teachers/apply", data);
+
+export const teachingCoverage = (schoolYearId: number) =>
+  api.get<TeachingCoverageRow[]>(
+    `/sections/teaching-coverage?school_year_id=${schoolYearId}`
+  );
+
+export const copyPreviousYear = (data: {
+  from_school_year_id: number;
+  to_school_year_id: number;
+  overwrite?: boolean;
+}) => api.post<CopyTeachersResponse>("/sections/teachers/copy-previous-year", data);

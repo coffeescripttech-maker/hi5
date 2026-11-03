@@ -13,7 +13,8 @@ import {
   updateSectionTeachers,
   applyTeacherToSections,
   getTeachingCoverage,
-  copyTeacherAssignments
+  copyTeacherAssignments,
+  getSubjectCatalog
 } from '../controllers/sections.controller';
 
 const router = Router();
@@ -26,6 +27,7 @@ router.get('/teachers', authorize('admin', 'registrar', 'principal', 'enrollment
 // /teaching-coverage and /teachers/apply MUST come before /:id so the
 // literal paths are not captured by the parameterized route.
 router.get('/teaching-coverage', authorize('admin', 'registrar', 'principal'), getTeachingCoverage);
+router.get('/subject-catalog', authorize('admin', 'registrar', 'principal', 'enrollment_committee'), getSubjectCatalog);
 router.post('/teachers/apply', authorize('admin', 'registrar'), applyTeacherToSections);
 router.post('/teachers/copy-previous-year', authorize('admin'), copyTeacherAssignments);
 router.get(
