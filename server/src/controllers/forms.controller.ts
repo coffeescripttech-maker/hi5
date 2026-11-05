@@ -49,9 +49,14 @@ async function isTeacherAllowedForStudent(
             WHERE se.student_id = e.student_id
               AND se.school_year_id = e.school_year_id
           )
+          OR EXISTS (
+            SELECT 1 FROM section_teacher_assignments sta
+            WHERE sta.teacher_id = ? AND sta.section_id = e.section_id
+              AND sta.school_year_id = e.school_year_id
+          )
         )
       LIMIT 1`;
-    params = [studentId, parseInt(schoolYearId), userId, userId, userId];
+    params = [studentId, parseInt(schoolYearId), userId, userId, userId, userId];
   } else {
     sql = `
       SELECT 1 AS allowed
@@ -73,10 +78,15 @@ async function isTeacherAllowedForStudent(
             WHERE se.student_id = e.student_id
               AND se.school_year_id = e.school_year_id
           )
+          OR EXISTS (
+            SELECT 1 FROM section_teacher_assignments sta
+            WHERE sta.teacher_id = ? AND sta.section_id = e.section_id
+              AND sta.school_year_id = e.school_year_id
+          )
         )
       ORDER BY e.school_year_id DESC
       LIMIT 1`;
-    params = [studentId, userId, userId, userId];
+    params = [studentId, userId, userId, userId, userId];
   }
 
   const rows = await query<RowDataPacket[]>(sql, params);

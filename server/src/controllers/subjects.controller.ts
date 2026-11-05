@@ -74,7 +74,19 @@ export async function getAssignedSubjects(req: Request, res: Response): Promise<
       params.push(schoolYearId);
     }
 
-    sql += " ORDER BY s.grade_level ASC, s.name ASC";
+    // new_requirement.txt R11: per-section-subject grants from Section Creation
+    // also make a subject one of "my subjects" for the current school year.
+    if (schoolYearId) {
+      sql += `
+      UNION
+      SELECT DISTINCT s.*, sta.created_at AS assigned_at
+      FROM subjects s
+      JOIN section_teacher_assignments sta ON sta.subject_id = s.id
+      WHERE sta.teacher_id = ? AND sta.school_year_id = ?`;
+      params.push(userId, schoolYearId);
+    }
+
+    sql += " ORDER BY grade_level ASC, name ASC";
 
     const subjects = await query<SubjectRow[]>(sql, params);
     res.json(subjects);

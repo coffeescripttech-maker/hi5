@@ -622,10 +622,10 @@ Progress table (tick off as each lands):
 | R8 | Section flagged while it has teacherless subjects | B | 🔶 teaching-coverage verified live; row badges built |
 | R9 | Closed years keep assignments as history; new year starts blank; optional copy-forward | A | 🔶 copy-previous-year verified |
 | R10 | Every assignment change → Activity Log (actor, section, subject, old→new) | A | ✅ verified live |
-| R11 | Grade Management = every section the teacher is assigned a subject in (not only advisory) | C | ⬜ |
-| R12 | Core class list = whole section; elective class = the pickers across sections | C | ⬜ |
-| R13 | Class list / schedule / at-risk all share the same class sets | C | ⬜ |
-| R14 | No assignment + not adviser → section refused (permission message) | C | ⬜ |
+| R11 | Grade Management = every section the teacher is assigned a subject in (not only advisory) | C | 🔶 verified live via grant probe (my-students + /subjects/me/assigned + gradebook read) |
+| R12 | Core class list = whole section; elective class = the pickers across sections | C | 🔶 core section roster verified; elective pickers path kept as before |
+| R13 | Class list / schedule / at-risk all share the same class sets | C | 🔶 my-students + grades + at-risk share the grant scope (probed) |
+| R14 | No assignment + not adviser → section refused (permission message) | C | 🔶 403 with friendly message verified (grades read, student profile, forms) |
 | R15 | Encode/import/submit only for assigned subject+section pairs | D | ⬜ |
 | R16 | Excel rows outside the class roster are refused ("LRN is not on this class roster.") | D | ⬜ |
 | R17 | Server refuses unassigned saves even with tampered requests | D | ⬜ |
@@ -636,7 +636,7 @@ Progress table (tick off as each lands):
 | R22 | Adviser runs bulk promotion + SF1/SF5/SF9/SF10 for advisory section | E | ⬜ |
 | R23 | SF9 attendance saves advisory-only | E | ⬜ |
 | R24 | Adviser tags Non-Reader (scope: decide 10.9-7) | E | ⬜ |
-| R25 | Teacher cannot enroll / place / transfer / change assignments | C | ⬜ |
+| R25 | Teacher cannot enroll / place / transfer / change assignments | C | ✅ teacher routes are read-only for enrollment/section management (audited) |
 | R26 | Teacher replacement: grades stay; old teacher loses edit, new gains | F | ⬜ |
 | R27 | Learner moves section → rosters follow | F | ⬜ |
 | R28 | Grade saves/locks/corrections/approvals logged with old→new | D+F | ⬜ |

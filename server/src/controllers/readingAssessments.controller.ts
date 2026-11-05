@@ -42,9 +42,15 @@ async function teacherOwnsStudent(userId: number, studentId: number, schoolYearI
                 ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
               WHERE se.student_id = e.student_id
                 AND se.school_year_id = e.school_year_id
+            )
+            OR EXISTS (
+              SELECT 1 FROM section_teacher_assignments sta
+              WHERE sta.section_id = e.section_id
+                AND sta.teacher_id = ?
+                AND sta.school_year_id = e.school_year_id
             ))
      LIMIT 1`,
-    [studentId, schoolYearId, userId, userId, userId]
+    [studentId, schoolYearId, userId, userId, userId, userId]
   );
   return rows.length > 0;
 }

@@ -25,6 +25,9 @@ function teacherScopeCondition(userId: number, schoolYearId: number) {
             OR EXISTS (
               SELECT 1 FROM teacher_section_assignments tsa
               WHERE tsa.section_id = sec2.id AND tsa.teacher_id = ?)))
+      OR e.section_id IN (
+        SELECT sta.section_id FROM section_teacher_assignments sta
+         WHERE sta.teacher_id = ? AND sta.school_year_id = ?)
       OR EXISTS (
         SELECT 1 FROM student_electives se
         JOIN teacher_subject_assignments tsa2
@@ -33,7 +36,7 @@ function teacherScopeCondition(userId: number, schoolYearId: number) {
         WHERE se.school_year_id = ?
           AND se.student_id = e.student_id
           AND tsa2.teacher_id = ?))`,
-    params: [userId, userId, schoolYearId, schoolYearId, userId],
+    params: [userId, userId, userId, schoolYearId, schoolYearId, schoolYearId, userId],
   };
 }
 

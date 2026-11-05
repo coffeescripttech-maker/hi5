@@ -119,8 +119,12 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
          AND (sec.adviser_id = ?
            OR EXISTS (
              SELECT 1 FROM teacher_section_assignments tsa
-             WHERE tsa.section_id = sec.id AND tsa.teacher_id = ?))`,
-      [userId, userId]
+             WHERE tsa.section_id = sec.id AND tsa.teacher_id = ?)
+           OR EXISTS (
+             SELECT 1 FROM section_teacher_assignments sta
+             WHERE sta.section_id = sec.id AND sta.teacher_id = ?
+               AND sta.school_year_id = ?))`,
+      [userId, userId, userId, schoolYearId]
     );
 
     // A teacher who only handles an elective (no advisory/assigned section)
@@ -191,11 +195,18 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
                AND se.school_year_id = e.school_year_id
                AND tsa.teacher_id = ?
           )
+          OR EXISTS (
+            SELECT 1
+              FROM section_teacher_assignments sta
+             WHERE sta.section_id = e.section_id
+               AND sta.teacher_id = ?
+               AND sta.school_year_id = e.school_year_id
+          )
         )
       ORDER BY section_grade_level ASC, section_name ASC, s.name ASC`;
     // Placeholder order follows textual position: the elective_via subquery's
     // teacher id comes first (SELECT list), then the WHERE-clause params.
-    const params: any[] = [userId, schoolYearId, ...sectionIds, userId];
+    const params: any[] = [userId, schoolYearId, ...sectionIds, userId, userId];
 
     const students = await query<RowDataPacket[]>(sql, params);
     res.json(students);
@@ -274,12 +285,18 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
                  ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
                WHERE se.student_id = en.student_id
                  AND se.school_year_id = en.school_year_id
+             )
+             OR EXISTS (
+               SELECT 1 FROM section_teacher_assignments sta
+               WHERE sta.section_id = en.section_id
+                 AND sta.teacher_id = ?
+                 AND sta.school_year_id = en.school_year_id
              ))
          LIMIT 1`,
-        [id, userId, userId, userId]
+        [id, userId, userId, userId, userId]
       );
       if (allowed.length === 0) {
-        res.status(403).json({ error: "Access denied. This learner is not in your section." });
+        res.status(403).json({ error: "Access denied. This learner is not in any of your assigned classes." });
         return;
       }
     }

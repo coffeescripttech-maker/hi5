@@ -3,6 +3,7 @@ import { query } from '../config/database';
 import { logActivity } from '../utils/activityLogger';
 import { collapseSubjectGroups } from '../utils/subjectGroups';
 import { subjectScopeSql } from '../utils/subjectScope';
+import { grantExistsSql, hasGrantPair } from '../utils/teacherGrants';
 import { createNotification } from '../services/notify';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 // hi
@@ -34,11 +35,15 @@ async function getTeacherSectionIds(
 ): Promise<Set<number>> {
   const rows = await query<RowDataPacket[]>(
     `SELECT DISTINCT sec.id
-     FROM sections sec
-     LEFT JOIN teacher_section_assignments tsa
-       ON tsa.section_id = sec.id AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
-     WHERE sec.adviser_id = ? OR tsa.teacher_id = ?`,
-    [schoolYearId, teacherId, teacherId]
+      FROM sections sec
+      LEFT JOIN teacher_section_assignments tsa
+        ON tsa.section_id = sec.id AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
+      WHERE sec.adviser_id = ? OR tsa.teacher_id = ?
+      UNION
+      SELECT DISTINCT sta.section_id
+      FROM section_teacher_assignments sta
+      WHERE sta.teacher_id = ? AND sta.school_year_id = ?`,
+    [schoolYearId, teacherId, teacherId, teacherId, schoolYearId]
   );
   return new Set(rows.map(r => r.id as number));
 }
@@ -57,7 +62,8 @@ function teacherStudentScopeSql(
   // Third ? = the elective branch: a learner who picked one of the teacher's
   // electives is on that teacher's roster even outside their sections
   // (Strengthened SHS Curriculum — electives mix learners across sections).
-  params.push(teacherId, teacherId, teacherId);
+  // Fourth ? = the per-section-subject grants (new_requirement.txt R11).
+  params.push(teacherId, teacherId, teacherId, teacherId);
   return `${studentIdExpr} IN (
     SELECT en.student_id FROM enrollments en
     LEFT JOIN sections sec ON en.section_id = sec.id
@@ -70,7 +76,9 @@ function teacherStudentScopeSql(
             ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
           WHERE se.student_id = en.student_id
             AND se.school_year_id = en.school_year_id
-        ))
+        )
+        OR ${grantExistsSql('en.section_id', false, 'en.school_year_id')}
+      )
   )`;
 }
 
@@ -93,10 +101,12 @@ async function teacherMayReadGrades(
                ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
              WHERE se.student_id = en.student_id
                AND se.school_year_id = en.school_year_id
-           ))
+           )
+           OR ${grantExistsSql('en.section_id', false, 'en.school_year_id')}
        )
+      )
      LIMIT 1`,
-    [studentId, teacherId, teacherId, teacherId]
+    [studentId, teacherId, teacherId, teacherId, teacherId]
   );
   return rows.length > 0;
 }
@@ -203,7 +213,16 @@ async function teacherGradeBlockReason(
       [subjectId]
     )
   ]);
-  if (!allowedSubjects.has(Number(subjectId))) {
+  // R11 — the NEW per-section-subject grant: exact (section, subject) pairs from
+  // Section Creation. Resolved once; replaces the legacy pair-check below.
+  const studentSectionEarly = await getStudentSectionId(studentId, schoolYearId);
+  const newGrant = await hasGrantPair(
+    teacherId,
+    schoolYearId,
+    studentSectionEarly,
+    subjectId
+  );
+  if (!allowedSubjects.has(Number(subjectId)) && !newGrant) {
     return 'Access denied: you may only encode grades for subjects assigned to you.';
   }
   const isElective = subjectRow.length > 0 && subjectRow[0].subject_type === 'elective';
@@ -217,10 +236,10 @@ async function teacherGradeBlockReason(
     if (pick.length === 0) {
       return 'Access denied: the learner is not assigned to this elective.';
     }
-  } else {
-    const studentSection = await getStudentSectionId(studentId, schoolYearId);
+  } else if (!newGrant) {
+    const studentSection = studentSectionEarly;
     if (!studentSection || !teacherSections.has(studentSection)) {
-      return 'Access denied: you may only encode grades for students in your advisory section.';
+      return 'Access denied: you may only encode grades for students in your assigned sections.';
     }
   }
   if (!(await isSubjectOfferedToLearner(studentId, schoolYearId, subjectId))) {
@@ -249,7 +268,7 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         !(await teacherMayReadGrades(req.user!.userId, String(student_id)))
       ) {
         res.status(403).json({
-          error: 'Access denied. This learner is not in your section.'
+          error: 'Access denied. This learner is not in any of your assigned classes.'
         });
         return;
       }
@@ -373,7 +392,7 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         if (!ownSections.has(parseInt(section_id as string))) {
           res
             .status(403)
-            .json({ error: 'Access denied. This section is not yours.' });
+            .json({ error: 'Access denied. You are not assigned to this section.' });
           return;
         }
       }
@@ -635,11 +654,20 @@ export async function batchUpsertGrades(
         return;
       }
       // Scope checks once per request, not once per row: allowed subjects,
-      // own sections, per-learner offered subjects.
+      // own sections, per-learner offered subjects. R11: the exact
+      // (section, subject) pairs also count as grants.
       const [allowedSubjects, teacherSections] = await Promise.all([
         getTeacherSubjectIds(req.user!.userId, rowList[0].school_year_id),
         getTeacherSectionIds(req.user!.userId, rowList[0].school_year_id)
       ]);
+      const newGrantRows = await query<RowDataPacket[]>(
+        `SELECT section_id, subject_id FROM section_teacher_assignments
+          WHERE teacher_id = ? AND school_year_id = ?`,
+        [req.user!.userId, rowList[0].school_year_id]
+      );
+      const newGrants = new Set(
+        newGrantRows.map(g => `${Number(g.section_id)}|${Number(g.subject_id)}`)
+      );
       // Strengthened SHS Curriculum: elective rows may target learners outside
       // the teacher's sections (their roster is the elective's pickers).
       const involvedSubjectIds = [...new Set(rowList.map(r => r.subject_id))];
@@ -657,15 +685,26 @@ export async function batchUpsertGrades(
         );
         const studentRows = rowList.filter(x => x.student_id === studentId);
         const nonElectiveRows = studentRows.filter(x => !subjectIsElective.get(x.subject_id));
+        const sectionIdNum =
+          enrollment && enrollment.section_id ? Number(enrollment.section_id) : null;
+        // The row set is fully covered when every (section, subject) pair of
+        // this learner's non-elective rows holds an exact per-section grant.
+        const newGrantsCoverStudent =
+          sectionIdNum !== null &&
+          nonElectiveRows.length > 0 &&
+          nonElectiveRows.every(
+            r => newGrants.has(`${sectionIdNum}|${Number(r.subject_id)}`)
+          );
         if (
           nonElectiveRows.length > 0 &&
-          (!enrollment || !enrollment.section_id || !teacherSections.has(Number(enrollment.section_id)))
+          !newGrantsCoverStudent &&
+          (!enrollment || sectionIdNum === null || !teacherSections.has(sectionIdNum))
         ) {
           res
             .status(403)
             .json({
               error:
-                'Access denied: you may only encode grades for students in your advisory section.'
+                'Access denied: you may only encode grades for students in your assigned sections.'
             });
           return;
         }
@@ -674,7 +713,10 @@ export async function batchUpsertGrades(
           rowList[0].school_year_id
         );
         for (const r of studentRows) {
-          if (!allowedSubjects.has(r.subject_id)) {
+          if (
+            !allowedSubjects.has(r.subject_id) &&
+            !(sectionIdNum !== null && newGrants.has(`${sectionIdNum}|${Number(r.subject_id)}`))
+          ) {
             res
               .status(403)
               .json({
@@ -992,7 +1034,7 @@ export async function getGradeHistory(
     ) {
       res
         .status(403)
-        .json({ error: 'Access denied. This learner is not in your section.' });
+        .json({ error: 'Access denied. This learner is not in any of your assigned classes.' });
       return;
     }
 

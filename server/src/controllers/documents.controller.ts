@@ -216,13 +216,22 @@ export async function getMyDocuments(req: Request, res: Response): Promise<void>
        JOIN users u ON d.uploaded_by = u.id
        LEFT JOIN sections sec ON d.section_id = sec.id
        LEFT JOIN subjects sub ON d.subject_id = sub.id
-       JOIN teacher_subject_assignments tsa
+       LEFT JOIN teacher_subject_assignments tsa
          ON d.subject_id = tsa.subject_id
         AND d.school_year_id = tsa.school_year_id
-       WHERE tsa.teacher_id = ?
-         AND tsa.school_year_id = (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1)
+       WHERE (
+          (tsa.teacher_id = ?
+           AND tsa.school_year_id = (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1))
+          OR EXISTS (
+            SELECT 1 FROM section_teacher_assignments sta
+             WHERE sta.teacher_id = ?
+               AND sta.subject_id = d.subject_id
+               AND sta.section_id = d.section_id
+               AND sta.school_year_id = d.school_year_id
+          )
+        )
        ORDER BY d.created_at DESC`,
-      [teacherId]
+      [teacherId, teacherId]
     );
 
     res.json(docs);
@@ -516,14 +525,23 @@ export async function importDocument(req: Request, res: Response): Promise<void>
     }
     const isElectiveSubject = subjectRow[0].subject_type === "elective";
 
-    // Teachers may only import grades for subjects assigned to them.
+    // Teachers may only import grades for subjects assigned to them — via the
+    // legacy subject-level grant or the new per-section-subject grant (R15).
     if (req.user!.role === "teacher") {
-      const allowed = await query<RowDataPacket[]>(
+      let allowed = await query<RowDataPacket[]>(
         `SELECT 1 FROM teacher_subject_assignments
          WHERE teacher_id = ? AND subject_id = ? AND (school_year_id = ? OR school_year_id IS NULL)
          LIMIT 1`,
         [req.user!.userId, doc.subject_id, doc.school_year_id]
       );
+      if (allowed.length === 0 && doc.section_id) {
+        allowed = await query<RowDataPacket[]>(
+          `SELECT 1 FROM section_teacher_assignments
+           WHERE teacher_id = ? AND subject_id = ? AND section_id = ? AND school_year_id = ?
+           LIMIT 1`,
+          [req.user!.userId, doc.subject_id, doc.section_id, doc.school_year_id]
+        );
+      }
       if (allowed.length === 0) {
         res.status(403).json({ error: "Access denied: you may only import grades for subjects assigned to you." });
         return;

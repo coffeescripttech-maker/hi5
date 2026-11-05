@@ -102,9 +102,14 @@ async function isTeacherAllowedForSection(
               WHERE tsa.teacher_id = ? AND tsa.section_id = sec.id
                 AND tsa.school_year_id = ?
             )
+           OR EXISTS (
+             SELECT 1 FROM section_teacher_assignments sta
+              WHERE sta.teacher_id = ? AND sta.section_id = sec.id
+                AND sta.school_year_id = ?
+            )
             )
       LIMIT 1`,
-    [sectionId, schoolYearId, userId, userId, schoolYearId]
+    [sectionId, schoolYearId, userId, userId, schoolYearId, userId, schoolYearId]
   );
   return rows.length > 0;
 }
