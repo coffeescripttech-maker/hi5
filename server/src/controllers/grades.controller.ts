@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { query } from '../config/database';
-import { logActivity } from '../utils/activityLogger';
+import { logActivity, logActivities } from '../utils/activityLogger';
 import { collapseSubjectGroups } from '../utils/subjectGroups';
 import { subjectScopeSql } from '../utils/subjectScope';
-import { grantExistsSql, hasGrantPair } from '../utils/teacherGrants';
+import { grantExistsSql, hasGrantPair, lockableSubjectIds } from '../utils/teacherGrants';
 import { createNotification } from '../services/notify';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 // hi
@@ -529,20 +529,19 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Sheet-level guard: "Lock & Finalize" freezes the learner's whole sheet,
-    // but lockGrades can only flag rows that already exist. A cell that was
-    // empty at lock time has no row, so without this guard a brand-new INSERT
-    // would silently bypass the lock. If any other cell in this sheet is
-    // locked, the sheet is finalized — only registrar-approved corrections
-    // (which operate on rows that exist) may reopen it.
+    // Existing cell (grade value drives the R28 old→new audit entry).
     const existingCell = await query<RowDataPacket[]>(
-      'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ?',
+      'SELECT id, grade FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND quarter = ?',
       [student_id, subject_id, school_year_id, quarter]
     );
+    const oldGrade = existingCell.length > 0 ? existingCell[0].grade : null;
     if (existingCell.length === 0) {
+      // Subject-scoped sheet guard: locking is per (learner, subject) now, so
+      // only a locked row of THIS subject freezes its empty cells. Other
+      // teachers' subjects in the same section stay writable (R15/R18).
       const sheetLocked = await query<RowDataPacket[]>(
-        'SELECT id FROM grades WHERE student_id = ? AND school_year_id = ? AND is_locked = 1 LIMIT 1',
-        [student_id, school_year_id]
+        'SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND school_year_id = ? AND is_locked = 1 LIMIT 1',
+        [student_id, subject_id, school_year_id]
       );
       if (sheetLocked.length > 0) {
         res.status(403).json({
@@ -568,9 +567,18 @@ export async function upsertGrade(req: Request, res: Response): Promise<void> {
       ]
     );
 
+    const names = await query<RowDataPacket[]>(
+      `SELECT st.name AS student_name, st.lrn, sub.name AS subject_name
+         FROM students st, subjects sub
+        WHERE st.id = ? AND sub.id = ?`,
+      [student_id, subject_id]
+    );
+    const nm: any = names[0];
+    const learner = nm ? `${nm.student_name} (${nm.lrn})` : `student ID ${student_id}`;
+    const subject = nm ? nm.subject_name : `subject ID ${subject_id}`;
     await logActivity(
       req.user!.userId,
-      `Updated grade for student ID ${student_id}, subject ID ${subject_id}, Q${quarter}`,
+      `Saved grade — ${learner}, ${subject}, Q${quarter}: ${oldGrade == null ? '(blank)' : oldGrade} → ${grade ?? '(blank)'}`,
       'grades',
       null
     );
@@ -754,7 +762,7 @@ export async function batchUpsertGrades(
 
     // Existing lock state fetched once for every involved (student, sy).
     const existing = await query<RowDataPacket[]>(
-      `SELECT student_id, subject_id, school_year_id, quarter, is_locked
+      `SELECT student_id, subject_id, school_year_id, quarter, is_locked, grade
        FROM grades
        WHERE student_id IN (${studentIds.map(() => '?').join(',')})
          AND school_year_id IN (${schoolYearIds.map(() => '?').join(',')})`,
@@ -762,13 +770,17 @@ export async function batchUpsertGrades(
     );
     const cellLocked = new Set<string>();
     const cellExists = new Set<string>();
-    const sheetLocked = new Set<number>();
+    // Locked sheets are now per (learner, subject): one teacher finalizing
+    // their subject must not freeze another teacher's empty cells (R15/R18).
+    const sheetLocked = new Set<string>();
+    const oldGradeByKey = new Map<string, number | string | null>();
     for (const g of existing) {
       const key = `${g.student_id}|${g.subject_id}|${g.school_year_id}|${g.quarter}`;
       cellExists.add(key);
+      oldGradeByKey.set(key, g.grade);
       if (Number(g.is_locked) === 1) {
         cellLocked.add(key);
-        sheetLocked.add(Number(g.student_id));
+        sheetLocked.add(`${g.student_id}|${g.subject_id}`);
       }
     }
 
@@ -777,7 +789,7 @@ export async function batchUpsertGrades(
     for (const r of rowList) {
       const key = `${r.student_id}|${r.subject_id}|${r.school_year_id}|${r.quarter}`;
       if (cellLocked.has(key)) continue;
-      if (sheetLocked.has(r.student_id) && !cellExists.has(key)) continue;
+      if (sheetLocked.has(`${r.student_id}|${r.subject_id}`) && !cellExists.has(key)) continue;
       const enrollmentId = enrollmentMap.get(
         `${r.student_id}|${r.school_year_id}`
       );
@@ -808,13 +820,59 @@ export async function batchUpsertGrades(
       }
     }
 
-    await logActivity(
-      req.user!.userId,
-      `Batch imported ${inserts.length} grades`,
-      'grades',
-      null
-    );
-    res.json({ message: `${inserts.length} grades saved successfully.` });
+    // R28 audit: one compact entry per learner with every changed cell's
+    // learner/subject/old→new, written in a single insert.
+    const logSubjectIds = [...new Set(rowList.map(r => r.subject_id))];
+    const [auditStudents, auditSubjects] = await Promise.all([
+      query<RowDataPacket[]>(
+        `SELECT id, name, lrn FROM students WHERE id IN (${studentIds.map(() => '?').join(',')})`,
+        studentIds
+      ),
+      query<RowDataPacket[]>(
+        `SELECT id, name FROM subjects WHERE id IN (${logSubjectIds.map(() => '?').join(',')})`,
+        logSubjectIds
+      )
+    ]);
+    const studentMap = new Map(auditStudents.map((s: any) => [Number(s.id), s]));
+    const subjectMap = new Map(auditSubjects.map((s: any) => [Number(s.id), s.name]));
+    const byStudent = new Map<number, (number | string | null)[][]>();
+    for (const row of inserts) {
+      const sid = Number(row[0]);
+      if (!byStudent.has(sid)) byStudent.set(sid, []);
+      byStudent.get(sid)!.push(row);
+    }
+    const auditEntries: {
+      userId: number;
+      action: string;
+      entityType: string;
+      entityId: null;
+    }[] = [];
+    for (const [sid, rows] of byStudent) {
+      const st: any = studentMap.get(sid);
+      const parts = rows.map((row) => {
+        const subjId = Number(row[1]);
+        const q = Number(row[4]);
+        const key = `${sid}|${subjId}|${row[3]}|${q}`;
+        const old = oldGradeByKey.get(key);
+        return `${subjectMap.get(subjId) ?? `subject ${subjId}`} Q${q}: ${old == null ? '(blank)' : old} → ${row[5] ?? '(blank)'}`;
+      });
+      let detail = parts.join('; ');
+      if (detail.length > 1200) detail = detail.slice(0, 1200) + '…';
+      auditEntries.push({
+        userId: req.user!.userId,
+        action: `Saved ${rows.length} grade(s) — ${st ? `${st.name} (${st.lrn})` : `student ID ${sid}`}: ${detail}`,
+        entityType: 'grades',
+        entityId: null
+      });
+    }
+    await logActivities(auditEntries);
+
+    const skippedCount = rowList.length - inserts.length;
+    res.json({
+      message: `${inserts.length} grades saved successfully.`,
+      saved: inserts.length,
+      skipped: skippedCount
+    });
   } catch (error) {
     console.error('Batch upsert error:', error);
     res.status(500).json({ error: 'Failed to save grades.' });
@@ -839,6 +897,59 @@ export async function lockGrades(req: Request, res: Response): Promise<void> {
       'UPDATE grades SET is_locked = 1, locked_at = NOW(), locked_by = ? WHERE school_year_id = ?';
     const params: any[] = [req.user!.userId, school_year_id];
 
+    // R15/R18: a teacher submits only the (section, subject) pairs they own.
+    // Without this a teacher could lock other teachers' subjects in a section.
+    let teacherSubjectIds: number[] = [];
+    if (req.user!.role === 'teacher') {
+      if (!student_id && !section_id) {
+        res
+          .status(400)
+          .json({ error: 'student_id or section_id is required.' });
+        return;
+      }
+      const involvedSectionIds: number[] = [];
+      if (section_id) involvedSectionIds.push(Number(section_id));
+      if (student_id) {
+        const enr = await query<RowDataPacket[]>(
+          "SELECT section_id FROM enrollments WHERE student_id = ? AND school_year_id = ? AND status = 'enrolled' LIMIT 1",
+          [student_id, school_year_id]
+        );
+        if (enr.length === 0 || !enr[0].section_id) {
+          res.status(403).json({
+            error: 'Access denied. This learner is not in any of your assigned classes.'
+          });
+          return;
+        }
+        involvedSectionIds.push(Number(enr[0].section_id));
+      }
+      const allowed = new Set<number>();
+      for (const secId of [...new Set(involvedSectionIds)]) {
+        for (const sid of await lockableSubjectIds(
+          req.user!.userId,
+          Number(school_year_id),
+          secId
+        )) {
+          allowed.add(sid);
+        }
+      }
+      if (subject_id && !allowed.has(Number(subject_id))) {
+        res.status(403).json({
+          error: 'Access denied: you may only submit grades for subjects assigned to you.'
+        });
+        return;
+      }
+      if (allowed.size === 0) {
+        res.status(403).json({
+          error: 'Access denied. You are not assigned to any subject in this section.'
+        });
+        return;
+      }
+      const ph = [...allowed].map(() => '?').join(',');
+      sql += ` AND subject_id IN (${ph})`;
+      params.push(...allowed);
+      teacherSubjectIds = [...allowed];
+    }
+
     if (student_id) {
       sql += ' AND student_id = ?';
       params.push(student_id);
@@ -859,9 +970,42 @@ export async function lockGrades(req: Request, res: Response): Promise<void> {
 
     const result = await query<ResultSetHeader>(sql, params);
 
+    // R28 audit: learner, subject, term and count in one readable entry.
+    const bits: string[] = [];
+    if (student_id) {
+      const s = await query<RowDataPacket[]>(
+        'SELECT name, lrn FROM students WHERE id = ?',
+        [student_id]
+      );
+      if (s.length > 0) bits.push(`${s[0].name} (${s[0].lrn})`);
+    }
+    if (section_id) {
+      const sec = await query<RowDataPacket[]>(
+        'SELECT name FROM sections WHERE id = ?',
+        [section_id]
+      );
+      if (sec.length > 0) bits.push(`section ${sec[0].name}`);
+    }
+    if (subject_id) {
+      const sub = await query<RowDataPacket[]>(
+        'SELECT name FROM subjects WHERE id = ?',
+        [subject_id]
+      );
+      if (sub.length > 0) bits.push(sub[0].name);
+    } else if (teacherSubjectIds.length > 0) {
+      // Teacher-wide submit: name the subjects that were actually locked.
+      const subs = await query<RowDataPacket[]>(
+        `SELECT name FROM subjects WHERE id IN (${teacherSubjectIds.map(() => '?').join(',')}) ORDER BY name`,
+        teacherSubjectIds
+      );
+      if (subs.length > 0) bits.push(subs.map((s: any) => s.name).join(' + '));
+    }
+    if (quarter) bits.push(`Q${quarter}`);
+    const targetDetail = bits.length > 0 ? ` — ${bits.join(', ')}` : '';
+
     await logActivity(
       req.user!.userId,
-      `Locked ${result.affectedRows} grade(s)`,
+      `Locked ${result.affectedRows} grade(s)${targetDetail}`,
       'grades',
       null
     );
@@ -920,9 +1064,34 @@ export async function unlockGrades(req: Request, res: Response): Promise<void> {
 
     const result = await query<ResultSetHeader>(sql, params);
 
+    const unlockBits: string[] = [];
+    if (student_id) {
+      const s = await query<RowDataPacket[]>(
+        'SELECT name, lrn FROM students WHERE id = ?',
+        [student_id]
+      );
+      if (s.length > 0) unlockBits.push(`${s[0].name} (${s[0].lrn})`);
+    }
+    if (section_id) {
+      const sec = await query<RowDataPacket[]>(
+        'SELECT name FROM sections WHERE id = ?',
+        [section_id]
+      );
+      if (sec.length > 0) unlockBits.push(`section ${sec[0].name}`);
+    }
+    if (subject_id) {
+      const sub = await query<RowDataPacket[]>(
+        'SELECT name FROM subjects WHERE id = ?',
+        [subject_id]
+      );
+      if (sub.length > 0) unlockBits.push(sub[0].name);
+    }
+    if (quarter) unlockBits.push(`Q${quarter}`);
+    const unlockDetail = unlockBits.length > 0 ? ` — ${unlockBits.join(', ')}` : '';
+
     await logActivity(
       req.user!.userId,
-      `Unlocked ${result.affectedRows} grade(s)`,
+      `Unlocked ${result.affectedRows} grade(s)${unlockDetail}`,
       'grades',
       null
     );

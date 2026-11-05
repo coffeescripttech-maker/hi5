@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
 import { logActivity } from "../utils/activityLogger";
+import { teacherCanEditStudentSubject } from "../utils/teacherGrants";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
@@ -113,6 +114,29 @@ export async function createCorrection(req: Request, res: Response): Promise<voi
       }
     }
 
+    // R18: a teacher may only ask to correct a subject/learner they teach.
+    // The Registrar can file broader requests.
+    if (req.user!.role === "teacher") {
+      if (!subject_id) {
+        res.status(400).json({
+          error: "Select the subject you are correcting — teachers may only request corrections for subjects they handle.",
+        });
+        return;
+      }
+      const allowed = await teacherCanEditStudentSubject(
+        req.user!.userId,
+        Number(school_year_id),
+        Number(student_id),
+        Number(subject_id)
+      );
+      if (!allowed) {
+        res.status(403).json({
+          error: "Access denied: you may only request corrections for subjects assigned to you.",
+        });
+        return;
+      }
+    }
+
     const result = await query<ResultSetHeader>(
       `INSERT INTO grade_correction_requests (student_id, subject_id, school_year_id, quarter, requested_by, justification, common_mistake, other_mistake)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -128,9 +152,24 @@ export async function createCorrection(req: Request, res: Response): Promise<voi
       ]
     );
 
+    const corrNames = await query<RowDataPacket[]>(
+      `SELECT st.name AS student_name, st.lrn, sub.name AS subject_name
+         FROM students st
+         LEFT JOIN subjects sub ON sub.id = ?
+        WHERE st.id = ?`,
+      [subject_id || null, student_id]
+    );
+    const cn: any = corrNames[0];
+    const correctionTarget = cn
+      ? `${cn.student_name} (${cn.lrn}), ${cn.subject_name || (subject_id ? `subject ID ${subject_id}` : "all subjects")}`
+      : `student ID ${student_id}${subject_id ? `, subject ID ${subject_id}` : " (all subjects)"}`;
+    const justificationNote =
+      typeof justification === "string" && justification.length > 200
+        ? `${justification.slice(0, 200)}…`
+        : justification;
     await logActivity(
       req.user!.userId,
-      `Created grade correction request for student ID ${student_id}${subject_id ? `, subject ID ${subject_id}` : " (all subjects)"}`,
+      `Filed correction request #${result.insertId} — ${correctionTarget}, ${quarter ? `Q${quarter}` : "all quarters"}: ${justificationNote}`,
       "grade_correction_requests",
       result.insertId
     );
@@ -192,6 +231,18 @@ export async function reviewCorrection(req: Request, res: Response): Promise<voi
     // leave every other cell locked.
     if (status === "approved") {
       const target = existing[0];
+      const revNames = await query<RowDataPacket[]>(
+        `SELECT st.name AS student_name, st.lrn, sub.name AS subject_name
+           FROM students st
+           LEFT JOIN subjects sub ON sub.id = ?
+          WHERE st.id = ?`,
+        [target.subject_id || null, target.student_id]
+      );
+      const rn: any = revNames[0];
+      const revTarget = rn
+        ? `${rn.student_name} (${rn.lrn}), ${rn.subject_name || "all subjects"}`
+        : `student ID ${target.student_id}, subject ID ${target.subject_id ?? "all"}`;
+      const revScope = `${target.quarter ? `Q${target.quarter}` : "all quarters"}`;
       const unlockResult = await query<ResultSetHeader>(
         `UPDATE grades
          SET is_locked = 0, locked_at = NULL, locked_by = NULL
@@ -209,18 +260,24 @@ export async function reviewCorrection(req: Request, res: Response): Promise<voi
       );
       await logActivity(
         req.user!.userId,
-        `Unlocked ${unlockResult.affectedRows} grade row(s) for approved correction request #${id}`,
+        `Unlocked ${unlockResult.affectedRows} grade row(s) — ${revTarget}, ${revScope} (correction request #${id} approved; re-entry limited to the subject's current teacher)`,
         "grades",
         id
       );
+      await logActivity(
+        req.user!.userId,
+        `Approved grade correction request #${id} — ${revTarget}, ${revScope}`,
+        "grade_correction_requests",
+        id
+      );
+    } else {
+      await logActivity(
+        req.user!.userId,
+        `Rejected grade correction request #${id}`,
+        "grade_correction_requests",
+        id
+      );
     }
-
-    await logActivity(
-      req.user!.userId,
-      `${status === "approved" ? "Approved" : "Rejected"} grade correction request #${id}`,
-      "grade_correction_requests",
-      id
-    );
 
     const updated = await query<RowDataPacket[]>(
       `SELECT gcr.*, s.name AS student_name,

@@ -62,6 +62,101 @@ export async function hasGrantPair(
 }
 
 /**
+ * True when the teacher may edit the given subject for the given learner in
+ * the given school year. Matches grades.controller's write scope:
+ *   - NEW per-section pair (section_teacher_assignments)
+ *   - legacy subject-level grant (teacher_subject_assignments) combined with
+ *     section access (adviser or teacher_section_assignments)
+ *   - elective pick + subject-level grant
+ */
+export async function teacherCanEditStudentSubject(
+  teacherId: number,
+  schoolYearId: number,
+  studentId: number,
+  subjectId: number | null
+): Promise<boolean> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT 1
+       FROM enrollments e
+       LEFT JOIN sections sec ON e.section_id = sec.id
+      WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+        AND (
+          (? IS NOT NULL AND EXISTS (
+            SELECT 1 FROM section_teacher_assignments sta
+             WHERE sta.teacher_id = ? AND sta.school_year_id = e.school_year_id
+               AND sta.section_id = e.section_id AND sta.subject_id = ?
+          ))
+          OR (? IS NOT NULL AND EXISTS (
+            SELECT 1 FROM student_electives se
+            JOIN teacher_subject_assignments tea
+              ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+             AND (tea.school_year_id = e.school_year_id OR tea.school_year_id IS NULL)
+             WHERE se.student_id = e.student_id
+               AND se.school_year_id = e.school_year_id
+               AND se.subject_id = ?
+          ))
+          OR (? IS NOT NULL AND EXISTS (
+            SELECT 1 FROM teacher_subject_assignments tsa
+             WHERE tsa.teacher_id = ? AND tsa.subject_id = ?
+               AND (tsa.school_year_id = e.school_year_id OR tsa.school_year_id IS NULL)
+          ) AND (
+            sec.adviser_id = ?
+            OR EXISTS (
+              SELECT 1 FROM teacher_section_assignments tsc
+               WHERE tsc.section_id = e.section_id AND tsc.teacher_id = ?
+                 AND (tsc.school_year_id = e.school_year_id OR tsc.school_year_id IS NULL)
+            )
+          ))
+        )
+      LIMIT 1`,
+    [
+      studentId, schoolYearId,
+      subjectId, teacherId, subjectId,                                   // new pair
+      subjectId, teacherId, subjectId,                                   // elective
+      subjectId, teacherId, subjectId, teacherId, teacherId              // legacy
+    ]
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Subject ids the teacher may lock/submit for one section in a school year:
+ * the NEW per-section pairs plus legacy subject grants they hold in that
+ * section (adviser or section assignment).
+ */
+export async function lockableSubjectIds(
+  teacherId: number,
+  schoolYearId: number,
+  sectionId: number
+): Promise<number[]> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT DISTINCT sta.subject_id
+       FROM section_teacher_assignments sta
+      WHERE sta.teacher_id = ? AND sta.school_year_id = ? AND sta.section_id = ?
+     UNION
+     SELECT DISTINCT tsa.subject_id
+       FROM teacher_subject_assignments tsa
+      WHERE tsa.teacher_id = ?
+        AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
+        AND EXISTS (
+          SELECT 1 FROM sections sec
+           WHERE sec.id = ?
+             AND (sec.adviser_id = ?
+               OR EXISTS (
+                 SELECT 1 FROM teacher_section_assignments tsc
+                  WHERE tsc.section_id = sec.id AND tsc.teacher_id = ?
+                    AND (tsc.school_year_id = ? OR tsc.school_year_id IS NULL)
+               ))
+        )`,
+    [
+      teacherId, schoolYearId, sectionId,
+      teacherId, schoolYearId, sectionId, teacherId, teacherId, schoolYearId
+    ]
+  );
+  return rows.map((r) => Number(r.subject_id));
+}
+
+/**
  * SQL fragment for an EXISTS branch keyed to the teacher's per-section-subject
  * grants. `sectionExpr` must be the outer section expression (e.g. "s.section_id"
  * or "e.section_id"); supply schoolYearExpr to bind the year from the outer row

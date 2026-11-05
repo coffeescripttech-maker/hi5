@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { query } from "../config/database";
-import { logActivity } from "../utils/activityLogger";
+import { logActivity, logActivities } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import path from "path";
 import fs from "fs";
@@ -138,9 +138,8 @@ async function parseGradeWorkbook(doc: any): Promise<ParsedGradeRow[]> {
 
     if (!entry) {
       status = "invalid";
-      error = isElectiveDoc
-        ? "LRN is not on this elective's roster"
-        : "LRN not enrolled in this section";
+      // R16: rows outside the class roster are refused with this wording.
+      error = "LRN is not on this class roster.";
     } else if (grade === null) {
       status = "skipped";
     } else if (isNaN(grade)) {
@@ -554,6 +553,12 @@ export async function importDocument(req: Request, res: Response): Promise<void>
     let imported = 0;
     let locked = 0;
     let failed = 0;
+    const auditEntries: {
+      userId: number;
+      action: string;
+      entityType: string;
+      entityId: string | number | null;
+    }[] = [];
 
     for (const row of validRows) {
       const rosterRows = isElectiveSubject
@@ -578,17 +583,36 @@ export async function importDocument(req: Request, res: Response): Promise<void>
           );
       if (rosterRows.length === 0) { failed++; continue; }
       const enrollment_id = rosterRows[0].enrollment_id;
-      const student_id = row.lrn; // placeholder, resolved below
 
-      // Skip grades that are already locked
-      const lockedCheck = await query<RowDataPacket[]>(
-        `SELECT g.id FROM grades g
+      // Read the current cell once: drives both the lock skip and the R28 log.
+      const existingCell = await query<RowDataPacket[]>(
+        `SELECT g.id, g.grade, g.is_locked FROM grades g
          JOIN students st ON g.student_id = st.id
-         WHERE st.lrn = ? AND g.subject_id = ? AND g.school_year_id = ? AND g.quarter = ? AND g.is_locked = 1
+         WHERE st.lrn = ? AND g.subject_id = ? AND g.school_year_id = ? AND g.quarter = ?
          LIMIT 1`,
         [row.lrn, doc.subject_id, doc.school_year_id, doc.quarter]
       );
-      if (lockedCheck.length > 0) { locked++; continue; }
+      if (existingCell.length > 0 && Number(existingCell[0].is_locked) === 1) {
+        locked++;
+        continue;
+      }
+      // Subject-scoped sheet lock: a submitted subject freezes cells that were
+      // empty at submit time too (no row exists to carry the flag yet).
+      if (existingCell.length === 0) {
+        const sheetLocked = await query<RowDataPacket[]>(
+          `SELECT g.id FROM grades g
+           JOIN students st ON g.student_id = st.id
+           WHERE st.lrn = ? AND g.subject_id = ? AND g.school_year_id = ? AND g.is_locked = 1
+           LIMIT 1`,
+          [row.lrn, doc.subject_id, doc.school_year_id]
+        );
+        if (sheetLocked.length > 0) {
+          locked++;
+          continue;
+        }
+      }
+      const oldGrade =
+        existingCell.length > 0 ? existingCell[0].grade : null;
 
       await query<ResultSetHeader>(
         `INSERT INTO grades (student_id, subject_id, enrollment_id, school_year_id, quarter, grade)
@@ -597,18 +621,40 @@ export async function importDocument(req: Request, res: Response): Promise<void>
         [row.lrn, doc.subject_id, enrollment_id, doc.school_year_id, doc.quarter, row.grade]
       );
       imported++;
+      auditEntries.push({
+        userId: req.user!.userId,
+        action: `Saved grade (import) — ${row.name || row.lrn} (${row.lrn}), ${subjectRow[0].name}, Q${doc.quarter}: ${oldGrade == null ? "(blank)" : oldGrade} → ${row.grade} [document #${id}]`,
+        entityType: "grades",
+        entityId: id,
+      });
     }
 
     const skipped = rows.filter(r => r.status === "skipped").length;
-    const invalid = rows.filter(r => r.status === "invalid").length;
+    const invalidRows = rows.filter(r => r.status === "invalid");
+    const invalid = invalidRows.length;
 
     await query<ResultSetHeader>(
       "UPDATE uploaded_documents SET status = 'imported', record_count = ? WHERE id = ?",
       [imported, id]
     );
-    await logActivity(req.user!.userId, `Imported ${imported} grade(s) from document ID ${id} (${locked} locked, ${invalid} invalid)`, "grades", null);
+    await logActivities(auditEntries);
+    await logActivity(req.user!.userId, `Imported ${imported} grade(s) from document ID ${id} (${locked} locked, ${invalid} refused)`, "grades", id);
 
-    res.json({ imported, skipped, locked, failed, invalid });
+    res.json({
+      imported,
+      skipped,
+      locked,
+      failed,
+      invalid,
+      // R16: surface each refused row with its reason so the client sees
+      // "LRN is not on this class roster."
+      refused: invalidRows.map(r => ({
+        row: r.row,
+        lrn: r.lrn,
+        name: r.name,
+        error: r.error,
+      })),
+    });
   } catch (error) {
     console.error("Import document error:", error);
     res.status(500).json({ error: "Failed to import grades." });

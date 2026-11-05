@@ -626,11 +626,11 @@ Progress table (tick off as each lands):
 | R12 | Core class list = whole section; elective class = the pickers across sections | C | 🔶 core section roster verified; elective pickers path kept as before |
 | R13 | Class list / schedule / at-risk all share the same class sets | C | 🔶 my-students + grades + at-risk share the grant scope (probed) |
 | R14 | No assignment + not adviser → section refused (permission message) | C | 🔶 403 with friendly message verified (grades read, student profile, forms) |
-| R15 | Encode/import/submit only for assigned subject+section pairs | D | ⬜ |
-| R16 | Excel rows outside the class roster are refused ("LRN is not on this class roster.") | D | ⬜ |
-| R17 | Server refuses unassigned saves even with tampered requests | D | ⬜ |
-| R18 | Submit locks cells; corrections via Registrar; re-entry only own subjects | D | ⬜ |
-| R19 | General Average / final grade system-computed, not editable | D | ⬜ |
+| R15 | Encode/import/submit only for assigned subject+section pairs | D | ✅ verified live: own pair saves/locks/imports; foreign subject 403 on save/lock/import (tampered direct API) |
+| R16 | Excel rows outside the class roster are refused ("LRN is not on this class roster.") | D | ✅ template lists only roster; import skips ghost LRN with exact message and returns `refused[]` |
+| R17 | Server refuses unassigned saves even with tampered requests | D | ✅ 403 for non-owner save, lock, and correction (temp unassigned teacher + teacher01 foreign subject) |
+| R18 | Submit locks cells; corrections via Registrar; re-entry only own subjects | D | ✅ lock/submit scoped to own subjects; locked cells 403; approved correction reopens only that subject+quarter, owner-only re-entry |
+| R19 | General Average / final grade system-computed, not editable | D | ✅ all averages are SQL `AVG` (no writable aggregate column); Grade Management average is display-only |
 | R20 | Adviser sees advisory learners + every subject's grades; edits only own | E | ⬜ |
 | R21 | Adviser sees missing-grades per subject + which teacher owns it | E | ⬜ |
 | R22 | Adviser runs bulk promotion + SF1/SF5/SF9/SF10 for advisory section | E | ⬜ |
@@ -639,7 +639,7 @@ Progress table (tick off as each lands):
 | R25 | Teacher cannot enroll / place / transfer / change assignments | C | ✅ teacher routes are read-only for enrollment/section management (audited) |
 | R26 | Teacher replacement: grades stay; old teacher loses edit, new gains | F | ⬜ |
 | R27 | Learner moves section → rosters follow | F | ⬜ |
-| R28 | Grade saves/locks/corrections/approvals logged with old→new | D+F | ⬜ |
+| R28 | Grade saves/locks/corrections/approvals logged with old→new | D+F | 🔶 Phase D verified live (save old→new, lock/unlock with learner+subject, correction file/approve); replacement logging in F |
 
 ### 10.1 Acceptance steps (to be exercised per phase)
 
