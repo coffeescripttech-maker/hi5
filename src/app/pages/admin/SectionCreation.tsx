@@ -13,7 +13,9 @@ import {
   GraduationCap,
   Palette,
   Lock,
-  Copy
+  Copy,
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 import {
   sectionsApi,
@@ -640,38 +642,19 @@ export function SectionCreation() {
     return findAdviserConflict(editForm.adviser_id, editTarget.id);
   };
 
-  const handleEditSave = async () => {
+  // In-app adviser-swap confirmation (client retest note: the native
+  // window.confirm froze automated checks and looks unlike the app). The
+  // swap intent is parked in state; the dialog below carries the names and
+  // commits with replace_adviser: true on confirmation.
+  const [adviserSwap, setAdviserSwap] = useState<{
+    sectionName: string;
+    prevName: string;
+    nextName: string;
+  } | null>(null);
+  const [adviserSwapBusy, setAdviserSwapBusy] = useState(false);
+
+  const commitEditSave = async (replaceAdviser: boolean) => {
     if (!editTarget) return;
-    // Committee: read-only adviser naming (Administrator/Registrar duty).
-    const editAdviserNew =
-      editForm.adviser_id ? parseInt(editForm.adviser_id) : null;
-    const editAdviserCurrently =
-      editTarget.adviser_id ?? null;
-    const adviceChanged = editAdviserNew !== editAdviserCurrently;
-    if (role === 'enrollment_committee' && adviceChanged) {
-      showToast(
-        'error',
-        'Adviser designation is handled by the Administrator or Registrar.'
-      );
-      return;
-    }
-    // Replacing an existing adviser is deliberate: refuse silently only at
-    // the confirm step — the Administrator explicitly confirms the swap.
-    let replaceAdviser = false;
-    if (adviceChanged && editAdviserCurrently != null) {
-      const prevName =
-        getTeacherName(String(editAdviserCurrently)) ||
-        editTarget.adviser_name ||
-        `ID ${editAdviserCurrently}`;
-      const nextName = getTeacherName(editForm.adviser_id);
-      const ok = window.confirm(
-        `Replace the adviser of "${editTarget.name}"?\n\n` +
-          `${prevName} → ${nextName || 'No adviser'}\n\n` +
-          `The previous adviser loses this section's advisory view. Only continue if this is intentional.`
-      );
-      if (!ok) return;
-      replaceAdviser = true;
-    }
     const conflict = editConflict();
     if (conflict) {
       showToast(
@@ -698,6 +681,7 @@ export function SectionCreation() {
         warnings = resp.warnings;
       }
       await sectionsApi.update(editTarget.id, payload);
+      setAdviserSwap(null);
       // R7 — schedule overlaps warn but never block the save
       if (warnings.length > 0) {
         setEditWarnings(warnings);
@@ -718,6 +702,39 @@ export function SectionCreation() {
         err.detail?.error || err.message || 'Failed to update section'
       );
     }
+  };
+
+  const handleEditSave = async () => {
+    if (!editTarget) return;
+    // Committee: read-only adviser naming (Administrator/Registrar duty).
+    const editAdviserNew =
+      editForm.adviser_id ? parseInt(editForm.adviser_id) : null;
+    const editAdviserCurrently =
+      editTarget.adviser_id ?? null;
+    const adviceChanged = editAdviserNew !== editAdviserCurrently;
+    if (role === 'enrollment_committee' && adviceChanged) {
+      showToast(
+        'error',
+        'Adviser designation is handled by the Administrator or Registrar.'
+      );
+      return;
+    }
+    // Replacing an existing adviser is deliberate: open the in-app
+    // confirmation (server 409s unless replace_adviser: true).
+    if (adviceChanged && editAdviserCurrently != null) {
+      const prevName =
+        getTeacherName(String(editAdviserCurrently)) ||
+        editTarget.adviser_name ||
+        `ID ${editAdviserCurrently}`;
+      const nextName = getTeacherName(editForm.adviser_id);
+      setAdviserSwap({
+        sectionName: editTarget.name,
+        prevName,
+        nextName: nextName || 'No adviser'
+      });
+      return;
+    }
+    await commitEditSave(false);
   };
 
   const handleDelete = async (id: number) => {
@@ -1943,6 +1960,74 @@ export function SectionCreation() {
           </button>
         </div>
       </ModalShell>
+
+      {/* ── Adviser replacement confirmation (in-app; replaces window.confirm) ── */}
+      {adviserSwap && (
+        <ModalShell
+          open
+          onClose={() => (adviserSwapBusy ? null : setAdviserSwap(null))}
+          maxWidth="max-w-md"
+          bodyClassName="p-0">
+          <div className="px-6 py-5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <AlertTriangle size={18} className="text-white" />
+              </div>
+              <div className="gruw">
+                <h3 className="font-bold text-white">Replace adviser?</h3>
+                <p className="text-amber-100 text-xs">
+                  This changes who owns the section
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-600">
+              You are changing the adviser of{' '}
+              <strong className="text-gray-800">
+                &quot;{adviserSwap.sectionName}&quot;
+              </strong>
+              :
+            </p>
+            <div className="flex items-center gap-3 bg-gray-50/80 border border-gray-100 rounded-xl px-4 py-3 text-sm">
+              <span className="font-semibold text-gray-700 flex-1 text-right">
+                {adviserSwap.prevName}
+              </span>
+              <ArrowRight size={16} className="text-amber-500 flex-shrink-0" />
+              <span className="font-semibold text-emerald-700 flex-1">
+                {adviserSwap.nextName}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              The previous adviser loses this section&apos;s advisory view —
+              missing-grades panel and advisory-only promotion move to the new
+              adviser. Continue only if the handover is intentional.
+            </p>
+          </div>
+          <div className="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+            <button
+              onClick={() => setAdviserSwap(null)}
+              disabled={adviserSwapBusy}
+              className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-60">
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setAdviserSwapBusy(true);
+                commitEditSave(true).finally(() => setAdviserSwapBusy(false));
+              }}
+              disabled={adviserSwapBusy}
+              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-60 inline-flex items-center justify-center gap-2">
+              {adviserSwapBusy ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <CheckCircle size={14} />
+              )}
+              {adviserSwapBusy ? 'Saving…' : 'Yes, replace adviser'}
+            </button>
+          </div>
+        </ModalShell>
+      )}
 
       {/* ── Add/Edit Section Type Form Modal ── */}
       <ModalShell
