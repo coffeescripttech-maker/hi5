@@ -309,7 +309,8 @@ export function SectionManagement() {
                   My Sections
                 </h2>
                 <p className="text-sm text-gray-400">
-                  Sections where you serve as class adviser.
+                  Sections you advise or are assigned to teach in (per-section
+                  subject grants, the current school year).
                 </p>
               </div>
             </div>

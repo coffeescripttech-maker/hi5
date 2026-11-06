@@ -3,7 +3,7 @@ import { query } from '../config/database';
 import { logActivity, logActivities } from '../utils/activityLogger';
 import { collapseSubjectGroups } from '../utils/subjectGroups';
 import { subjectScopeSql } from '../utils/subjectScope';
-import { grantExistsSql, hasGrantPair, hasElectiveGrant, lockableSubjectIds } from '../utils/teacherGrants';
+import { grantExistsSql, hasGrantPair, hasElectiveGrant, lockableSubjectIds, teacherCanEditStudentSubject } from '../utils/teacherGrants';
 import { getSectionGradeStatus } from '../utils/sectionGradeStatus';
 import { createNotification } from '../services/notify';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
@@ -349,10 +349,29 @@ export async function getGrades(req: Request, res: Response): Promise<void> {
         in_offering: offeredIds.has(Number(g.subject_id)) ? 1 : 0
       }));
 
+      // Strict per-learner edit scope for the logged-in teacher — the SAME rule
+      // the write path enforces (teacherCanEditStudentSubject). The screen must
+      // not show cells the server will refuse (client test TC-ST-04/02).
+      let teacher_editable_subject_ids: number[] | undefined;
+      if (req.user!.role === 'teacher' && effSchoolYearId) {
+        const editable: number[] = [];
+        for (const sid of offeredIds) {
+          const ok = await teacherCanEditStudentSubject(
+            req.user!.userId,
+            effSchoolYearId,
+            Number(student_id),
+            sid
+          );
+          if (ok) editable.push(Number(sid));
+        }
+        teacher_editable_subject_ids = editable;
+      }
+
       res.json({
         student_id,
         enrollment: enrollments[0] || null,
-        subjects
+        subjects,
+        teacher_editable_subject_ids
       });
       return;
     }

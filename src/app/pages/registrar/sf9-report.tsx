@@ -297,6 +297,40 @@ export function SF9Report() {
   const [observedSaved, setObservedSaved] = useState(false);
   const [signerNames, setSignerNames] = useState({ principal: '', adviser: '' });
 
+  // Adviser-scope resolve (teachers): sections the user advises (advisory=1),
+  // then whether the selected learner's CURRENT school-year enrollment sits in
+  // one of them. null = not a teacher / still loading (button hidden meanwhile).
+  const [myAdvisoryLearner, setMyAdvisoryLearner] = useState<boolean | null>(
+    role === 'teacher' ? null : false
+  );
+  useEffect(() => {
+    if (role !== 'teacher') return;
+    let cancelled = false;
+    Promise.all([
+      sectionsApi.listMySections(true),
+      enrollmentsApi.list()
+    ])
+      .then(([advisory, enrs]) => {
+        if (cancelled) return;
+        const ids = advisory.map(s => s.id);
+        const enr = enrs.find(
+          e =>
+            e.student_id === selectedStudentId &&
+            e.school_year_id === syId &&
+            e.status === 'enrolled'
+        );
+        setMyAdvisoryLearner(
+          enr?.section_id != null && ids.includes(enr.section_id)
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setMyAdvisoryLearner(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role, selectedStudentId, syId]);
+
   // ── Saved School Form Edits (docs/MAJOR_CHANGES_IN_FORMS.txt) ──
   // Attendance cells, parent signatures, certificate-of-transfer fields and
   // signer names are stored per (learner, school year) and re-applied the
@@ -313,7 +347,16 @@ export function SF9Report() {
     labelStudent: sid =>
       students.find(s => s.id === sid)?.name || `Student ${sid}`
   });
-  const canSaveFormEdits = role === 'admin' || role === 'registrar' || role === 'teacher';
+  const canSaveFormEdits =
+    role === 'admin' ||
+    role === 'registrar' ||
+    // Teachers may save attendance only for learners of a section THEY advise
+    // (rule 10 strict) — the Save button must not promise more than the
+    // server allows (client test TC-ST-20: a subject teacher saw a Save
+    // button that only ever returned 403).
+    (role === 'teacher' &&
+      !!selectedStudentId &&
+      myAdvisoryLearner === true);
   const editableStudentId = selectedStudentId ?? 0;
 
   const handleAttendanceChange = useCallback(

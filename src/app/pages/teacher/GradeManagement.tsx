@@ -223,12 +223,20 @@ export function GradeManagement() {
   // Grade security: when the school's grade-edit deadline has passed,
   // teachers get read-only access (Registrar can still unlock/amend).
   const [deadlinePassed, setDeadlinePassed] = useState(false);
-  // Subject-level grade scope: teacher may EDIT only assigned subjects (view-all is allowed).
-  // Strict by design — mirrors the backend (grades.controller.ts), which rejects saves for
-  // unassigned subjects. While the assignment list is loading (or failed), inputs stay
+  // Strict per-learner edit scope — the backend computes the subjects THIS
+  // teacher may grade for the SELECTED learner (same rule the write path
+  // enforces: per (section, subject) grants + elective grants). Falls back to
+  // the subject-level assigned list while loading/older payloads.
+  const [perStudentEditable, setPerStudentEditable] = useState<Set<
+    number
+  > | null>(null);
+  // Subject-level grade scope fallback: teacher may EDIT only assigned subjects (view-all is allowed).
+  // While the assignment list is loading (or failed), inputs stay
   // disabled so the teacher never types something that will only fail on submit.
   const canEditSubject = (subjectId: number): boolean =>
-    assignedSubjectIds.has(subjectId);
+    perStudentEditable
+      ? perStudentEditable.has(subjectId)
+      : assignedSubjectIds.has(subjectId);
 
   // Fetch teacher-scoped students + subjects + assigned subject IDs + SY
   useEffect(() => {
@@ -475,6 +483,16 @@ export function GradeManagement() {
           };
         });
         setGrades(entries);
+        // Per-learner edit scope from the backend (strict grant model) — the
+        // same rule the save will enforce server-side, so the screen never
+        // shows editable cells the API refuses.
+        if (isPivoted && Array.isArray(apiGrades?.teacher_editable_subject_ids)) {
+          setPerStudentEditable(
+            new Set(apiGrades.teacher_editable_subject_ids.map(Number))
+          );
+        } else {
+          setPerStudentEditable(null); // older payload — fall back to assigned list
+        }
         // Sheet-level flag = "at least one cell is locked" (keeps the Locked
         // badge and the correction-request action available); each individual
         // cell is gated by its own locks[] entry so a scoped unlock stays usable.
@@ -616,12 +634,39 @@ export function GradeManagement() {
       setShowLockModal(false);
       return;
     }
+    // Scope: lock ONLY the subject sheets this teacher owns (per-learner
+    // grant) that already hold encoded grades. Empty sheets of OTHER subjects
+    // stay open for their own teachers — locking must not look
+    // learner-wide, which is what confused TC-ST-12/TC-ST-14.
+    const subjectsToLock = [
+      ...new Set(
+        grades
+          .filter(
+            g =>
+              g.in_offering !== 0 &&
+              g.rowExists.some(Boolean) &&
+              canEditSubject(g.subject_id)
+          )
+          .map(g => g.subject_id)
+      )
+    ];
+    if (subjectsToLock.length === 0) {
+      showToast(
+        'info',
+        'Nothing to lock yet — your subjects for this learner have no encoded grades.'
+      );
+      setShowLockModal(false);
+      return;
+    }
     setLocking(true);
     try {
-      await gradesApi.lock({
-        student_id: selectedStudent.id,
-        school_year_id: schoolYearId
-      });
+      for (const subjectId of subjectsToLock) {
+        await gradesApi.lock({
+          student_id: selectedStudent.id,
+          school_year_id: schoolYearId,
+          subject_id: subjectId
+        });
+      }
       setLocked(true);
       setShowLockModal(false);
       // Refetch so locks[]/rowExists[] match the DB exactly before the sheet
@@ -629,7 +674,9 @@ export function GradeManagement() {
       setReloadKey(k => k + 1);
       showToast(
         'success',
-        'Grades locked. A correction request can be submitted for registrar approval.'
+        `Locked ${subjectsToLock.length} subject sheet${
+          subjectsToLock.length === 1 ? '' : 's'
+        } for this learner. A correction request can be submitted for registrar approval.`
       );
     } catch (err: any) {
       showToast(
@@ -856,7 +903,8 @@ export function GradeManagement() {
 
             <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
               <Users size={11} /> {students.length} student
-              {students.length !== 1 ? 's' : ''} under your advisorship
+              {students.length !== 1 ? 's' : ''} on your rosters (advisory
+              sections, granted subjects and electives)
             </p>
           </div>
         </div>
@@ -1327,9 +1375,11 @@ export function GradeManagement() {
           </div>
 
           <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-            Once locked, grades cannot be edited directly. If changes are
-            needed, you must submit a <strong>Correction Request</strong> to the
-            Registrar for approval.
+            Locks only the <strong>subject sheets that already hold encoded
+            grades and belong to you</strong> for this learner (empty sheets
+            stay open for their own teachers). Locked grades cannot be edited
+            directly afterwards — changes go through a{' '}
+            <strong>Correction Request</strong> to the Registrar for approval.
           </p>
 
           <div className="flex gap-3">
