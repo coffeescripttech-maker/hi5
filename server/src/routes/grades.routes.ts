@@ -11,6 +11,7 @@ import {
   getGradeHistory,
   getGradeDistribution,
   getGradeSubmissionStatus,
+  getSectionStatus,
 } from "../controllers/grades.controller";
 
 const router = Router();
@@ -23,6 +24,7 @@ router.get("/distribution", getGradeDistribution);
 router.get("/history", getGradeHistory);
 router.get("/compute/averages", computeAverages);
 router.get("/submission-status", getGradeSubmissionStatus);
+router.get("/section-status", getSectionStatus);
 
 // Grade mutations — teachers, registrars, and admin
 router.post("/", authorize("admin", "teacher", "registrar"), upsertGrade);

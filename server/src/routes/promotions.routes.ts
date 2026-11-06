@@ -25,6 +25,6 @@ router.post("/", authorize("admin", "teacher", "registrar"), promoteSection);
 router.post("/complete", authorize("admin", "teacher", "registrar"), completeSection);
 router.post("/individual", authorize("admin", "teacher", "registrar"), promoteStudentIndividually);
 router.post("/:id/rollback", authorize("admin", "teacher", "registrar"), rollbackCompletion);
-router.post("/bulk-promote", authorize("admin"), bulkPromote);
+router.post("/bulk-promote", authorize("admin", "teacher"), bulkPromote);
 
 export default router;

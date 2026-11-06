@@ -4,6 +4,7 @@ import { logActivity, logActivities } from '../utils/activityLogger';
 import { collapseSubjectGroups } from '../utils/subjectGroups';
 import { subjectScopeSql } from '../utils/subjectScope';
 import { grantExistsSql, hasGrantPair, lockableSubjectIds } from '../utils/teacherGrants';
+import { getSectionGradeStatus } from '../utils/sectionGradeStatus';
 import { createNotification } from '../services/notify';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 // hi
@@ -1579,4 +1580,57 @@ function serializeSubject(r: any) {
         ? null
         : Number(r.mean_grade)
   };
+}
+
+/**
+ * GET /api/grades/section-status?section_id=&school_year_id=
+ * Adviser view (R20–R22): every subject's missing Q1–Q3 cells plus the teacher
+ * who owns each subject, so the adviser can follow up before promotion.
+ */
+export async function getSectionStatus(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const sectionId = Number(req.query.section_id);
+    const schoolYearId = Number(req.query.school_year_id);
+    if (!sectionId || !schoolYearId) {
+      res
+        .status(400)
+        .json({ error: 'section_id and school_year_id are required.' });
+      return;
+    }
+
+    if (req.user!.role === 'teacher') {
+      const ownSections = await getTeacherSectionIds(
+        req.user!.userId,
+        schoolYearId
+      );
+      if (!ownSections.has(sectionId)) {
+        res.status(403).json({
+          error: 'Access denied. You are not assigned to this section.'
+        });
+        return;
+      }
+    }
+
+    const status = await getSectionGradeStatus(
+      sectionId,
+      schoolYearId,
+      req.user!.role === 'teacher' ? req.user!.userId : null
+    );
+    if (!status) {
+      res.status(404).json({ error: 'Section not found.' });
+      return;
+    }
+    // R21 is an adviser feature: the frontend shows the promotion follow-up
+    // banner only when the viewer actually advises this section.
+    const isAdviser =
+      req.user!.role !== 'teacher' ||
+      Number(status.section.adviser_id) === req.user!.userId;
+    res.json({ school_year_id: schoolYearId, is_adviser: isAdviser, ...status });
+  } catch (error) {
+    console.error('Section grade status error:', error);
+    res.status(500).json({ error: 'Failed to load section grade status.' });
+  }
 }

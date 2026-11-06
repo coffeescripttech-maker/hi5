@@ -61,12 +61,18 @@ export function BulkPromotion() {
   const [myPendingLoading, setMyPendingLoading] = useState(false);
 
   // Teachers promote their own sections; admins/registrars see every section.
+  // R22: promotion is advisory-only, so teachers list just their advisory
+  // section(s) — subject-teacher assignments do not grant promotion.
   const loadSections =
-    role === 'teacher' ? sectionsApi.listMySections : sectionsApi.list;
+    role === 'teacher'
+      ? sectionsApi.listMyAdvisorySections
+      : sectionsApi.list;
 
   useEffect(() => {
     const loader =
-      role === 'teacher' ? sectionsApi.listMySections : sectionsApi.list;
+      role === 'teacher'
+        ? sectionsApi.listMyAdvisorySections
+        : sectionsApi.list;
     Promise.all([loader(), promotionsApi.list(), schoolYearsApi.list()])
       .then(([secs, proms, yearsList]) => {
         setSections(secs);
@@ -222,10 +228,22 @@ export function BulkPromotion() {
       setShowSuccess(true);
       setSelectedSectionId('');
     } catch (err: any) {
-      showToast(
-        'error',
-        err?.detail?.error || err?.message || 'Failed to process section'
-      );
+      const detail = err?.detail || {};
+      let msg = detail.error || err?.message || 'Failed to process section';
+      // R22 readiness 409: name the blocking subjects and their owners so the
+      // adviser knows who to follow up with.
+      if (Array.isArray(detail.subjects) && detail.subjects.length > 0) {
+        msg +=
+          '  e.g. ' +
+          detail.subjects
+            .slice(0, 3)
+            .map(
+              (s: any) =>
+                `${s.subject_name} (${s.teacher_names || 'unassigned'})`
+            )
+            .join('; ');
+      }
+      showToast('error', msg);
       // Refresh promotion history
       const updatedPromotions = await promotionsApi.list();
       setPromotions(updatedPromotions);

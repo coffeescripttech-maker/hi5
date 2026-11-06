@@ -477,6 +477,28 @@ export async function updateClassifications(req: Request, res: Response): Promis
       return;
     }
 
+    // R24 (decide 10.9-7): teachers tag only learners in their advisory
+    // section. Subject teaching alone does not extend classification rights.
+    if (req.user!.role === "teacher") {
+      const advisory = await query<RowDataPacket[]>(
+        `SELECT 1 AS allowed
+           FROM enrollments e
+           JOIN sections sec ON e.section_id = sec.id
+          WHERE e.student_id = ? AND e.school_year_id = ?
+            AND e.status IN ('enrolled', 'completed')
+            AND sec.adviser_id = ?
+          LIMIT 1`,
+        [id, school_year_id, req.user!.userId]
+      );
+      if (advisory.length === 0) {
+        res.status(403).json({
+          error:
+            "Access denied. You can only tag learners in your advisory section.",
+        });
+        return;
+      }
+    }
+
     // PWD ⇒ SNED: adding PWD also adds SNED, but SNED may also stand on its own
     // (it covers other special-education needs), so an explicit SNED tag is kept.
     const requested = classifications as string[];

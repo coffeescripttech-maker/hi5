@@ -50,6 +50,9 @@ export const sectionsApi = {
   list: () => api.get<SectionRow[]>("/sections"),
   listTeachers: () => api.get<TeacherBrief[]>("/sections/teachers"),
   listMySections: () => api.get<SectionRow[]>("/sections/my-sections"),
+  /** Only the section(s) the teacher advises (R20/R22 — promotion scope). */
+  listMyAdvisorySections: () =>
+    api.get<SectionRow[]>("/sections/my-sections?advisory=1"),
   get: (id: number) => api.get<SectionRow>(`/sections/${id}`),
   create: (data: CreateSectionPayload) =>
     api.post<SectionRow>("/sections", data),

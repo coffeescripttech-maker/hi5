@@ -95,6 +95,7 @@ export async function listSections(req: Request, res: Response): Promise<void> {
 export async function getTeacherSections(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
+    const advisoryOnly = req.query.advisory === "1";
     const sections = await query<SectionRow[]>(
       `SELECT DISTINCT s.*, u.name AS adviser_name,
               (SELECT COUNT(DISTINCT e.student_id) FROM enrollments e
@@ -103,9 +104,13 @@ export async function getTeacherSections(req: Request, res: Response): Promise<v
        FROM sections s
        LEFT JOIN users u ON s.adviser_id = u.id
        WHERE s.is_active = 1
-         AND (s.adviser_id = ? OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
+         AND ${
+           advisoryOnly
+             ? "s.adviser_id = ?"
+             : "(s.adviser_id = ? OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))"
+         }
        ORDER BY s.grade_level ASC, s.name ASC`,
-      [userId, userId]
+      advisoryOnly ? [userId] : [userId, userId]
     );
     res.json(sections);
   } catch (error) {

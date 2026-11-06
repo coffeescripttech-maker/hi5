@@ -141,6 +141,49 @@ export interface GradeSubmissionStatus {
   }[];
 }
 
+/* ── Adviser view: section grade status (docs/new_requirement.txt R20-R22) ── */
+
+export interface SectionStatusMissing {
+  student_id: number;
+  name: string;
+  lrn: string | null;
+  missing_quarters: number[];
+}
+
+export interface SectionStatusSubject {
+  subject_id: number;
+  subject_name: string;
+  subject_type: string | null;
+  subject_group: string | null;
+  teachers: { id: number; name: string }[];
+  teacher_names: string | null;
+  /** Viewer is one of the subject's assigned teachers. */
+  is_mine: boolean;
+  expected_count: number;
+  complete_count: number;
+  missing_count: number;
+  missing: SectionStatusMissing[];
+}
+
+export interface SectionGradeStatus {
+  school_year_id: number;
+  /** True when the viewer advises this section (teachers only). */
+  is_adviser: boolean;
+  section: {
+    id: number;
+    name: string;
+    grade_level: number;
+    section_type: string;
+    adviser_id: number | null;
+  };
+  learners: { student_id: number; name: string; lrn: string | null }[];
+  subjects: SectionStatusSubject[];
+  learners_with_missing: number;
+  subjects_with_missing: number;
+  /** Every learner has Q1-Q3 on every expected subject — promotion ready. */
+  complete: boolean;
+}
+
 export const gradesApi = {
   list: (params?: { student_id?: number; section_id?: number; school_year_id?: number; subject_id?: number }) => {
     const query = params
@@ -188,4 +231,9 @@ export const gradesApi = {
       : "";
     return api.get<GradeSubmissionStatus>(`/grades/submission-status${query}`);
   },
+  /** Adviser follow-up list: missing Q1-Q3 cells + owning teacher per subject. */
+  sectionStatus: (sectionId: number, schoolYearId: number) =>
+    api.get<SectionGradeStatus>(
+      `/grades/section-status?section_id=${sectionId}&school_year_id=${schoolYearId}`
+    ),
 };

@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { studentsApi, StudentRow } from '../../services/students';
+import { gradesApi, SectionGradeStatus } from '../../services/grades';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
 
@@ -110,6 +111,10 @@ export function SectionManagement() {
   const [studPage, setStudPage] = useState(1);
   const studPageSize = 10;
 
+  // Adviser view (R21): which subjects still miss Q1-Q3 and who owns them.
+  const [secStatus, setSecStatus] = useState<SectionGradeStatus | null>(null);
+  const [secStatusLoading, setSecStatusLoading] = useState(false);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([sectionsApi.listMySections(), schoolYearsApi.current()])
@@ -148,6 +153,21 @@ export function SectionManagement() {
         )
       )
       .finally(() => setStudLoading(false));
+  }, [selectedSection, schoolYearId]);
+
+  // Missing-grades status for the selected section (R21 follow-up list).
+  useEffect(() => {
+    if (!selectedSection || !schoolYearId) {
+      setSecStatus(null);
+      return;
+    }
+    setSecStatus(null);
+    setSecStatusLoading(true);
+    gradesApi
+      .sectionStatus(selectedSection.id, schoolYearId)
+      .then(setSecStatus)
+      .catch(() => setSecStatus(null))
+      .finally(() => setSecStatusLoading(false));
   }, [selectedSection, schoolYearId]);
 
   // ── Processed sections (filter + sort) ──
@@ -529,6 +549,92 @@ export function SectionManagement() {
               </button>
             </div>
           </div>
+
+          {/* ── Missing grades follow-up (R21) ── */}
+          {secStatusLoading ? (
+            <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+              <Loader2 size={14} className="text-gray-300 animate-spin" />
+              <span className="text-xs text-gray-400">
+                Checking grade completeness...
+              </span>
+            </div>
+          ) : secStatus && !secStatus.complete ? (
+            <div className="px-5 sm:px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2 mb-1.5">
+                <AlertCircle size={14} className="text-amber-600" />
+                <h4 className="text-[11px] font-bold uppercase tracking-[0.06em] text-gray-500">
+                  Missing grades — follow up
+                </h4>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">
+                {secStatus.subjects_with_missing} subject
+                {secStatus.subjects_with_missing !== 1 ? 's' : ''} still missing
+                Q1–Q3 for {secStatus.learners_with_missing} learner
+                {secStatus.learners_with_missing !== 1 ? 's' : ''}.{" "}
+                {secStatus.is_adviser
+                  ? 'Run Bulk Promotion only once every subject has all three terms.'
+                  : 'The adviser is listed under each subject so they can follow up.'}
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[560px]">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase tracking-[0.06em] text-gray-400">
+                      <th className="py-1.5 pr-3 font-semibold">Subject</th>
+                      <th className="py-1.5 pr-3 font-semibold">Teacher</th>
+                      <th className="py-1.5 pr-3 font-semibold">Missing</th>
+                      <th className="py-1.5 font-semibold">Learners</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {secStatus.subjects
+                      .filter(s => s.missing_count > 0)
+                      .sort((a, b) => b.missing_count - a.missing_count)
+                      .map(s => (
+                        <tr key={s.subject_id} className="border-t border-gray-100">
+                          <td className="py-2 pr-3 font-semibold text-gray-700">
+                            {s.subject_name}
+                            {s.is_mine && (
+                              <span className="ml-1.5 text-[10px] font-bold text-emerald-700">
+                                yours
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 pr-3 text-gray-500">
+                            {s.teacher_names || 'Unassigned'}
+                          </td>
+                          <td className="py-2 pr-3 whitespace-nowrap">
+                            <span className="font-bold text-amber-700">
+                              {s.missing_count}
+                            </span>
+                            <span className="text-gray-400">
+                              {' '}of {s.expected_count}
+                            </span>
+                          </td>
+                          <td
+                            className="py-2 text-gray-500 max-w-[280px] truncate"
+                            title={s.missing
+                              .map(
+                                m =>
+                                  `${m.name} (Q${m.missing_quarters.join(', Q')})`
+                              )
+                              .join(', ')}>
+                            {s.missing.map(m => m.name).join(', ')}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : secStatus?.complete && secStatus.is_adviser ? (
+            <div className="px-5 sm:px-6 py-3 border-b border-gray-100 bg-emerald-50/50 flex items-center gap-2">
+              <Shield size={14} className="text-emerald-700" />
+              <span className="text-xs text-emerald-800 font-semibold">
+                All subjects have Q1–Q3 grades — this advisory section is ready
+                for Bulk Promotion and SF1/SF5/SF9/SF10.
+              </span>
+            </div>
+          ) : null}
 
           {sectionStudents.length === 0 && !studLoading ? (
             <div className="p-10 text-center">

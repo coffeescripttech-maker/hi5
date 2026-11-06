@@ -5,6 +5,57 @@ import { createNotification } from "../services/notify";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { getAcademicThresholds } from "../services/schoolConfig";
 import { carryOverElectives } from "../utils/shsCurriculum";
+import { getSectionGradeStatus } from "../utils/sectionGradeStatus";
+
+/**
+ * R22: promotion is an adviser duty. A teacher may only promote the section
+ * they advise — being a subject teacher elsewhere does not grant promotion.
+ */
+async function isAdviserOfSection(
+  teacherId: number,
+  sectionId: number
+): Promise<boolean> {
+  const rows = await query<RowDataPacket[]>(
+    "SELECT 1 FROM sections WHERE id = ? AND adviser_id = ? LIMIT 1",
+    [sectionId, teacherId]
+  );
+  return rows.length > 0;
+}
+
+/**
+ * R22 readiness: advisers run promotion once every subject has Q1–Q3 grades.
+ * Returns a 409 payload when the advisory section still has missing grades.
+ */
+async function teacherPromotionReadiness(
+  teacherId: number,
+  sectionId: number,
+  schoolYearId: number
+): Promise<{ ok: true } | { ok: false; body: Record<string, any> }> {
+  const status = await getSectionGradeStatus(sectionId, schoolYearId, teacherId);
+  if (!status) {
+    return { ok: false, body: { error: "Section not found." } };
+  }
+  if (status.complete) return { ok: true };
+
+  const examples = status.subjects
+    .filter((s) => s.missing_count > 0)
+    .slice(0, 5)
+    .map((s) => ({
+      subject_id: s.subject_id,
+      subject_name: s.subject_name,
+      teacher_names: s.teacher_names,
+      missing_count: s.missing_count,
+    }));
+  return {
+    ok: false,
+    body: {
+      error: `Cannot run promotion yet — ${status.learners_with_missing} learner(s) still have missing grades. Every subject must have Q1, Q2, and Q3 before the advisory section can be promoted.`,
+      learners_with_missing: status.learners_with_missing,
+      subjects_with_missing: status.subjects_with_missing,
+      subjects: examples,
+    },
+  };
+}
 
 /**
  * POST /api/promotions — Promote a section to the next grade level
@@ -41,6 +92,25 @@ export async function promoteSection(req: Request, res: Response): Promise<void>
 
     const section = sections[0];
     const toGrade = section.grade_level + 1;
+
+    if (req.user!.role === "teacher") {
+      const advisory = await isAdviserOfSection(req.user!.userId, section.id);
+      if (!advisory) {
+        res.status(403).json({
+          error: "Access denied. You can only run promotion for your advisory section.",
+        });
+        return;
+      }
+      const readiness = await teacherPromotionReadiness(
+        req.user!.userId,
+        Number(section.id),
+        Number(school_year_id)
+      );
+      if (!readiness.ok) {
+        res.status(409).json(readiness.body);
+        return;
+      }
+    }
 
     if (toGrade > 12) {
       res.status(400).json({ error: "Grade 12 students cannot be promoted. They should be marked as graduated." });
@@ -451,19 +521,45 @@ export async function bulkPromote(req: Request, res: Response): Promise<void> {
       }
     }
 
-    // Sections with enrolled students in the current school year
+    // Sections with enrolled students in the current school year. A teacher's
+    // bulk run is limited to the section they advise (R22); admins/registrars
+    // keep the school-wide run.
+    const teacherScope =
+      req.user!.role === "teacher" ? " AND sec.adviser_id = ?" : "";
     const sections = await query<RowDataPacket[]>(
       `SELECT DISTINCT sec.*
        FROM sections sec
        JOIN enrollments e ON e.section_id = sec.id AND e.school_year_id = ? AND e.status = 'enrolled'
-       WHERE sec.is_active = 1
+       WHERE sec.is_active = 1${teacherScope}
        ORDER BY sec.grade_level ASC, sec.name ASC`,
-      [schoolYearId]
+      req.user!.role === "teacher"
+        ? [schoolYearId, req.user!.userId]
+        : [schoolYearId]
     );
 
     if (sections.length === 0) {
-      res.status(400).json({ error: "No sections with enrolled students found for this school year." });
+      res.status(400).json({
+        error:
+          req.user!.role === "teacher"
+            ? "No advisory section with enrolled students was found for this school year."
+            : "No sections with enrolled students found for this school year.",
+      });
       return;
+    }
+
+    // R22: advisers promote only after every subject has all three terms.
+    if (req.user!.role === "teacher") {
+      for (const section of sections) {
+        const readiness = await teacherPromotionReadiness(
+          req.user!.userId,
+          Number(section.id),
+          schoolYearId
+        );
+        if (!readiness.ok) {
+          res.status(409).json({ ...readiness.body, section_name: section.name });
+          return;
+        }
+      }
     }
 
     // Run promotion per section, tolerating individual failures
@@ -668,6 +764,25 @@ export async function completeSection(req: Request, res: Response): Promise<void
     if (section.grade_level !== 12) {
       res.status(400).json({ error: "Only Grade 12 sections can be marked as completers." });
       return;
+    }
+
+    if (req.user!.role === "teacher") {
+      const advisory = await isAdviserOfSection(req.user!.userId, section.id);
+      if (!advisory) {
+        res.status(403).json({
+          error: "Access denied. You can only complete your advisory section.",
+        });
+        return;
+      }
+      const readiness = await teacherPromotionReadiness(
+        req.user!.userId,
+        Number(section.id),
+        Number(school_year_id)
+      );
+      if (!readiness.ok) {
+        res.status(409).json(readiness.body);
+        return;
+      }
     }
 
     const { promotionId, results } = await completeSectionCore(req.user!.userId, section, school_year_id);

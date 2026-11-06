@@ -631,11 +631,11 @@ Progress table (tick off as each lands):
 | R17 | Server refuses unassigned saves even with tampered requests | D | ✅ 403 for non-owner save, lock, and correction (temp unassigned teacher + teacher01 foreign subject) |
 | R18 | Submit locks cells; corrections via Registrar; re-entry only own subjects | D | ✅ lock/submit scoped to own subjects; locked cells 403; approved correction reopens only that subject+quarter, owner-only re-entry |
 | R19 | General Average / final grade system-computed, not editable | D | ✅ all averages are SQL `AVG` (no writable aggregate column); Grade Management average is display-only |
-| R20 | Adviser sees advisory learners + every subject's grades; edits only own | E | ⬜ |
-| R21 | Adviser sees missing-grades per subject + which teacher owns it | E | ⬜ |
-| R22 | Adviser runs bulk promotion + SF1/SF5/SF9/SF10 for advisory section | E | ⬜ |
-| R23 | SF9 attendance saves advisory-only | E | ⬜ |
-| R24 | Adviser tags Non-Reader (scope: decide 10.9-7) | E | ⬜ |
+| R20 | Adviser sees advisory learners + every subject's grades; edits only own | E | ✅ verified live: full read of advisory learners; own subject saves, others 403 |
+| R21 | Adviser sees missing-grades per subject + which teacher owns it | E | ✅ `GET /api/grades/section-status` + Section Management panel: per-subject missing learners/quarters + owning teacher names; unassigned teacher 403 |
+| R22 | Adviser runs bulk promotion + SF1/SF5/SF9/SF10 for advisory section | E | ✅ promote/complete/bulk-promote advisory-only (403 elsewhere); Q1–Q3 completeness gate 409 names missing subjects + owners; SF1/SF5/SF10 already advisory-grade scoped (form scope audit) |
+| R23 | SF9 attendance saves advisory-only | E | ✅ verified live: advisory learner 200, non-advisory learner 403 |
+| R24 | Adviser tags Non-Reader (scope: decide 10.9-7) | E | ✅ advisory learner tag 200 (after recorded reading assessment), non-advisory 403 |
 | R25 | Teacher cannot enroll / place / transfer / change assignments | C | ✅ teacher routes are read-only for enrollment/section management (audited) |
 | R26 | Teacher replacement: grades stay; old teacher loses edit, new gains | F | ⬜ |
 | R27 | Learner moves section → rosters follow | F | ⬜ |
@@ -708,6 +708,25 @@ so a failure can be reported as "R14 failed".
   teachers gain access; old ones lose it automatically.
 - **R28** — Exercise one save, one lock, one correction, one approval and
   confirm each is in Activity Logs with actor, learner, subject, old→new.
+
+### 10.2 Phase verification log (live API probes against the dev DB)
+
+- **Phase D (2026-11-05)** — teacher01 with subject-level assignment in
+  11-Matatag: own-pair save/lock/import pass; foreign subject saves, locks and
+  corrections all 403; locked cells 403 with correction guidance; approved
+  correction reopens only that subject+quarter; roster-only template; ghost LRN
+  refused with the exact message; averages not writable; probe data fully
+  removed afterwards.
+- **Phase E (2026-11-06)** — section 26 (11-Matatag) probe: unassigned-teacher
+  section-status 403; after (temporary, restored) adviser switch: status shows
+  16 of 17 subjects missing with owner names and `is_mine` flags; adviser saves
+  own subject, others 403, full advisory read; promote/bulk-promote 403 when
+  not the adviser and 409 (named missing subjects) when incomplete; after
+  filling the 120 expected cells status reports complete; Non-Reader tagging
+  advisory-only and reading-assessment-backed; SF9 observed-values saves
+  advisory-only; teacher cannot reassign section teachers (403). Probe data
+  (grades, grant rows, classification, SF9 row, reading assessment, logs)
+  removed; adviser restored to id 19.
 
 ### 10.9 Decide — **ALL DECIDED** (client/team, 2026-11-03)
 
