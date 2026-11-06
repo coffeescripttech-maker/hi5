@@ -194,13 +194,14 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
     // Column limits (VARCHAR widths) — surface them as 400s instead of letting
     // MySQL throw ER_DATA_TOO_LONG and fall through to a generic 500.
+    // profile_photo_url is MEDIUMTEXT and holds base64 data URLs, so instead of
+    // a character cap it validates shape (image data URL / http(s) URL) + size.
     const MAX_LENGTH: Record<string, { label: string; max: number }> = {
       name: { label: "Name", max: 150 },
       email: { label: "Email", max: 100 },
       employee_id: { label: "Employee ID", max: 30 },
       designation: { label: "Designation", max: 100 },
       phone: { label: "Phone", max: 20 },
-      profile_photo_url: { label: "Profile photo URL", max: 255 },
     };
     for (const [key, rule] of Object.entries(MAX_LENGTH)) {
       const value = (req.body as Record<string, unknown>)[key];
@@ -214,6 +215,28 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
     if (name !== undefined) { fields.push("name = ?"); params.push(name); }
     if (email !== undefined) { fields.push("email = ?"); params.push(email); }
+    if (profile_photo_url !== undefined) {
+      // Same shape/size validation as PUT /auth/me (see updateMe).
+      if (profile_photo_url === null || String(profile_photo_url).trim() === "") {
+        fields.push("profile_photo_url = ?"); params.push(null);
+      } else {
+        const pv = String(profile_photo_url);
+        const isImage =
+          /^https?:\/\//i.test(pv) ||
+          /^data:image\/(png|jpe?g|gif|webp|avif);base64,/.test(pv);
+        if (!isImage) {
+          res.status(400).json({ error: "Profile photo must be an image data URL or an image URL." });
+          return;
+        }
+        if (pv.length > 600_000) {
+          res.status(400).json({
+            error: "Profile photo is too large. Please use a smaller image (about 400 KB or less).",
+          });
+          return;
+        }
+        fields.push("profile_photo_url = ?"); params.push(pv);
+      }
+    }
     if (role !== undefined) {
       if (!["admin", "teacher", "registrar", "principal", "enrollment_committee"].includes(role)) {
         res.status(400).json({ error: "Invalid role. Must be admin, teacher, registrar, principal, or enrollment_committee." });
@@ -254,7 +277,6 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
       }
       fields.push("status = ?"); params.push(status);
     }
-    if (profile_photo_url !== undefined) { fields.push("profile_photo_url = ?"); params.push(profile_photo_url); }
     if (employee_id !== undefined) { fields.push("employee_id = ?"); params.push(employee_id); }
     if (designation !== undefined) { fields.push("designation = ?"); params.push(designation); }
     if (date_hired !== undefined) { fields.push("date_hired = ?"); params.push(toDateOnly(date_hired)); }

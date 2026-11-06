@@ -292,9 +292,34 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
       fields.push('address = ?');
       params.push(String(address));
     }
-    if (profile_photo_url !== undefined && profile_photo_url !== null) {
-      fields.push('profile_photo_url = ?');
-      params.push(String(profile_photo_url));
+    if (profile_photo_url !== undefined) {
+      // null / empty string (or the explicit { remove_photo: true } flag from
+      // any caller) removes the photo; otherwise it must be a raster image
+      // data URL or an http(s) URL so foreign/huge payloads are rejected
+      // with a 400 instead of being stored.
+      if (profile_photo_url === null || String(profile_photo_url).trim() === "") {
+        fields.push('profile_photo_url = ?');
+        params.push(null);
+      } else {
+        const v = String(profile_photo_url);
+        const isImage =
+          /^https?:\/\//i.test(v) ||
+          /^data:image\/(png|jpe?g|gif|webp|avif);base64,/.test(v);
+        if (!isImage) {
+          res.status(400).json({
+            error: 'Profile photo must be an image data URL or an image URL.',
+          });
+          return;
+        }
+        if (v.length > 600_000) {
+          res.status(400).json({
+            error: 'Profile photo is too large. Please use a smaller image (about 400 KB or less).',
+          });
+          return;
+        }
+        fields.push('profile_photo_url = ?');
+        params.push(v);
+      }
     }
     if (employee_id !== undefined) {
       fields.push('employee_id = ?');

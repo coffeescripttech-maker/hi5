@@ -218,10 +218,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setRole(me.role);
           setUsername(displayName + ' – ' + me.username);
           saveSession(me.role, displayName + ' – ' + me.username);
-          // Restore persisted profile photo so the avatar survives reloads.
-          // Guarded: a truncated/corrupt value (old VARCHAR(255) saves) would
-          // otherwise render as a broken image.
-          if (me.profile_photo_url && isValidPhotoUrl(me.profile_photo_url)) setProfilePhoto(me.profile_photo_url);
+          // Restore (or explicitly clear) the profile photo for this account.
+          // Always set — never leave the previous account's photo behind when
+          // this account has none (that rendered as "everyone's photo changed").
+          setProfilePhoto(
+            me.profile_photo_url && isValidPhotoUrl(me.profile_photo_url) ? me.profile_photo_url : null
+          );
           // Load school info so sidebar displays correct school name & SY
           refreshSchoolInfo();
         })
@@ -238,13 +240,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Hydrate profile photo after a fresh login ──
   // The mount effect covers reloads (when a session existed at load); this
   // covers the login path in the same SPA session, skipping when the mount
-  // effect already handled it.
+  // effect already handled it. Always set (never leave the previous
+  // account's photo behind when this account has none).
   useEffect(() => {
     if (role && getToken() && !skipPhotoHydration) {
       authApi
         .me()
         .then(me => {
-          if (me.profile_photo_url && isValidPhotoUrl(me.profile_photo_url)) setProfilePhoto(me.profile_photo_url);
+          setProfilePhoto(
+            me.profile_photo_url && isValidPhotoUrl(me.profile_photo_url) ? me.profile_photo_url : null
+          );
         })
         .catch(() => {});
     }
@@ -302,6 +307,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setUsername('');
         clearToken();
         localStorage.removeItem(SESSION_KEY);
+        // Session boundary — clear the avatar too (see logout()).
+        setProfilePhoto(null);
         showToast(
           'warning',
           'Session expired due to inactivity. Please log in again.'
@@ -333,6 +340,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRole(null);
     setUsername('');
     setReadNotifs([]);
+    // Drop the avatar with the session — otherwise the next login without a
+    // photo still displays this account's picture ("all accounts changed").
+    setProfilePhoto(null);
     setSkipPhotoHydration(false);
   };
   const recordFailedAttempt = useCallback((until?: number) => {
