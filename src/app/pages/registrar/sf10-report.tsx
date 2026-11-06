@@ -811,37 +811,42 @@ export function SF10Report() {
   const handleExportPdf = async () => {
     if (exporting) return;
     setExporting(true);
+    // A4 PORTRAIT export (SF10 only — the official SF10 sheet is a portrait
+    // Permanent Record). The rendered sheet is 996px wide (designed for the
+    // landscape register), so the export scales it to the portrait page
+    // (zoom 0.738 → 736px printable width on a 0.3in-margin A4) and drops the
+    // per-year page-break rules: content flows continuously exactly like the
+    // Print Preview, with no dead gap at the bottom of any page.
+    const SF10_EXPORT_PRINT_CSS = `
+      @page { size: a4 portrait; margin: 0.3in; }
+      html, body { margin: 0; padding: 0; }
+      #sf10-print-area { padding: 0 !important; }
+      #sf10-print-area * { background-color: transparent; }
+      /* keep report rows whole when the flow page-breaks */
+      tr { break-inside: avoid; }
+    `;
     const options = {
       elementId: 'sf10-print-area',
       filename: `SF10_${selectedStudent?.lrn || selectedStudentId || 'record'}`,
-      orientation: 'landscape' as const,
-      format: 'letter' as const,
-      // Each SCHOLASTIC RECORD year block is ~542px tall while a letter-landscape
-      // printable page holds ~758px — with page-break-after: always on every
-      // year, each exported page left a ~2.2in dead gap at the bottom (the
-      // client's "huge gap"). Stretch each year record to fill its printed
-      // page, distributing the space between the record's own blocks like the
-      // official DepEd paper; the last record leaves room for the
-      // CERTIFICATION block that follows it on the same sheet.
+      orientation: 'portrait' as const,
+      format: 'a4' as const,
+      printCss: SF10_EXPORT_PRINT_CSS,
       transformClone: (clone: HTMLElement) => {
-        const pages = clone.querySelectorAll('.print-page');
-        const last = pages.length - 1;
-        pages.forEach((p, i) => {
-          const el = p as HTMLElement;
-          el.style.display = 'flex';
-          el.style.flexDirection = 'column';
-          el.style.justifyContent = 'space-between';
-          el.style.minHeight = i === last ? '500px' : '748px';
-          Array.from(el.children).forEach(c => {
-            (c as HTMLElement).style.flexShrink = '0';
-          });
+        // Scale the 996px landscape-designed sheet into the portrait A4 width.
+        const sheet = clone.querySelector<HTMLElement>(':scope > div');
+        if (sheet) sheet.style.zoom = '0.738';
+        // Remove the print-page class so the captured print stylesheet's
+        // page-break-after / min-height rules stop applying: the year records
+        // flow continuously instead of claiming one sparse landscape page each.
+        clone.querySelectorAll('.print-page').forEach(p => {
+          p.classList.remove('print-page');
         });
       }
     };
     try {
       // Primary path: render server-side in Chrome so the PDF matches the
-      // browser's Print Preview exactly (landscape table, page breaks, print
-      // CSS), then auto-download.
+      // browser's Print Preview exactly (the sheet content, print CSS), then
+      // auto-download.
       await downloadRenderedPdf(options);
       showToast('success', 'PDF exported successfully.');
     } catch {
@@ -968,8 +973,8 @@ export function SF10Report() {
               onClose={() => setPreviewOpen(false)}
               onExportPdf={handleExportPdf}
               exporting={exporting}
-              orientation="landscape"
-              format="letter"
+              orientation="portrait"
+              format="a4"
             />
 
             {/* -- Grade -> Section -> Student cascade (mirrors SF9) -- */}
