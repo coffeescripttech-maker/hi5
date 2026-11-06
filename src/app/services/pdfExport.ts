@@ -438,9 +438,26 @@ export function replaceFormControls(root: HTMLElement) {
         // Keep them filling their row so the underfields look like the
         // on-screen form in the serialized PDF page.
         if (el.classList.contains("sf-fill-input")) {
-          span.style.display = "inline-block";
-          span.style.width = "100%";
-          span.style.boxSizing = "border-box";
+          const parentDisplay = el.parentElement
+            ? getComputedStyle(el.parentElement).display
+            : "";
+          if (parentDisplay.includes("flex")) {
+            // The computed-style walk already pinned the input's flex
+            // sizing (flex-basis: 0% / flex-grow: 1 / min-width: 0) onto
+            // the span. Forcing width:100% here would add the label's
+            // width on top and the nowrap value (e.g. a long school
+            // name) would spill over the NEXT field (SF10's School →
+            // School ID overlap). Keep it a proper flex item.
+            span.style.display = "inline-block";
+            span.style.width = "auto";
+            span.style.flexGrow = "1";
+            span.style.flexBasis = "0%";
+            span.style.minWidth = "0";
+          } else {
+            span.style.display = "inline-block";
+            span.style.width = "100%";
+            span.style.boxSizing = "border-box";
+          }
         }
       }
     } else if (el instanceof HTMLSelectElement) {
@@ -451,6 +468,40 @@ export function replaceFormControls(root: HTMLElement) {
     }
 
     el.replaceWith(span);
+    // A nowrap value longer than its box visually overflows into the next
+    // field (overflow:hidden was deliberately denied by the style inliner,
+    // so nothing clips). Shrink the VALUE's font until it fits its box —
+    // e.g. SF10's long school name overlapping the School ID cell.
+    shrinkToFit(span);
+  }
+}
+
+/**
+ * Reduce a value's font size until its text fits the (nowrap) box. Only
+ * touches spans whose text overflows; everything else keeps its original
+ * look. Bounded so pathological values can never go microscopic.
+ */
+function shrinkToFit(span: HTMLElement) {
+  // Layout is available: replaceFormControls runs on the off-screen clone
+  // that is attached to the live document. A first pass needs a reflow
+  // after insertion, which the first read triggers.
+  const text = span.textContent ?? "";
+  if (!text) return;
+  for (let pass = 0; pass < 8; pass++) {
+    const avail = span.clientWidth;
+    const natural = span.scrollWidth;
+    if (avail > 0 && natural > avail + 1) {
+      const cs = getComputedStyle(span);
+      const current = parseFloat(cs.fontSize) || 11;
+      const next = Math.max(
+        6,
+        Math.floor(((current * avail) / natural) * 10) / 10
+      );
+      if (next >= current) return; // cannot shrink further
+      span.style.fontSize = next.toFixed(1) + "px";
+    } else {
+      return;
+    }
   }
 }
 
