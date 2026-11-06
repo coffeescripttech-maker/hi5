@@ -816,6 +816,27 @@ export function SF10Report() {
       filename: `SF10_${selectedStudent?.lrn || selectedStudentId || 'record'}`,
       orientation: 'landscape' as const,
       format: 'letter' as const,
+      // Each SCHOLASTIC RECORD year block is ~542px tall while a letter-landscape
+      // printable page holds ~758px — with page-break-after: always on every
+      // year, each exported page left a ~2.2in dead gap at the bottom (the
+      // client's "huge gap"). Stretch each year record to fill its printed
+      // page, distributing the space between the record's own blocks like the
+      // official DepEd paper; the last record leaves room for the
+      // CERTIFICATION block that follows it on the same sheet.
+      transformClone: (clone: HTMLElement) => {
+        const pages = clone.querySelectorAll('.print-page');
+        const last = pages.length - 1;
+        pages.forEach((p, i) => {
+          const el = p as HTMLElement;
+          el.style.display = 'flex';
+          el.style.flexDirection = 'column';
+          el.style.justifyContent = 'space-between';
+          el.style.minHeight = i === last ? '500px' : '748px';
+          Array.from(el.children).forEach(c => {
+            (c as HTMLElement).style.flexShrink = '0';
+          });
+        });
+      }
     };
     try {
       // Primary path: render server-side in Chrome so the PDF matches the
@@ -871,8 +892,12 @@ export function SF10Report() {
              !important also beats the computed inline padding that PDF
              serialization copies from the screen-sized sheet (p-4/p-6). */
           #sf10-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; }
-          #sf10-print-area .print-page { page-break-after: always; }
-          #sf10-print-area .print-page:last-child { page-break-after: avoid; }
+          /* Same fill as the exported PDF: the year record spreads over its
+             printed page (the serialized export needs the transformClone JS
+             fix-up because its inline styles beat this rule). */
+          #sf10-print-area .print-page { page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; min-height: 748px; }
+          #sf10-print-area .print-page > * { flex-shrink: 0; }
+          #sf10-print-area .print-page:last-child { page-break-after: avoid; min-height: 500px; }
           @page { size: letter landscape; margin: 0.3in; }
         }
       `}</style>

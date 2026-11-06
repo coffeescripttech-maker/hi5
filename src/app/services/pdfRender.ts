@@ -39,6 +39,16 @@ export interface PdfRenderOptions {
    * automatically (SF1/SF5/SF9/SF10 all have one; certificates have none).
    */
   printCss?: string;
+  /**
+   * Export-only DOM fix-up run on the serialized CLONE just before it is
+   * turned into the standalone HTML. Print-tuned layout (e.g. SF10's
+   * year records stretching to fill their landscape page) is impossible in
+   * the live document's CSS because the computed-style walk inlines the
+   * screen value of every property — an inline style always wins over the
+   * print stylesheet here. Mutating the clone AFTER the walk re-claims those
+   * properties for the PDF file without touching the screen preview.
+   */
+  transformClone?: (clone: HTMLElement) => void;
 }
 
 /* ── Computed-style inlining for the standalone page ── */
@@ -586,7 +596,7 @@ function collectPrintCss(): string {
  */
 export async function serializeElementForPdf(
   elementId: string,
-  opts: { orientation: "portrait" | "landscape"; format: "a4" | "letter" | "legal"; printCss?: string }
+  opts: { orientation: "portrait" | "landscape"; format: "a4" | "letter" | "legal"; printCss?: string; transformClone?: (clone: HTMLElement) => void }
 ): Promise<string> {
   const element = document.getElementById(elementId);
   if (!element) throw new Error(`Element #${elementId} not found`);
@@ -621,6 +631,9 @@ export async function serializeElementForPdf(
     });
     await inlineRemoteImages(clone);
     fixRootForPrint(clone);
+    // Export-only layout fix-ups (after the computed-style walk, so inline
+    // values never defeat them — see opts.transformClone docs).
+    opts.transformClone?.(clone);
     return await buildPdfDocumentHtml(clone.outerHTML, opts, printCss);
   } finally {
     if (clone.parentNode) {
@@ -640,9 +653,10 @@ export async function downloadRenderedPdf(opts: PdfRenderOptions): Promise<void>
     orientation = "portrait",
     format = "letter",
     printCss,
+    transformClone,
   } = opts;
 
-  const html = await serializeElementForPdf(elementId, { orientation, format, printCss });
+  const html = await serializeElementForPdf(elementId, { orientation, format, printCss, transformClone });
 
   const response = await api.postBlob("/pdf/render", { html, filename });
 
