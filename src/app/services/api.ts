@@ -114,9 +114,17 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
     const err = new ApiError(res.status, detail);
 
-    // Auto-redirect on 401 (expired or invalid token)
-    if (res.status === 401 && token) {
+    // Auto-redirect on 401 (expired or invalid token) — always, never a
+    // silent no-op: the committee's "Confirm Enrollment did nothing" trace
+    // was an expired session whose 401 was swallowed by one call site.
+    // The login endpoint itself is exempt (a failed sign-in is not a session
+    // expiry).
+    if (
+      res.status === 401 &&
+      !path.includes('/auth/login')
+    ) {
       clearToken();
+      try { localStorage.removeItem('hi5_portal_session'); } catch { /* ignore */ }
       // Use replace so back button doesn't bounce
       window.location.replace('/login');
       // Throw to stop execution — the redirect will happen

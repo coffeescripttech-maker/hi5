@@ -51,7 +51,11 @@ School-year shortcut: **SY** = the current school year shown at the top bar.
    **9-Beta** adviser = **Teacher-B**, and give **Teacher-A** only **9-Alpha**.
 3. Enroll at least **3 learners** in each via Enrollment (any names, e.g.
    "TST-A1", "TST-A2", "TST-A3"; "TST-B1", "TST-B2", "TST-B3") and let the
-   Committee confirm their section placement.
+   Committee confirm their section placement. To place them safely (Committee
+   or Registrar → **Section Assignment → Single Placement**): pick one learner
+   from the pending queue, pick the target section, press **Place** — repeat
+   for each of the six learners. Only the chosen learner moves each time, the
+   rest of the queue (including real students) stays pending.
 
 **TC-ST-02 · Adviser alone does NOT get grading rights**
 1. Before assigning any subject teachers, Teacher-A logs in → **My Students →
@@ -71,6 +75,8 @@ School-year shortcut: **SY** = the current school year shown at the top bar.
 3. Repeat for **9-Beta**: English → **Teacher-A**, Math → **Teacher-C**.
    *Expected:* rows save; the primary teacher chip + optional co-teacher chips
    appear per subject row.
+4. Also create a spare account **Teacher-E** in this part (Users module) that
+   receives NO assignment — TC-ST-20 needs a teacher with zero assignments.
 
 **TC-ST-04 · Every assigned teacher gets encoding rights — and only for its pair**
 1. Log in as **Teacher-B** → Grades → 9-Alpha → **English**.
@@ -107,17 +113,29 @@ School-year shortcut: **SY** = the current school year shown at the top bar.
    *Expected:* warning again — allowed, but flagged. Administrator can still
    save (decided: warn only).
 
+Name tip: the system automatically prefixes the grade (e.g. typing **Alpha**
+in Grade 9 makes **9-Alpha**). Typing the prefix yourself doubles it — the
+system now strips it, but plain names are safest.
+
 **TC-ST-09 · One advisory section rule**
 1. Try to set Teacher-C as adviser of **9-Alpha** while Teacher-A is adviser.
-   *Expected:* refused. Try to name a teacher who already advises 9-Beta as
-   adviser of a new section. *Expected:* hard error again.
+   As **Committee** this is refused outright (adviser work belongs to
+   Administrator/Registrar). As **Admin**, in the Edit Section view, changing
+   the adviser now **opens a confirmation naming both teachers** — cancelling
+   leaves the adviser unchanged; continuing (only if deliberate) completes the
+   replacement and logs it in Activity Logs. Restore the original adviser by
+   the same path.
+2. Try to name a teacher who already advises any section (any grade level, not
+   just Grade 9) as the adviser of a new section.
+   *Expected:* refused: "… is already the adviser of …" both in the picker
+   (marked **Taken**) and on save.
 
-**TC-ST-10 · Copy previous year (Administrator, opt-in)**
+**TC-ST-10 · Copy previous year (Administrator/Registrar, opt-in)**
 1. Next school year in a throwaway test (or on another draft section), use
-   **Copy previous year** as Admin.
-   *Expected:* the previous year's subject-teacher rows are preloaded; Registrar
-   also succeeds with the button (decided: both roles). Delete the draft
-   section afterwards if used on a scratch section.
+   **Copy Teachers** as Admin — the button is also available to the Registrar
+   (decided: both roles assign teachers).
+   *Expected:* the previous year's subject-teacher rows are preloaded. Delete
+   the draft section afterwards if used on a scratch section.
 
 **TC-ST-11 · Activity Log audit (R10)**
 1. Admin → **Activity Logs**, filter Section-Teachers.
@@ -201,8 +219,10 @@ School-year shortcut: **SY** = the current school year shown at the top bar.
    can only save SF9 attendance entries").
 
 **TC-ST-20 · Who may open which form (decided: SF1/SF5 adviser-only)**
-1. Teacher-C — **no assignments** after TC-ST-07 cleanup — opens SF1/SF5.
-   *Expected:* no sections/learners appear (adviser-only lists).
+1. **Teacher-E** — created in TC-ST-03 with **no assignments** — opens SF1/SF5.
+   *Expected:* no sections/learners appear (adviser-only lists). Subject-only
+   Teacher-C and Teacher-B must ALSO see no Grade 9 fixture sections here
+   (fixed after the 2026-11-06 client run where Teacher-C saw both sections).
    Teacher-A opens SF1/SF5. *Expected:* lists its own advisory (9-Alpha) only.
 2. **Teacher-B (subject teacher, no advisory learners in 9-Alpha)** opens SF9 and
    SF10 for a 9-Alpha learner it teaches. *Expected:* the forms open

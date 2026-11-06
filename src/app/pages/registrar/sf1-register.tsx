@@ -215,7 +215,9 @@ export function SF1Register() {
   useEffect(() => {
     Promise.all([
       role === 'teacher' ? studentsApi.listMyStudents() : studentsApi.list(),
-      role === 'teacher' ? sectionsApi.listMySections() : sectionsApi.list(),
+      // Decision: SF1 is the adviser's register — a subject-only teacher
+      // (per-section grant) must NOT see those sections here, only advisory.
+      role === 'teacher' ? sectionsApi.listMySections(true) : sectionsApi.list(),
       enrollmentsApi.list(),
       settingsApi.get(),
       schoolYearsApi.list()

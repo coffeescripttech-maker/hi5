@@ -49,7 +49,8 @@ export interface TeacherBrief {
 export const sectionsApi = {
   list: () => api.get<SectionRow[]>("/sections"),
   listTeachers: () => api.get<TeacherBrief[]>("/sections/teachers"),
-  listMySections: () => api.get<SectionRow[]>("/sections/my-sections"),
+  listMySections: (advisoryOnly?: boolean) =>
+    api.get<SectionRow[]>("/sections/my-sections", advisoryOnly ? { advisory: 1 } : undefined),
   /** Only the section(s) the teacher advises (R20/R22 — promotion scope). */
   listMyAdvisorySections: () =>
     api.get<SectionRow[]>("/sections/my-sections?advisory=1"),

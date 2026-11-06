@@ -42,7 +42,7 @@ import { ElectiveCatalogGrid } from '../../components/electives/ElectiveCatalogG
 /* ──────────────────────────────────────────
    Types
    ────────────────────────────────────────── */
-type WorkflowTab = 'random' | 'placement' | 'carryover' | 'manual';
+type WorkflowTab = 'random' | 'placement' | 'carryover' | 'manual' | 'single';
 
 interface PendingCount {
   grade_level: number;
@@ -454,6 +454,12 @@ export function SectionAssignment() {
       label: 'Manual Assignment',
       icon: UserPlus,
       desc: 'Assign ALS-SHS and Open HS students manually'
+    },
+    {
+      key: 'single',
+      label: 'Single Placement',
+      icon: Users,
+      desc: 'Place ONE learner into a chosen section — for fixture testing, transfers-in or one-off placements; never touches the rest of the queue'
     }
   ];
 
@@ -699,6 +705,44 @@ export function SectionAssignment() {
     }
   };
 
+  // ── Single placement (one learner → one section, nothing else moves) ──
+  const [singleLearner, setSingleLearner] = useState<PendingQueueStudent | null>(null);
+  const [singleSectionId, setSingleSectionId] = useState<number | null>(null);
+  const [singleSearch, setSingleSearch] = useState('');
+
+  /* ── Confirm the single-placement assignment ── */
+  const handleConfirmSingle = async () => {
+    if (!schoolYear || !singleLearner || !singleSectionId) return;
+    setCommitting(true);
+    setCommitMsg(null);
+    setCommitResults(null);
+    try {
+      const result = await sectioningApi.confirmAssignments({
+        school_year_id: schoolYear.id,
+        assignments: [{
+          enrollment_id: singleLearner.enrollment_id,
+          student_id: singleLearner.student_id,
+          section_id: singleSectionId
+        }]
+      });
+      setCommitResults(result.results);
+      setCommitMsg(result.message);
+      if (result.batch_id) {
+        setLastBatch(result.batch_id);
+        setUndoCount(result.succeeded);
+      }
+      setSingleLearner(null);
+      setSingleSectionId(null);
+      await loadQueue();
+    } catch (err: any) {
+      setCommitMsg(
+        err.detail?.error || err.message || 'Failed to confirm assignments.'
+      );
+    } finally {
+      setCommitting(false);
+    }
+  };
+
   /* ── Confirm selected assignments ── */
   const handleConfirm = async () => {
     const toAssign = selectedWithSection;
@@ -792,6 +836,9 @@ export function SectionAssignment() {
         break;
       case 'manual':
         generateManualPreview();
+        break;
+      case 'single':
+        // no queue-wide plan — the single-placement panel is pick-driven
         break;
     }
   };
@@ -1304,19 +1351,213 @@ export function SectionAssignment() {
                   </select>
                 </>
               )}
-              <button
-                onClick={handleGenerate}
-                disabled={loading || generating || queue.length === 0}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm">
-                {generating ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Sparkles size={15} />
-                )}
-                Generate Preview
-              </button>
+              {activeTab !== 'single' && (
+                <button
+                  onClick={handleGenerate}
+                  disabled={loading || generating || queue.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm">
+                  {generating ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={15} />
+                  )}
+                  Generate Preview
+                </button>
+              )}
             </div>
           </div>
+
+          {/* ── Single placement panel (one learner → one section) ── */}
+          {activeTab === 'single' && (
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="border border-gray-100 rounded-xl bg-white overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em]">
+                    1 · Pick the learner (Pending Section queue)
+                  </p>
+                  <span className="text-[10px] text-gray-400">
+                    {queue.length} in queue
+                  </span>
+                </div>
+                <div className="p-3 border-b border-gray-50">
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      value={singleSearch}
+                      onChange={e => setSingleSearch(e.target.value)}
+                      placeholder="Search name, LRN or learner ID…"
+                      className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                  {queue
+                    .filter(s => {
+                      const q = singleSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        s.name.toLowerCase().includes(q) ||
+                        String(s.lrn || "").toLowerCase().includes(q) ||
+                        String(s.student_display_id || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 30)
+                    .map(s => (
+                      <button
+                        key={s.enrollment_id}
+                        type="button"
+                        onClick={() => {
+                          setSingleLearner(s);
+                          // default the section to the first one sharing the learner's grade
+                          const sameGrade = availableSections.filter(
+                            sec => sec.grade_level === s.grade_level
+                          );
+                          setSingleSectionId(
+                            sameGrade[0]?.id ?? availableSections[0]?.id ?? null
+                          );
+                        }}
+                        className={clsx(
+                          'w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors',
+                          singleLearner?.enrollment_id === s.enrollment_id
+                            ? 'bg-indigo-50/70'
+                            : 'hover:bg-gray-50'
+                        )}>
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0">
+                          {s.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">
+                            {s.name}
+                          </p>
+                          <p className="text-[11px] text-gray-400 font-mono truncate">
+                            {s.lrn} · {s.student_display_id}
+                          </p>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-indigo-50/60 text-indigo-700 border border-indigo-100 flex-shrink-0">
+                          G{s.grade_level}
+                        </span>
+                      </button>
+                    ))}
+                  {queue.filter(s => {
+                    const q = singleSearch.trim().toLowerCase();
+                    return (
+                      !q ||
+                      s.name.toLowerCase().includes(q) ||
+                      String(s.lrn || "").toLowerCase().includes(q) ||
+                      String(s.student_display_id || "").toLowerCase().includes(q)
+                    );
+                  }).length === 0 && (
+                    <p className="px-4 py-6 text-center text-xs text-gray-400">
+                      No pending learner matches your search.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-gray-100 rounded-xl bg-white overflow-hidden flex flex-col">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em]">
+                    2 · Choose the target section
+                  </p>
+                </div>
+                <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
+                  {availableSections.map(sec => (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => setSingleSectionId(sec.id)}
+                      className={clsx(
+                        'w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 transition-colors',
+                        singleSectionId === sec.id
+                          ? 'bg-emerald-50/70'
+                          : 'hover:bg-gray-50'
+                      )}>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">
+                          {sec.name}
+                          {singleLearner &&
+                            sec.grade_level === singleLearner.grade_level && (
+                              <span className="ml-1.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-full">
+                                same grade
+                              </span>
+                            )}
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          Grade {sec.grade_level}
+                          {sec.section_type ? ` · ${sec.section_type}` : ''} ·{' '}
+                          {sec.current_count}/{sec.capacity}
+                        </p>
+                      </div>
+                      {singleSectionId === sec.id && (
+                        <Check size={14} className="text-emerald-600" />
+                      )}
+                    </button>
+                  ))}
+                  {availableSections.length === 0 && (
+                    <p className="px-4 py-6 text-center text-xs text-gray-400">
+                      No section has free capacity for this school year.
+                    </p>
+                  )}
+                </div>
+                <div className="mt-auto p-4 border-t border-gray-100 space-y-2">
+                  {singleLearner &&
+                    (singleLearner.grade_level ?? 0) >= 11 &&
+                    ['regular', 'open_high'].includes(singleLearner.program) && (
+                      <div className="px-3 py-2 rounded-lg border text-[11px] bg-indigo-50/60 border-indigo-100 text-indigo-700 flex items-center gap-2">
+                        <span>
+                          Electives:{' '}
+                          {(electivesByStudent[singleLearner.student_id] ?? []).length === 0
+                            ? 'none chosen yet — SHS confirmation is refused until electives are filled'
+                            : (electivesByStudent[singleLearner.student_id] ?? []).map(r => r.subject_name).join(', ')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openElectiveEditor({
+                              ...singleLearner,
+                              current_section_id: null,
+                              current_section_name: ''
+                            } as PreviewAssignment)
+                          }
+                          className="ml-auto underline font-semibold whitespace-nowrap hover:opacity-80">
+                          {(electivesByStudent[singleLearner.student_id] ?? []).length === 0
+                            ? 'Assign'
+                            : 'Edit'}
+                        </button>
+                      </div>
+                    )}
+                  <button
+                    onClick={handleConfirmSingle}
+                    disabled={
+                      committing ||
+                      !singleLearner ||
+                      !singleSectionId
+                    }
+                    className="w-full flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm">
+                    {committing ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                    {singleLearner && singleSectionId
+                      ? `Place ${
+                          queue.find(s => s.enrollment_id === singleLearner.enrollment_id)?.name || 'learner'
+                        } → ${
+                          sections.find(s => s.id === singleSectionId)?.name
+                        }`
+                      : 'Place this learner in the chosen section'}
+                  </button>
+                  <p className="text-[10px] text-gray-400 text-center">
+                    Only this learner moves — the rest of the queue stays
+                    pending. Standard batch undo applies.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Preview Table ── */}
           {preview.length > 0 && (

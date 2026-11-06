@@ -1931,7 +1931,10 @@ export function EnrollmentModule() {
 
   const handleConfirmNewEnrollment = async () => {
     if (submitting) return;
-    if (!newGrade) return;
+    if (!newGrade) {
+      showToast('error', 'Select the grade level to enroll before confirming.');
+      return;
+    }
     // T11 last-line guard: SHS Mainstream / Open High needs a strand/track.
     if (shsTrackRequired(newGrade) && !selectedStrandTrackId) {
       showToast(
@@ -2032,7 +2035,13 @@ export function EnrollmentModule() {
 
   const handleConfirmReturning = async () => {
     if (submitting) return;
-    if (!foundStudent || !retGrade) return;
+    if (!foundStudent || !retGrade) {
+      showToast(
+        'error',
+        'Select the learner and the grade level to enroll before confirming.'
+      );
+      return;
+    }
     // T11 last-line guard: SHS Mainstream / Open High needs a strand/track.
     if (shsTrackRequired(retGrade) && !selectedStrandTrackId) {
       showToast(

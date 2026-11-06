@@ -182,6 +182,15 @@ export async function createSection(req: Request, res: Response): Promise<void> 
   try {
     const { name, grade_level, section_type, capacity, adviser_id, min_average, max_average, is_active } = req.body;
 
+    // Adviser designation is an Administrator/Registrar duty (decide 10.9-1) —
+    // the Enrollment Committee places learners but does not name advisers.
+    if (req.user!.role === "enrollment_committee" && adviser_id) {
+      res.status(403).json({
+        error: "Adviser designation is handled by the Administrator or Registrar.",
+      });
+      return;
+    }
+
     if (!name || !grade_level || !section_type || !capacity || min_average === undefined) {
       res.status(400).json({ error: "Missing required fields: name, grade_level, section_type, capacity, min_average." });
       return;
@@ -245,17 +254,44 @@ export async function updateSection(req: Request, res: Response): Promise<void> 
     // new_requirement.txt R6 + R10: adviser must be a teacher, may advise at
     // most one section, and every change is logged old -> new.
     if (adviser_id !== undefined) {
+      // Committee places learners; it does not re-designate advisers.
+      if (req.user!.role === "enrollment_committee") {
+        res.status(403).json({
+          error: "Adviser designation is handled by the Administrator or Registrar.",
+        });
+        return;
+      }
       const rows = await query<RowDataPacket[]>(
         "SELECT adviser_id, name FROM sections WHERE id = ?",
         [id]
       );
       const currentAdviser = Number(rows[0].adviser_id) || null;
+      const newAdviser = Number(adviser_id) || null;
+      // Replacing an existing adviser is a deliberate act: refused unless the
+      // caller confirms (replace_adviser: true) so a stray save cannot strip
+      // an adviser's ownership of their section (client test TC-ST-09).
+      if (
+        currentAdviser != null &&
+        newAdviser !== currentAdviser &&
+        req.body.replace_adviser !== true
+      ) {
+        const who = await query<RowDataPacket[]>(
+          `SELECT id, name FROM users WHERE id IN (?, ?)`,
+          [currentAdviser, newAdviser ?? currentAdviser]
+        );
+        const nm = (uid: number) =>
+          String(who.find((r) => Number(r.id) === uid)?.name ?? `user ${uid}`);
+        res.status(409).json({
+          error: `"${rows[0].name}" already has an adviser (${nm(currentAdviser)}). Replacing them with ${newAdviser == null ? "no adviser" : nm(newAdviser)} removes the previous adviser's advisory view — pass replace_adviser: true to confirm.`,
+          needs_replace_adviser: true,
+        });
+        return;
+      }
       const adviserError = await advisersErrorIfInvalid(adviser_id, Number(id));
       if (adviserError) {
         res.status(409).json({ error: adviserError });
         return;
       }
-      const newAdviser = Number(adviser_id) || null;
       if (newAdviser !== currentAdviser) {
         const names = await query<RowDataPacket[]>(
           `SELECT id, name FROM users WHERE id IN (${[currentAdviser, newAdviser]

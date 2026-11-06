@@ -254,7 +254,9 @@ export function SF5Report() {
   useEffect(() => {
     Promise.all([
       role === 'teacher' ? studentsApi.listMyStudents() : studentsApi.list(),
-      role === 'teacher' ? sectionsApi.listMySections() : sectionsApi.list(),
+      // Decision: SF5 (like SF1) is the adviser's report — subject-only
+      // teachers must not see their granted sections here.
+      role === 'teacher' ? sectionsApi.listMySections(true) : sectionsApi.list(),
       enrollmentsApi.list(),
       settingsApi.get(),
       schoolYearsApi.list()

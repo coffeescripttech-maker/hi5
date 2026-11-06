@@ -371,9 +371,10 @@ export function SectionCreation() {
   });
   const [deleteTypeId, setDeleteTypeId] = useState<SectionType | null>(null);
 
-  // ── Unique adviser per grade validation ──
+  // ── Unique adviser validation ──
+  // One teacher advises ONE section school-wide (decide 10.9-5 — no grade
+  // qualifier; mirrors the server rule).
   const findAdviserConflict = (
-    grade: number,
     adviserId: string,
     excludeSectionId?: number
   ): SectionRow | null => {
@@ -382,7 +383,6 @@ export function SectionCreation() {
     return (
       sections.find(
         s =>
-          s.grade_level === grade &&
           s.adviser_id === id &&
           s.id !== excludeSectionId
       ) || null
@@ -474,21 +474,27 @@ export function SectionCreation() {
 
   const createConflict = (): SectionRow | null => {
     if (!form.adviser_id) return null;
-    return findAdviserConflict(parseInt(form.gradeLevel), form.adviser_id);
+    return findAdviserConflict(form.adviser_id);
   };
+
+  /* Typing "9-Alpha" into the name field used to compose "9-9-Alpha" (the
+     grade prefix is added automatically). Strip a leading grade prefix the
+     operator already typed (client test TC-ST-01 note). */
+  const composeSectionName = (gradeLevel: string, sectionName: string) =>
+    `${gradeLevel}-${sectionName.replace(/^(?:grade\s*)?\d+\s*[-–—]\s*/i, "").trim()}`;
 
   const handleAdd = async () => {
     const conflict = createConflict();
     if (conflict) {
       showToast(
         'error',
-        `${getTeacherName(form.adviser_id)} is already assigned to "${conflict.name}" in Grade ${form.gradeLevel}`
+        `${getTeacherName(form.adviser_id)} is already assigned to "${conflict.name}" in Grade ${conflict.grade_level}`
       );
       return;
     }
     try {
       const payload: CreateSectionPayload = {
-        name: `${form.gradeLevel}-${form.sectionName}`,
+        name: composeSectionName(form.gradeLevel, form.sectionName),
         grade_level: parseInt(form.gradeLevel),
         section_type: form.type,
         capacity: parseInt(form.capacity),
@@ -631,20 +637,46 @@ export function SectionCreation() {
 
   const editConflict = (): SectionRow | null => {
     if (!editTarget || !editForm.adviser_id) return null;
-    return findAdviserConflict(
-      editTarget.grade_level,
-      editForm.adviser_id,
-      editTarget.id
-    );
+    return findAdviserConflict(editForm.adviser_id, editTarget.id);
   };
 
   const handleEditSave = async () => {
     if (!editTarget) return;
+    // Committee: read-only adviser naming (Administrator/Registrar duty).
+    const editAdviserNew =
+      editForm.adviser_id ? parseInt(editForm.adviser_id) : null;
+    const editAdviserCurrently =
+      editTarget.adviser_id ?? null;
+    const adviceChanged = editAdviserNew !== editAdviserCurrently;
+    if (role === 'enrollment_committee' && adviceChanged) {
+      showToast(
+        'error',
+        'Adviser designation is handled by the Administrator or Registrar.'
+      );
+      return;
+    }
+    // Replacing an existing adviser is deliberate: refuse silently only at
+    // the confirm step — the Administrator explicitly confirms the swap.
+    let replaceAdviser = false;
+    if (adviceChanged && editAdviserCurrently != null) {
+      const prevName =
+        getTeacherName(String(editAdviserCurrently)) ||
+        editTarget.adviser_name ||
+        `ID ${editAdviserCurrently}`;
+      const nextName = getTeacherName(editForm.adviser_id);
+      const ok = window.confirm(
+        `Replace the adviser of "${editTarget.name}"?\n\n` +
+          `${prevName} → ${nextName || 'No adviser'}\n\n` +
+          `The previous adviser loses this section's advisory view. Only continue if this is intentional.`
+      );
+      if (!ok) return;
+      replaceAdviser = true;
+    }
     const conflict = editConflict();
     if (conflict) {
       showToast(
         'error',
-        `${getTeacherName(editForm.adviser_id)} is already assigned to "${conflict.name}" in Grade ${editTarget.grade_level}`
+        `${getTeacherName(editForm.adviser_id)} is already assigned to "${conflict.name}" in Grade ${conflict.grade_level}`
       );
       return;
     }
@@ -653,7 +685,8 @@ export function SectionCreation() {
         capacity: parseInt(editForm.capacity),
         adviser_id: editForm.adviser_id ? parseInt(editForm.adviser_id) : null,
         min_average: parseInt(editForm.minAvg),
-        max_average: editForm.maxAvg ? parseFloat(editForm.maxAvg) : null
+        max_average: editForm.maxAvg ? parseFloat(editForm.maxAvg) : null,
+        ...(replaceAdviser ? { replace_adviser: true } as any : {})
       };
       // Full replace of the stored (section, subject) -> teacher rows.
       let warnings: string[] = [];
@@ -789,7 +822,7 @@ export function SectionCreation() {
               className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all flex-1 sm:flex-none">
               <Plus size={15} /> Create Section
             </button>
-            {role === 'admin' && currentYear && prevYear && (
+            {(role === 'admin' || role === 'registrar') && currentYear && prevYear && (
               <button
                 onClick={() => {
                   setShowCopy(true);
@@ -1224,19 +1257,22 @@ export function SectionCreation() {
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
                 Adviser (optional)
               </label>
+              {role === 'enrollment_committee' ? (
+                <p className="text-xs text-gray-400 border border-gray-100 rounded-xl px-3 py-2.5 bg-gray-50/60">
+                  Read-only — adviser designation is handled by the Administrator or Registrar.
+                </p>
+              ) : (
               <TeacherSearch
                 value={form.adviser_id}
                 onChange={id => setForm(p => ({ ...p, adviser_id: id }))}
                 teachers={teachers}
                 placeholder="Search available teachers..."
                 getConflict={teacherId => {
-                  const c = findAdviserConflict(
-                    parseInt(form.gradeLevel),
-                    String(teacherId)
-                  );
+                  const c = findAdviserConflict(String(teacherId));
                   return c ? c.name : null;
                 }}
               />
+              )}
             </div>
             {canEditTeachers && currentYear && (
               <div className="sm:col-span-2">
@@ -1353,6 +1389,11 @@ export function SectionCreation() {
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
                 Adviser
               </label>
+              {role === 'enrollment_committee' ? (
+                <p className="text-xs text-gray-400 border border-gray-100 rounded-xl px-3 py-2.5 bg-gray-50/60">
+                  {editTarget?.adviser_name || 'No adviser'} — read-only; adviser designation is handled by the Administrator or Registrar.
+                </p>
+              ) : (
               <TeacherSearch
                 value={editForm.adviser_id}
                 onChange={id => setEditForm(p => ({ ...p, adviser_id: id }))}
@@ -1361,13 +1402,13 @@ export function SectionCreation() {
                 getConflict={teacherId => {
                   if (!editTarget) return null;
                   const c = findAdviserConflict(
-                    editTarget.grade_level,
                     String(teacherId),
                     editTarget.id
                   );
                   return c ? c.name : null;
                 }}
               />
+              )}
             </div>
             {canEditTeachers &&
               currentYear &&
