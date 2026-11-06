@@ -79,6 +79,13 @@ export function TeacherDashboard() {
   const adviserSections = mySections;
 
   const totalMyCapacity = adviserSections.reduce((a, s) => a + s.capacity, 0);
+  // REMAINING free seats across the teacher's sections (capacity minus the
+  // learners already enrolled) — the card must show what is still available,
+  // not the sum of all capacities (client note, 2026-11).
+  const totalMyOpenSlots = adviserSections.reduce(
+    (a, s) => a + Math.max(0, s.capacity - (s.current_count ?? 0)),
+    0
+  );
 
   // Students ACTUALLY enrolled in one of the teacher's sections this school year
   // (pending/queue students without a section are excluded). This is the single
@@ -229,10 +236,10 @@ export function TeacherDashboard() {
             </div>
           </div>
           <p className="relative text-2xl font-bold tracking-[-0.02em] leading-none text-violet-600">
-            {totalMyCapacity}
+            {totalMyOpenSlots}
           </p>
           <p className="relative text-xs text-gray-400 mt-2 truncate">
-            Total slots available
+            Free slots of {totalMyCapacity} total
           </p>
         </div>
       </div>
