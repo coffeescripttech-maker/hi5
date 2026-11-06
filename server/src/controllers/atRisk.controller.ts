@@ -18,13 +18,12 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
  */
 function teacherScopeCondition(userId: number, schoolYearId: number) {
   return {
+    // STRICT grant model: advisory sections + per-section-subject grants +
+    // elective rosters. Legacy section-level rows no longer count.
     sql: `(e.section_id IN (
         SELECT sec2.id FROM sections sec2
         WHERE sec2.is_active = 1
-          AND (sec2.adviser_id = ?
-            OR EXISTS (
-              SELECT 1 FROM teacher_section_assignments tsa
-              WHERE tsa.section_id = sec2.id AND tsa.teacher_id = ?)))
+          AND sec2.adviser_id = ?)
       OR e.section_id IN (
         SELECT sta.section_id FROM section_teacher_assignments sta
          WHERE sta.teacher_id = ? AND sta.school_year_id = ?)
@@ -36,7 +35,7 @@ function teacherScopeCondition(userId: number, schoolYearId: number) {
         WHERE se.school_year_id = ?
           AND se.student_id = e.student_id
           AND tsa2.teacher_id = ?))`,
-    params: [userId, userId, userId, schoolYearId, schoolYearId, schoolYearId, userId],
+    params: [userId, userId, schoolYearId, schoolYearId, schoolYearId, userId],
   };
 }
 
@@ -289,9 +288,10 @@ export async function runPrediction(req: Request, res: Response): Promise<void> 
            WHERE sec.id = ? AND sec.is_active = 1
              AND (sec.adviser_id = ?
                OR EXISTS (
-                 SELECT 1 FROM teacher_section_assignments tsa
-                 WHERE tsa.section_id = sec.id AND tsa.teacher_id = ?))`,
-          [section_id, userId, userId]
+                 SELECT 1 FROM section_teacher_assignments sta
+                 WHERE sta.section_id = sec.id AND sta.teacher_id = ?
+                   AND sta.school_year_id = ?))`,
+          [section_id, userId, userId, school_year_id]
         );
         if (owned.length === 0) {
           res.status(403).json({

@@ -3,7 +3,7 @@ import { query } from '../config/database';
 import { logActivity, logActivities } from '../utils/activityLogger';
 import { collapseSubjectGroups } from '../utils/subjectGroups';
 import { subjectScopeSql } from '../utils/subjectScope';
-import { grantExistsSql, hasGrantPair, lockableSubjectIds } from '../utils/teacherGrants';
+import { grantExistsSql, hasGrantPair, hasElectiveGrant, lockableSubjectIds } from '../utils/teacherGrants';
 import { getSectionGradeStatus } from '../utils/sectionGradeStatus';
 import { createNotification } from '../services/notify';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
@@ -11,40 +11,21 @@ import { RowDataPacket, ResultSetHeader } from 'mysql2';
 /* ── Grade security helpers (Module: Grade Security) ─────────────────── */
 
 /**
- * Subjects a teacher is assigned to teach for a school year
- * (teacher_subject_assignments). Rows without a school_year_id apply to all years.
- */
-async function getTeacherSubjectIds(
-  teacherId: number,
-  schoolYearId: number
-): Promise<Set<number>> {
-  const rows = await query<RowDataPacket[]>(
-    `SELECT subject_id FROM teacher_subject_assignments
-     WHERE teacher_id = ? AND (school_year_id = ? OR school_year_id IS NULL)`,
-    [teacherId, schoolYearId]
-  );
-  return new Set(rows.map(r => r.subject_id as number));
-}
-
-/**
- * Section ids a teacher advises (sections.adviser_id) or is assigned to
- * (teacher_section_assignments) for a school year.
+ * Section ids a teacher advises (sections.adviser_id) or holds a
+ * per-section-subject grant in (section_teacher_assignments) for a school
+ * year. STRICT: legacy section-level rows are no longer honored.
  */
 async function getTeacherSectionIds(
   teacherId: number,
   schoolYearId: number
 ): Promise<Set<number>> {
   const rows = await query<RowDataPacket[]>(
-    `SELECT DISTINCT sec.id
-      FROM sections sec
-      LEFT JOIN teacher_section_assignments tsa
-        ON tsa.section_id = sec.id AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
-      WHERE sec.adviser_id = ? OR tsa.teacher_id = ?
+    `SELECT DISTINCT sec.id FROM sections sec WHERE sec.adviser_id = ?
       UNION
       SELECT DISTINCT sta.section_id
-      FROM section_teacher_assignments sta
-      WHERE sta.teacher_id = ? AND sta.school_year_id = ?`,
-    [schoolYearId, teacherId, teacherId, teacherId, schoolYearId]
+        FROM section_teacher_assignments sta
+       WHERE sta.teacher_id = ? AND sta.school_year_id = ?`,
+    [teacherId, teacherId, schoolYearId]
   );
   return new Set(rows.map(r => r.id as number));
 }
@@ -60,17 +41,16 @@ function teacherStudentScopeSql(
   teacherId: number,
   params: any[]
 ): string {
-  // Third ? = the elective branch: a learner who picked one of the teacher's
+  // Second ? = the elective branch: a learner who picked one of the teacher's
   // electives is on that teacher's roster even outside their sections
   // (Strengthened SHS Curriculum — electives mix learners across sections).
-  // Fourth ? = the per-section-subject grants (new_requirement.txt R11).
-  params.push(teacherId, teacherId, teacherId, teacherId);
+  // Third ? = the per-section-subject grants (new_requirement.txt R11).
+  params.push(teacherId, teacherId, teacherId);
   return `${studentIdExpr} IN (
     SELECT en.student_id FROM enrollments en
     LEFT JOIN sections sec ON en.section_id = sec.id
     WHERE en.status = 'enrolled'
       AND (sec.adviser_id = ?
-        OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
         OR EXISTS (
           SELECT 1 FROM student_electives se
           JOIN teacher_subject_assignments tea
@@ -95,7 +75,6 @@ async function teacherMayReadGrades(
        LEFT JOIN sections sec ON en.section_id = sec.id
        WHERE en.status = 'enrolled'
          AND (sec.adviser_id = ?
-           OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
            OR EXISTS (
              SELECT 1 FROM student_electives se
              JOIN teacher_subject_assignments tea
@@ -107,7 +86,7 @@ async function teacherMayReadGrades(
        )
       )
      LIMIT 1`,
-    [studentId, teacherId, teacherId, teacherId, teacherId]
+    [studentId, teacherId, teacherId, teacherId]
   );
   return rows.length > 0;
 }
@@ -206,16 +185,15 @@ async function teacherGradeBlockReason(
   if (await isPastGradeDeadline()) {
     return 'The grade editing deadline has passed. Grades are now read-only — contact the Registrar for corrections.';
   }
-  const [allowedSubjects, teacherSections, subjectRow] = await Promise.all([
-    getTeacherSubjectIds(teacherId, schoolYearId),
-    getTeacherSectionIds(teacherId, schoolYearId),
-    query<RowDataPacket[]>(
-      'SELECT subject_type FROM subjects WHERE id = ?',
-      [subjectId]
-    )
-  ]);
-  // R11 — the NEW per-section-subject grant: exact (section, subject) pairs from
-  // Section Creation. Resolved once; replaces the legacy pair-check below.
+  const subjectRow = await query<RowDataPacket[]>(
+    'SELECT subject_type FROM subjects WHERE id = ?',
+    [subjectId]
+  );
+  // R11 (strict) — for every non-elective subject the COMPLETE grant is the
+  // exact (section, subject, teacher, school_year) row in
+  // section_teacher_assignments. Legacy subject-level rows no longer open a
+  // subject; a stale grant cannot let a teacher write it in some section.
+  const isElective = subjectRow.length > 0 && subjectRow[0].subject_type === 'elective';
   const studentSectionEarly = await getStudentSectionId(studentId, schoolYearId);
   const newGrant = await hasGrantPair(
     teacherId,
@@ -223,13 +201,12 @@ async function teacherGradeBlockReason(
     studentSectionEarly,
     subjectId
   );
-  if (!allowedSubjects.has(Number(subjectId)) && !newGrant) {
-    return 'Access denied: you may only encode grades for subjects assigned to you.';
-  }
-  const isElective = subjectRow.length > 0 && subjectRow[0].subject_type === 'elective';
   if (isElective) {
     // Strengthened SHS Curriculum: an elective's roster is the learners who
-    // picked it — they may come from any section the teacher does not advise.
+    // picked it. The grant is the subject-level elective grant, not a section.
+    if (!(await hasElectiveGrant(teacherId, schoolYearId, subjectId))) {
+      return 'Access denied: you may only encode grades for subjects assigned to you.';
+    }
     const pick = await query<RowDataPacket[]>(
       'SELECT 1 FROM student_electives WHERE student_id = ? AND school_year_id = ? AND subject_id = ? LIMIT 1',
       [studentId, schoolYearId, subjectId]
@@ -238,10 +215,7 @@ async function teacherGradeBlockReason(
       return 'Access denied: the learner is not assigned to this elective.';
     }
   } else if (!newGrant) {
-    const studentSection = studentSectionEarly;
-    if (!studentSection || !teacherSections.has(studentSection)) {
-      return 'Access denied: you may only encode grades for students in your assigned sections.';
-    }
+    return 'Access denied: you may only encode grades for subjects assigned to you.';
   }
   if (!(await isSubjectOfferedToLearner(studentId, schoolYearId, subjectId))) {
     return 'Access denied: this subject is not offered to the learner.';
@@ -662,13 +636,21 @@ export async function batchUpsertGrades(
           });
         return;
       }
-      // Scope checks once per request, not once per row: allowed subjects,
-      // own sections, per-learner offered subjects. R11: the exact
-      // (section, subject) pairs also count as grants.
-      const [allowedSubjects, teacherSections] = await Promise.all([
-        getTeacherSubjectIds(req.user!.userId, rowList[0].school_year_id),
-        getTeacherSectionIds(req.user!.userId, rowList[0].school_year_id)
-      ]);
+      // Scope checks once per request, not once per row. STRICT grant model:
+      // non-elective rows need the exact per-section pair
+      // (section_teacher_assignments); elective rows need the subject-level
+      // elective grant + the learner's pick.
+      const electiveGrantRows = await query<RowDataPacket[]>(
+        `SELECT DISTINCT tsa.subject_id
+           FROM teacher_subject_assignments tsa
+           JOIN subjects s ON s.id = tsa.subject_id AND s.subject_type = 'elective'
+          WHERE tsa.teacher_id = ?
+            AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)`,
+        [req.user!.userId, rowList[0].school_year_id]
+      );
+      const electiveGranted = new Set(
+        electiveGrantRows.map(x => Number(x.subject_id))
+      );
       const newGrantRows = await query<RowDataPacket[]>(
         `SELECT section_id, subject_id FROM section_teacher_assignments
           WHERE teacher_id = ? AND school_year_id = ?`,
@@ -706,14 +688,13 @@ export async function batchUpsertGrades(
           );
         if (
           nonElectiveRows.length > 0 &&
-          !newGrantsCoverStudent &&
-          (!enrollment || sectionIdNum === null || !teacherSections.has(sectionIdNum))
+          !newGrantsCoverStudent
         ) {
           res
             .status(403)
             .json({
               error:
-                'Access denied: you may only encode grades for students in your assigned sections.'
+                'Access denied: you may only encode grades for subjects assigned to you.'
             });
           return;
         }
@@ -722,10 +703,11 @@ export async function batchUpsertGrades(
           rowList[0].school_year_id
         );
         for (const r of studentRows) {
-          if (
-            !allowedSubjects.has(r.subject_id) &&
-            !(sectionIdNum !== null && newGrants.has(`${sectionIdNum}|${Number(r.subject_id)}`))
-          ) {
+          const granted = subjectIsElective.get(r.subject_id)
+            ? electiveGranted.has(Number(r.subject_id))
+            : sectionIdNum !== null &&
+              newGrants.has(`${sectionIdNum}|${Number(r.subject_id)}`);
+          if (!granted) {
             res
               .status(403)
               .json({
@@ -1033,61 +1015,50 @@ export async function lockGrades(req: Request, res: Response): Promise<void> {
  */
 export async function unlockGrades(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, subject_id, school_year_id, section_id, quarter } =
+    const { student_id, subject_id, school_year_id, quarter } =
       req.body;
 
     if (!school_year_id) {
       res.status(400).json({ error: 'school_year_id is required.' });
       return;
     }
+    // An unlock must name the exact scope of an approved correction: one
+    // learner, one subject, one quarter. A bare school year (no other
+    // filters) would unlock every grade in the year.
+    if (!student_id || !subject_id || !quarter) {
+      res.status(400).json({
+        error:
+          'Unlocking requires the exact scope: student_id, subject_id and quarter (1-3) are all required.'
+      });
+      return;
+    }
+    if (![1, 2, 3].includes(Number(quarter))) {
+      res.status(400).json({ error: 'quarter must be 1, 2, or 3.' });
+      return;
+    }
 
     let sql =
-      'UPDATE grades SET is_locked = 0, locked_at = NULL, locked_by = NULL WHERE school_year_id = ?';
-    const params: any[] = [school_year_id];
-
-    if (student_id) {
-      sql += ' AND student_id = ?';
-      params.push(student_id);
-    }
-    if (subject_id) {
-      sql += ' AND subject_id = ?';
-      params.push(subject_id);
-    }
-    if (section_id) {
-      sql +=
-        ' AND student_id IN (SELECT student_id FROM enrollments WHERE section_id = ? AND school_year_id = ?)';
-      params.push(section_id, school_year_id);
-    }
-    if (quarter) {
-      sql += ' AND quarter = ?';
-      params.push(quarter);
-    }
+      'UPDATE grades SET is_locked = 0, locked_at = NULL, locked_by = NULL WHERE school_year_id = ? AND student_id = ? AND subject_id = ? AND quarter = ?';
+    const params: any[] = [school_year_id, student_id, subject_id, quarter];
 
     const result = await query<ResultSetHeader>(sql, params);
 
     const unlockBits: string[] = [];
-    if (student_id) {
+    {
       const s = await query<RowDataPacket[]>(
         'SELECT name, lrn FROM students WHERE id = ?',
         [student_id]
       );
       if (s.length > 0) unlockBits.push(`${s[0].name} (${s[0].lrn})`);
     }
-    if (section_id) {
-      const sec = await query<RowDataPacket[]>(
-        'SELECT name FROM sections WHERE id = ?',
-        [section_id]
-      );
-      if (sec.length > 0) unlockBits.push(`section ${sec[0].name}`);
-    }
-    if (subject_id) {
+    {
       const sub = await query<RowDataPacket[]>(
         'SELECT name FROM subjects WHERE id = ?',
         [subject_id]
       );
       if (sub.length > 0) unlockBits.push(sub[0].name);
     }
-    if (quarter) unlockBits.push(`Q${quarter}`);
+    unlockBits.push(`Q${quarter}`);
     const unlockDetail = unlockBits.length > 0 ? ` — ${unlockBits.join(', ')}` : '';
 
     await logActivity(

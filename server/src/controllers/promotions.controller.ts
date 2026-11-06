@@ -22,6 +22,15 @@ async function isAdviserOfSection(
   return rows.length > 0;
 }
 
+/** The teacher's first/current advisory section id, or null when none. */
+async function advisorySectionId(teacherId: number): Promise<number | null> {
+  const rows = await query<RowDataPacket[]>(
+    "SELECT id FROM sections WHERE adviser_id = ? ORDER BY id DESC LIMIT 1",
+    [teacherId]
+  );
+  return rows.length > 0 ? Number(rows[0].id) : null;
+}
+
 /**
  * R22 readiness: advisers run promotion once every subject has Q1–Q3 grades.
  * Returns a 409 payload when the advisory section still has missing grades.
@@ -216,6 +225,18 @@ export async function previewSection(req: Request, res: Response): Promise<void>
       return;
     }
     const section = sections[0];
+
+    // R22 (client review item 4): the preview is an adviser tool — teachers may
+    // only preview the section they advise; admins/registrars see everything.
+    if (req.user!.role === "teacher") {
+      const advisory = await isAdviserOfSection(req.user!.userId, sectionId);
+      if (!advisory) {
+        res
+          .status(403)
+          .json({ error: "Access denied. You can only preview your advisory section." });
+        return;
+      }
+    }
 
     const { passing_grade: passingMark } = await getAcademicThresholds();
 
@@ -932,6 +953,13 @@ export async function rollbackCompletion(req: Request, res: Response): Promise<v
     }
     const promotion = promo[0];
 
+    // Rollback re-opens a completed section — teacher advisers may not touch
+    // it; admin/registrar only (client review item 4).
+    if (req.user!.role === "teacher") {
+      res.status(403).json({ error: "Access denied. Completion rollback is handled by the Registrar." });
+      return;
+    }
+
     if (
       promotion.status !== "completed" ||
       promotion.to_grade_level !== 12 ||
@@ -1038,14 +1066,35 @@ export async function listPromotionRoster(req: Request, res: Response): Promise<
       return;
     }
 
+    // R22 / client review item 4: the roster feeds the individual
+    // promotion/graduation screen — teacher advisers only see their own
+    // advisory section; admins/registrars see everything.
+    const effectiveSectionId =
+      req.user!.role === "teacher" ? await advisorySectionId(req.user!.userId) : sectionId;
+    if (req.user!.role === "teacher") {
+      if (effectiveSectionId == null) {
+        res
+          .status(403)
+          .json({ error: "Access denied. You do not have an advisory section." });
+        return;
+      }
+      if (sectionId && sectionId !== effectiveSectionId) {
+        res.status(403).json({
+          error: "Access denied. You can only view the roster of your advisory section.",
+        });
+        return;
+      }
+    }
+    const scopedSectionId = effectiveSectionId;
+
     const { passing_grade: passingMark } = await getAcademicThresholds();
 
     const condParams: any[] = [];
     let cond = "e.school_year_id = ? AND e.status = 'enrolled'";
     condParams.push(schoolYearId);
-    if (sectionId) {
+    if (scopedSectionId) {
       cond += " AND e.section_id = ?";
-      condParams.push(sectionId);
+      condParams.push(scopedSectionId);
     }
     if (search) {
       cond += " AND (st.name LIKE ? OR st.student_id LIKE ? OR st.lrn LIKE ?)";
@@ -1106,7 +1155,7 @@ export async function listPromotionRoster(req: Request, res: Response): Promise<
 
     res.json({
       school_year_id: schoolYearId,
-      section_id: sectionId,
+      section_id: scopedSectionId,
       passing_mark: passingMark,
       total: results.length,
       students: results,
@@ -1146,6 +1195,15 @@ export async function promoteStudentIndividually(req: Request, res: Response): P
     }
     if (action !== "promote" && action !== "graduate") {
       res.status(400).json({ error: "action must be 'promote' or 'graduate'." });
+      return;
+    }
+    // Client review item 4: individual promotion moves learners — teachers do
+    // not reach it (their advisory duty runs through promote / complete /
+    // bulk-promote). Admin/registrar only.
+    if (role === "teacher") {
+      res.status(403).json({
+        error: "Access denied. Individual promotion is handled by the Administrator or Registrar.",
+      });
       return;
     }
     if (override && role !== "admin") {

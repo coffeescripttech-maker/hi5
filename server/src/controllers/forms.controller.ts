@@ -14,8 +14,9 @@ import { subjectScopeSql } from "../utils/subjectScope";
  */
 /**
  * Teacher scope: a teacher may build a school form for a student only when
- * they are the student's section adviser or are assigned to the student's
- * section in the same school year (matches teacher_section_assignments).
+ * they are the student's section adviser, hold the per-section-subject grant
+ * for the learner's section (section_teacher_assignments), or the learner
+ * picked one of the teacher's ELECTIVE subjects (subject-level grant).
  * Without an explicit
  * school_year_id the check runs against the student's latest active enrollment.
  */
@@ -38,16 +39,12 @@ async function isTeacherAllowedForStudent(
         AND (
           sec.adviser_id = ?
           OR EXISTS (
-            SELECT 1 FROM teacher_section_assignments tsa
-            WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
-              AND tsa.section_id = e.section_id
-          )
-          OR EXISTS (
             SELECT 1 FROM student_electives se
             JOIN teacher_subject_assignments tea
               ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
             WHERE se.student_id = e.student_id
               AND se.school_year_id = e.school_year_id
+              AND EXISTS (SELECT 1 FROM subjects sb WHERE sb.id = se.subject_id AND sb.subject_type = 'elective')
           )
           OR EXISTS (
             SELECT 1 FROM section_teacher_assignments sta
@@ -56,7 +53,7 @@ async function isTeacherAllowedForStudent(
           )
         )
       LIMIT 1`;
-    params = [studentId, parseInt(schoolYearId), userId, userId, userId, userId];
+    params = [studentId, parseInt(schoolYearId), userId, userId, userId];
   } else {
     sql = `
       SELECT 1 AS allowed
@@ -67,16 +64,12 @@ async function isTeacherAllowedForStudent(
         AND (
           sec.adviser_id = ?
           OR EXISTS (
-            SELECT 1 FROM teacher_section_assignments tsa
-            WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
-              AND tsa.section_id = e.section_id
-          )
-          OR EXISTS (
             SELECT 1 FROM student_electives se
             JOIN teacher_subject_assignments tea
               ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
             WHERE se.student_id = e.student_id
               AND se.school_year_id = e.school_year_id
+              AND EXISTS (SELECT 1 FROM subjects sb WHERE sb.id = se.subject_id AND sb.subject_type = 'elective')
           )
           OR EXISTS (
             SELECT 1 FROM section_teacher_assignments sta
@@ -86,7 +79,7 @@ async function isTeacherAllowedForStudent(
         )
       ORDER BY e.school_year_id DESC
       LIMIT 1`;
-    params = [studentId, userId, userId, userId, userId];
+    params = [studentId, userId, userId, userId];
   }
 
   const rows = await query<RowDataPacket[]>(sql, params);

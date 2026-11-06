@@ -95,13 +95,8 @@ async function isTeacherAllowedForSection(
   const rows = await query<RowDataPacket[]>(
     `SELECT 1 AS allowed
        FROM sections sec
-      WHERE sec.id = ? AND school_year_id = ? AND (
+      WHERE sec.id = ? AND (
               sec.adviser_id = ?
-           OR EXISTS (
-             SELECT 1 FROM teacher_section_assignments tsa
-              WHERE tsa.teacher_id = ? AND tsa.section_id = sec.id
-                AND tsa.school_year_id = ?
-            )
            OR EXISTS (
              SELECT 1 FROM section_teacher_assignments sta
               WHERE sta.teacher_id = ? AND sta.section_id = sec.id
@@ -109,7 +104,7 @@ async function isTeacherAllowedForSection(
             )
             )
       LIMIT 1`,
-    [sectionId, schoolYearId, userId, userId, schoolYearId, userId, schoolYearId]
+    [sectionId, userId, userId, schoolYearId]
   );
   return rows.length > 0;
 }
@@ -193,14 +188,15 @@ export async function getFormEdits(req: Request, res: Response): Promise<void> {
               AND e.status IN ('enrolled', 'completed')
               AND (
                 sec.adviser_id = ?
-                OR EXISTS (SELECT 1 FROM teacher_section_assignments tsa
-                            WHERE tsa.teacher_id = ? AND tsa.school_year_id = e.school_year_id
-                              AND tsa.section_id = e.section_id)
+                OR EXISTS (SELECT 1 FROM section_teacher_assignments sta
+                            WHERE sta.teacher_id = ? AND sta.school_year_id = e.school_year_id
+                              AND sta.section_id = e.section_id)
                 OR EXISTS (SELECT 1 FROM student_electives se
                              JOIN teacher_subject_assignments tea
                                ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
                             WHERE se.student_id = e.student_id
-                              AND se.school_year_id = e.school_year_id)
+                              AND se.school_year_id = e.school_year_id
+                              AND EXISTS (SELECT 1 FROM subjects sb WHERE sb.id = se.subject_id AND sb.subject_type = 'elective'))
               )
             LIMIT 1`,
           [studentId, school_year_id, user.userId, user.userId, user.userId]

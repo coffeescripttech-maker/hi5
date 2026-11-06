@@ -66,11 +66,12 @@ export async function listSections(req: Request, res: Response): Promise<void> {
       params.push(parseInt(is_active as string));
     }
 
-    // Privacy: a teacher only sees sections they advise or are assigned to.
+    // Privacy: a teacher only sees sections they advise or are assigned to
+    // (strict grant model — per-section-subject rows only).
     if (req.user?.role === "teacher") {
       const userId = req.user.userId;
       conditions.push(
-        "(s.adviser_id = ? OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))"
+        "(s.adviser_id = ? OR s.id IN (SELECT sta.section_id FROM section_teacher_assignments sta WHERE sta.teacher_id = ? AND sta.school_year_id = (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1)))"
       );
       params.push(userId, userId);
     }
@@ -107,7 +108,7 @@ export async function getTeacherSections(req: Request, res: Response): Promise<v
          AND ${
            advisoryOnly
              ? "s.adviser_id = ?"
-             : "(s.adviser_id = ? OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))"
+             : "(s.adviser_id = ? OR s.id IN (SELECT sta.section_id FROM section_teacher_assignments sta WHERE sta.teacher_id = ? AND sta.school_year_id = (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1)))"
          }
        ORDER BY s.grade_level ASC, s.name ASC`,
       advisoryOnly ? [userId] : [userId, userId]
@@ -139,14 +140,15 @@ export async function getSectionById(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Privacy: teachers may only open sections they advise or are assigned to.
+    // Privacy: teachers may only open sections they advise or are assigned to
+    // (strict grant model — the exact per-section-subject rows).
     if (req.user?.role === "teacher") {
       const userId = req.user.userId;
       const allowed = await query<RowDataPacket[]>(
         `SELECT 1 FROM sections s
          WHERE s.id = ?
            AND (s.adviser_id = ?
-             OR s.id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
+             OR s.id IN (SELECT sta.section_id FROM section_teacher_assignments sta WHERE sta.teacher_id = ? AND sta.school_year_id = (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1)))
          LIMIT 1`,
         [id, userId, userId]
       );
@@ -428,6 +430,41 @@ async function scheduleConflictWarnings(
           `${teacherName(Number(row.teacher_id))} also teaches in "${other.section_name}" on the same schedule slot (day ${row.day_of_week}, ${row.start_time}–${row.end_time}) — this is allowed but may overlap the Master Schedule.`
         );
       }
+    }
+  }
+  return warnings;
+}
+
+/**
+ * Teaching-load maximum (R7 item 7 — warn only, never block; the
+ * Administrator can still save). A teacher whose per-section-subject
+ * assignments sum to more than 30 weekly hours (≈6 h/day × 5 days — the
+ * decided school maximum) produces a warning string.
+ */
+async function teachingLoadWarnings(
+  teacherIds: number[],
+  schoolYearId: number
+): Promise<string[]> {
+  const warnings: string[] = [];
+  if (teacherIds.length === 0) return warnings;
+  const MAX_WEEKLY_HOURS = 30;
+  const placeholders = teacherIds.map(() => "?").join(",");
+  const rows = await query<RowDataPacket[]>(
+    `SELECT sta.teacher_id, u.name AS teacher_name,
+            COALESCE(SUM(s.hours_per_week), 0) AS weekly_hours
+       FROM section_teacher_assignments sta
+       JOIN users u ON u.id = sta.teacher_id
+       JOIN subjects s ON s.id = sta.subject_id
+      WHERE sta.school_year_id = ? AND sta.teacher_id IN (${placeholders})
+      GROUP BY sta.teacher_id, u.name`,
+    [schoolYearId, ...teacherIds]
+  );
+  for (const r of rows) {
+    const h = Number(r.weekly_hours);
+    if (h > MAX_WEEKLY_HOURS) {
+      warnings.push(
+        `${r.teacher_name}'s total teaching load is now ${h} hours/week — above the ${MAX_WEEKLY_HOURS} hour maximum. Saved, but flagged for review.`
+      );
     }
   }
   return warnings;
@@ -726,11 +763,18 @@ export async function updateSectionTeachers(req: Request, res: Response): Promis
 
     // R7 — Master-Schedule overlap warnings (warn only)
     const warnings = wantsReplace
-      ? await scheduleConflictWarnings(
-          { id: Number(id), name: String(section.name) },
-          [...new Set(items.flatMap((i) => i.teacher_ids))],
-          schoolYearId
-        )
+      ? [
+          ...(await scheduleConflictWarnings(
+            { id: Number(id), name: String(section.name) },
+            [...new Set(items.flatMap((i) => i.teacher_ids))],
+            schoolYearId
+          )),
+          // Teaching-load maximum (R7 item 7 — warn only)
+          ...(await teachingLoadWarnings(
+            [...new Set(items.flatMap((i) => i.teacher_ids))],
+            schoolYearId
+          )),
+        ]
       : [];
 
     res.json({ id: Number(id), added: additions.length, removed: removalIds.length, warnings });
@@ -843,11 +887,15 @@ export async function applyTeacherToSections(req: Request, res: Response): Promi
         );
       }
     }
-    const warnings = await scheduleConflictWarnings(
-      { id: -1, name: "(" + sectionIds.join(", ") + ")" },
-      teacherIds,
-      schoolYearId
-    );
+    const warnings = [
+      ...(await scheduleConflictWarnings(
+        { id: -1, name: "(" + sectionIds.join(", ") + ")" },
+        teacherIds,
+        schoolYearId
+      )),
+      // Teaching-load maximum (R7 item 7 — warn only)
+      ...(await teachingLoadWarnings(teacherIds, schoolYearId)),
+    ];
     res.json({ assigned, skipped, warnings });
   } catch (error) {
     console.error("Apply teacher across sections error:", error);

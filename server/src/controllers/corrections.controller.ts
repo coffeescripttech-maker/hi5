@@ -101,14 +101,29 @@ export async function createCorrection(req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Client decision (2026-11): an approved correction unlocks ONLY the named
+    // subject and quarter — never the student's whole sheet. A request must
+    // therefore name both up front.
+    if (!subject_id) {
+      res.status(400).json({
+        error: "Select the subject being corrected — an approval unlocks exactly that subject.",
+      });
+      return;
+    }
+    if (quarter == null) {
+      res.status(400).json({
+        error: "Select the quarter being corrected — an approval unlocks exactly that quarter.",
+      });
+      return;
+    }
     // Grades are quartered (Q1–Q3); a correction against Q4 (or any other
     // quarter) targets a grade that cannot exist, so reject it at the door
     // rather than leaving a permanently pending request nobody can action.
-    if (quarter != null) {
+    {
       const q = Number(quarter);
       if (!Number.isInteger(q) || q < 1 || q > 3) {
         res.status(400).json({
-          error: "Quarter must be 1, 2, or 3. Leave it blank to request a correction across all quarters.",
+          error: "Quarter must be 1, 2, or 3.",
         });
         return;
       }
@@ -224,11 +239,9 @@ export async function reviewCorrection(req: Request, res: Response): Promise<voi
       [status, req.user!.userId, id]
     );
 
-    // On approval, unlock only the requested scope: one subject (or all when the
-    // request used subject_id = NULL) and one quarter (or all when quarter =
-    // NULL). The request already stores both, so approval must not open the
-    // student's whole grade sheet — a single-subject/quarter correction must
-    // leave every other cell locked.
+    // On approval, unlock EXACTLY the requested scope: one subject + one
+    // quarter (client decision — a correction never opens the student's whole
+    // grade sheet; every other cell stays locked).
     if (status === "approved") {
       const target = existing[0];
       const revNames = await query<RowDataPacket[]>(
@@ -242,19 +255,16 @@ export async function reviewCorrection(req: Request, res: Response): Promise<voi
       const revTarget = rn
         ? `${rn.student_name} (${rn.lrn}), ${rn.subject_name || "all subjects"}`
         : `student ID ${target.student_id}, subject ID ${target.subject_id ?? "all"}`;
-      const revScope = `${target.quarter ? `Q${target.quarter}` : "all quarters"}`;
+      const revScope = target.quarter ? `Q${target.quarter}` : "all quarters";
       const unlockResult = await query<ResultSetHeader>(
         `UPDATE grades
          SET is_locked = 0, locked_at = NULL, locked_by = NULL
          WHERE student_id = ? AND school_year_id = ?
-           AND (subject_id = ? OR ? IS NULL)
-           AND (quarter = ? OR ? IS NULL)`,
+           AND subject_id = ? AND quarter = ?`,
         [
           target.student_id,
           target.school_year_id,
           target.subject_id,
-          target.subject_id,
-          target.quarter,
           target.quarter,
         ]
       );

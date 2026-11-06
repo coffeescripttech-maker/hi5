@@ -159,15 +159,26 @@ export async function listEnrollments(req: Request, res: Response): Promise<void
     }
 
     // Privacy: a teacher only sees enrollments for learners in their own
-    // sections (advised or assigned) — never the pending "Awaiting Section"
+    // advisory sections or their granted per-section-subject classes, or on
+    // one of their elective rosters — never the pending "Awaiting Section"
     // queue. Registrar/principal/admin/committee keep school-wide read access.
     if (req.user?.role === "teacher") {
       const userId = req.user.userId;
       conditions.push(`(
         sec.adviser_id = ?
-        OR e.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+        OR e.section_id IN (
+          SELECT sta.section_id FROM section_teacher_assignments sta
+           WHERE sta.teacher_id = ? AND sta.school_year_id = e.school_year_id
+        )
+        OR EXISTS (
+          SELECT 1 FROM student_electives se
+          JOIN teacher_subject_assignments tea
+            ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+          WHERE se.student_id = e.student_id
+            AND se.school_year_id = e.school_year_id
+        )
       )`);
-      params.push(userId, userId);
+      params.push(userId, userId, userId);
     }
 
     if (conditions.length > 0) {

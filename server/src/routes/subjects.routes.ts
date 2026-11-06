@@ -40,7 +40,7 @@ router.get("/:id", getSubjectById);
 router.post("/", authorize("admin"), createSubject);
 router.put("/:id", authorize("admin"), updateSubject);
 router.delete("/:id", authorize("admin"), deleteSubject);
-router.post("/:id/teachers", authorize("admin"), assignTeacherToSubject);
-router.delete("/:id/teachers/:teacherId", authorize("admin"), unassignTeacherFromSubject);
+router.post("/:id/teachers", authorize("admin", "registrar"), assignTeacherToSubject);
+router.delete("/:id/teachers/:teacherId", authorize("admin", "registrar"), unassignTeacherFromSubject);
 
 export default router;

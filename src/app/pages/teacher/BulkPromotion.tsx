@@ -346,16 +346,18 @@ export function BulkPromotion() {
               }`}>
               <Users size={15} /> By Section
             </button>
-            <button
-              type="button"
-              onClick={() => setMode('individual')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-                mode === 'individual'
-                  ? 'bg-white text-emerald-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              <User size={15} /> Individual
-            </button>
+            {(role === 'admin' || role === 'registrar') && (
+              <button
+                type="button"
+                onClick={() => setMode('individual')}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                  mode === 'individual'
+                    ? 'bg-white text-emerald-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                <User size={15} /> Individual
+              </button>
+            )}
             {role === 'teacher' && (
               <button
                 type="button"
@@ -932,7 +934,7 @@ export function BulkPromotion() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5">
-                          {r.is_completers && r.school_year_id === syId ? (
+                          {r.is_completers && r.school_year_id === syId && (role === 'admin' || role === 'registrar') ? (
                             <button
                               onClick={() => setRollbackTarget(r)}
                               className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 rounded-full transition-colors">
@@ -1009,7 +1011,7 @@ export function BulkPromotion() {
                         />
                         <span className="truncate">{r.promoted_by_name}</span>
                       </span>
-                      {r.is_completers && r.school_year_id === syId ? (
+                      {r.is_completers && r.school_year_id === syId && (role === 'admin' || role === 'registrar') ? (
                         <button
                           onClick={() => setRollbackTarget(r)}
                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200/60 px-2.5 py-1 rounded-full transition-colors">

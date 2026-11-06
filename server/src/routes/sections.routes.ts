@@ -29,7 +29,7 @@ router.get('/teachers', authorize('admin', 'registrar', 'principal', 'enrollment
 router.get('/teaching-coverage', authorize('admin', 'registrar', 'principal'), getTeachingCoverage);
 router.get('/subject-catalog', authorize('admin', 'registrar', 'principal', 'enrollment_committee'), getSubjectCatalog);
 router.post('/teachers/apply', authorize('admin', 'registrar'), applyTeacherToSections);
-router.post('/teachers/copy-previous-year', authorize('admin'), copyTeacherAssignments);
+router.post('/teachers/copy-previous-year', authorize('admin', 'registrar'), copyTeacherAssignments);
 router.get(
   '/my-sections',
   authorize('teacher', 'registrar'),

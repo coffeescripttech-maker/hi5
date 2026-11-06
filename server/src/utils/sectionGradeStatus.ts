@@ -181,8 +181,9 @@ export async function getSectionGradeStatus(
     [schoolYearId, ...learnerIds, ...subjectIds]
   );
 
-  // Owner lookup: the per-section Subject Teachers assignment wins; electives
-  // (and legacy sections) fall back to the subject-level roster.
+  // Owner lookup: the per-section Subject Teachers assignment wins. The
+  // subject-level roster is used ONLY for elective subjects (their teacher is
+  // granted at subject level, not per section).
   const perSection = await query<RowDataPacket[]>(
     `SELECT sta.subject_id, u.id AS teacher_id, u.name AS teacher_name
        FROM section_teacher_assignments sta
@@ -191,8 +192,9 @@ export async function getSectionGradeStatus(
     [sectionId, schoolYearId]
   );
   const legacy = await query<RowDataPacket[]>(
-    `SELECT tsa.subject_id, u.id AS teacher_id, u.name AS teacher_name
+    `SELECT tsa.subject_id, s.subject_type, u.id AS teacher_id, u.name AS teacher_name
        FROM teacher_subject_assignments tsa
+       JOIN subjects s ON s.id = tsa.subject_id AND s.subject_type = 'elective'
        JOIN users u ON u.id = tsa.teacher_id
       WHERE (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
         AND tsa.subject_id IN (${subjectIds.map(() => "?").join(",")})`,

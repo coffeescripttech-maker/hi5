@@ -22,40 +22,6 @@ const SELECT_BASE = `
 `;
 
 /**
- * A teacher may only assess learners on their own roster: students in a section
- * they advise, a pending-queue student they enrolled themselves, or a learner
- * who picked one of the teacher's electives (Strengthened SHS Curriculum).
- * Mirrors the scoping of GET /api/students/my-students so the assessment pages
- * cannot be used to reach other advisers' learners.
- */
-async function teacherOwnsStudent(userId: number, studentId: number, schoolYearId: number): Promise<boolean> {
-  const rows = await query<RowDataPacket[]>(
-    `SELECT e.id
-     FROM enrollments e
-     LEFT JOIN sections sec ON e.section_id = sec.id
-     WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-       AND ((sec.adviser_id IS NOT NULL AND sec.adviser_id = ?)
-            OR (e.section_id IS NULL AND e.enrolled_by = ?)
-            OR EXISTS (
-              SELECT 1 FROM student_electives se
-              JOIN teacher_subject_assignments tea
-                ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
-              WHERE se.student_id = e.student_id
-                AND se.school_year_id = e.school_year_id
-            )
-            OR EXISTS (
-              SELECT 1 FROM section_teacher_assignments sta
-              WHERE sta.section_id = e.section_id
-                AND sta.teacher_id = ?
-                AND sta.school_year_id = e.school_year_id
-            ))
-     LIMIT 1`,
-    [studentId, schoolYearId, userId, userId, userId, userId]
-  );
-  return rows.length > 0;
-}
-
-/**
  * GET /api/reading-assessments — List assessments
  * Query: ?student_id=1&school_year_id=1&result=non_reader
  */
@@ -130,12 +96,28 @@ export async function createReadingAssessment(req: Request, res: Response): Prom
       return;
     }
 
-    if (
-      req.user!.role === "teacher" &&
-      !(await teacherOwnsStudent(req.user!.userId, parseInt(String(student_id)), parseInt(String(school_year_id))))
-    ) {
+    // Client decision (2026-11): ONLY the class adviser tags a learner as
+    // Non-Reader. Subject teachers (per-section or elective grants) may read
+    // the history but never create or delete an assessment; administrators
+    // keep the system-steward override.
+    if (req.user!.role === "teacher") {
+      const advisory = await query<RowDataPacket[]>(
+        `SELECT 1
+           FROM enrollments e
+           JOIN sections sec ON sec.id = e.section_id
+          WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+            AND sec.adviser_id = ? LIMIT 1`,
+        [student_id, school_year_id, req.user!.userId]
+      );
+      if (advisory.length === 0) {
+        res.status(403).json({
+          error: "Only the learner's class adviser can record a reading assessment. Contact your section adviser.",
+        });
+        return;
+      }
+    } else if (req.user!.role !== "admin") {
       res.status(403).json({
-        error: "You can only record a reading assessment for a learner on your own roster.",
+        error: "Only the class adviser can record a reading assessment (administrators excepted).",
       });
       return;
     }
@@ -197,9 +179,28 @@ export async function deleteReadingAssessment(req: Request, res: Response): Prom
       return;
     }
 
-    // Teachers may only remove their own assessment; other roles manage all.
+    // Adviser-only rule (client decision): a teacher may only remove their
+    // own assessment and only for a learner they advise; admin keeps the
+    // steward override.
     if (req.user!.role === "teacher" && existing[0].assessed_by !== req.user!.userId) {
       res.status(403).json({ error: "You can only remove an assessment you administered." });
+      return;
+    }
+    if (req.user!.role === "teacher") {
+      const advisory = await query<RowDataPacket[]>(
+        `SELECT 1
+           FROM enrollments e
+           JOIN sections sec ON sec.id = e.section_id
+          WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
+            AND sec.adviser_id = ? LIMIT 1`,
+        [existing[0].student_id, existing[0].school_year_id, req.user!.userId]
+      );
+      if (advisory.length === 0) {
+        res.status(403).json({ error: "Only the learner's class adviser can remove a reading assessment." });
+        return;
+      }
+    } else if (req.user!.role !== "admin") {
+      res.status(403).json({ error: "Only the class adviser can remove a reading assessment (administrators excepted)." });
       return;
     }
 

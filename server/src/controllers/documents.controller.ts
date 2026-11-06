@@ -7,6 +7,48 @@ import fs from "fs";
 import * as XLSX from "xlsx";
 import { buildGradeTemplate } from "../utils/gradeTemplate";
 
+/**
+ * Teacher grant predicate for grade-workbook access (client review item 5 —
+ * STRICT grant model): a teacher may touch a (section, subject, school year)
+ * document only when the exact section_teacher_assignments pair exists, or —
+ * for ELECTIVE subjects — when they hold the subject-level elective grant.
+ * Used by getTemplate / preview / download / upload / import so every entry
+ * point to another class's LRN + names shares one wall.
+ */
+async function teacherMayAccessDocumentContext(
+  teacherId: number,
+  sectionId: number | null,
+  subjectId: number | null,
+  schoolYearId: number | null
+): Promise<boolean> {
+  if (!subjectId || !schoolYearId) return false;
+  const rows = await query<RowDataPacket[]>(
+    `SELECT s.subject_type FROM subjects s WHERE s.id = ? LIMIT 1`,
+    [subjectId]
+  );
+  if (rows.length === 0) return false;
+  const isElective = String(rows[0].subject_type) === "elective";
+  if (isElective) {
+    const grant = await query<RowDataPacket[]>(
+      `SELECT 1 FROM teacher_subject_assignments tsa
+         JOIN subjects sub ON sub.id = tsa.subject_id AND sub.subject_type = 'elective'
+        WHERE tsa.teacher_id = ? AND tsa.subject_id = ?
+          AND (? IS NULL OR tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
+        LIMIT 1`,
+      [teacherId, subjectId, schoolYearId, schoolYearId]
+    );
+    return grant.length > 0;
+  }
+  if (!sectionId) return false;
+  const pair = await query<RowDataPacket[]>(
+    `SELECT 1 FROM section_teacher_assignments
+      WHERE teacher_id = ? AND section_id = ? AND subject_id = ? AND school_year_id = ?
+      LIMIT 1`,
+    [teacherId, sectionId, subjectId, schoolYearId]
+  );
+  return pair.length > 0;
+}
+
 const UPLOADS_DIR = path.resolve(
   __dirname,
   process.env.UPLOAD_DIR || "../../uploads"
@@ -190,6 +232,13 @@ export async function listDocuments(req: Request, res: Response): Promise<void> 
     if (file_type) { conditions.push("d.file_type = ?"); params.push(file_type); }
 
     if (conditions.length > 0) sql += " WHERE " + conditions.join(" AND ");
+    // Teacher scope: only their own uploads or workbooks for their granted
+    // (section, subject, year) pairs — never the school-wide upload library.
+    if (req.user!.role === "teacher") {
+      sql += (conditions.length > 0 ? " AND " : " WHERE ") +
+        "(d.uploaded_by = ? OR EXISTS (SELECT 1 FROM section_teacher_assignments sta WHERE sta.teacher_id = ? AND sta.subject_id = d.subject_id AND sta.section_id = d.section_id AND sta.school_year_id = d.school_year_id))";
+      params.push(req.user!.userId, req.user!.userId);
+    }
     sql += " ORDER BY d.created_at DESC";
 
     const docs = await query<RowDataPacket[]>(sql, params);
@@ -215,12 +264,12 @@ export async function getMyDocuments(req: Request, res: Response): Promise<void>
        JOIN users u ON d.uploaded_by = u.id
        LEFT JOIN sections sec ON d.section_id = sec.id
        LEFT JOIN subjects sub ON d.subject_id = sub.id
-       LEFT JOIN teacher_subject_assignments tsa
-         ON d.subject_id = tsa.subject_id
-        AND d.school_year_id = tsa.school_year_id
        WHERE (
-          (tsa.teacher_id = ?
-           AND tsa.school_year_id = (SELECT id FROM school_years WHERE is_current = 1 LIMIT 1))
+          (EXISTS (SELECT 1 FROM subjects s2 WHERE s2.id = d.subject_id AND s2.subject_type = 'elective')
+           AND d.subject_id IN (
+             SELECT tsa.subject_id FROM teacher_subject_assignments tsa
+              WHERE tsa.teacher_id = ? AND tsa.school_year_id = d.school_year_id
+           ))
           OR EXISTS (
             SELECT 1 FROM section_teacher_assignments sta
              WHERE sta.teacher_id = ?
@@ -242,6 +291,10 @@ export async function getMyDocuments(req: Request, res: Response): Promise<void>
 
 /**
  * GET /api/documents/:id/download — Download a document
+ *
+ * Access: admin/registrar/principal may download any document; a teacher only
+ * their own uploads or grade workbooks for (section, subject, year) pairs they
+ * hold a per-section grant for (or an elective grant). Everyone else is denied.
  */
 export async function downloadDocument(req: Request, res: Response): Promise<void> {
   try {
@@ -255,8 +308,31 @@ export async function downloadDocument(req: Request, res: Response): Promise<voi
       res.status(404).json({ error: "Document not found." });
       return;
     }
-
     const doc = docs[0];
+
+    const role = req.user!.role;
+    if (role === "teacher") {
+      const own = await query<RowDataPacket[]>(
+        "SELECT 1 FROM uploaded_documents WHERE id = ? AND uploaded_by = ? LIMIT 1",
+        [id, req.user!.userId]
+      );
+      if (
+        own.length === 0 &&
+        !(await teacherMayAccessDocumentContext(
+          req.user!.userId,
+          doc.section_id ?? null,
+          doc.subject_id ?? null,
+          doc.school_year_id ?? null
+        ))
+      ) {
+        res.status(403).json({ error: "Access denied: you may only download your own uploads or your assigned classes' documents." });
+        return;
+      }
+    } else if (role !== "admin" && role !== "registrar" && role !== "principal") {
+      res.status(403).json({ error: "Access denied." });
+      return;
+    }
+
     const filePath = resolveStoredFile(doc.file_path);
 
     if (!fs.existsSync(filePath)) {
@@ -303,6 +379,22 @@ export async function uploadDocument(req: Request, res: Response): Promise<void>
       if (!Number.isInteger(q) || q < 1 || q > 3) {
         fs.unlinkSync(file.path);
         res.status(400).json({ error: "Quarter must be 1, 2, or 3." });
+        return;
+      }
+    }
+
+    // Teacher uploads must land inside their granted scope (same wall as
+    // download/import — an uploaded workbook carries another class's LRNs).
+    if (req.user!.role === "teacher") {
+      const ok = await teacherMayAccessDocumentContext(
+        req.user!.userId,
+        section_id ? Number(section_id) : null,
+        subject_id ? Number(subject_id) : null,
+        school_year_id ? Number(school_year_id) : null
+      );
+      if (!ok) {
+        fs.unlinkSync(file.path);
+        res.status(403).json({ error: "Access denied: you may only upload workbooks for your assigned subject-section pairs." });
         return;
       }
     }
@@ -372,6 +464,26 @@ export async function getTemplate(req: Request, res: Response): Promise<void> {
       return;
     }
     const isElective = subjectRow[0].subject_type === "elective";
+
+    // Access wall — a teacher with no assignment must not download any
+    // section's LRN + names through the template (client review item 1).
+    // Admin/registrar keep full access; a teacher needs the exact
+    // (section, subject, year) grant or, for electives, the subject-level
+    // elective grant.
+    if (req.user!.role === "teacher") {
+      const ok = await teacherMayAccessDocumentContext(
+        req.user!.userId,
+        section_id || null,
+        subject_id,
+        school_year_id
+      );
+      if (!ok) {
+        res.status(403).json({
+          error: "Access denied: you may only download templates for your assigned subject-section pairs."
+        });
+        return;
+      }
+    }
 
     // Strengthened SHS Curriculum: electives roster the learners who picked the
     // subject, so no section is required — an elective-only teacher (no
@@ -447,6 +559,21 @@ export async function previewDocument(req: Request, res: Response): Promise<void
       return;
     }
     const doc = docs[0];
+
+    // Teacher scope — parsing another class's workbook exposes its LRNs and
+    // names, so mirror the strict import grant here.
+    if (req.user!.role === "teacher") {
+      const ok = await teacherMayAccessDocumentContext(
+        req.user!.userId,
+        doc.section_id ?? null,
+        doc.subject_id ?? null,
+        doc.school_year_id ?? null
+      );
+      if (!ok) {
+        res.status(403).json({ error: "Access denied: you may only preview your own uploads or your assigned classes' documents." });
+        return;
+      }
+    }
 
     // Electives don't need a section — their roster is the elective pickers.
     if (!doc.subject_id || !doc.school_year_id) {
@@ -524,24 +651,17 @@ export async function importDocument(req: Request, res: Response): Promise<void>
     }
     const isElectiveSubject = subjectRow[0].subject_type === "elective";
 
-    // Teachers may only import grades for subjects assigned to them — via the
-    // legacy subject-level grant or the new per-section-subject grant (R15).
+    // Teachers may only import grades for their granted scope — STRICT model
+    // (client review item 5): the exact (section, subject, year) grant for a
+    // regular subject, or the subject-level elective grant for an elective.
     if (req.user!.role === "teacher") {
-      let allowed = await query<RowDataPacket[]>(
-        `SELECT 1 FROM teacher_subject_assignments
-         WHERE teacher_id = ? AND subject_id = ? AND (school_year_id = ? OR school_year_id IS NULL)
-         LIMIT 1`,
-        [req.user!.userId, doc.subject_id, doc.school_year_id]
+      const allowed = await teacherMayAccessDocumentContext(
+        req.user!.userId,
+        doc.section_id ?? null,
+        doc.subject_id ?? null,
+        doc.school_year_id ?? null
       );
-      if (allowed.length === 0 && doc.section_id) {
-        allowed = await query<RowDataPacket[]>(
-          `SELECT 1 FROM section_teacher_assignments
-           WHERE teacher_id = ? AND subject_id = ? AND section_id = ? AND school_year_id = ?
-           LIMIT 1`,
-          [req.user!.userId, doc.subject_id, doc.section_id, doc.school_year_id]
-        );
-      }
-      if (allowed.length === 0) {
+      if (!allowed) {
         res.status(403).json({ error: "Access denied: you may only import grades for subjects assigned to you." });
         return;
       }

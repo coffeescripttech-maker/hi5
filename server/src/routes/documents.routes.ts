@@ -45,10 +45,10 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/", listDocuments);
+router.get("/", authorize("admin", "registrar", "principal", "teacher"), listDocuments);
 router.get("/my-documents", authorize("teacher"), getMyDocuments);
 router.get("/template", authorize("admin", "teacher", "registrar"), getTemplate);
-router.get("/:id/download", downloadDocument);
+router.get("/:id/download", authorize("admin", "registrar", "principal", "teacher"), downloadDocument);
 router.get("/:id/preview", authorize("admin", "teacher", "registrar"), previewDocument);
 router.post("/upload", authorize("admin", "teacher", "registrar"), upload.single("file"), uploadDocument);
 router.post("/:id/import", authorize("admin", "teacher", "registrar"), importDocument);

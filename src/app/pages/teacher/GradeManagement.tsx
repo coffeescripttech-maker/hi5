@@ -643,17 +643,19 @@ export function GradeManagement() {
 
   const handleSubmitCorrection = async () => {
     if (!selectedStudent || !correctionJustification) return;
+    // Client decision: an approved correction unlocks only the NAMED subject
+    // and quarter — both are required before the request can be filed.
+    if (!correctionSubject || !correctionQuarter) {
+      showToast('error', 'Select the subject and term being corrected first.');
+      return;
+    }
     setSubmittingCorrection(true);
     try {
-      // Value is the subject_id itself (set by the dropdown) — never match by
-      // display name, and never fall through to null (an all-subjects unlock)
-      // when the teacher picked a specific subject.
-      const subId = correctionSubject ? Number(correctionSubject) : null;
       await gradesApi.requestCorrection({
         student_id: selectedStudent.id,
-        subject_id: subId,
+        subject_id: Number(correctionSubject),
         school_year_id: schoolYearId,
-        quarter: correctionQuarter ? Number(correctionQuarter) : null,
+        quarter: Number(correctionQuarter),
         justification: correctionJustification,
         common_mistake: correctionMistake || null,
         other_mistake:
@@ -1387,7 +1389,7 @@ export function GradeManagement() {
                   value={correctionSubject}
                   onChange={e => setCorrectionSubject(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition">
-                  <option value="">All subjects</option>
+                  <option value="">Select a subject...</option>
                   {grades.map(g => (
                     <option key={g.subject_id} value={String(g.subject_id)}>
                       {g.subject_group && g.subject_group !== g.subject
@@ -1396,6 +1398,7 @@ export function GradeManagement() {
                     </option>
                   ))}
                 </select>
+                <p className="text-[11px] text-gray-400 mt-1">An approval unlocks exactly this subject's grades.</p>
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">
@@ -1405,11 +1408,12 @@ export function GradeManagement() {
                   value={correctionQuarter}
                   onChange={e => setCorrectionQuarter(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 bg-white transition">
-                  <option value="">All terms</option>
+                  <option value="">Select a term...</option>
                   <option value="1">1st Term</option>
                   <option value="2">2nd Term</option>
                   <option value="3">3rd Term</option>
                 </select>
+                <p className="text-[11px] text-gray-400 mt-1">An approval unlocks exactly this term's grades.</p>
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.05em] mb-1.5">

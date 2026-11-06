@@ -2,20 +2,21 @@ import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
 
 /**
- * Teacher grant helpers — docs/new_requirement.txt R1, R11-R14.
+ * Teacher grant helpers — docs/new_requirement.txt R1, R11-R14 (client review
+ * 2026-11: "use ONLY section_teacher_assignments for permission checks").
  *
- * NEW model (Phase B "Subject Teachers"): section_teacher_assignments holds one
- * row per (section, subject, teacher, school year). The adviser designation
- * alone is NOT a grading grant (R1) — it remains only a READ scope (Phase E).
+ * The grant model is:
+ *   - Regular (non-elective) subjects: section_teacher_assignments — the exact
+ *     (section, subject, teacher, school_year) row created in Section
+ *     Creation > Subject Teachers. NO legacy fallback.
+ *   - Elective subjects: subject-level only. An elective's teacher is granted
+ *     via teacher_subject_assignments (Subject Management > elective grant) and
+ *     the roster is the learners who picked it (student_electives). Electives
+ *     are never stored per section (R5/R12).
  *
- * Legacy grants stay honored as a fallback so subject/section-level rows made
- * before this rollout keep working:
- *   - teacher_subject_assignments  (subject-level, optional year)
- *   - teacher_section_assignments  (section-level, optional year)
- * Electives remain subject-level rosters (teacher_subject_assignments joined to
- * student_electives); they are never stored per section (R5/R12).
- *
- * Effective grant = NEW per-section pair OR legacy (subject-level x section-level).
+ * The legacy tables (teacher_subject_assignments for core subjects,
+ * teacher_section_assignments) are NO LONGER honored anywhere in permission
+ * checks — a stale subject-level row by itself no longer grants access.
  */
 
 /** Current school year id (null when none is marked current). */
@@ -62,12 +63,60 @@ export async function hasGrantPair(
 }
 
 /**
+ * Electives: true when the subject is an elective AND the teacher holds the
+ * subject-level elective grant (teacher_subject_assignments) — the only
+ * non-advisory way to reach an elective's roster.
+ */
+export async function hasElectiveGrant(
+  teacherId: number,
+  schoolYearId: number | null,
+  subjectId: number
+): Promise<boolean> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT 1
+       FROM subjects s
+      WHERE s.id = ? AND s.subject_type = 'elective'
+        AND EXISTS (
+          SELECT 1 FROM teacher_subject_assignments tsa
+           WHERE tsa.teacher_id = ? AND tsa.subject_id = s.id
+             AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
+        )
+      LIMIT 1`,
+    [subjectId, teacherId, schoolYearId]
+  );
+  return rows.length > 0;
+}
+
+/** True only for an actual elective subject (subject_type = 'elective'). */
+export async function isElectiveSubject(subjectId: number): Promise<boolean> {
+  const rows = await query<RowDataPacket[]>(
+    "SELECT subject_type FROM subjects WHERE id = ? LIMIT 1",
+    [subjectId]
+  );
+  return rows.length > 0 && String(rows[0].subject_type) === "elective";
+}
+
+/** The learner's current enrolled section for the year (null when pending). */
+export async function getStudentSectionId(
+  studentId: number,
+  schoolYearId: number
+): Promise<number | null> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT section_id FROM enrollments
+      WHERE student_id = ? AND school_year_id = ? AND status = 'enrolled'
+      ORDER BY id DESC LIMIT 1`,
+    [studentId, schoolYearId]
+  );
+  return rows.length > 0 && rows[0].section_id != null
+    ? Number(rows[0].section_id)
+    : null;
+}
+
+/**
  * True when the teacher may edit the given subject for the given learner in
- * the given school year. Matches grades.controller's write scope:
- *   - NEW per-section pair (section_teacher_assignments)
- *   - legacy subject-level grant (teacher_subject_assignments) combined with
- *     section access (adviser or teacher_section_assignments)
- *   - elective pick + subject-level grant
+ * the given school year. Grant model (strict):
+ *   - elective subject  → subject-level elective grant + the learner's pick
+ *   - every other subject → the exact section_teacher_assignments pair
  */
 export async function teacherCanEditStudentSubject(
   teacherId: number,
@@ -75,54 +124,38 @@ export async function teacherCanEditStudentSubject(
   studentId: number,
   subjectId: number | null
 ): Promise<boolean> {
+  if (subjectId == null) return false;
   const rows = await query<RowDataPacket[]>(
     `SELECT 1
        FROM enrollments e
-       LEFT JOIN sections sec ON e.section_id = sec.id
       WHERE e.student_id = ? AND e.school_year_id = ? AND e.status = 'enrolled'
-        AND (
-          (? IS NOT NULL AND EXISTS (
-            SELECT 1 FROM section_teacher_assignments sta
-             WHERE sta.teacher_id = ? AND sta.school_year_id = e.school_year_id
-               AND sta.section_id = e.section_id AND sta.subject_id = ?
-          ))
-          OR (? IS NOT NULL AND EXISTS (
-            SELECT 1 FROM student_electives se
-            JOIN teacher_subject_assignments tea
-              ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
-             AND (tea.school_year_id = e.school_year_id OR tea.school_year_id IS NULL)
-             WHERE se.student_id = e.student_id
-               AND se.school_year_id = e.school_year_id
-               AND se.subject_id = ?
-          ))
-          OR (? IS NOT NULL AND EXISTS (
-            SELECT 1 FROM teacher_subject_assignments tsa
-             WHERE tsa.teacher_id = ? AND tsa.subject_id = ?
-               AND (tsa.school_year_id = e.school_year_id OR tsa.school_year_id IS NULL)
-          ) AND (
-            sec.adviser_id = ?
-            OR EXISTS (
-              SELECT 1 FROM teacher_section_assignments tsc
-               WHERE tsc.section_id = e.section_id AND tsc.teacher_id = ?
-                 AND (tsc.school_year_id = e.school_year_id OR tsc.school_year_id IS NULL)
-            )
-          ))
-        )
       LIMIT 1`,
-    [
-      studentId, schoolYearId,
-      subjectId, teacherId, subjectId,                                   // new pair
-      subjectId, teacherId, subjectId,                                   // elective
-      subjectId, teacherId, subjectId, teacherId, teacherId              // legacy
-    ]
+    [studentId, schoolYearId]
   );
-  return rows.length > 0;
+  if (rows.length === 0) return false;
+  if (await isElectiveSubject(subjectId)) {
+    const pick = await query<RowDataPacket[]>(
+      `SELECT 1 FROM student_electives
+        WHERE student_id = ? AND school_year_id = ? AND subject_id = ? LIMIT 1`,
+      [studentId, schoolYearId, subjectId]
+    );
+    return (
+      pick.length > 0 &&
+      (await hasElectiveGrant(teacherId, schoolYearId, subjectId))
+    );
+  }
+  return hasGrantPair(
+    teacherId,
+    schoolYearId,
+    await getStudentSectionId(studentId, schoolYearId),
+    subjectId
+  );
 }
 
 /**
  * Subject ids the teacher may lock/submit for one section in a school year:
- * the NEW per-section pairs plus legacy subject grants they hold in that
- * section (adviser or section assignment).
+ * the section's section_teacher_assignments pairs, plus any ELECTIVE subject
+ * the teacher is granted at subject level (elective sheets list their pickers).
  */
 export async function lockableSubjectIds(
   teacherId: number,
@@ -133,25 +166,13 @@ export async function lockableSubjectIds(
     `SELECT DISTINCT sta.subject_id
        FROM section_teacher_assignments sta
       WHERE sta.teacher_id = ? AND sta.school_year_id = ? AND sta.section_id = ?
-     UNION
-     SELECT DISTINCT tsa.subject_id
-       FROM teacher_subject_assignments tsa
-      WHERE tsa.teacher_id = ?
-        AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
-        AND EXISTS (
-          SELECT 1 FROM sections sec
-           WHERE sec.id = ?
-             AND (sec.adviser_id = ?
-               OR EXISTS (
-                 SELECT 1 FROM teacher_section_assignments tsc
-                  WHERE tsc.section_id = sec.id AND tsc.teacher_id = ?
-                    AND (tsc.school_year_id = ? OR tsc.school_year_id IS NULL)
-               ))
-        )`,
-    [
-      teacherId, schoolYearId, sectionId,
-      teacherId, schoolYearId, sectionId, teacherId, teacherId, schoolYearId
-    ]
+      UNION
+      SELECT DISTINCT tsa.subject_id
+        FROM teacher_subject_assignments tsa
+        JOIN subjects s ON s.id = tsa.subject_id AND s.subject_type = 'elective'
+       WHERE tsa.teacher_id = ?
+         AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)`,
+    [teacherId, schoolYearId, sectionId, teacherId, schoolYearId]
   );
   return rows.map((r) => Number(r.subject_id));
 }

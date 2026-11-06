@@ -59,8 +59,10 @@ export async function listStudents(req: Request, res: Response): Promise<void> {
     }
 
     // Privacy: a teacher may only see learners in sections they advise or are
-    // assigned to — never the whole school roster, and never the pending
-    // ("Awaiting Section") queue. Other staff roles keep school-wide read access.
+    // granted per-section-subject rows in (strict model), or learners who
+    // picked one of their electives — never the whole school roster, and never
+    // the pending ("Awaiting Section") queue. Other staff roles keep
+    // school-wide read access.
     if (req.user?.role === "teacher") {
       const userId = req.user.userId;
       conditions.push(`s.id IN (
@@ -68,9 +70,16 @@ export async function listStudents(req: Request, res: Response): Promise<void> {
         LEFT JOIN sections sec ON en.section_id = sec.id
         WHERE en.status = 'enrolled'
           AND (sec.adviser_id = ?
-            OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?))
+            OR en.section_id IN (SELECT sta.section_id FROM section_teacher_assignments sta WHERE sta.teacher_id = ? AND sta.school_year_id = en.school_year_id)
+            OR EXISTS (
+              SELECT 1 FROM student_electives se
+              JOIN teacher_subject_assignments tea
+                ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
+              WHERE se.student_id = en.student_id
+                AND se.school_year_id = en.school_year_id
+            ))
       )`);
-      params.push(userId, userId);
+      params.push(userId, userId, userId);
     }
 
     if (conditions.length > 0) {
@@ -108,23 +117,21 @@ export async function getTeacherStudents(req: Request, res: Response): Promise<v
 
     const schoolYearId = currentSY[0].id;
 
-    // Sections this teacher advises OR is assigned to teach a subject in —
-    // the same scope the rest of the teacher-facing APIs use. Learners in the
-    // pending ("Awaiting Section") queue are deliberately NOT included: they
-    // belong to the registrar/committee workflow, not to a teacher's roster.
+    // Sections this teacher advises OR holds per-section-subject grant rows in
+    // (strict model) — the same scope the rest of the teacher-facing APIs use.
+    // Learners in the pending ("Awaiting Section") queue are deliberately NOT
+    // included: they belong to the registrar/committee workflow, not to a
+    // teacher's roster.
     const sections = await query<RowDataPacket[]>(
       `SELECT DISTINCT sec.id, sec.name, sec.grade_level
        FROM sections sec
        WHERE sec.is_active = 1
          AND (sec.adviser_id = ?
            OR EXISTS (
-             SELECT 1 FROM teacher_section_assignments tsa
-             WHERE tsa.section_id = sec.id AND tsa.teacher_id = ?)
-           OR EXISTS (
              SELECT 1 FROM section_teacher_assignments sta
              WHERE sta.section_id = sec.id AND sta.teacher_id = ?
                AND sta.school_year_id = ?))`,
-      [userId, userId, userId, schoolYearId]
+      [userId, userId, schoolYearId]
     );
 
     // A teacher who only handles an elective (no advisory/assigned section)
@@ -278,22 +285,16 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
          LEFT JOIN sections sec ON en.section_id = sec.id
          WHERE en.student_id = ? AND en.status = 'enrolled'
            AND (sec.adviser_id = ?
-             OR en.section_id IN (SELECT tsa.section_id FROM teacher_section_assignments tsa WHERE tsa.teacher_id = ?)
+             OR en.section_id IN (SELECT sta.section_id FROM section_teacher_assignments sta WHERE sta.teacher_id = ? AND sta.school_year_id = en.school_year_id)
              OR EXISTS (
                SELECT 1 FROM student_electives se
                JOIN teacher_subject_assignments tea
                  ON tea.subject_id = se.subject_id AND tea.teacher_id = ?
                WHERE se.student_id = en.student_id
                  AND se.school_year_id = en.school_year_id
-             )
-             OR EXISTS (
-               SELECT 1 FROM section_teacher_assignments sta
-               WHERE sta.section_id = en.section_id
-                 AND sta.teacher_id = ?
-                 AND sta.school_year_id = en.school_year_id
              ))
          LIMIT 1`,
-        [id, userId, userId, userId, userId]
+        [id, userId, userId, userId]
       );
       if (allowed.length === 0) {
         res.status(403).json({ error: "Access denied. This learner is not in any of your assigned classes." });
