@@ -27,6 +27,24 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * Shared 401 wall for the RAW-fetch Response helpers (getBlob / postBlob).
+ * Binary downloads (documents, backups) and the server-rendered PDF export
+ * run outside request<T>, so an expired session would surface as a generic
+ * "Download failed (401)" toast instead of the login screen. Interposing
+ * here routes an expired session through the same clear+redirect wall as
+ * every other call, and still returns the response so the caller's error
+ * handling keeps working.
+ */
+function handleBlob401(res: Response): Response {
+  if (res.status === 401) {
+    clearToken();
+    try { localStorage.removeItem('hi5_portal_session'); } catch { /* ignore */ }
+    window.location.replace('/login');
+  }
+  return res;
+}
+
 // ─── Error Types ────────────────────────────────────────────────────────────
 
 export interface ApiErrorDetail {
@@ -139,7 +157,6 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
     throw err;
   }
-
   // Handle 204 No Content
   if (res.status === 204) return undefined as T;
 
@@ -206,7 +223,7 @@ export const api = {
       headers['Authorization'] = `Bearer ${token}`;
     }
     const qs = buildQuery(params);
-    return fetch(`${API_BASE}${path}${qs}`, { headers });
+    return fetch(`${API_BASE}${path}${qs}`, { headers }).then(handleBlob401);
   },
 
   /**
@@ -225,7 +242,7 @@ export const api = {
       method: 'POST',
       headers,
       body: JSON.stringify(body)
-    });
+    }).then(handleBlob401);
   },
 
   upload<T>(path: string, formData: FormData): Promise<T> {
