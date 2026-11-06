@@ -20,6 +20,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useRoleAccent } from '../../utils/roleTheme';
 import type { NavGroup } from '../../navigation';
+import { ROLE_HOME } from '../../navigation';
 import type { SidebarState } from './Sidebar';
 import { NotificationsDropdown } from './NotificationsDropdown';
 import { ProfileDropdown } from './ProfileDropdown';
@@ -95,7 +96,7 @@ export function TopBar({
             aria-label="Breadcrumb"
             className="hidden items-center gap-1.5 text-[11px] font-medium text-gray-400 sm:flex dark:text-slate-500">
             <button
-              onClick={() => navigate(`/${role}`)}
+              onClick={() => navigate(role ? ROLE_HOME[role] : '/')}
               aria-label="Go to dashboard"
               className="truncate transition-colors hover:text-gray-600 dark:hover:text-slate-300">
               Home
