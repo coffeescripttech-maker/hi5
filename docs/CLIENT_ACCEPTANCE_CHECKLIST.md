@@ -588,6 +588,9 @@ a Δn badge when any baseline has drifted).
 **Source:** `docs/new_requirement.txt` (client, 2026-11-03). Numbered **R1–R28**
 below = the numbered rules in that file.
 
+**Status: ✅ COMPLETE (Phases A–F landed and live-verified, Nov 2026).**
+All rules R1–R28 checked in the progress table below; verification log in §10.2.
+
 ### 10.0 Status legend & phase plan
 
 | Symbol | Meaning |
@@ -637,9 +640,9 @@ Progress table (tick off as each lands):
 | R23 | SF9 attendance saves advisory-only | E | ✅ verified live: advisory learner 200, non-advisory learner 403 |
 | R24 | Adviser tags Non-Reader (scope: decide 10.9-7) | E | ✅ advisory learner tag 200 (after recorded reading assessment), non-advisory 403 |
 | R25 | Teacher cannot enroll / place / transfer / change assignments | C | ✅ teacher routes are read-only for enrollment/section management (audited) |
-| R26 | Teacher replacement: grades stay; old teacher loses edit, new gains | F | ⬜ |
-| R27 | Learner moves section → rosters follow | F | ⬜ |
-| R28 | Grade saves/locks/corrections/approvals logged with old→new | D+F | 🔶 Phase D verified live (save old→new, lock/unlock with learner+subject, correction file/approve); replacement logging in F |
+| R26 | Teacher replacement: grades stay; old teacher loses edit, new gains | F | ✅ verified live: replace via Subject Teachers save — old teacher 403 (write+read), new teacher writes over kept grades (10.9-8: edit follows current assignment) |
+| R27 | Learner moves section → rosters follow | F | ✅ verified live both ways (11→12 and 7→7): old section's subject teacher 403 immediately; granted teachers of the new section write; back-transfer reverses; counts/log follow |
+| R28 | Grade saves/locks/corrections/approvals logged with old→new | D+F | ✅ full lifecycle verified live: save old→new (blank→88, 88→92), lock/unlock with learner+subject, correction file/approve, replacement assign/unassign, transfer from→to |
 
 ### 10.1 Acceptance steps (to be exercised per phase)
 
@@ -727,6 +730,18 @@ so a failure can be reported as "R14 failed".
   advisory-only; teacher cannot reassign section teachers (403). Probe data
   (grades, grant rows, classification, SF9 row, reading assessment, logs)
   removed; adviser restored to id 19.
+- **Phase F (2026-11-06)** — mid-year-change probe: teacher replacement on
+  11-Matatag/General Mathematics keeps grades (92 overwrites 88 in the same
+  record), old teacher drops to 403 on write AND read, replacement logs
+  "Unassigned teacher … / Assigned teacher …" with names; learner transfers
+  (11-Matatag ↔ 12-Masipag and 7-Pogi ↔ 7-Hero) move roster access
+  automatically — old section's subject teacher 403 right after the move, a
+  granted teacher of the new section writes immediately; every move logged
+  "Transferred student: X from A to B"; grade saves record old→new. Probe
+  grades, grant rows, logs and the temp teacher removed; both learners and all
+  section counts restored (the Subject-Teachers full-replace semantics briefly
+  removed Teacher B's rows in 7-Pogi/7-Hero — reconstructed from the Activity
+  Log and re-inserted exactly).
 
 ### 10.9 Decide — **ALL DECIDED** (client/team, 2026-11-03)
 
