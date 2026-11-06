@@ -58,28 +58,32 @@ const SCHOOL_NAME_FALLBACK =
   'Don Servillano Platon Memorial National High School';
 
 /** Map partial text content of flowchart nodes to their system route */
-const NODE_ROUTES: [string, string, string][] = [
+const NODE_ROUTES: [string, string, string, string?][] = [
   // Admin setup
   ['School Year', '/admin/academic-year', 'Manage Academic Years'],
   ['Subjects', '/admin/subjects', 'Manage Subjects'],
   ['Sections and Types', '/admin/sections', 'Manage Sections'],
   ['Teacher/Registrar accounts', '/admin/users', 'Manage Users'],
 
-  // Teacher enrollment
-  ['New Student', '/teacher/enroll', 'Enroll New Student'],
-  ['Continuing G8', '/teacher/enroll', 'Enroll Continuing Student'],
-  ['Balik-Aral', '/teacher/enroll', 'Enroll Balik-Aral'],
-  ['Strand/Track', '/teacher/enroll', 'Select Strand'],
-  ['requirements', '/teacher/enroll', 'Submit Requirements'],
-  ['ENROLL', '/teacher/enroll', 'Enroll Student'],
+  // Teacher / Committee enrollment
+  ['New Student', '/teacher/enroll', 'Enroll New Student', '/committee/enrollment'],
+  ['Continuing G8', '/teacher/enroll', 'Enroll Continuing Student', '/committee/enrollment'],
+  ['Balik-Aral', '/teacher/enroll', 'Enroll Balik-Aral', '/committee/enrollment'],
+  ['Strand/Track', '/teacher/enroll', 'Select Strand', '/committee/enrollment'],
+  ['requirements', '/teacher/enroll', 'Submit Requirements', '/committee/enrollment'],
+  ['ENROLL', '/teacher/enroll', 'Enroll Student', '/committee/enrollment'],
 
-  // Registrar section assignment
-  ['Section Assignment', '/registrar/section-assignment', 'Assign Sections'],
-  ['Pending Section Queue', '/registrar/section-assignment', 'Pending Queue'],
-  ['Random', '/registrar/section-assignment', 'Random Assignment'],
-  ['Placement', '/registrar/section-assignment', 'Placement Assignment'],
-  ['Carryover', '/registrar/section-assignment', 'Carryover Assignment'],
-  ['Manual', '/registrar/section-assignment', 'Manual Assignment'],
+  // Committee / Registrar section assignment
+  ['Section Assignment', '/registrar/section-assignment', 'Assign Sections', '/committee/section-assignment'],
+  ['Pending Section Queue', '/registrar/section-assignment', 'Pending Queue', '/committee/section-assignment'],
+  ['Assignment method', '/registrar/section-assignment', 'Assignment Methods', '/committee/section-assignment'],
+  ['Single Placement', '/registrar/section-assignment', 'Single Placement', '/committee/section-assignment'],
+  ['Shares the whole-queue methods', '/registrar/section-assignment', 'Queue Methods', '/committee/section-assignment'],
+  ['Random', '/registrar/section-assignment', 'Random Assignment', '/committee/section-assignment'],
+  ['Placement', '/registrar/section-assignment', 'Placement Assignment', '/committee/section-assignment'],
+  ['Carryover', '/registrar/section-assignment', 'Carryover Assignment', '/committee/section-assignment'],
+  ['Manual', '/registrar/section-assignment', 'Manual Assignment', '/committee/section-assignment'],
+  ['electives cannot be', '/registrar/section-assignment', 'Elective Gate', '/committee/section-assignment'],
 
   // Teacher grades
   ['Grade Management', '/teacher/grades', 'Grade Management'],
@@ -110,6 +114,7 @@ flowchart TB
   classDef admin fill:#e0e7ff,stroke:#6366f1,stroke-width:1.5,color:#3730a3
   classDef teacher fill:#d1fae5,stroke:#10b981,stroke-width:1.5,color:#065f46
   classDef registrar fill:#fef3c7,stroke:#f59e0b,stroke-width:1.5,color:#92400e
+  classDef committee fill:#ccfbf1,stroke:#14b8a6,stroke-width:1.5,color:#0f766e
   classDef system fill:#f3e8ff,stroke:#a855f7,stroke-width:1.5,color:#6b21a8
   classDef decision fill:#fff7ed,stroke:#f97316,stroke-width:1.5,color:#9a3412
   classDef terminal fill:#fce7f3,stroke:#ec4899,stroke-width:1.5,color:#831843
@@ -122,34 +127,38 @@ flowchart TB
 
   USERS-->ENROLL_START
 
-  subgraph ENROLL_PHASE[Phase 1 - Teacher: Enrollment]
+  subgraph ENROLL_PHASE[Phase 1 - Teacher / Committee: Enrollment]
     ENROLL_START{Student type?}:::decision
-    ENROLL_START-->|New Student G7|NEW_STU[Teacher fills New Student form<br/>LRN, Name, Grade Level, etc.]:::teacher
-    ENROLL_START-->|Continuing G8-G12|RET_STU[Teacher searches LRN<br/>details auto-populate]:::teacher
-    ENROLL_START-->|Balik-Aral|BALIK[Teacher searches LRN<br/>creates fresh record]:::teacher
+    ENROLL_START-->|New Student G7|NEW_STU[Teacher or Committee fills New Student form<br/>LRN, Name, Grade Level, etc.]:::teacher
+    ENROLL_START-->|Continuing G8-G12|RET_STU[Searches LRN<br/>details auto-populate]:::teacher
+    ENROLL_START-->|Balik-Aral|BALIK[Searches LRN<br/>creates fresh record]:::teacher
     NEW_STU-->STRAND{G11+?}
-    STRAND-->|Yes|SELECT_STRAND[Teacher selects Strand/Track<br/>e.g. STEM, ABM, HUMSS, TVL]:::teacher
+    STRAND-->|Yes|SELECT_STRAND[Selects Strand/Track<br/>e.g. STEM, ABM, HUMSS, TVL]:::teacher
     STRAND-->|No|SKIP_STRAND
     SELECT_STRAND-->REQUIREMENTS
     SKIP_STRAND-->REQUIREMENTS
     RET_STU-->REQUIREMENTS
     BALIK-->REQUIREMENTS
-    REQUIREMENTS[Teacher toggles submitted requirements]:::teacher-->ENROLL[Teacher clicks ENROLL<br/><b>No section selected</b>]:::teacher-->SYSTEM_ENROLL[System creates enrollment<br/>section_id = NULL<br/>status = enrolled]:::system-->PENDING[Student appears as<br/><b>Pending Section</b>]:::system
+    REQUIREMENTS[Toggles submitted requirements]:::teacher-->ENROLL[Clicks ENROLL<br/>No section selected]:::teacher-->SYSTEM_ENROLL[System creates enrollment<br/>section_id = NULL<br/>status = enrolled]:::system-->PENDING[Student appears as<br/><b>Pending Section</b>]:::system
+    COMM_NOTE[The Enrollment Committee runs the<br/>same module on its own menu]:::committee
+    PENDING---COMM_NOTE
   end
 
   PENDING-->REG_PHASE
 
-  subgraph REG_PHASE[Phase 2 - Registrar: Section Assignment]
-    REG_VIEW[Registrar opens Section Assignment page]:::registrar-->QUEUE[Sees Pending Section Queue<br/>with all unassigned students]:::registrar
+  subgraph REG_PHASE[Phase 2 - Committee / Registrar: Section Assignment]
+    REG_VIEW[Committee opens the Section Assignment page]:::committee-->QUEUE[Sees Pending Section Queue<br/>with all unassigned students]:::committee
     QUEUE-->ASSIGN_METHOD{Assignment method?}:::decision
-    ASSIGN_METHOD-->|Manual|MANUAL[Pick student -> select target section]:::registrar
-    ASSIGN_METHOD-->|Random|RANDOM[Auto-distribute across available sections]:::registrar
-    ASSIGN_METHOD-->|Placement|PLACEMENT[Assign by exam scores<br/>STE / SPFL / SPJ]:::registrar
-    ASSIGN_METHOD-->|Carryover|CARRYOVER[Carry G11 strand to G12 section]:::registrar
-    MANUAL-->ASSIGNED
-    RANDOM-->ASSIGNED
-    PLACEMENT-->ASSIGNED
-    CARRYOVER-->ASSIGNED
+    ASSIGN_METHOD-->|Single Placement|SINGLE[Move exactly one learner<br/>e.g. a late transferee]:::committee
+    ASSIGN_METHOD-->|Manual|MANUAL[Pick student -> select target section]:::committee
+    ASSIGN_METHOD-->|Random|RANDOM[Auto-distribute across available sections]:::committee
+    ASSIGN_METHOD-->|Placement|PLACEMENT[Assign by exam scores<br/>STE / SPFL / SPJ]:::committee
+    ASSIGN_METHOD-->|Carryover|CARRYOVER[Carry G11 strand to G12 section]:::committee
+    MANUAL-->ELECTIVES
+    RANDOM-->ELECTIVES
+    PLACEMENT-->ELECTIVES
+    CARRYOVER-->ELECTIVES
+    ELECTIVES[Assign missing SHS electives<br/>Note: SHS confirmations are refused until they are filled]:::committee-->ASSIGNED
     ASSIGNED[System updates section_id on enrollment]:::system-->CONFIRM[Student now visible in assigned section]:::system
   end
 
@@ -207,16 +216,17 @@ flowchart LR
   classDef admin fill:#e0e7ff,stroke:#6366f1,color:#3730a3
   classDef teacher fill:#d1fae5,stroke:#10b981,color:#065f46
   classDef registrar fill:#fef3c7,stroke:#f59e0b,color:#92400e
+  classDef committee fill:#ccfbf1,stroke:#14b8a6,color:#0f766e
   classDef system fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
 
-  A[👤 Admin Setup]:::admin-->B[🧑‍🏫 Teacher Enroll Student<br/><small>no section</small>]:::teacher
-  B-->C[📋 Registrar Assign Section]:::registrar
-  C-->D[🧑‍🏫 Teacher Encode Grades T1-T3]:::teacher
-  D-->E[🧑‍🏫 Teacher Lock Grades]:::teacher
-  E-->F[🧑‍🏫 Teacher Generate Forms<br/>SF1 / SF5 / SF9 / SF10]:::teacher
-  F-->G[⚙️ System Bulk Promotion -> next grade]:::system
-  G-->|Repeat for G8-G12|B
-  G-->H[🎓 Grade 12 -> Graduation]:::system
+  A["👤 Admin Setup"]:::admin-->B["🧑‍🏫 Enroll Student — Teacher / Committee<br/><i>no section</i>"]:::teacher
+  B-->C["📋 Committee / Registrar Assigns Section"]:::committee
+  C-->D["🧑‍🏫 Teacher Encodes Grades T1-T3"]:::teacher
+  D-->E["🧑‍🏫 Teacher Locks Grades"]:::teacher
+  E-->F["🧑‍🏫 Teacher Generates Forms<br/>SF1 / SF5 / SF9 / SF10"]:::teacher
+  F-->G["⚙️ System Bulk Promotion — next grade"]:::system
+  G-->|"Repeat for G8-G12"|B
+  G-->H["🎓 Grade 12 — Graduation"]:::system
 `;
 
 /** Short step lists for the appendix quick-reference cards. */
@@ -246,6 +256,18 @@ const QUICK_REF = [
     ]
   },
   {
+    role: 'Committee',
+    color: 'bg-teal-50 border-teal-200',
+    textColor: 'text-teal-700',
+    steps: [
+      'Process Enrollments (New / Continuing / Balik-Aral)',
+      'Verify Submitted Documents',
+      'Assign Sections (Single Placement or whole-queue methods)',
+      'Fill SHS Electives before Confirmation',
+      'Handle Transfers'
+    ]
+  },
+  {
     role: 'Registrar',
     color: 'bg-amber-50 border-amber-200',
     textColor: 'text-amber-700',
@@ -261,7 +283,7 @@ const QUICK_REF = [
 
 export function SystemGuide() {
   const navigate = useNavigate();
-  const { showToast, schoolName, schoolYearLabel } = useApp();
+  const { showToast, schoolName, schoolYearLabel, role } = useApp();
   const [lifecycleSvg, setLifecycleSvg] = useState('');
   const [yearlySvg, setYearlySvg] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -274,13 +296,18 @@ export function SystemGuide() {
       // Attach click handlers to flowchart nodes
       makeNodesClickable(node);
     },
-    [lifecycleSvg]
+    [lifecycleSvg, role]
   );
 
   /** Walk the SVG and attach click handlers matching NODE_ROUTES */
   function makeNodesClickable(container: HTMLElement) {
     const svg = container.querySelector('svg');
     if (!svg) return;
+
+    // Role-aware route resolution: nodes the Enrollment Committee shares with
+    // other roles point committee/admin users to /committee/* equivalents.
+    const seesCommitteeRoutes =
+      role === 'enrollment_committee' || role === 'admin';
 
     // Attach navigation ONLY to real node groups (`g.node`). Edge labels and
     // cluster titles live outside `.node` groups — the old climb-to-parent
@@ -293,13 +320,15 @@ export function SystemGuide() {
       const text = (nodeGroup.textContent || '').trim();
       if (!text) return;
 
-      for (const [match, path, label] of NODE_ROUTES) {
+      for (const [match, path, label, committeePath] of NODE_ROUTES) {
         if (text.includes(match)) {
+          const effective =
+            seesCommitteeRoutes && committeePath ? committeePath : path;
           nodeGroup.style.cursor = 'pointer';
           nodeGroup.setAttribute('title', `Click to go to: ${label}`);
           nodeGroup.addEventListener('click', e => {
             e.stopPropagation();
-            navigate(path);
+            navigate(effective);
           });
           break; // only first match per node
         }
@@ -449,6 +478,10 @@ export function SystemGuide() {
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-[#fef3c7] border border-amber-400 inline-block" />{' '}
             Registrar
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-[#ccfbf1] border border-teal-500 inline-block" />{' '}
+            Committee
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-[#f3e8ff] border border-purple-400 inline-block" />{' '}
@@ -700,7 +733,7 @@ export function SystemGuide() {
           </div>
         </div>
         <div className="p-5 sm:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             {QUICK_REF.map(card => (
               <div
                 key={card.role}
@@ -750,7 +783,8 @@ export function SystemGuide() {
               Full Lifecycle: Grade 7 → Graduation
             </h4>
             <p className="text-xs text-gray-400 mb-3">
-              All 6 phases across Admin, Teacher, Registrar, and Principal roles
+              All phases across Admin, Teacher, Enrollment Committee, Registrar,
+              and Principal roles
             </p>
             <div
               className="guide-zoom rounded-xl border border-gray-100 overflow-auto">

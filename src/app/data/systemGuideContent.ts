@@ -26,7 +26,8 @@ export interface GlossaryEntry {
 export const GUIDE_META = {
   title: 'HI5 Portal — System User Guide',
   subtitle: 'A step-by-step guide for non-technical users',
-  audience: 'For teachers, the registrar, administrators, and the school head.',
+  audience:
+    'For teachers, the enrollment committee, the registrar, administrators, and the school head.',
   footer:
     'Don Servillano Platon Memorial National High School · Sta. Cruz, Tinambac, Camarines Sur'
 };
@@ -34,7 +35,7 @@ export const GUIDE_META = {
 export const gettingStarted: string[] = [
   "The HI5 Portal is the school's online system for enrollment, student records, grade encoding, and school forms. Everything you do on paper today — enrollment forms, grade sheets, SF9 records — is handled here, in one place.",
   'To enter the system, open the portal link in a web browser (Chrome or Edge works best) and sign in with the personal username and password issued to you by the ICT Coordinator or Administrator. Do not share your account — every sign-in is recorded.',
-  'The pages you see after signing in depend on your role. A teacher sees enrollment, grades, and school forms. The registrar assigns sections and prints reports. Administrators manage users, classes, and system settings. This guide explains each role step by step.',
+  'The pages you see after signing in depend on your role. A teacher sees enrollment, grades, and school forms. The Enrollment Committee processes new enrollments and places learners into sections. The registrar assigns sections and prints reports. Administrators manage users, classes, and system settings. This guide explains each role step by step.',
   'If anything looks wrong — a student is missing, a grade looks incorrect, or you cannot sign in — stop and ask the ICT Coordinator or Administrator before making changes. Making corrections after work is locked takes longer and needs approval from the Registrar.'
 ];
 
@@ -42,7 +43,7 @@ export const roles: GuideRole[] = [
   {
     role: 'Administrator',
     summary:
-      'Sets up the system for the whole school: school year, subjects, sections, and user accounts.',
+      "Sets up the system for the whole school: school year, subjects, sections, and user accounts.",
     duties: [
       'Create and manage school years and mark the active one.',
       'Set up subjects and section types per grade level.',
@@ -76,6 +77,24 @@ export const roles: GuideRole[] = [
       'Upload Grades',
       'School Forms',
       'Student List'
+    ]
+  },
+  {
+    role: 'Enrollment Committee',
+    summary:
+      'Owns the intake side of the student life-cycle: processing enrollments, checking submitted documents, and placing every learner into the right section.',
+    duties: [
+      'Confirm new, continuing, and Balik-Aral enrollments.',
+      'Verify the submitted requirements and learner documents.',
+      'Place learners in sections — automatic methods or single placements.',
+      'Complete SHS learners by filling in their elective selections.'
+    ],
+    pages: [
+      'Committee Dashboard',
+      'Enrollment',
+      'Section Assignment',
+      'Transfers',
+      'Document Verification'
     ]
   },
   {
@@ -128,7 +147,7 @@ export const howtos: GuideHowTo[] = [
       'If the student is entering Grade 11 or 12, select their Strand/Track (e.g. STEM, ABM, HUMSS, TVL).',
       'Toggle the submitted requirements (birth certificate, report card, etc.) as they are checked.',
       'Click Enroll — the student is created without a section yet and appears in the Pending Section list.',
-      'The Registrar then assigns the student to a section.'
+      'The Enrollment Committee or Registrar then assigns the student to a section.'
     ]
   },
   {
@@ -140,15 +159,28 @@ export const howtos: GuideHowTo[] = [
       "Search by the student's LRN — their details automatically load from their existing record.",
       'For a continuing student, confirm the details and pick the new grade level.',
       'For Balik-Aral, the system creates a fresh record while keeping the previous history.',
-      'Click Enroll, then let the Registrar assign the section.'
+      'Click Enroll, then let the Enrollment Committee or Registrar assign the section.'
     ]
   },
   {
-    title: 'Assign Students to Sections (Registrar)',
+    title: 'Verify Enrollment Documents (Committee)',
+    summary:
+      'Confirm that each enrolled learner has submitted the required papers before section placement.',
+    steps: [
+      'Open Document Verification (Committee) — learners are listed with their requirement status.',
+      'Check each submitted requirement (birth certificate, report card, ESC certificate, etc.) against the physical papers.',
+      'Mark each document verified as it is checked; flag missing ones for follow-up with the adviser.',
+      "A learner's placement proceeds even with outstanding papers, but the committee tracks the gaps here."
+    ]
+  },
+  {
+    title: 'Assign Students to Sections (Committee / Registrar)',
     summary: 'Turn pending students into sectioned classes.',
     steps: [
       'Open Section Assignment — the Pending Section Queue lists every enrolled student without a section.',
-      'Choose a method: Manual (pick the section yourself), Random (system distributes evenly), Placement (by exam scores, e.g. STE/SPFL/SPJ), or Carryover (strand carried to G12).',
+      'Choose a method: Manual (pick the section yourself), Random (system distributes evenly), Placement (by exam scores, e.g. STE/SPFL/SPJ), Carryover (strand carried to G12) — or Single Placement, which moves exactly ONE learner (for a late transferee or a one-off placement).',
+      'Place students by ticking their checkboxes and pressing Confirm — or use Single Placement for just one.',
+      'For SHS (Grades 11–12) learners, their elective picks are shown in the queue; learners WITHOUT electives cannot be confirmed — assign their electives first using the Assign link beside their names.',
       "Confirm the assignment — the student's section is updated immediately and they become visible inside it.",
       'Repeat until the queue is cleared.'
     ]
@@ -226,7 +258,7 @@ export const glossary: GlossaryEntry[] = [
   {
     term: 'Pending Section Queue',
     definition:
-      'A list of newly enrolled students who do not have a section yet. The registrar works through this queue to assign them.'
+      "A list of newly enrolled students who do not have a section yet. The Enrollment Committee (or the Registrar) works through this queue to assign them."
   },
   {
     term: 'Section Type',
