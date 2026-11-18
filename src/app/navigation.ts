@@ -38,7 +38,8 @@ import {
   Award,
   MapPin,
   ArrowLeftRight,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
 
 export type Role =
@@ -469,6 +470,12 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
           label: 'LIS Export',
           icon: Upload,
           path: '/registrar/lis-export'
+        },
+        {
+          key: 'registrar_lis_import',
+          label: 'Import from LIS',
+          icon: Download,
+          path: '/registrar/lis-import'
         }
       ]
     },

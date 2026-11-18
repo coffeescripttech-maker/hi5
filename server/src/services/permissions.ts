@@ -81,6 +81,7 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
     "registrar_master_schedule",
     "registrar_schedule_modifier",
     "registrar_lis_export",
+    "registrar_lis_import",
     "registrar_atrisk",
     "registrar_certificate_enrollment",
     "registrar_certificate_good_moral",

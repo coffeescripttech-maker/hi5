@@ -13,6 +13,7 @@ import { DatabaseBackup } from "./pages/admin/DatabaseBackup";
 import { SectionCreation } from "./pages/admin/SectionCreation";
 import { RoleAccessControl } from "./pages/admin/RoleAccessControl";
 import { LisExport } from "./pages/admin/LisExport";
+import { LisImport } from "./pages/registrar/LisImport";
 import { TeacherDashboard } from "./pages/teacher/TeacherDashboard";
 import { EnrollmentModule } from "./pages/teacher/EnrollmentModule";
 import { ReadingAssessments } from "./pages/teacher/ReadingAssessments";
@@ -43,6 +44,7 @@ import { SectionAssignment } from "./pages/registrar/SectionAssignment";
 import { ScheduleModifier } from "./pages/registrar/ScheduleModifier";
 import { MasterSchedule } from "./pages/registrar/MasterSchedule";
 import { LisExport as RegistrarLisExport } from "./pages/registrar/LisExport";
+import { LisImport as RegistrarLisImport } from "./pages/registrar/LisImport";
 import { PrincipalExportCenter } from "./pages/principal/PrincipalExportCenter";
 import { CertificateOfEnrollment } from "./pages/registrar/CertificateOfEnrollment";
 import { GoodMoralCertificate } from "./pages/registrar/GoodMoralCertificate";
@@ -78,6 +80,7 @@ export const router = createBrowserRouter([
       { path: "backup", Component: DatabaseBackup },
       { path: "access-control", Component: RoleAccessControl },
       { path: "lis-export", Component: LisExport },
+      { path: "lis-import", Component: LisImport },
       { path: "subjects", Component: SubjectManagement },
       { path: "rooms", Component: AdminRooms },
       { path: "sections", Component: SectionCreation },
@@ -133,6 +136,7 @@ export const router = createBrowserRouter([
       { path: "schedule-modifier", Component: ScheduleModifier },
       { path: "master-schedule", Component: MasterSchedule },
       { path: "lis-export", Component: RegistrarLisExport },
+      { path: "lis-import", Component: RegistrarLisImport },
       { path: "certificates/enrollment", Component: CertificateOfEnrollment },
       { path: "certificates/good-moral", Component: GoodMoralCertificate },
       { path: "guide", Component: SystemGuide },
