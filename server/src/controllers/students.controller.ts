@@ -347,10 +347,53 @@ export async function getStudentById(req: Request, res: Response): Promise<void>
  */
 export async function createStudent(req: Request, res: Response): Promise<void> {
   try {
-    const { student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps } = req.body;
+    const { student_id, lrn, name, name_ext, first_name, middle_name, last_name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps } = req.body;
 
     if (!student_id || !lrn || !name || !grade_level || !sex || !birthdate) {
       res.status(400).json({ error: "Missing required fields: student_id, lrn, name, grade_level, sex, birthdate." });
+      return;
+    }
+
+    // Name suffix (client revision B): optional, from the standard list or a
+    // custom "Other" value. Stored on the learner AND appended to the full
+    // name so every existing display surface (lists, forms, certificates)
+    // shows it without special-casing.
+    let suffix = "";
+    if (name_ext !== undefined && name_ext !== null && String(name_ext).trim() !== "") {
+      suffix = String(name_ext).trim().replace(/\s+/g, " ");
+      if (!/^[A-Za-z][A-Za-z. \-]{0,11}$/.test(suffix)) {
+        res.status(400).json({ error: "Name suffix must be 1-12 letters/dots (e.g. Jr., Sr., III)." });
+        return;
+      }
+    }
+    // Prefer the EXPLICIT parts the operator typed (the enrollment form sends
+    // them separately) — re-parsing the joined name would mis-split multi-word
+    // surnames like "Dela Cruz". Fall back to the formatter only when parts
+    // are absent (older clients).
+    const hasExplicitParts =
+      first_name !== undefined || middle_name !== undefined || last_name !== undefined;
+    const parts = hasExplicitParts
+      ? {
+          last: String(last_name ?? "").trim(),
+          first: String(first_name ?? "").trim(),
+          middle: String(middle_name ?? "").trim(),
+          ext: suffix
+        }
+      : (() => {
+          const p = parseName(String(name ?? ""));
+          if (suffix) p.ext = suffix;
+          return p;
+        })();
+    const fullName = [
+      parts.first,
+      parts.middle,
+      parts.last,
+      parts.ext
+    ]
+      .filter(Boolean)
+      .join(" ");
+    if (!fullName) {
+      res.status(400).json({ error: "Name cannot be empty." });
       return;
     }
 
@@ -369,14 +412,13 @@ export async function createStudent(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const parts = parseName(String(name ?? ""));
     const result = await query<ResultSetHeader>(
       `INSERT INTO students (student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps, last_name, first_name, middle_name, name_ext)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [student_id, lrn, name, grade_level, sex, birthdate, address || null, guardian || null, contact || null, status || "pending", height_cm || null, weight_kg || null, guardian_4ps ? 1 : 0, parts.last || null, parts.first || null, parts.middle || null, parts.ext || null]
+      [student_id, lrn, fullName, grade_level, sex, birthdate, address || null, guardian || null, contact || null, status || "pending", height_cm || null, weight_kg || null, guardian_4ps ? 1 : 0, parts.last || null, parts.first || null, parts.middle || null, parts.ext || null]
     );
 
-    await logActivity(req.user!.userId, `Created student "${name}" (${student_id})`, "students", result.insertId);
+    await logActivity(req.user!.userId, `Created student "${fullName}" (${student_id})`, "students", result.insertId);
 
     const newStudent = await query<StudentRow[]>("SELECT * FROM students WHERE id = ?", [result.insertId]);
     res.status(201).json(newStudent[0]);
@@ -392,7 +434,7 @@ export async function createStudent(req: Request, res: Response): Promise<void> 
 export async function updateStudent(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const { lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps } = req.body;
+    const { lrn, name, name_ext, first_name, middle_name, last_name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps } = req.body;
 
     const existing = await query<RowDataPacket[]>("SELECT id FROM students WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -404,13 +446,62 @@ export async function updateStudent(req: Request, res: Response): Promise<void> 
     const params: any[] = [];
 
     if (lrn !== undefined) { fields.push("lrn = ?"); params.push(lrn); }
-    if (name !== undefined) {
-      fields.push("name = ?"); params.push(name);
-      // Keep the name parts in sync with the shared formatter (LIS matching
-      // + printed forms read these columns).
-      const nameParts = parseName(String(name ?? ""));
-      fields.push("last_name = ?", "first_name = ?", "middle_name = ?", "name_ext = ?");
-      params.push(nameParts.last || null, nameParts.first || null, nameParts.middle || null, nameParts.ext || null);
+    if (name !== undefined || first_name !== undefined || middle_name !== undefined || last_name !== undefined || name_ext !== undefined) {
+      // Name + suffix (client revision B): prefer the EXPLICIT parts when the
+      // caller sends them (the Edit-details UI knows the true surname);
+      // otherwise parse the supplied full name. The suffix, when provided,
+      // is the authoritative ext part and is appended to the stored name.
+      let suffix: string | undefined;
+      if (name_ext !== undefined && name_ext !== null && String(name_ext).trim() !== "") {
+        suffix = String(name_ext).trim().replace(/\s+/g, " ");
+        if (!/^[A-Za-z][A-Za-z. \-]{0,11}$/.test(suffix)) {
+          res.status(400).json({ error: "Name suffix must be 1-12 letters/dots (e.g. Jr., Sr., III)." });
+          return;
+        }
+      } else if (name_ext !== undefined) {
+        suffix = ""; // explicit clear
+      }
+      let parts;
+      if (first_name !== undefined || middle_name !== undefined || last_name !== undefined) {
+        const current = await query<RowDataPacket[]>(
+          "SELECT last_name, first_name, middle_name, name_ext FROM students WHERE id = ?",
+          [id]
+        );
+        const prev = current[0] || ({} as RowDataPacket);
+        parts = {
+          last: String(last_name ?? prev.last_name ?? "").trim(),
+          first: String(first_name ?? prev.first_name ?? "").trim(),
+          middle: String(middle_name ?? prev.middle_name ?? "").trim(),
+          ext: suffix !== undefined ? suffix : String(prev.name_ext ?? "").trim()
+        };
+        if (name === undefined && suffix === undefined) {
+          // Only unrelated fields changed — nothing to do here.
+          parts = null as any;
+        }
+      } else {
+        parts = parseName(String(name ?? ""));
+        if (suffix !== undefined) parts.ext = suffix;
+      }
+      if (parts) {
+        if (suffix !== undefined && !first_name && !last_name && name !== undefined) {
+          // name-only update with a suffix: strip a prior suffix and re-append
+          const prior = parseName(String(name).trim());
+          parts = { ...prior, ext: suffix };
+        }
+        const effectiveName = [
+          parts.first,
+          parts.middle,
+          parts.last,
+          parts.ext
+        ]
+          .filter(Boolean)
+          .join(" ");
+        if (name !== undefined || first_name !== undefined || middle_name !== undefined || last_name !== undefined || suffix !== undefined) {
+          fields.push("name = ?"); params.push(effectiveName);
+          fields.push("last_name = ?", "first_name = ?", "middle_name = ?", "name_ext = ?");
+          params.push(parts.last || null, parts.first || null, parts.middle || null, parts.ext || null);
+        }
+      }
     }
     if (grade_level !== undefined) {
       if (grade_level < 7 || grade_level > 12) {

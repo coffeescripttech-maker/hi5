@@ -53,6 +53,11 @@ import { z } from 'zod';
 const capitalizeName = (value: string): string =>
   value.replace(/\b[a-z]/g, m => m.toUpperCase());
 
+// Name suffix options (client revision B — "Name Suffix"): optional suffix
+// captured at enrollment and stored on the learner record; "Other" opens a
+// short text field for anything outside the standard list.
+export const NAME_SUFFIX_OPTIONS = ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V', 'Other'] as const;
+
 const newStudentSchema = z.object({
   firstName: z
     .string()
@@ -63,6 +68,11 @@ const newStudentSchema = z.object({
     .string()
     .min(1, 'Last name is required')
     .min(2, 'Last name must be at least 2 characters'),
+  nameSuffix: z.string().optional(),
+  nameSuffixOther: z
+    .string()
+    .max(12, 'Suffix must be 12 characters or fewer')
+    .optional(),
   birthdate: z
     .string()
     .min(1, 'Birthdate is required')
@@ -1128,6 +1138,8 @@ export function EnrollmentModule() {
     firstName: '',
     middleName: '',
     lastName: '',
+    nameSuffix: '',
+    nameSuffixOther: '',
     birthdate: '',
     sex: 'Female',
     address: '',
@@ -1395,6 +1407,13 @@ export function EnrollmentModule() {
         .string()
         .min(1, 'Last name is required')
         .min(2, 'Last name must be at least 2 characters'),
+      nameSuffixOther:
+        field === 'nameSuffixOther' || field === 'nameSuffix'
+          ? z
+              .string()
+              .max(12, 'Suffix must be 12 characters or fewer')
+              .optional()
+          : z.string().optional(),
       birthdate: z
         .string()
         .min(1, 'Birthdate is required')
@@ -1854,6 +1873,8 @@ export function EnrollmentModule() {
       firstName: '',
       middleName: '',
       lastName: '',
+      nameSuffix: '',
+      nameSuffixOther: '',
       birthdate: '',
       sex: 'Female',
       address: '',
@@ -1959,13 +1980,25 @@ export function EnrollmentModule() {
     }
     setSubmitting(true);
     try {
-      const fullName = [newData.firstName, newData.middleName, newData.lastName]
+      const fullName = [
+        newData.firstName,
+        newData.middleName,
+        newData.lastName
+      ]
         .filter(Boolean)
         .join(' ');
+      const resolvedSuffix =
+        newData.nameSuffix === 'Other'
+          ? newData.nameSuffixOther.trim()
+          : newData.nameSuffix;
       const created = await studentsApi.create({
         student_id: newStudentID,
         lrn: newData.lrn,
         name: fullName,
+        first_name: newData.firstName,
+        middle_name: newData.middleName || undefined,
+        last_name: newData.lastName,
+        name_ext: resolvedSuffix || undefined,
         grade_level: newGrade,
         sex: newData.sex.toLowerCase() as 'male' | 'female',
         birthdate: newData.birthdate,
@@ -2670,7 +2703,14 @@ export function EnrollmentModule() {
       'Student ID',
       'Preview & Confirm'
     ];
-    const fullName = [newData.firstName, newData.middleName, newData.lastName]
+    const fullName = [
+      newData.firstName,
+      newData.middleName,
+      newData.lastName,
+      newData.nameSuffix === 'Other'
+        ? newData.nameSuffixOther.trim()
+        : newData.nameSuffix
+    ]
       .filter(Boolean)
       .join(' ');
 
@@ -2895,6 +2935,52 @@ export function EnrollmentModule() {
                     </p>
                   )}
                 </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                    Name Suffix
+                  </label>
+                  <select
+                    value={newData.nameSuffix}
+                    onChange={e =>
+                      updateNewField('nameSuffix', e.target.value)
+                    }
+                    className="w-full border border-gray-200 focus:border-emerald-400 focus:ring-emerald-100 rounded-xl px-3 py-2.5 text-sm bg-white/75 focus:outline-none focus:ring-3 transition-all">
+                    <option value="">— None —</option>
+                    {NAME_SUFFIX_OPTIONS.map(sfx => (
+                      <option key={sfx} value={sfx}>
+                        {sfx}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {newData.nameSuffix === 'Other' && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                      Specify Suffix *
+                    </label>
+                    <input
+                      type="text"
+                      value={newData.nameSuffixOther}
+                      onChange={e =>
+                        updateNewField(
+                          'nameSuffixOther',
+                          e.target.value.replace(/[^A-Za-z. ]/g, '')
+                        )
+                      }
+                      maxLength={12}
+                      className="w-full border border-gray-200 focus:border-emerald-400 focus:ring-emerald-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-3 transition-all bg-white/75"
+                      placeholder="e.g. Jr. III"
+                    />
+                    {newErrors.nameSuffixOther && (
+                      <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                        <AlertCircle size={10} />
+                        {newErrors.nameSuffixOther}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

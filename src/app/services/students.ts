@@ -63,6 +63,12 @@ export interface CreateStudentPayload {
   student_id: string;
   lrn: string;
   name: string;
+  /** Explicit name parts (the enrollment form knows the true surname). */
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  /** Optional name suffix (Jr., Sr., II, III, IV, V, or a custom "Other"). */
+  name_ext?: string;
   grade_level: number;
   sex: "male" | "female";
   birthdate: string;
@@ -76,6 +82,12 @@ export interface CreateStudentPayload {
 
 export interface UpdateStudentPayload {
   name?: string;
+  /** Explicit name parts — the Edit-details UI knows the true surname. */
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  /** Optional name suffix — provided together with the name change. */
+  name_ext?: string;
   grade_level?: number;
   address?: string;
   guardian?: string;
