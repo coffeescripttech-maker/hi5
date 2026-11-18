@@ -34,6 +34,7 @@ import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
 import { FormPrintPreview } from '../../components/FormPrintPreview';
 import { DocumentViewer } from '../../components/DocumentViewer';
+import { parseName } from '../../utils/nameFormatter';
 
 /* ---------------------------------------------------------------- */
 /* Column definitions matching DepEd School Form 1 (SF1)            */
@@ -118,10 +119,13 @@ type RowData = Record<string, string>;
 /* ---------------------------------------------------------------- */
 
 function formatName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  const last = parts.pop()!;
-  return `${last}, ${parts.join(' ')}`;
+  // Shared formatter: suffix-aware ("Juan Pedro Dela Cruz Jr." ->
+  // "Dela Cruz, Juan Pedro Jr."). The old word-pop version broke on names
+  // with a suffix (it made "Jr." the last name).
+  const parts = parseName(name);
+  const given = [parts.first, parts.middle].filter(Boolean).join(' ');
+  const base = parts.last ? `${parts.last}, ${given}`.replace(/,\s*$/, '') : given;
+  return parts.ext ? `${base} ${parts.ext}` : base;
 }
 
 function formatBirthdate(dateStr: string): string {
@@ -516,17 +520,20 @@ export function SF1Register() {
         sex: s.sex === 'male' ? 'M' : s.sex === 'female' ? 'F' : '',
         birthdate: formatBirthdate(s.birthdate),
         age: s.birthdate ? String(computeAge(s.birthdate)) : '',
-        mothertongue: '',
-        ip: '',
-        religion: '',
-        addr_house: '',
-        addr_barangay: '',
-        addr_city: '',
-        addr_province: '',
-        father: '',
-        mother: '',
+        // School Form Field Population (#C): these learner fields now come
+        // from the database (LIS-importable). Saved SF edits still override
+        // via the overlay below.
+        mothertongue: s.mother_tongue || '',
+        ip: s.ip_ethnic_group || '',
+        religion: s.religion || '',
+        addr_house: s.house_street || '',
+        addr_barangay: s.barangay || '',
+        addr_city: s.city_municipality || '',
+        addr_province: s.province || '',
+        father: s.father_name || '',
+        mother: s.mother_name || '',
         guardian_name: s.guardian || '',
-        guardian_rel: '',
+        guardian_rel: s.guardian_relationship || '',
         contact: s.contact || '',
         remarks
       };

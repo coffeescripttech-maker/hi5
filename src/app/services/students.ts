@@ -8,6 +8,23 @@ export interface StudentRow {
   student_id: string;
   lrn: string;
   name: string;
+  /** Name parts (shared formatter) — LIS matching + printed forms. */
+  last_name?: string | null;
+  first_name?: string | null;
+  middle_name?: string | null;
+  name_ext?: string | null;
+  /** Learner detail fields (LIS-importable, printed on SF1). */
+  mother_tongue?: string | null;
+  ip_ethnic_group?: string | null;
+  religion?: string | null;
+  father_name?: string | null;
+  mother_name?: string | null;
+  guardian_relationship?: string | null;
+  house_street?: string | null;
+  barangay?: string | null;
+  city_municipality?: string | null;
+  province?: string | null;
+  zip_code?: string | null;
   grade_level: number;
   sex: "male" | "female";
   birthdate: string;

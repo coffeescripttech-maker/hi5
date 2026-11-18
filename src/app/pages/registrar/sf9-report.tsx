@@ -1390,17 +1390,25 @@ export function SF9Report() {
                         const p = parseName(
                           sf9Data.student?.name || selectedStudent.name
                         );
+                        // Display standard: "DELA CRUZ, JUAN PEDRO Jr." —
+                        // uppercase given/surname, suffix as typed (item B).
+                        const up = (v: string) => (v || '').toUpperCase();
                         return (
                           <>
                             <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">
-                              {p.last}
+                              {up(p.last)}
                             </span>
                             <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">
-                              {p.first}
+                              {up(p.first)}
                             </span>
                             <span className="flex-1 border-b border-black text-[11px] pl-1 leading-tight">
-                              {p.middle}
+                              {up(p.middle)}
                             </span>
+                            {p.ext && (
+                              <span className="border-b border-black text-[11px] pl-1 leading-tight min-w-10">
+                                {p.ext}
+                              </span>
+                            )}
                           </>
                         );
                       })()}

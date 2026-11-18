@@ -1195,7 +1195,11 @@ export function SF10Report() {
                         onChange={e =>
                           setLearnerField(key, e.target.value)
                         }
-                        className="sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
+                        // Display standard (item B): "DELA CRUZ, JUAN PEDRO
+                        // Jr." — the given/surname parts print uppercase;
+                        // the suffix keeps its typed case. Display-only —
+                        // the stored value is untouched.
+                        className={`sf1-input sf-fill-input flex-1 border-b-2 border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50 ${key !== 'nameExt' ? 'uppercase' : ''}`}
                       />
                     </div>
                   ))}
