@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useFormEdits, editKey } from '../../hooks/useFormEdits';
+import { parseName } from '../../utils/nameFormatter';
 import { FormEditsMenu } from '../../components/FormEditsMenu';
 import {
   Loader2,
@@ -136,56 +137,6 @@ const EMPTY_REMEDIAL = (): RemedialRow => ({
 });
 
 /* ── Helpers ── */
-
-/** Parse "Last, First Middle" or "First Middle Last" into parts */
-function parseName(name: string): {
-  last: string;
-  first: string;
-  middle: string;
-  ext: string;
-} {
-  const EXTS = ['JR', 'JR.', 'SR', 'SR.', 'II', 'III', 'IV', 'V', 'VI'];
-  const comma = name.indexOf(',');
-  if (comma >= 0) {
-    const lastPart = name.substring(0, comma).trim();
-    const rest = name
-      .substring(comma + 1)
-      .trim()
-      .split(/\s+/);
-    let first = '';
-    let middle = '';
-    let ext = '';
-    if (
-      rest.length > 1 &&
-      EXTS.includes(rest[rest.length - 1].toUpperCase())
-    ) {
-      ext = rest.pop() as string;
-    }
-    first = rest[0] || '';
-    middle = rest.slice(1).join(' ') || '';
-    return { last: lastPart, first, middle, ext };
-  }
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1)
-    return { last: parts[0], first: '', middle: '', ext: '' };
-  let ext = '';
-  if (
-    parts.length >= 3 &&
-    EXTS.includes(parts[parts.length - 1].toUpperCase())
-  ) {
-    ext = parts.pop() as string;
-  }
-  if (parts.length === 1)
-    return { last: parts[0], first: '', middle: '', ext };
-  if (parts.length === 2)
-    return { last: parts[1], first: parts[0], middle: '', ext };
-  return {
-    last: parts[parts.length - 1],
-    first: parts[0],
-    middle: parts.slice(1, -1).join(' '),
-    ext
-  };
-}
 
 function fmt(v: number | string | null | undefined): string {
   if (v === null || v === undefined || v === '') return '';

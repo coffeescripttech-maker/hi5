@@ -8,6 +8,7 @@ import { formsApi, SF9Row } from '../../services/forms';
 import { useFormEdits, editKey } from '../../hooks/useFormEdits';
 import { FormEditsMenu } from '../../components/FormEditsMenu';
 import { schoolYearsApi, SchoolYearRow } from '../../services/schoolYears';
+import { parseName } from '../../utils/nameFormatter';
 import { subjectsApi } from '../../services/subjects';
 import { electivesApi, ElectiveBatchRow } from '../../services/electives';
 import { useApp } from '../../context/AppContext';
@@ -99,34 +100,7 @@ function toNum(v: any): number | null {
 }
 
 /** Parse a student name into last, first, and middle components */
-function parseName(name: string): {
-  last: string;
-  first: string;
-  middle: string;
-} {
-  // Try "Last, First Middle" format
-  const comma = name.indexOf(',');
-  if (comma >= 0) {
-    const last = name.substring(0, comma).trim();
-    const rest = name
-      .substring(comma + 1)
-      .trim()
-      .split(/\s+/);
-    const first = rest[0] || '';
-    const middle = rest.slice(1).join(' ') || '';
-    return { last, first, middle };
-  }
-  // Fallback: "First Middle Last"
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return { last: parts[0], first: '', middle: '' };
-  if (parts.length === 2)
-    return { last: parts[1], first: parts[0], middle: '' };
-  return {
-    last: parts[parts.length - 1],
-    first: parts[0],
-    middle: parts.slice(1, -1).join(' ')
-  };
-}
+// (uses the shared formatter — import added below; local copy removed)
 
 /** Parse LRN into 12 individual digits for the LRN grid */
 function lrnDigits(lrn: string): string[] {

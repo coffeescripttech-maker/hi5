@@ -11,9 +11,10 @@
     "seed": "tsx src/config/seed.ts",
     "db:setup": "npm run migrate && npm run seed",
     "db:reset": "tsx src/config/reset.ts",
-    "test": "tsx --test src/utils/linearRegression.test.ts src/services/sectioningRules.test.ts",
+    "test": "tsx --test src/utils/linearRegression.test.ts src/services/sectioningRules.test.ts src/utils/nameFormatter.test.ts",
     "test:api": "tsx scripts/smokeCommittee.ts",
-    "test:e2e": "node e2e-sf-forms.cjs"
+    "test:e2e": "node e2e-sf-forms.cjs",
+    "backfill:name-parts": "tsx scripts/backfill-name-parts.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

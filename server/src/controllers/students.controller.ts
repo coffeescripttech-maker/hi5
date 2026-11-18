@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { query, getConnection } from "../config/database";
+import { parseName } from "../utils/nameFormatter";
 import { logActivity } from "../utils/activityLogger";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -368,10 +369,11 @@ export async function createStudent(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    const parts = parseName(String(name ?? ""));
     const result = await query<ResultSetHeader>(
-      `INSERT INTO students (student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [student_id, lrn, name, grade_level, sex, birthdate, address || null, guardian || null, contact || null, status || "pending", height_cm || null, weight_kg || null, guardian_4ps ? 1 : 0]
+      `INSERT INTO students (student_id, lrn, name, grade_level, sex, birthdate, address, guardian, contact, status, height_cm, weight_kg, guardian_4ps, last_name, first_name, middle_name, name_ext)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [student_id, lrn, name, grade_level, sex, birthdate, address || null, guardian || null, contact || null, status || "pending", height_cm || null, weight_kg || null, guardian_4ps ? 1 : 0, parts.last || null, parts.first || null, parts.middle || null, parts.ext || null]
     );
 
     await logActivity(req.user!.userId, `Created student "${name}" (${student_id})`, "students", result.insertId);
@@ -402,7 +404,14 @@ export async function updateStudent(req: Request, res: Response): Promise<void> 
     const params: any[] = [];
 
     if (lrn !== undefined) { fields.push("lrn = ?"); params.push(lrn); }
-    if (name !== undefined) { fields.push("name = ?"); params.push(name); }
+    if (name !== undefined) {
+      fields.push("name = ?"); params.push(name);
+      // Keep the name parts in sync with the shared formatter (LIS matching
+      // + printed forms read these columns).
+      const nameParts = parseName(String(name ?? ""));
+      fields.push("last_name = ?", "first_name = ?", "middle_name = ?", "name_ext = ?");
+      params.push(nameParts.last || null, nameParts.first || null, nameParts.middle || null, nameParts.ext || null);
+    }
     if (grade_level !== undefined) {
       if (grade_level < 7 || grade_level > 12) {
         res.status(400).json({ error: "Grade level must be between 7 and 12." });
