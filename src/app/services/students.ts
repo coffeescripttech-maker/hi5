@@ -64,7 +64,7 @@ export interface GraduateRow {
 }
 
 /** Student with enrollment and section info (from GET /api/students/:id) */
-export interface StudentDetail extends StudentRow {
+export interface StudentDetail extends Omit<StudentRow, 'updated_at'> {
   enrollment?: {
     id: number;
     section_id: number | null;
@@ -74,6 +74,10 @@ export interface StudentDetail extends StudentRow {
     status: string;
     enrollment_date: string;
   };
+  /** Present on the detail payload (getStudentById). */
+  is_archived?: number | null;
+  archived_at?: string | null;
+  updated_at?: string;
 }
 
 export interface CreateStudentPayload {
@@ -120,6 +124,43 @@ export interface ClassificationPayload {
   school_year_id: number;
 }
 
+/** Student Details Edit — change-history row (student_field_history). */
+export interface StudentHistoryRow {
+  id: number;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  reason: string;
+  changed_by: number;
+  changed_by_name: string | null;
+  created_at: string;
+  batch_id: string | null;
+}
+
+export interface DetailChange {
+  field: string;
+  label: string;
+  group: "routine" | "identity";
+  old: string;
+  new: string;
+}
+
+export interface UpdateDetailsPayload {
+  fields: Record<string, unknown>;
+  reason?: string;
+  reason_note?: string;
+  /** When the edit form was opened — optimistic-conflict check. */
+  opened_at?: string;
+}
+
+export interface UpdateDetailsResponse {
+  message: string;
+  learner: StudentRow;
+  changes: DetailChange[];
+  duplicate_warning: string | null;
+  batch_id?: string;
+}
+
 export const studentsApi = {
   list: (params?: { search?: string; grade_level?: number; status?: string; section_id?: number; school_year_id?: number }) => {
     const query = params
@@ -137,6 +178,10 @@ export const studentsApi = {
   /** Alumni list — students marked as graduated with their graduation school year */
   graduates: () => api.get<GraduateRow[]>("/students/graduates"),
   get: (id: number) => api.get<StudentDetail>(`/students/${id}`),
+  updateDetails: (id: number, data: UpdateDetailsPayload) =>
+    api.put<UpdateDetailsResponse>(`/students/${id}/details`, data),
+  history: (id: number) =>
+    api.get<StudentHistoryRow[]>(`/students/${id}/history`),
   create: (data: CreateStudentPayload) =>
     api.post<StudentRow>("/students", data),
   update: (id: number, data: UpdateStudentPayload) =>

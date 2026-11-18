@@ -53,13 +53,18 @@ import { gradesApi, GradeHistoryYear } from '../services/grades';
 import { useApp } from '../context/AppContext';
 import { useRoleAccent } from '../utils/roleTheme';
 import { HybridTable } from '../components/HybridTable';
+import {
+  EditDetailsPanel,
+  ChangeHistoryTab
+} from '../components/student/StudentDetailsEdit';
 
 const TABS = [
   { id: 'personal', label: 'Personal Information', icon: User },
   { id: 'enrollment', label: 'Enrollment History', icon: BookOpen },
   { id: 'grades', label: 'Grade History', icon: BarChart2 },
   { id: 'documents', label: 'Document Checklist', icon: ClipboardList },
-  { id: 'sections', label: 'Section History', icon: Layers }
+  { id: 'sections', label: 'Section History', icon: Layers },
+  { id: 'history', label: 'Change History', icon: Clock }
 ];
 
 /** Standard enrollment-requirement documents shown in the Student Profile checklist. */
@@ -426,6 +431,14 @@ export function StudentProfile() {
       .slice(0, 2)
       .join('')
       .toUpperCase() || '?';
+
+  // Student Details Edit (client revision): committee/registrar/admin may
+  // edit learner details; the identity fields additionally require a reason
+  // and are locked for closed school years / promoted learners unless admin.
+  const canEditDetails =
+    role === 'admin' || role === 'registrar' || role === 'enrollment_committee';
+  const canEditIdentityNow = role === 'admin';
+  const [editOpen, setEditOpen] = useState(false);
 
   /** Format an ISO date string (e.g. "2026-08-04T16:00:00.000Z") as "August 4, 2026" */
   const formatDate = (d?: string | null): string =>
@@ -905,6 +918,14 @@ export function StudentProfile() {
                       Personal details and identifiers
                     </p>
                   </div>
+                  {canEditDetails && (
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(true)}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50">
+                      <Pencil size={12} /> Edit details
+                    </button>
+                  )}
                 </div>
                 <div className="p-3">
                   <DetailRow
@@ -1140,6 +1161,11 @@ export function StudentProfile() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* ══════ CHANGE HISTORY tab ══════ */}
+          {activeTab === 'history' && canEditDetails && student && (
+            <ChangeHistoryTab studentId={student.id} accent={accent} />
           )}
 
           {/* ══════ ENROLLMENT HISTORY ══════ */}
@@ -1663,6 +1689,26 @@ export function StudentProfile() {
             </div>
           )}
         </div>
+
+        {/* ── Student Details Edit panel (client revision) ── */}
+        {editOpen && student && (
+          <EditDetailsPanel
+            student={student}
+            canEditIdentity={canEditIdentityNow}
+            onClose={() => setEditOpen(false)}
+            onSaved={updated => {
+              setStudent(prev =>
+                prev ? { ...prev, ...updated } : (updated as StudentDetail)
+              );
+              // Refresh other tabs that display learner-driven data.
+              studentsApi
+                .get(student.id)
+                .then(fresh => setStudent(fresh))
+                .catch(() => {});
+            }}
+            showToast={(type, msg) => showToast(type, msg)}
+          />
+        )}
       </div>
     </div>
   );

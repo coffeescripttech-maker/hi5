@@ -11,6 +11,10 @@ import {
   deleteStudent,
   updateClassifications,
 } from "../controllers/students.controller";
+import {
+  updateStudentDetails,
+  getStudentHistory,
+} from "../controllers/studentDetails.controller";
 
 const router = Router();
 
@@ -24,6 +28,10 @@ router.get("/graduates", authorize("registrar", "principal"), listGraduates);
 router.get("/:id", authorize("admin", "registrar", "principal", "enrollment_committee", "teacher"), getStudentById);
 router.post("/", authorize("admin", "registrar", "enrollment_committee"), createStudent);
 router.put("/:id", authorize("admin", "registrar", "enrollment_committee"), updateStudent);
+// Student Details Edit (change history + SF-edit reset). Teachers and
+// principals cannot edit learner details.
+router.put("/:id/details", authorize("admin", "registrar", "enrollment_committee"), updateStudentDetails);
+router.get("/:id/history", authorize("admin", "registrar", "enrollment_committee"), getStudentHistory);
 router.delete("/:id", authorize("admin"), deleteStudent);
 // Non-Reader is tagged here from a recorded reading assessment (teachers/admin).
 router.post("/:id/classifications", authorize("admin", "teacher"), updateClassifications);
