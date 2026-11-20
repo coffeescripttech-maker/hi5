@@ -24,7 +24,9 @@ import {
   X,
   UserMinus,
   Lock,
-  Loader2
+  Loader2,
+  Paperclip,
+  Upload
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -33,6 +35,7 @@ import {
   CreateStudentPayload
 } from '../../services/students';
 import { enrollmentsApi, EnrollmentRow } from '../../services/enrollments';
+import { requireFilesApi } from '../../services/requirementFiles';
 import { strandTracksApi, StrandTrackRow } from '../../services/strandTracks';
 import {
   electivesApi,
@@ -205,6 +208,135 @@ const REQUIREMENTS_LIST = [
   { key: 'transcript', label: 'Transcript of Records / Form 137' },
   { key: 'lrn_verification', label: 'LRN Verification Slip' }
 ];
+
+// ── Digital Requirements Upload — during-enrollment attach (Phase C) ──────
+const MAX_ATTACH_BYTES = 5 * 1024 * 1024;
+const MAX_ATTACH_PER_REQ = 3;
+const ATTACH_ACCEPT = '.pdf,.jpg,.jpeg,.png';
+
+/** Client-side pre-check (mirrors the server's rules; the server re-validates
+ *  the actual file content by magic bytes on upload). */
+function validateAttachFile(file: File): string | null {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (ext === 'heic' || ext === 'heif') {
+    return 'HEIC is not supported — switch the camera to JPG or convert the photo first.';
+  }
+  if (!['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
+    return 'Only PDF, JPG/JPEG, or PNG files are accepted.';
+  }
+  if (file.size > MAX_ATTACH_BYTES) return 'The file exceeds the 5 MB limit.';
+  if (file.size === 0) return 'The file is empty.';
+  return null;
+}
+
+const fmtAttachSize = (n: number): string =>
+  n >= 1024 * 1024
+    ? `${(n / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(n / 1024))} KB`;
+
+/** Laptop-only file picker shown on the requirements step: copies are held in
+ *  the browser until the enrollment is saved, then uploaded to the private
+ *  enrollment-files endpoint (nothing is stored if the wizard is cancelled). */
+function EnrollTempFiles({
+  files,
+  onAdd,
+  onRemove,
+  showToast
+}: {
+  files: Record<string, File[]>;
+  onAdd: (key: string, picked: FileList | null, showToast: (t: 'success' | 'error' | 'warning', m: string) => void) => void;
+  onRemove: (key: string, index: number) => void;
+  showToast: (t: 'success' | 'error' | 'warning', m: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pickKey, setPickKey] = useState<string | null>(null);
+
+  const attachCount = Object.values(files).reduce((n, l) => n + l.length, 0);
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+          <Paperclip size={14} className="text-indigo-600" />
+        </div>
+        <div className="min-w-0">
+          <h4 className="text-sm font-bold text-gray-800">
+            Attach scanned copies (optional)
+          </h4>
+          <p className="text-[11px] text-gray-400">
+            PDF / JPG / PNG, up to 5 MB each, max {MAX_ATTACH_PER_REQ} per
+            document. Files stay on this device and upload only after you press
+            Enroll — cancelling stores nothing.
+          </p>
+        </div>
+        {attachCount > 0 && (
+          <span className="ml-auto text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-1 rounded-full flex-shrink-0">
+            {attachCount} attached
+          </span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {REQUIREMENTS_LIST.map(r => {
+          const list = files[r.key] ?? [];
+          return (
+            <div
+              key={r.key}
+              className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-50 bg-gray-50/50 px-3 py-2">
+              <span className="text-xs text-gray-600 flex-1 min-w-0 truncate">
+                {r.label}
+              </span>
+              {list.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {list.map((f, i) => (
+                    <span
+                      key={`${f.name}-${i}`}
+                      title={f.name}
+                      className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+                      {f.name.length > 18 ? `${f.name.slice(0, 15)}…` : f.name}
+                      <span className="text-indigo-400 font-normal">
+                        {fmtAttachSize(f.size)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onRemove(r.key, i)}
+                        className="hover:text-red-600 transition-colors"
+                        aria-label={`Remove ${f.name}`}>
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                disabled={list.length >= MAX_ATTACH_PER_REQ}
+                onClick={() => {
+                  setPickKey(r.key);
+                  inputRef.current?.click();
+                }}
+                className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-indigo-700 border border-indigo-200 bg-white hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0">
+                <Upload size={10} />
+                {list.length > 0 ? 'Add file' : 'Choose file'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept={ATTACH_ACCEPT}
+        className="hidden"
+        onChange={e => {
+          onAdd(pickKey ?? '', e.target.files, showToast);
+          setPickKey(null);
+          e.target.value = '';
+        }}
+      />
+    </div>
+  );
+}
 
 // ── STE/SPFL/SPJ admission evidence ─────────────────────────────────────
 // Recorded at enrollment time (entrance exam + interview) and consumed by
@@ -1193,6 +1325,60 @@ export function EnrollmentModule() {
     lrn_verification: false
   });
   const [gradeFile, setGradeFile] = useState<File | null>(null);
+  /** Phase C — Digital Requirements Upload: files picked during enrollment
+   *  are held in TEMP BROWSER storage only. Nothing is sent to the server
+   *  until the enrollment is saved; cancelling the wizard stores nothing.
+   *  Laptop file-picker flow (no camera capture here — the profile's
+   *  Document Checklist handles mobile camera capture afterwards). */
+  const [newFiles, setNewFiles] = useState<Record<string, File[]>>({});
+
+  /** Add files picked on the requirements step (validated, temp-only). */
+  const addNewFiles = (
+    key: string,
+    picked: FileList | null,
+    toast: (t: 'success' | 'error' | 'warning', m: string) => void
+  ) => {
+    if (!key || !picked || picked.length === 0) return;
+    const current = newFiles[key] ?? [];
+    const problems: string[] = [];
+    const accepted: File[] = [];
+    for (const f of Array.from(picked)) {
+      const problem = validateAttachFile(f);
+      if (problem) {
+        problems.push(`${f.name}: ${problem}`);
+        continue;
+      }
+      if (current.length + accepted.length >= MAX_ATTACH_PER_REQ) {
+        problems.push(
+          `${f.name}: a document can hold up to ${MAX_ATTACH_PER_REQ} files.`
+        );
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (accepted.length > 0) {
+      setNewFiles(prev => ({
+        ...prev,
+        [key]: [...(prev[key] ?? []), ...accepted]
+      }));
+      toast(
+        'success',
+        `${accepted.length} file(s) attached — they upload after you press Enroll.`
+      );
+    }
+    if (problems.length > 0) {
+      toast('error', problems.slice(0, 2).join(' · '));
+    }
+  };
+
+  /** Drop one temp file before it ever reaches the server. */
+  const removeNewFile = (key: string, index: number) => {
+    setNewFiles(prev => {
+      const list = [...(prev[key] ?? [])];
+      list.splice(index, 1);
+      return { ...prev, [key]: list };
+    });
+  };
   const [admission, setAdmission] = useState<AdmissionState>({
     ...EMPTY_ADMISSION
   });
@@ -1909,6 +2095,7 @@ export function EnrollmentModule() {
       transcript: false,
       lrn_verification: false
     });
+    setNewFiles({}); // temp browser-held copies are discarded, never stored
     setRetStep(1);
     setRetErrors({});
     setSearchQuery('');
@@ -2010,7 +2197,7 @@ export function EnrollmentModule() {
         guardian_4ps: newData.guardian4ps
       });
       // Enroll without section — student goes to Pending Section Queue
-      await enrollmentsApi.create({
+      const createdEnrollment = await enrollmentsApi.create({
         student_id: created.id,
         school_year_id: selectedSYId,
         enrollment_date: new Date().toISOString().split('T')[0],
@@ -2031,6 +2218,30 @@ export function EnrollmentModule() {
           is_submitted: requirements[r.key]
         }))
       });
+      // Digital Requirements Upload: now that the enrollment exists, push the
+      // temp browser-held copies to the private enrollment-files endpoint.
+      // A failed upload never blocks the enrollment — the copies can be
+      // attached afterwards from the learner's Document Checklist.
+      const pendingUploads = Object.entries(newFiles).filter(
+        ([, list]) => list.length > 0
+      );
+      let failedUploads = 0;
+      for (const [key, list] of pendingUploads) {
+        for (const f of list) {
+          try {
+            await requireFilesApi.upload(createdEnrollment.id, key, f);
+          } catch {
+            failedUploads++;
+          }
+        }
+      }
+      if (failedUploads > 0) {
+        showToast(
+          'warning',
+          `${failedUploads} attached file(s) failed to upload — attach them from the learner's Document Checklist.`
+        );
+      }
+      setNewFiles({});
       setEnrolledSectionName('Pending Section');
       // Add classifications (batch)
       if (newData.classifications.length > 0) {
@@ -3399,6 +3610,16 @@ export function EnrollmentModule() {
                   </button>
                 ))}
               </div>
+
+              {/* Digital Requirements Upload — during-enrollment attach.
+                  Copies stay in the browser until Enroll is pressed. */}
+              <EnrollTempFiles
+                files={newFiles}
+                onAdd={addNewFiles}
+                onRemove={removeNewFile}
+                showToast={showToast}
+              />
+
               <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl px-4 py-3 flex items-center gap-3">
                 <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
                   <Check size={14} className="text-emerald-600" />
