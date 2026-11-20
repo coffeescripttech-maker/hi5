@@ -14,6 +14,7 @@ import {
   ChevronRight,
   CheckCircle,
   XCircle,
+  Paperclip,
   ShieldCheck,
   Loader2,
   FileText,
@@ -57,6 +58,11 @@ import {
   EditDetailsPanel,
   ChangeHistoryTab
 } from '../components/student/StudentDetailsEdit';
+import { RequirementFileAttachments } from '../components/student/RequirementFileAttachments';
+import {
+  requireFilesApi,
+  RequirementFileRow
+} from '../services/requirementFiles';
 
 const TABS = [
   { id: 'personal', label: 'Personal Information', icon: User },
@@ -145,33 +151,49 @@ function bmiBand(bmi: number): { label: string; cls: string } {
  *  Reads the current enrollment's required documents and lets authorized users
  *  (admin / registrar / enrollment committee) mark each as Submitted or Not
  *  Submitted. Committee verification is displayed read-only — it stays the
- *  committee dashboard's action. No file is uploaded from this page. */
+ *  committee dashboard's action.
+ *  Digital Requirements Upload (#1): Committee + Registrar attach scanned
+ *  copies (Take Photo / Choose File, up to 3 PDF/JPG/PNG copies per document,
+ *  5 MB each); the Administrator views them; Teacher and Principal get
+ *  nothing. Attaching a copy does NOT change the Received state. */
 function DocumentChecklist({
   enrollment,
   canEdit,
+  canManageFiles,
+  canViewFiles,
   showToast,
   accent
 }: {
   enrollment: StudentDetail['enrollment'];
   canEdit: boolean;
+  canManageFiles: boolean;
+  canViewFiles: boolean;
   showToast: (type: 'success' | 'error' | 'info', message: string) => void;
   accent: ReturnType<typeof useRoleAccent>;
 }) {
   const enrollmentId = enrollment?.id ?? null;
   const [rows, setRows] = useState<EnrollmentRequirementRow[] | null>(null);
+  const [files, setFiles] = useState<RequirementFileRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     if (enrollmentId == null) {
       setRows(null);
+      setFiles(null);
       setLoading(false);
       return;
     }
     setLoading(true);
-    enrollmentsApi
-      .listRequirements(enrollmentId)
-      .then(setRows)
+    const jobs: Promise<unknown>[] = [
+      enrollmentsApi.listRequirements(enrollmentId).then(setRows)
+    ];
+    // Teacher/Principal have no access to requirement files at all (client
+    // doc #1) — the server would 403 them, so we simply never ask.
+    if (canViewFiles) {
+      jobs.push(requireFilesApi.list(enrollmentId).then(setFiles));
+    }
+    Promise.all(jobs)
       .catch(err =>
         showToast(
           'error',
@@ -180,7 +202,7 @@ function DocumentChecklist({
         )
       )
       .finally(() => setLoading(false));
-  }, [enrollmentId, showToast]);
+  }, [enrollmentId, canViewFiles, showToast]);
 
   useEffect(() => {
     reload();
@@ -206,6 +228,17 @@ function DocumentChecklist({
   const verifiedCount = display.filter(
     d => !!d.rec?.is_submitted && !!d.rec?.is_verified
   ).length;
+
+  /** Attached file copies per requirement key (Digital Requirements Upload). */
+  const filesByReq = useMemo(() => {
+    const map = new Map<string, RequirementFileRow[]>();
+    (files ?? []).forEach(f => {
+      const list = map.get(f.requirement_key) ?? [];
+      list.push(f);
+      map.set(f.requirement_key, list);
+    });
+    return map;
+  }, [files]);
 
   const fmtDate = (d?: string | null): string =>
     d
@@ -310,6 +343,22 @@ function DocumentChecklist({
             {display.map(({ key, label, rec }) => {
               const submitted = !!rec?.is_submitted;
               const verified = !!rec?.is_verified;
+              const reqFiles = filesByReq.get(key) ?? [];
+              const hasFiles = reqFiles.length > 0;
+              // Four checklist states per client doc #1:
+              //   Received / Copy attached / Received and copy attached / —
+              const badge = submitted
+                ? hasFiles
+                  ? 'Received and copy attached'
+                  : 'Received'
+                : hasFiles
+                  ? 'Copy attached'
+                  : 'Not Submitted';
+              const badgeCls = submitted
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                : hasFiles
+                  ? 'bg-blue-50 text-blue-700 border-blue-200/60'
+                  : 'bg-gray-50 text-gray-500 border-gray-200/80';
               return (
                 <div
                   key={key}
@@ -329,17 +378,15 @@ function DocumentChecklist({
                   </div>
                   <div className="flex items-center gap-2 ml-auto flex-wrap">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border ${
-                        submitted
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
-                          : 'bg-gray-50 text-gray-500 border-gray-200/80'
-                      }`}>
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border ${badgeCls}`}>
                       {submitted ? (
                         <CheckCircle size={11} />
+                      ) : hasFiles ? (
+                        <Paperclip size={11} />
                       ) : (
                         <XCircle size={11} />
                       )}
-                      {submitted ? 'Submitted' : 'Not Submitted'}
+                      {badge}
                     </span>
                     {verified && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border bg-blue-50 text-blue-700 border-blue-200/60">
@@ -368,6 +415,18 @@ function DocumentChecklist({
                       </button>
                     )}
                   </div>
+                  {/* Attached scanned copies (Committee/Registrar manage,
+                      Administrator view-only; others see nothing). */}
+                  {canViewFiles && enrollmentId != null && (
+                    <RequirementFileAttachments
+                      enrollmentId={enrollmentId}
+                      reqKey={key}
+                      files={reqFiles}
+                      canManage={canManageFiles}
+                      onReload={reload}
+                      showToast={showToast}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -1547,6 +1606,8 @@ export function StudentProfile() {
               <DocumentChecklist
                 enrollment={student.enrollment}
                 canEdit={canEditChecklist}
+                canManageFiles={role === 'registrar' || role === 'enrollment_committee'}
+                canViewFiles={canEditChecklist}
                 showToast={showToast}
                 accent={accent}
               />

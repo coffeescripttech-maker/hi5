@@ -163,6 +163,80 @@ export async function uploadRequirementFile(req: Request, res: Response): Promis
 }
 
 /**
+ * PUT /api/enrollment-files/:id/requirements/:key/files/:fileId — replace
+ * one file atomically: the new copy is validated BEFORE the old file is
+ * removed, so a failed upload never loses the original (Committee/Registrar).
+ */
+export async function replaceRequirementFile(req: Request, res: Response): Promise<void> {
+  const enrollmentId = parseInt(req.params.id as string);
+  const key = String(req.params.key || "").trim();
+  const fileId = parseInt(req.params.fileId as string);
+  if (!Number.isInteger(enrollmentId) || !key || !Number.isInteger(fileId)) {
+    res.status(400).json({ error: "Invalid identifiers." });
+    return;
+  }
+  if (!canManage(req.user!.role)) {
+    res.status(403).json({ error: "Only the Enrollment Committee or Registrar can replace requirement files." });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded." });
+    return;
+  }
+  const buf = req.file.buffer;
+  if (buf.length > MAX_FILE_BYTES) {
+    res.status(400).json({ error: "The file exceeds the 5 MB limit." });
+    return;
+  }
+  const ext = detectType(buf);
+  if (!ext) {
+    res.status(400).json({ error: "Only PDF, JPG/JPEG, or PNG files are accepted (the file content must match)." });
+    return;
+  }
+  const oldRows = await query<RowDataPacket[]>(
+    "SELECT * FROM enrollment_requirement_files WHERE id = ? AND enrollment_id = ? AND requirement_key = ? LIMIT 1",
+    [fileId, enrollmentId, key]
+  );
+  if (oldRows.length === 0) {
+    res.status(404).json({ error: "File not found." });
+    return;
+  }
+  const old = oldRows[0];
+
+  ensureDir();
+  const storedName = `${randomUUID()}.${ext}`;
+  const newFilePath = path.join(DOCS_DIR, storedName);
+  fs.writeFileSync(newFilePath, buf);
+
+  await query(
+    `UPDATE enrollment_requirement_files
+        SET file_path = ?, original_name = ?, mime_type = ?, file_size = ?, uploaded_by = ?, created_at = NOW()
+      WHERE id = ?`,
+    [newFilePath, req.file.originalname.slice(0, 150), ALLOWED[ext].mime, buf.length, req.user!.userId, fileId]
+  );
+  try {
+    if (fs.existsSync(String(old.file_path)) && String(old.file_path) !== newFilePath) {
+      fs.unlinkSync(String(old.file_path));
+    }
+  } catch {
+    /* old-file cleanup is best-effort; the row already points at the new file */
+  }
+
+  logActivity(
+    req.user!.userId,
+    `Replaced requirement file "${old.original_name}" with "${req.file.originalname}" (${key}) — enrollment ID ${enrollmentId}`,
+    "enrollments",
+    enrollmentId
+  );
+
+  const saved = await query<RowDataPacket[]>(
+    "SELECT id, requirement_key, original_name, mime_type, file_size, created_at FROM enrollment_requirement_files WHERE id = ?",
+    [fileId]
+  );
+  res.json(saved[0]);
+}
+
+/**
  * GET /api/enrollments/:id/requirements/:key/files/:fileId — stream a file
  * (Committee/Registrar/Administrator; private, no public links).
  */

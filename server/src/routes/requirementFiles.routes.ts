@@ -11,6 +11,7 @@ import { authorize } from "../middleware/roleGuard";
 import {
   listRequirementFiles,
   uploadRequirementFile,
+  replaceRequirementFile,
   viewRequirementFile,
   deleteRequirementFile
 } from "../controllers/requirementFiles.controller";
@@ -38,6 +39,15 @@ router.post(
   authorize("enrollment_committee", "registrar"),
   upload.single("file"),
   uploadRequirementFile
+);
+
+// Replace one file (Committee / Registrar only) — validates the new copy
+// before the old file is removed, so a failed upload loses nothing
+router.put(
+  "/:id/requirements/:key/files/:fileId",
+  authorize("enrollment_committee", "registrar"),
+  upload.single("file"),
+  replaceRequirementFile
 );
 
 // View / stream a file (Committee / Registrar / Administrator)
