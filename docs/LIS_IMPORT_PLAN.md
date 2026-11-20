@@ -1,8 +1,13 @@
 # LIS Import — Phased Implementation Plan
 
 **Source:** `docs/Hi5_Portal_LIS_Import_Expected_Behavior.md` (client, 2026-11-09)
-**Status:** **Phase 1 DONE** (migrations 050/051 applied to production, name
-formatter + tests + backfill live). Phases 2–5 pending go-signal.
+**Status:** **ALL CORE PHASES DONE (2026-11-20).** Phase 1 (migrations 050/051,
+name formatter, backfill), Phase 2 (SF1 reads the DB + Field Audit Matrix +
+Name Suffix), Student Details Edit, Phase 3 (import engine) and Phase 4
+(Registrar UI) are implemented, runtime-verified and committed
+(de9db0b, 7f84355, 64e9bfb, 1eded11, 5fbec5f). Remaining: calibration against
+a real school LIS export file (the mapping UI is user-adjustable, so not
+blocking); Phase 5 optional items.
 **Companion spec received:** `docs/Hi5_Portal_Student_Details_Edit_Expected_Behavior.md`
 — its §7 change-history design matches the `student_field_history` table built
 in Phase 1 (learner, field, old→new, reason, who, when + batch id). The Edit
