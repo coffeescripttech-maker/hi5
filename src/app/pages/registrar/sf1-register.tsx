@@ -80,17 +80,24 @@ const LEAF_COLUMNS: Leaf[] = [
   { key: 'addr_barangay', title: 'Barangay', width: '68px', blue: true },
   { key: 'addr_city', title: 'Municipality/ City', width: '72px', blue: true },
   { key: 'addr_province', title: 'Province', width: '68px', blue: true },
-  // PARENTS group
+  {
+    key: 'zip',
+    title: 'ZIP',
+    width: '32px',
+    blue: true
+  },
+  // PARENTS group (narrowed by 16px each to fund the ZIP column — the total
+  // stays 1460px, the layout budget for zoom 0.89)
   {
     key: 'father',
     title: "Father's Name (Last Name, First Name, Middle Name)",
-    width: '118px',
+    width: '102px',
     blue: true
   },
   {
     key: 'mother',
     title: "Mother's Maiden Name (Last Name, First Name, Middle Name)",
-    width: '118px',
+    width: '102px',
     blue: true
   },
   // GUARDIAN group
@@ -505,15 +512,20 @@ export function SF1Register() {
       const picks = electivesByStudent[s.id] || [];
       // Strengthened SHS Curriculum: SHS learners print their curriculum track
       // and electives as plain text in the REMARKS cell.
-      const remarks =
-        (s.grade_level ?? 0) >= 11
-          ? [
-              trackName ? `Track: ${trackName}` : '',
-              picks.length ? `Electives: ${picks.join(', ')}` : ''
-            ]
-              .filter(Boolean)
-              .join(' · ')
-          : '';
+      const clsList = (enr?.classifications || '')
+        .split(',')
+        .map(c => c.trim())
+        .filter(Boolean);
+      // REMARKS: 4Ps / PWD tags from the learner's classifications (legend
+      // codes), plus the SHS track + electives for G11–G12.
+      const remarksParts: string[] = [];
+      if (clsList.includes('4ps')) remarksParts.push('4Ps');
+      if (clsList.includes('pwd')) remarksParts.push('PWD');
+      if ((s.grade_level ?? 0) >= 11) {
+        if (trackName) remarksParts.push(`Track: ${trackName}`);
+        if (picks.length) remarksParts.push(`Electives: ${picks.join(', ')}`);
+      }
+      const remarks = remarksParts.join(' · ');
       return {
         lrn: s.lrn || '',
         name: formatName(s.name || ''),
@@ -530,6 +542,7 @@ export function SF1Register() {
         addr_barangay: s.barangay || '',
         addr_city: s.city_municipality || '',
         addr_province: s.province || '',
+        zip: s.zip_code || '',
         father: s.father_name || '',
         mother: s.mother_name || '',
         guardian_name: s.guardian || '',

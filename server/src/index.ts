@@ -38,6 +38,7 @@ import lisRoutes from './routes/lis.routes';
 import rbacRoutes from './routes/rbac.routes';
 import presenceRoutes from './routes/presence.routes';
 import transfersRoutes from './routes/transfers.routes';
+import requirementFilesRoutes from './routes/requirementFiles.routes';
 import electivesRoutes from './routes/electives.routes';
 import readingAssessmentsRoutes from './routes/readingAssessments.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -187,6 +188,7 @@ app.use('/api/lis', lisRoutes);
 app.use('/api/rbac', rbacRoutes);
 app.use('/api/presence', presenceRoutes);
 app.use('/api/transfers', transfersRoutes);
+app.use('/api/enrollment-files', requirementFilesRoutes);
 app.use('/api/reading-assessments', readingAssessmentsRoutes);
 
 // Health check
