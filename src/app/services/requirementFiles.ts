@@ -5,6 +5,7 @@
  * Committee + Registrar upload/replace/delete; Administrator views only.
  * Teacher and Principal have no access at all (the server enforces 403).
  */
+import { getToken } from "./api";
 
 export interface RequirementFileRow {
   id: number;
@@ -21,6 +22,13 @@ export interface RequirementFileRow {
 const base = async (): Promise<string> => {
   const { API_BASE } = await import("./api");
   return API_BASE;
+};
+
+const authHeadersSync = (): Record<string, string> => {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
 };
 
 const authHeaders = async (): Promise<Record<string, string>> => {
@@ -90,6 +98,53 @@ const requireFilesApi = {
     }
     return (await res.json()) as RequirementFileRow;
   },
+
+  /** Multipart upload with real progress (XHR) — client doc #1 asks for
+   *  visible upload progress with a Retry on failure. */
+  uploadWithProgress: (
+    enrollmentId: number,
+    key: string,
+    file: File,
+    onProgress: (pct: number) => void
+  ): Promise<RequirementFileRow> =>
+    new Promise(async (resolve, reject) => {
+      const { ApiError, clearToken } = await import("./api");
+      const xhr = new XMLHttpRequest();
+      xhr.open(
+        "POST",
+        `${await base()}/enrollment-files/${enrollmentId}/requirements/${encodeURIComponent(key)}/files`
+      );
+      const headers = authHeadersSync();
+      for (const [h, v] of Object.entries(headers)) xhr.setRequestHeader(h, v);
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText) as RequirementFileRow);
+          } catch {
+            reject(new ApiError(xhr.status, { error: "Malformed server response." }));
+          }
+        } else {
+          let detail: { error: string } = { error: `Upload failed (${xhr.status})` };
+          try {
+            detail = JSON.parse(xhr.responseText);
+          } catch {
+            /* not JSON */
+          }
+          if (xhr.status === 401) {
+            clearToken();
+            window.location.replace("/login");
+          }
+          reject(new ApiError(xhr.status, detail));
+        }
+      };
+      xhr.onerror = () => reject(new ApiError(0, { error: "Network error during upload." }));
+      const fd = new FormData();
+      fd.append("file", file);
+      xhr.send(fd);
+    }),
 
   delete: async (enrollmentId: number, key: string, fileId: number): Promise<void> => {
     const { getToken, ApiError, clearToken } = await import("./api");

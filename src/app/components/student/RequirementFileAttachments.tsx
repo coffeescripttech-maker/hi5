@@ -14,6 +14,7 @@
  */
 import { useRef, useState } from 'react';
 import {
+  AlertCircle,
   Camera,
   FileText,
   Loader2,
@@ -21,13 +22,51 @@ import {
   RefreshCw,
   Trash2,
   Upload,
-  Eye
+  Eye,
+  X
 } from 'lucide-react';
 import { requireFilesApi, RequirementFileRow } from '../../services/requirementFiles';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_FILES = 3;
 const ACCEPT = '.pdf,.jpg,.jpeg,.png';
+
+/** Photos wider/taller than this get downscaled before upload. */
+const MAX_PHOTO_EDGE = 1600;
+/** Photos larger than this (bytes) are candidates for compression. */
+const COMPRESS_OVER = 300 * 1024;
+
+/**
+ * Client doc #1: "Phone photos are compressed in the browser before upload."
+ * Downscales large photos to ≤1600px on the long edge and re-encodes JPEG at
+ * moderate quality. PDFs and small files pass through untouched.
+ */
+async function compressPhoto(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') || file.type === 'image/png' || file.size <= COMPRESS_OVER) {
+    return file;
+  }
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_PHOTO_EDGE / Math.max(bitmap.width, bitmap.height));
+    if (scale >= 1 && file.size <= COMPRESS_OVER) return file;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>(res =>
+      canvas.toBlob(res, 'image/jpeg', 0.82)
+    );
+    if (!blob || blob.size >= file.size) return file;
+    const base = file.name.replace(/\.[^.]+$/, '');
+    const out = new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
+    return out.size < file.size ? out : file;
+  } catch {
+    return file; // compression is best-effort — the original still uploads
+  }
+}
 
 const fmtSize = (n: number): string =>
   n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
@@ -73,6 +112,10 @@ export function RequirementFileAttachments({
   const [busyFileId, setBusyFileId] = useState<number | null>(null);
   const [pendingReplaceId, setPendingReplaceId] = useState<number | null>(null);
   const [viewingId, setViewingId] = useState<number | null>(null);
+  /** Upload progress (0–100) while a copy is being sent; null when idle. */
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  /** The failed file is retained so the user can press Retry (client doc #1). */
+  const [failedFile, setFailedFile] = useState<File | null>(null);
 
   const atCap = files.length >= MAX_FILES;
 
@@ -86,22 +129,40 @@ export function RequirementFileAttachments({
     }
   };
 
-  const handlePicked = (file: File | undefined | null) => {
-    if (!file) return;
-    const problem = validate(file);
+  const performUpload = async (file: File) => {
+    setUploadPct(0);
+    setFailedFile(null);
+    try {
+      await requireFilesApi.uploadWithProgress(enrollmentId, reqKey, file, setUploadPct);
+      showToast('success', `Attached "${file.name}".`);
+      onReload();
+    } catch (err: any) {
+      setFailedFile(file); // retained for Retry
+      showToast(
+        'error',
+        err.detail?.error || err.message || 'Upload failed — you can retry.'
+      );
+    } finally {
+      setUploadPct(null);
+    }
+  };
+
+  const handlePicked = async (raw: File | undefined | null) => {
+    if (!raw) return;
+    const problem = validate(raw);
     if (problem) {
       showToast('error', problem);
       return;
     }
-    withGuard(async () => {
-      try {
-        await requireFilesApi.upload(enrollmentId, reqKey, file);
-        showToast('success', `Attached "${file.name}".`);
-        onReload();
-      } catch (err: any) {
-        showToast('error', err.detail?.error || err.message || 'Upload failed.');
-      }
-    });
+    // Phone photos are compressed in the browser before upload (client doc #1).
+    const file = await compressPhoto(raw);
+    withGuard(() => performUpload(file));
+  };
+
+  const retryUpload = () => {
+    const file = failedFile;
+    if (!file || busy) return;
+    withGuard(() => performUpload(file));
   };
 
   const handleReplace = (file: File | undefined | null) => {
@@ -163,6 +224,48 @@ export function RequirementFileAttachments({
 
   return (
     <div className="w-full mt-2.5 pl-11">
+      {/* upload progress (client doc #1: display progress while sending) */}
+      {uploadPct != null && (
+        <div className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-2.5 py-2">
+          <div className="flex items-center gap-2 text-[11px] text-indigo-700 font-semibold mb-1">
+            <Loader2 size={11} className="animate-spin" />
+            Uploading… {uploadPct}%
+          </div>
+          <div className="h-1 rounded-full bg-white overflow-hidden">
+            <div
+              className="h-full rounded-full bg-indigo-500 transition-all duration-200"
+              style={{ width: `${uploadPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* retry bar (client doc #1: failed uploads offer a Retry button) */}
+      {failedFile && uploadPct == null && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50/70 px-2.5 py-2 text-[11px]">
+          <AlertCircle size={12} className="text-red-600 flex-shrink-0" />
+          <span className="text-red-700 font-semibold truncate flex-1 min-w-0" title={failedFile.name}>
+            "{failedFile.name}" failed to upload.
+          </span>
+          <button
+            type="button"
+            onClick={retryUpload}
+            disabled={busy}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 flex-shrink-0">
+            <RefreshCw size={10} />
+            Retry
+          </button>
+          <button
+            type="button"
+            onClick={() => setFailedFile(null)}
+            disabled={busy}
+            title="Dismiss"
+            className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
       {/* attached files */}
       {files.length > 0 && (
         <div className="space-y-1.5 mb-2">
