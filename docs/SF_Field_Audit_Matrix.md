@@ -94,9 +94,16 @@ Stored (design decision) · 🔷 Derived by the system.
 
 ## Queued decisions (from the 🟡 rows)
 
-1. **SF1 ZIP column** — stored since LIS Phase 1; adding the column is a
-   sheet-layout change (widths + print zoom). Queued with the Field
-   Population follow-up.
+1. **SF1 ZIP column** — ✅ **DONE (2026-11-20)**: the ZIP column was added to
+   the SF1 sheet (funded by narrowing the father/mother columns; the total
+   width stays within the 1467px print budget) and reads
+   `students.zip_code`.
 2. **SF10 learner address/guardian block** — confirm with the client whether
    the school's SF10 variant includes it before adding cells.
-3. **4Ps / PWD on SF1 remarks** — legend-driven REMARKS derivation candidate.
+3. **4Ps / PWD on SF1 remarks** — ✅ **DONE (2026-11-20)**: the SF1 REMARKS
+   cell now derives the `4Ps` / `PWD` legend codes from the learner's
+   classifications (kept for SHS Track / Electives notes).
+4. **SF5 suffix bug** — ✅ **FIXED (2026-11-20)**: SF5's local name formatter
+   popped the last word as the surname, turning "Juan Dela Cruz Jr." into
+   "Jr., Juan Dela Cruz". It now uses the shared suffix-aware
+   `parseName` formatter (same as SF1/SF9/SF10).

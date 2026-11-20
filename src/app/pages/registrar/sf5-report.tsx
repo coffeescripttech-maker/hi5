@@ -76,11 +76,16 @@ const GUIDELINES = [
 /* Helpers                                                          */
 /* ---------------------------------------------------------------- */
 
+import { parseName } from '../../utils/nameFormatter';
+
+/** Suffix-aware (shared formatter): "Juan Pedro Dela Cruz Jr." ->
+ *  "Dela Cruz, Juan Pedro Jr." — the old word-pop version broke on names
+ *  with a suffix (it made "Jr." the last name). */
 function formatName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  const last = parts.pop()!;
-  return `${last}, ${parts.join(' ')}`;
+  const parts = parseName(name);
+  const given = [parts.first, parts.middle].filter(Boolean).join(' ');
+  const base = parts.last ? `${parts.last}, ${given}`.replace(/,\s*$/, '') : given;
+  return parts.ext ? `${base} ${parts.ext}` : base;
 }
 
 /** Group grade rows by student id. */
