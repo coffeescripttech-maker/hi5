@@ -77,7 +77,6 @@ const NODE_ROUTES: [string, string, string, string?][] = [
   ['Section Assignment', '/registrar/section-assignment', 'Assign Sections', '/committee/section-assignment'],
   ['Pending Section Queue', '/registrar/section-assignment', 'Pending Queue', '/committee/section-assignment'],
   ['Assignment method', '/registrar/section-assignment', 'Assignment Methods', '/committee/section-assignment'],
-  ['Single Placement', '/registrar/section-assignment', 'Single Placement', '/committee/section-assignment'],
   ['Shares the whole-queue methods', '/registrar/section-assignment', 'Queue Methods', '/committee/section-assignment'],
   ['Random', '/registrar/section-assignment', 'Random Assignment', '/committee/section-assignment'],
   ['Placement', '/registrar/section-assignment', 'Placement Assignment', '/committee/section-assignment'],
@@ -149,7 +148,6 @@ flowchart TB
   subgraph REG_PHASE[Phase 2 - Committee / Registrar: Section Assignment]
     REG_VIEW[Committee opens the Section Assignment page]:::committee-->QUEUE[Sees Pending Section Queue<br/>with all unassigned students]:::committee
     QUEUE-->ASSIGN_METHOD{Assignment method?}:::decision
-    ASSIGN_METHOD-->|Single Placement|SINGLE[Move exactly one learner<br/>e.g. a late transferee]:::committee
     ASSIGN_METHOD-->|Manual|MANUAL[Pick student -> select target section]:::committee
     ASSIGN_METHOD-->|Random|RANDOM[Auto-distribute across available sections]:::committee
     ASSIGN_METHOD-->|Placement|PLACEMENT[Assign by exam scores<br/>STE / SPFL / SPJ]:::committee
@@ -262,7 +260,7 @@ const QUICK_REF = [
     steps: [
       'Process Enrollments (New / Continuing / Balik-Aral)',
       'Verify Submitted Documents',
-      'Assign Sections (Single Placement or whole-queue methods)',
+      'Assign Sections (Manual, Random, Placement, or Carryover methods)',
       'Fill SHS Electives before Confirmation',
       'Handle Transfers'
     ]

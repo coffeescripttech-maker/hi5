@@ -86,7 +86,7 @@ export const roles: GuideRole[] = [
     duties: [
       'Confirm new, continuing, and Balik-Aral enrollments.',
       'Verify the submitted requirements and learner documents.',
-      'Place learners in sections — automatic methods or single placements.',
+      'Place learners in sections — automatic methods or manual assignment.',
       'Complete SHS learners by filling in their elective selections.'
     ],
     pages: [
@@ -178,8 +178,8 @@ export const howtos: GuideHowTo[] = [
     summary: 'Turn pending students into sectioned classes.',
     steps: [
       'Open Section Assignment — the Pending Section Queue lists every enrolled student without a section.',
-      'Choose a method: Manual (pick the section yourself), Random (system distributes evenly), Placement (by exam scores, e.g. STE/SPFL/SPJ), Carryover (strand carried to G12) — or Single Placement, which moves exactly ONE learner (for a late transferee or a one-off placement).',
-      'Place students by ticking their checkboxes and pressing Confirm — or use Single Placement for just one.',
+      'Choose a method: Manual (pick the section yourself), Random (system distributes evenly), Placement (by exam scores, e.g. STE/SPFL/SPJ), or Carryover (strand carried to G12).',
+      'Place students by ticking their checkboxes and pressing Confirm.',
       'For SHS (Grades 11–12) learners, their elective picks are shown in the queue; learners WITHOUT electives cannot be confirmed — assign their electives first using the Assign link beside their names.',
       "Confirm the assignment — the student's section is updated immediately and they become visible inside it.",
       'Repeat until the queue is cleared.'

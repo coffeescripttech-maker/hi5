@@ -455,6 +455,12 @@ export function SectionAssignment() {
       icon: UserPlus,
       desc: 'Assign ALS-SHS and Open HS students manually'
     },
+    // ── Single Placement: HIDDEN in the UI for now (client found it
+    // confusing, 2026-11-20). The panel code below stays intact — to
+    // restore it, remove the `.filter(tab => tab.key !== 'single')` on the
+    // TABS render. Keep in mind it is still the ONLY way to place one
+    // regular-program learner (e.g. a late transferee) into a section
+    // without running a whole batch method.
     {
       key: 'single',
       label: 'Single Placement',
@@ -1281,7 +1287,7 @@ export function SectionAssignment() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Tab bar */}
         <div className="flex border-b border-gray-100 overflow-x-auto">
-          {TABS.map(tab => {
+          {TABS.filter(tab => tab.key !== 'single').map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.key;
             return (
