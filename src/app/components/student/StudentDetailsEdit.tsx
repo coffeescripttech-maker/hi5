@@ -62,7 +62,7 @@ function FieldRow({
   return (
     <label className="block">
       <span className="mb-1 block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em]">
-        {def.label}
+        {/* {def.label} */}
         {changed && (
           <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 normal-case tracking-normal">
             changed
@@ -113,12 +113,17 @@ export function EditDetailsPanel({
   canEditIdentity: boolean;
   onClose: () => void;
   onSaved: (learner: StudentDetail) => void;
-  showToast: (type: 'success' | 'error' | 'info' | 'warning', msg: string) => void;
+  showToast: (
+    type: 'success' | 'error' | 'info' | 'warning',
+    msg: string
+  ) => void;
 }) {
   const initial: FieldValues = useMemo(() => {
     const v: FieldValues = {};
     for (const def of [...ROUTINE_FIELDS, ...IDENTITY_FIELDS]) {
-      v[def.key] = asString((student as unknown as Record<string, unknown>)[def.key]);
+      v[def.key] = asString(
+        (student as unknown as Record<string, unknown>)[def.key]
+      );
     }
     return v;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,8 +205,18 @@ export function EditDetailsPanel({
         setLocalError(
           'This record was changed by someone else while you were editing. The latest values are now shown — review and save again.'
         );
+        showToast(
+          'error',
+          'Not saved — this record was changed by someone else while you were editing. Review the latest values and save again.'
+        );
       } else {
-        setLocalError(err.detail?.error || err.message || 'Failed to save.');
+        const msg =
+          err.detail?.error || err.message || 'Failed to save.';
+        setLocalError(msg);
+        // Surface failures as a toast too (e.g. the duplicate-LRN message
+        // that names the conflicting learner) so it is not missed inside
+        // the panel.
+        showToast('error', msg);
       }
     } finally {
       setSaving(false);
@@ -480,9 +495,7 @@ export function EditDetailsPanel({
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
                   <AlertTriangle size={18} className="text-amber-600" />
                 </div>
-                <h4 className="font-bold text-gray-900">
-                  Confirm the changes
-                </h4>
+                <h4 className="font-bold text-gray-900">Confirm the changes</h4>
               </div>
               <ul className="mb-4 space-y-1.5 text-xs text-gray-700">
                 {changes.map(c => (
@@ -499,8 +512,8 @@ export function EditDetailsPanel({
                 <div className="mb-4 space-y-1.5 rounded-xl border border-amber-100 bg-amber-50/60 p-3 text-[11px] text-amber-800">
                   <p className="font-semibold">Effects of this change:</p>
                   <p>
-                    • Saved School Form edits for the changed fields in the
-                    open school year will be reset (recorded in history).
+                    • Saved School Form edits for the changed fields in the open
+                    school year will be reset (recorded in history).
                   </p>
                   {identityChanges.some(c => c.field === 'lrn') && (
                     <p>
@@ -508,9 +521,7 @@ export function EditDetailsPanel({
                       must be re-downloaded.
                     </p>
                   )}
-                  <p>
-                    • Issued documents already printed keep the old value.
-                  </p>
+                  <p>• Issued documents already printed keep the old value.</p>
                 </div>
               )}
               <div className="flex gap-3">

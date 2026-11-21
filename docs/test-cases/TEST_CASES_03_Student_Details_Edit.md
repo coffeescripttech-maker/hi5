@@ -95,7 +95,7 @@
 1. Open **Edit Details** and set the learner's **LRN** to the LRN of a **different existing learner** (find one on the Students page first).
 2. Save.
 
-**Expected:** The save is **rejected** with a clear message that names the conflicting learner (their name and LRN) — no partial save happens.
+**Expected:** The save is **rejected** with a clear message that names the conflicting learner (their name and LRN) — no partial save happens. The same message also **pops up as a toast** so it cannot be missed.
 
 ☐ Pass ☐ Fail
 
@@ -128,7 +128,7 @@
 2. User A saves a change to the Contact Number.
 3. User B (who had the panel open from before) changes the Guardian and saves.
 
-**Expected:** User B gets a **conflict** message — the panel reloads with the latest values instead of silently overwriting User A's save. Nothing is lost.
+**Expected:** User B gets a **conflict** message — the panel reloads with the latest values instead of silently overwriting User A's save, and a **toast** announces the conflict. Nothing is lost.
 
 ☐ Pass ☐ Fail
 
