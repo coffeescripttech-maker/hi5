@@ -63,6 +63,42 @@ export function formatName(parts: Partial<NameParts>): string {
   return p.ext ? `${name} ${p.ext}`.trim() : name;
 }
 
+/**
+ * Client doc §B: "Sorting remains based on Last Name only."
+ * Compares two learner rows by surname, then given names; the suffix is
+ * ignored for ordering. Rows with explicit name parts (last_name/first_name
+ * from the LIS Phase-1 columns) use them directly; anything else falls back
+ * to parsing the display name, so multi-word surnames like "Dela Cruz"
+ * sort correctly.
+ */
+export function compareByLastName<
+  T extends {
+    name?: string;
+    student_name?: string;
+    last_name?: string | null;
+    first_name?: string | null;
+    middle_name?: string | null;
+  }
+>(a: T, b: T): number {
+  const resolve = (r: T) => {
+    const display = String(r.name ?? r.student_name ?? '');
+    return r.last_name || r.first_name
+      ? {
+          last: String(r.last_name ?? ''),
+          first: String(r.first_name ?? ''),
+          middle: String(r.middle_name ?? '')
+        }
+      : parseName(display);
+  };
+  const pa = resolve(a);
+  const pb = resolve(b);
+  return (
+    pa.last.localeCompare(pb.last) ||
+    pa.first.localeCompare(pb.first) ||
+    pa.middle.localeCompare(pb.middle)
+  );
+}
+
 const normalizeExt = (ext: string): string =>
   String(ext ?? '').replace(/\./g, '').trim().toUpperCase();
 

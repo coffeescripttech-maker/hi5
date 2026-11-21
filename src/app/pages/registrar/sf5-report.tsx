@@ -76,7 +76,7 @@ const GUIDELINES = [
 /* Helpers                                                          */
 /* ---------------------------------------------------------------- */
 
-import { parseName } from '../../utils/nameFormatter';
+import { parseName, compareByLastName } from '../../utils/nameFormatter';
 
 /** Suffix-aware (shared formatter): "Juan Pedro Dela Cruz Jr." ->
  *  "Dela Cruz, Juan Pedro Jr." — the old word-pop version broke on names
@@ -435,6 +435,9 @@ export function SF5Report() {
     const enrolled = matchingEnrs
       .map(e => students.find(s => s.id === e.student_id))
       .filter(Boolean) as StudentRow[];
+    // Official SF5 order: alphabetical by surname (client doc §B — sorting
+    // is based on Last Name only).
+    enrolled.sort(compareByLastName);
     const newRows: RowData[] = enrolled.map(s => {
       const enr = matchingEnrs.find(e => e.student_id === s.id);
       const trackName = enr?.strand_track_id

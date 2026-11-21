@@ -37,6 +37,7 @@ import {
   GenerateRulesPayload
 } from '../../services/sectioning';
 import { electivesApi, ElectiveBatchRow, ElectiveCatalogGroup } from '../../services/electives';
+import { compareByLastName } from '../../utils/nameFormatter';
 import { ElectiveCatalogGrid } from '../../components/electives/ElectiveCatalogGrid';
 
 /* ──────────────────────────────────────────
@@ -141,6 +142,11 @@ function useDataBrowser<T>(
     if (!sortKey) return filtered;
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...filtered].sort((a, b) => {
+      // Client doc §B: name sorting is based on Last Name only.
+      if (sortKey === 'name') {
+        const c = compareByLastName(a as any, b as any);
+        return dir === 1 ? c : -c;
+      }
       const av = (a as any)[sortKey];
       const bv = (b as any)[sortKey];
       if (av == null && bv == null) return 0;

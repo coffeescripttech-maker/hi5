@@ -34,7 +34,7 @@ import { exportToPdf } from '../../services/pdfExport';
 import { downloadRenderedPdf } from '../../services/pdfRender';
 import { FormPrintPreview } from '../../components/FormPrintPreview';
 import { DocumentViewer } from '../../components/DocumentViewer';
-import { parseName } from '../../utils/nameFormatter';
+import { parseName, compareByLastName } from '../../utils/nameFormatter';
 
 /* ---------------------------------------------------------------- */
 /* Column definitions matching DepEd School Form 1 (SF1)            */
@@ -455,7 +455,11 @@ export function SF1Register() {
     );
     const enrolled = matchingEnrs
       .map(e => students.find(s => s.id === e.student_id))
-      .filter(Boolean) as StudentRow[];    // REGISTERED/BoSY/EoSY counts from the loaded roster (sex breakdown).
+      .filter(Boolean) as StudentRow[];
+    // Official SF1 order: alphabetical by surname (client doc §B — sorting
+    // is based on Last Name only).
+    enrolled.sort(compareByLastName);
+    // REGISTERED/BoSY/EoSY counts from the loaded roster (sex breakdown).
     // The data model holds a single enrollment snapshot per SY, so BoSY and
     // EoSY reflect the same enrolled roster until dropouts are tracked.
     const male = enrolled.filter(s => s.sex === 'male').length;

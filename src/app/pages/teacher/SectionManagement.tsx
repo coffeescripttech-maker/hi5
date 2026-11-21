@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { sectionsApi, SectionRow } from '../../services/sections';
 import { studentsApi, StudentRow } from '../../services/students';
+import { compareByLastName } from '../../utils/nameFormatter';
 import { gradesApi, SectionGradeStatus } from '../../services/grades';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
@@ -191,7 +192,8 @@ export function SectionManagement() {
       let cmp = 0;
       switch (sort.key) {
         case 'name':
-          cmp = a.name.localeCompare(b.name);
+          // Client doc §B: sorting is based on Last Name only.
+          cmp = compareByLastName(a, b);
           break;
         case 'grade_level':
           cmp = a.grade_level - b.grade_level;

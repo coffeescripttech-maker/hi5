@@ -35,6 +35,7 @@ import { schoolYearsApi } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
 import { exportToPdf } from '../../services/pdfExport';
 import { isNativePlatform, saveOrShareFile } from '../../services/nativeExport';
+import { compareByLastName } from '../../utils/nameFormatter';
 
 const CLASSIFICATIONS = [
   'All Classifications',
@@ -194,6 +195,11 @@ export function EnrollmentReport() {
     }
 
     list.sort((a, b) => {
+      // Client doc §B: name sorting is based on Last Name only.
+      if (sortKey === 'name') {
+        const c = compareByLastName(a, b);
+        return sortDir === 'asc' ? c : -c;
+      }
       let av: any = a[sortKey as keyof typeof a] ?? '';
       let bv: any = b[sortKey as keyof typeof b] ?? '';
       if (typeof av === 'string') av = av.toLowerCase();

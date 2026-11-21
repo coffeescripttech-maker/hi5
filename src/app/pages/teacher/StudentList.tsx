@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { studentsApi, StudentRow } from '../../services/students';
+import { compareByLastName } from '../../utils/nameFormatter';
 import { atRiskApi, StudentRiskTrend } from '../../services/atRisk';
 import { schoolYearsApi } from '../../services/schoolYears';
 import { useApp } from '../../context/AppContext';
@@ -187,7 +188,8 @@ export function StudentList() {
       let cmp = 0;
       switch (sort.key) {
         case 'name':
-          cmp = a.name.localeCompare(b.name);
+          // Client doc §B: sorting is based on Last Name only.
+          cmp = compareByLastName(a, b);
           break;
         case 'lrn':
           cmp = a.lrn.localeCompare(b.lrn);
