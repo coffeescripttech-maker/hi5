@@ -1,17 +1,24 @@
-# Test Cases — LIS Import
+# Test Cases — Import Learner Details
 
-**Source:** `docs/new/Hi5_Portal_LIS_Import_Expected_Behavior.md`
-**Prepared:** November 21, 2026
+**Source:** `docs/new/Hi5_Portal_Learner_Details_File_Import_Revised.md` (supersedes the "Import from LIS" naming in the original LIS Import doc)
+**Prepared:** November 24, 2026
 
 ---
 
 ## How to use this file
 
 - Only the **Registrar** (and Administrator) can use this feature. Testing as another role is case L1.
-- The sample file below matches some of the pre-loaded demo learners by LRN. **Nothing in these tests creates learners or deletes data.**
+- The feature is called **Import Learner Details** — Hi5 does not connect to the DepEd LIS; you download the file from your LIS records (such as the SF1) and import it here.
+- Learners are matched by LRN only. **Nothing in these tests creates learners or deletes data.**
 - If some learner details were already filled by a previous test run, those rows will show **"No change"** instead of "Will update" — that is correct behavior, not a failure.
 
-## Prepare the test file
+## Prepare the files
+
+### File 1 — the template (case T1)
+
+Download it from the page itself (see T1) — no preparation needed.
+
+### File 2 — a small CSV (cases L2–L15)
 
 1. Open Notepad (or any text editor) and paste the CSV below exactly.
 2. Save it as `lis-test.csv` (choose "All files" as the file type, and UTF-8 encoding).
@@ -35,7 +42,24 @@ Rows in this file, on purpose:
 | Bad Lrn | LRN is not 12 digits → error |
 | Duplicate Torres | Same LRN twice in the file → error |
 
-**Where things are:** Registrar menu → **Import from LIS** (`/registrar/lis-import`).
+### File 3 — the real SF1 from LIS (cases F1–F5)
+
+Use an **anonymized copy** of the SF1 you downloaded from LIS (replace names, LRNs, and birth dates with fake values — the real file contains learners' personal data). Do **not** test with the real learners' names.
+
+**Where things are:** Registrar menu → **Import Learner Details** (`/registrar/lis-import`).
+
+---
+
+## T1. Download template
+
+**Log in as:** `registrar01`
+1. Registrar menu → **Import Learner Details**.
+2. Click **Download template**.
+3. Open the downloaded `.xlsx`.
+
+**Expected:** The file has two sheets: **"Learners"** — one header row with exactly these columns in order (LRN, Last Name, First Name, Middle Name, Name Suffix, Birth Date, Sex, Mother Tongue, IP (Ethnic Group), Religion, House No./Street/Sitio/Purok, Barangay, Municipality/City, Province, ZIP, Father's Name, Mother's Maiden Name, Guardian Name, Relationship, Contact Number, Disability) and **no learner data**; **"How to fill"** — one line per column with the mm/dd/yyyy date format and M/F sex values, saying only the LRN is required and blank cells are skipped. Type a 12-digit LRN into a row — Excel must keep it as text (no scientific notation like 9.00E+11).
+
+☐ Pass ☐ Fail
 
 ---
 
@@ -44,7 +68,7 @@ Rows in this file, on purpose:
 **Log in as:** a Teacher (or Principal)
 1. Look through the whole menu.
 
-**Expected:** There is **no** "Import from LIS" item. (Opening `/registrar/lis-import` directly is also blocked.)
+**Expected:** There is **no** "Import Learner Details" item. (Opening `/registrar/lis-import` directly is also blocked.)
 
 ☐ Pass ☐ Fail
 
@@ -53,11 +77,12 @@ Rows in this file, on purpose:
 ## L2. Open the import page and choose the file
 
 **Log in as:** `registrar01`
-1. Registrar menu → **Import from LIS**.
-2. Choose file → `lis-test.csv`. Keep the current school year selected.
-3. Click **Preview Import**.
+1. Registrar menu → **Import Learner Details**.
+2. Confirm the note at the top: *"Hi5 does not connect to the DepEd LIS…"*.
+3. Choose file → `lis-test.csv`. Keep the current school year selected.
+4. Click **Preview Import**.
 
-**Expected:** A mapping table appears (LRN ← LRN, Surname ← Surname, etc.), followed by result counters. **Nothing has been saved yet.**
+**Expected:** A mapping table appears (LRN ← LRN, Last Name ← Surname, etc.), followed by result counters. **Nothing has been saved yet.**
 
 ☐ Pass ☐ Fail
 
@@ -126,7 +151,7 @@ With the sample file you should see approximately:
 1. Import the same file again, but set one group (e.g. **Mother tongue / IP / Religion**) to **Overwrite** before confirming.
 2. First change one of those values on the learner (Edit Details) so the stored value differs from the file.
 
-**Expected:** With Overwrite on, the stored value is replaced by the file's value; with Fill empty only, it would have been kept.
+**Expected:** With Overwrite on, the stored value is replaced by the file's value; with Fill empty only, it would have been kept. (Empty cells in the file never overwrite anything, even in Overwrite mode.)
 
 ☐ Pass ☐ Fail
 
@@ -156,7 +181,7 @@ With the sample file you should see approximately:
 
 1. Open the imported learner's profile → **Change History** tab.
 
-**Expected:** Every changed field is listed with its **old → new value**, reason **"LIS import"**, the user who ran it, and the date/time. (Old values are blank for fields that were empty before.)
+**Expected:** Every changed field is listed with its **old → new value**, reason **"File import"**, the user who ran it, and the date/time. (Older entries made before this change keep their original reason.)
 
 ☐ Pass ☐ Fail
 
@@ -199,7 +224,60 @@ With the sample file you should see approximately:
 
 **Log in as:** Administrator → **Activity Logs**
 
-**Expected:** One summary entry per import: the file name, how many fields were updated, and how many mismatches / not-in-Hi5 / errors there were.
+**Expected:** One summary entry per import: *"Learner details file import"* with the file name, how many fields were updated, and how many mismatches / not-in-Hi5 / errors there were.
+
+☐ Pass ☐ Fail
+
+---
+
+# The real SF1 from LIS (anonymized copy)
+
+## F1. The SF1 opens and maps correctly
+
+1. Choose file → the anonymized **SF1 .xls** → **Preview Import**.
+
+**Expected:** The preview succeeds despite the title rows (school ID, region, division, school name, school year, grade level, section) above the heading, and the heading split over **two rows** (PARENTS over Father's Name and Mother's Maiden Name; GUARDIAN over Name and Relationship). The mapping table shows Guardian Name and Relationship correctly.
+
+☐ Pass ☐ Fail
+
+---
+
+## F2. TOTAL rows, legend, and footer are ignored
+
+1. Look at the preview rows and counters.
+
+**Expected:** Every learner row in the block was read (e.g. 46 learners for a Grade 10 section). The `<=== TOTAL MALE ===`, `<=== TOTAL FEMALE ===`, and `<=== COMBINED ===` rows are **skipped without messages**; the REMARKS legend, signature lines, and the "Generated thru LIS" footer produce **no errors**. Reading stops at COMBINED.
+
+☐ Pass ☐ Fail
+
+---
+
+## F3. Unrecognized columns are ignored, never errors
+
+1. Look at the **"Columns not used"** list under the mapping.
+
+**Expected:** Columns the import does not read (e.g. Age, Learning Modality, Remarks, or any column LIS adds) are **listed as ignored** — and the import still works. Confirm Import stays enabled.
+
+☐ Pass ☐ Fail
+
+---
+
+## F4. A name that differs shows "Name differs" and changes nothing
+
+1. In the anonymized SF1, change one matched learner's name spelling (e.g. add a hyphenated maiden surname) — keep the birthdate **correct**.
+2. Preview → Confirm.
+
+**Expected:** The row shows a **"Name differs"** warning with **both values** (file vs Hi5). The learner's name is **not changed** — but their **other fields still update**. The "Name differs" counter counts the row. (A learner whose **birthdate** differs is still a **Mismatch** and is not changed.)
+
+☐ Pass ☐ Fail
+
+---
+
+## F5. Dates and values from the SF1 are read correctly
+
+1. Check a learner whose details were updated from the SF1 (Edit Details or the preview details).
+
+**Expected:** Dates written as **mm-dd-yyyy** text were read correctly; repeated spaces were collapsed to one; trailing commas were removed from parent names (e.g. `LAST, FIRST, MIDDLE,` → no trailing comma); parent names are stored **exactly as written** in the file (no reordering).
 
 ☐ Pass ☐ Fail
 
