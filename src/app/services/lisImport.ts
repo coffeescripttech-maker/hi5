@@ -12,6 +12,7 @@ export interface LisPreviewCounts {
   matched_update: number;
   matched_no_change: number;
   mismatch: number;
+  name_differs?: number;
   not_in_hi5: number;
   error: number;
 }
@@ -23,6 +24,8 @@ export interface LisPreviewRow {
   result: "matched_update" | "matched_no_change" | "mismatch" | "not_in_hi5" | "error";
   error?: string;
   mismatches?: string[];
+  name_differs?: { file: string; hi5: string };
+  field_errors?: string[];
   student_id?: number;
   hi5_name?: string;
   changes?: { field: string; old: string; new: string; group: string; savedEdit: boolean }[];
@@ -35,6 +38,9 @@ export interface LisPreviewResponse {
   mapping: Record<string, number>;
   header_texts: string[];
   counts: LisPreviewCounts;
+  unused_columns?: string[];
+  name_column?: number | null;
+  only_lrn?: boolean;
   rows: LisPreviewRow[];
 }
 

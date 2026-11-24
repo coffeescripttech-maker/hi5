@@ -34,10 +34,38 @@ interface ImportRow {
   result: "matched_update" | "matched_no_change" | "mismatch" | "not_in_hi5" | "error";
   error?: string;
   mismatches?: string[];
+  name_differs?: { file: string; hi5: string };
+  field_errors?: string[];
   hi5_name?: string;
   changes?: { field: string; old: string; new: string; group: string; savedEdit: boolean }[];
   has_saved_sf_edit?: boolean;
 }
+
+/** Human labels for every importable field (mapping table, incl. the
+ *  "Not found in file" rows). */
+const FIELD_LABELS: Record<string, string> = {
+  lrn: "LRN",
+  last_name: "Last Name",
+  first_name: "First Name",
+  middle_name: "Middle Name",
+  name_ext: "Name Suffix",
+  birthdate: "Birth Date",
+  sex: "Sex",
+  mother_tongue: "Mother Tongue",
+  ip_ethnic_group: "IP (Ethnic Group)",
+  religion: "Religion",
+  house_street: "House No./Street/Sitio/Purok",
+  barangay: "Barangay",
+  city_municipality: "Municipality/City",
+  province: "Province",
+  zip_code: "ZIP",
+  father_name: "Father's Name",
+  mother_name: "Mother's Maiden Name",
+  guardian: "Guardian Name",
+  guardian_relationship: "Relationship",
+  contact: "Contact Number",
+  disability: "Disability"
+};
 
 const RESULT_META: Record<ImportRow["result"], { label: string; cls: string }> = {
   matched_update: { label: "Will update", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -63,6 +91,8 @@ export function LisImport() {
   const [applying, setApplying] = useState(false);
   const [mapping, setMapping] = useState<MappingEntry[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
+  const [unusedColumns, setUnusedColumns] = useState<string[]>([]);
+  const [onlyLrn, setOnlyLrn] = useState(false);
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [applied, setApplied] = useState<number | null>(null);
@@ -107,6 +137,8 @@ export function LisImport() {
         index
       })));
       setHeaders(resp.header_texts);
+      setUnusedColumns(resp.unused_columns ?? []);
+      setOnlyLrn(!!resp.only_lrn);
       setCounts({ ...resp.counts });
       setRows(resp.rows);
       // default modes: fill-empty-only
@@ -158,6 +190,11 @@ export function LisImport() {
           `"${(
             (r.error ? r.error + " " : "") +
             (r.mismatches ? r.mismatches.join("; ") + " " : "") +
+            (r.name_differs
+              ? `Name differs: file "${r.name_differs.file}" vs Hi5 "${r.name_differs.hi5}" ` +
+                ""
+              : "") +
+            ((r.field_errors || []).join("; ") + " " || "") +
             ((r.changes || []).map(c => `${c.field}: ${c.old} -> ${c.new}`).join("; "))
           ).replace(/"/g, '""')}"`
         ].join(",")
@@ -196,6 +233,8 @@ export function LisImport() {
     setRows([]);
     setCounts(null);
     setMapping([]);
+    setUnusedColumns([]);
+    setOnlyLrn(false);
     setApplied(null);
     setAppliedBatch(null);
   };
@@ -293,16 +332,46 @@ export function LisImport() {
             2 · Column mapping (auto-detected)
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-            {mapping.map((m, i) => (
-              <div key={m.field} className="flex items-center justify-between gap-2 border border-gray-100 rounded-xl px-3 py-2 bg-gray-50/60">
-                <span className="font-semibold text-gray-700">{m.field.replace(/_/g, " ")}</span>
-                <span className="text-gray-400">←</span>
-                <span className="text-indigo-700 font-medium truncate max-w-40">{m.header}</span>
-              </div>
-            ))}
+            {Object.entries(FIELD_LABELS).map(([field, label]) => {
+              const m = mapping.find(e => e.field === field);
+              return (
+                <div
+                  key={field}
+                  className={`flex items-center justify-between gap-2 border rounded-xl px-3 py-2 ${
+                    m ? "border-gray-100 bg-gray-50/60" : "border-dashed border-gray-200 bg-white"
+                  }`}>
+                  <span className="font-semibold text-gray-700 truncate">{label}</span>
+                  {m ? (
+                    <span className="text-indigo-700 font-medium truncate max-w-40 text-right" title={m.header}>
+                      ← {m.header}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-[10px] font-semibold uppercase flex-shrink-0">
+                      Not found
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
+          {unusedColumns.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                Columns not used:
+              </span>
+              {unusedColumns.map((c, i) => (
+                <span
+                  key={i}
+                  className="px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-[10px] font-medium text-gray-400"
+                  title={c}>
+                  {c.length > 30 ? `${c.slice(0, 28)}…` : c}
+                </span>
+              ))}
+            </div>
+          )}
           <p className="text-[11px] text-gray-400">
-            Mapping is automatic from known LIS headers; unmatched columns are ignored. School year: {schoolYearLabel || "—"}.
+            Mapping is automatic from known headings; unmatched columns are listed above and
+            ignored — never an error. School year: {schoolYearLabel || "—"}.
           </p>
         </div>
       )}
@@ -340,12 +409,19 @@ export function LisImport() {
             </p>
             <button
               onClick={handleApply}
-              disabled={applying || (counts?.matched_update ?? 0) === 0}
+              disabled={applying || (counts?.matched_update ?? 0) === 0 || onlyLrn}
+              title={onlyLrn ? "Only the LRN column was matched — no detail columns found in the file." : undefined}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 shadow-sm">
               {applying ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
               Confirm Import {(counts?.matched_update ?? 0) > 0 ? `(${counts.matched_update} learners)` : ""}
             </button>
           </div>
+          {onlyLrn && (
+            <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              Only the LRN column could be matched — no detail columns were found in this file.
+              Confirm Import is disabled. Check the heading row, or use the template.
+            </p>
+          )}
         </div>
       )}
 
@@ -362,7 +438,7 @@ export function LisImport() {
               <Download size={12} /> Download report
             </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="border border-emerald-200 bg-emerald-50/70 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-emerald-700">{counts.matched_update}</p>
               <p className="text-[10px] text-emerald-600 font-semibold uppercase">Will update</p>
@@ -374,6 +450,10 @@ export function LisImport() {
             <div className="border border-amber-200 bg-amber-50/70 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-amber-700">{counts.mismatch}</p>
               <p className="text-[10px] text-amber-600 font-semibold uppercase">Mismatch</p>
+            </div>
+            <div className="border border-yellow-300 bg-yellow-50/80 rounded-xl p-3 text-center">
+              <p className="text-lg font-bold text-yellow-700">{counts.name_differs ?? 0}</p>
+              <p className="text-[10px] text-yellow-600 font-semibold uppercase">Name differs</p>
             </div>
             <div className="border border-blue-200 bg-blue-50/70 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-blue-600">{counts.not_in_hi5}</p>
@@ -411,6 +491,14 @@ export function LisImport() {
                     <td className="px-3 py-2 text-gray-500">
                       {r.error && <span className="text-red-600">{r.error}</span>}
                       {r.mismatches && <span className="text-amber-700">{r.mismatches.join(" · ")}</span>}
+                      {r.name_differs && (
+                        <div className="text-yellow-700 font-semibold">
+                          Name differs — file "{r.name_differs.file}" vs Hi5 "{r.name_differs.hi5}" (name not changed; other fields still update)
+                        </div>
+                      )}
+                      {(r.field_errors || []).map((e, i) => (
+                        <div key={i} className="text-red-600">{e}</div>
+                      ))}
                       {(r.changes || []).map(c => (
                         <div key={c.field} className="text-[11px]">
                           {c.field.replace(/_/g, " ")}: {c.old ? `"${c.old}"` : "(empty)"} → {c.new}

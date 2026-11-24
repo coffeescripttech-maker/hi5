@@ -28,30 +28,35 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_ROWS = 5000;
 const ALLOWED_EXT = ["xlsx", "xls", "csv"];
 
-/** Target importable learner fields → the LIS header names they may map from. */
+/** Target importable learner fields → the header names they may map from
+ *  (template + real SF1 + our legacy CSV — see the revised import doc). */
 const FIELD_HEADERS: Record<string, string[]> = {
   lrn: ["LRN", "Learner Reference Number", "Learner LRN"],
   last_name: ["Surname", "Last Name", "Apelyido", "Student Surname"],
   first_name: ["Given Name", "First Name", "Pangalan", "Student First Name"],
   middle_name: ["Middle Name", "Middle", "Student Middle Name"],
-  name_ext: ["Extension Name", "Name Extension", "Suffix", "Ext Name"],
-  birthdate: ["Date of Birth", "Birthdate", "Birthday", "Birth Date"],
+  name_ext: ["Name Suffix", "Extension Name", "Name Extension", "Suffix", "Ext Name"],
+  birthdate: ["Birth Date", "Birthdate", "Date of Birth", "Birthday", "DOB"],
   sex: ["Sex", "Gender", "Kasarian"],
   mother_tongue: ["Mother Tongue", "Mother Tongue Language"],
-  ip_ethnic_group: ["Indigenous People", "IP (Ethnic Group)", "IP Ethnic Group", "Ethnic Group"],
+  ip_ethnic_group: ["IP", "Indigenous People", "IP (Ethnic Group)", "IP Ethnic Group", "Ethnic Group"],
   religion: ["Religion"],
-  house_street: ["House No", "House No./Street", "House #/Street", "House Street", "Street Address", "House/Street"],
+  house_street: ["House No./Street/Sitio/Purok", "House No", "House No./Street", "House #/Street", "House Street", "Street Address", "House/Street", "Address"],
   barangay: ["Barangay", "Brgy"],
-  city_municipality: ["Municipality", "City", "City/Municipality", "Municipality/City"],
+  city_municipality: ["Municipality/City", "Municipality", "City", "City/Municipality"],
   province: ["Province"],
-  zip_code: ["ZIP", "Zip Code", "ZIP Code"],
+  zip_code: ["ZIP", "Zip Code", "ZIP Code", "Postal Code"],
   father_name: ["Father's Name", "Father Name", "Father"],
-  mother_name: ["Mother's Name", "Mother's Maiden Name", "Mother Maiden Name", "Mother"],
+  mother_name: ["Mother's Maiden Name", "Mother's Name", "Mother Maiden Name", "Mother"],
   guardian: ["Guardian Name", "Name of Guardian", "Guardian"],
-  guardian_relationship: ["Relationship", "Guardian Relationship", "Relation to Learner", "Relationship to Learner"],
-  contact: ["Contact No", "Contact Number", "Cellphone No", "Mobile No", "Contact Number of Parent or Guardian"],
-  disability: ["Disability", "Special Needs", "PWD", "Disability/Special Needs"]
+  guardian_relationship: ["Relationship", "Relationship to Learner", "Guardian Relationship", "Relation to Learner", "Guardian Relationship to Learner"],
+  contact: ["Contact Number", "Contact No", "Cellphone No", "Mobile No", "Contact Number of Parent or Guardian"],
+  disability: ["Disability", "Disability Type", "Special Needs", "PWD", "Disability/Special Needs"]
 };
+
+/** A cell value longer than this is reported as a per-field error; the rest
+ *  of the row is still processed (revised doc, Values). */
+const MAX_FIELD_CHARS = 255;
 
 /** Field groups for the Fill-empty-only / Overwrite toggles. */
 const FIELD_GROUPS: { group: string; fields: string[] }[] = [
@@ -81,10 +86,26 @@ const SF1_CELL_KEYS: Record<string, string> = {
 const normHeader = (v: string): string =>
   String(v ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
+/** Bracketed text after a heading is ignored ("Sex (M/F)" → "Sex",
+ *  "MOTHER TONGUE (Grade 1 to 3 Only)" → "MOTHER TONGUE"). */
+const stripBrackets = (v: string): string =>
+  String(v ?? "")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\[[^\]]*\]/g, " ");
+
+/** Clean a data value: collapse repeated spaces to one, and strip leading or
+ *  trailing spaces and commas (the real SF1 writes values like
+ *  "LAST, FIRST, MIDDLE," and "NCR   FOURTH   DISTRICT"). */
+const cleanValue = (v: string): string =>
+  String(v ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,]+|[\s,]+$/g, "")
+    .trim();
+
 const FIELD_CANDIDATES: Record<string, string[]> = Object.fromEntries(
   Object.entries(FIELD_HEADERS).map(([field, cands]) => [
     field,
-    cands.map(normHeader)
+    cands.map(c => normHeader(stripBrackets(c)))
   ])
 );
 
@@ -97,7 +118,7 @@ function cellText(row: unknown[], col: number | undefined): string {
   if (col === undefined) return "";
   const v = row[col];
   if (v === undefined || v === null) return "";
-  return String(v).trim();
+  return cleanValue(String(v));
 }
 
 /** Normalize a birthdate cell → "YYYY-MM-DD" or null when unreadable. */
@@ -110,7 +131,8 @@ function cleanBirthdate(row: unknown[], col: number | undefined): string | null 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
   const s = String(v).trim();
-  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  // mm/dd/yyyy or mm-dd-yyyy (the real SF1 writes dates as mm-dd-yyyy text)
+  const mdy = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
   if (mdy) {
     const mm = Number(mdy[1]);
     const dd = Number(mdy[2]);
@@ -169,6 +191,8 @@ interface EngineRow {
   result: "matched_update" | "matched_no_change" | "mismatch" | "not_in_hi5" | "error";
   error?: string;
   mismatches?: string[];
+  name_differs?: { file: string; hi5: string };
+  field_errors?: string[];
   student_id?: number;
   hi5_name?: string;
   changes?: { field: string; label: string; group: string; old: string; new: string; savedEdit: boolean }[];
@@ -177,48 +201,142 @@ interface EngineRow {
   pwd_already?: boolean;
 }
 
-/** Locate the header row and map columns per field (auto-detection). */
+interface EngineResult {
+  rowsOut: EngineRow[];
+  counts: Record<string, number>;
+  mapping: Record<string, number>;
+  headerRowIdx: number;
+  dataStartIdx: number;
+  headerTexts: string[];
+  nameColumn: number | undefined;
+  unusedColumns: string[];
+  onlyLrn: boolean;
+}
+
+/** Locate the heading and map columns per field (auto-detection).
+ *
+ *  Supports BOTH layouts (revised doc §4):
+ *   - a single heading row (our template / CSV), and
+ *   - the real SF1 layout: the heading split over TWO rows with merged
+ *     cells (e.g. PARENTS over "Father's Name", GUARDIAN over "Name" and
+ *     "Relationship"). The row below the LRN heading is combined into one
+ *     heading unless it is a learner row (a 12-digit LRN gives it away).
+ *
+ *  Matching ignores case, extra spaces, punctuation, and bracketed text.
+ *  A heading that matches no field is never an error — it is returned in
+ *  unusedColumns so the preview can list it under "Columns not used".
+ */
 function mapColumns(
   sheetRows: unknown[][]
-): { headerRowIdx: number; mapping: Record<string, number>; headerTexts: string[] } {
-  const maxCols = Math.max(...sheetRows.slice(0, 12).map(r => r.length), 0);
-  let bestIdx = -1;
-  let bestScore = 0;
-  for (let r = 0; r < Math.min(sheetRows.length, 12); r++) {
-    let score = 0;
+): {
+  headerRowIdx: number;
+  dataStartIdx: number;
+  mapping: Record<string, number>;
+  headerTexts: string[];
+  nameColumn: number | undefined;
+  unusedColumns: string[];
+} {
+  const scanRows = Math.min(sheetRows.length, 15);
+  const maxCols = Math.max(...sheetRows.slice(0, scanRows).map(r => r.length), 0);
+
+  // 1. find the row that contains an LRN heading
+  let headerTop = -1;
+  let lrnCol = -1;
+  for (let r = 0; r < scanRows; r++) {
     for (let c = 0; c < maxCols; c++) {
-      const h = normHeader(String(sheetRows[r][c] ?? ""));
-      if (!h) continue;
-      for (const cands of Object.values(FIELD_CANDIDATES)) {
-        if (cands.some(cand => h === cand)) {
-          score++;
-          break;
-        }
-      }
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestIdx = r;
-    }
-  }
-  if (bestIdx < 0 || bestScore < 2) {
-    throw new Error("Could not find a header row with known LIS column names. Adjust the file or rename the header row.");
-  }
-  const headerTexts: string[] = [];
-  for (let c = 0; c < maxCols; c++) {
-    headerTexts.push(String(sheetRows[bestIdx][c] ?? "").trim());
-  }
-  const mapping: Record<string, number> = {};
-  for (const [field, cands] of Object.entries(FIELD_CANDIDATES)) {
-    for (let c = 0; c < maxCols; c++) {
-      const h = normHeader(headerTexts[c]);
-      if (h && cands.includes(h)) {
-        mapping[field] = c;
+      const h = normHeader(stripBrackets(String(sheetRows[r][c] ?? "")));
+      if (h === "lrn" || h === "learnerreferencenumber" || h === "learnerlrn") {
+        headerTop = r;
+        lrnCol = c;
         break;
       }
     }
+    if (headerTop >= 0) break;
   }
-  return { headerRowIdx: bestIdx, mapping, headerTexts };
+  if (headerTop < 0) {
+    throw new Error("No LRN column found. Download the template or check the heading row.");
+  }
+
+  // 2. combine the row below when it is a merged sub-heading row (not a
+  //    learner row — those carry a 12-digit LRN in the LRN column)
+  let headerBottom = -1;
+  const below = sheetRows[headerTop + 1];
+  const belowHasLearner =
+    below != null && cleanLrn(below as unknown[], lrnCol) !== null;
+  if (
+    headerTop + 1 < sheetRows.length &&
+    !belowHasLearner &&
+    (below as unknown[]).some(c => c !== undefined && c !== null && String(c).trim() !== "")
+  ) {
+    headerBottom = headerTop + 1;
+  }
+  const dataStartIdx = headerBottom >= 0 ? headerBottom : headerTop;
+
+  // 3. map every column: sub-heading wins over group label; the combined
+  //    "GROUP + sub" text (e.g. GUARDIAN + Name → "Guardian Name") is the
+  //    fallback
+  const mapping: Record<string, number> = {};
+  const assigned = new Set<number>();
+  const headerTexts: string[] = [];
+  for (let c = 0; c < maxCols; c++) {
+    const topRaw = stripBrackets(String(sheetRows[headerTop][c] ?? ""));
+    const botRaw = headerBottom >= 0 ? stripBrackets(String(sheetRows[headerBottom][c] ?? "")) : "";
+    const combRaw = cleanValue(`${String(topRaw).trim()} ${String(botRaw).trim()}`);
+    headerTexts.push(cleanValue(`${String(sheetRows[headerTop][c] ?? "").trim()} ${botRaw.trim()}`) || String(sheetRows[headerTop][c] ?? "").trim());
+    const top = normHeader(topRaw);
+    const bot = normHeader(botRaw);
+    const comb = normHeader(combRaw);
+    if (!top && !bot) continue;
+
+    // which field matches each level?
+    let field: string | null = null;
+    for (const [f, cands] of Object.entries(FIELD_CANDIDATES)) {
+      if (bot && cands.includes(bot)) { field = f; break; }
+    }
+    if (!field) {
+      for (const [f, cands] of Object.entries(FIELD_CANDIDATES)) {
+        if (comb && cands.includes(comb)) { field = f; break; }
+      }
+    }
+    if (!field) {
+      for (const [f, cands] of Object.entries(FIELD_CANDIDATES)) {
+        if (top && cands.includes(top)) { field = f; break; }
+      }
+    }
+    if (field && mapping[field] === undefined) {
+      mapping[field] = c;
+      assigned.add(c);
+    }
+  }
+
+  // 4. the learner NAME column (never imported — only compared). In the real
+  //    SF1 it is "NAME" over "(Last Name, First Name, Middle Name)".
+  let nameColumn: number | undefined;
+  for (let c = 0; c < maxCols; c++) {
+    if (assigned.has(c)) continue;
+    const top = normHeader(stripBrackets(String(sheetRows[headerTop][c] ?? "")));
+    const bot = headerBottom >= 0
+      ? normHeader(stripBrackets(String(sheetRows[headerBottom][c] ?? "")))
+      : "";
+    if ((top === "name" && !bot) || bot.includes("lastname")) {
+      nameColumn = c;
+      break;
+    }
+  }
+
+  // 5. columns with a heading that matched no field → "Columns not used"
+  const unusedColumns: string[] = [];
+  for (let c = 0; c < maxCols; c++) {
+    if (assigned.has(c) || c === nameColumn) continue;
+    const t = cleanValue(
+      `${String(sheetRows[headerTop][c] ?? "").trim()} ${
+        headerBottom >= 0 ? String(sheetRows[headerBottom][c] ?? "").trim() : ""
+      }`
+    );
+    if (t) unusedColumns.push(t);
+  }
+
+  return { headerRowIdx: headerTop, dataStartIdx, mapping, headerTexts, nameColumn, unusedColumns };
 }
 
 async function runEngine(
@@ -226,7 +344,7 @@ async function runEngine(
   schoolYearId: number,
   mappingOverride: Record<string, number> | null,
   modes: Record<string, string>
-): Promise<{ rowsOut: EngineRow[]; counts: Record<string, number>; mapping: Record<string, number>; headerRowIdx: number; headerTexts: string[] }> {
+): Promise<EngineResult> {
   const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new Error("The file has no worksheets.");
@@ -241,13 +359,52 @@ async function runEngine(
   const auto = mapColumns(matrix);
   const mapping = mappingOverride ?? auto.mapping;
   const headerRowIdx = auto.headerRowIdx;
+  const dataStartIdx = auto.dataStartIdx;
   const headerTexts = auto.headerTexts;
+  const nameColumn = auto.nameColumn;
+  const unusedColumns = auto.unusedColumns;
+  // "If only the LRN could be matched and no detail column at all, the page
+  // says so and Confirm Import is disabled."
+  const onlyLrn = Object.keys(mapping).filter(f => f !== "lrn").length === 0;
 
-  const dataRows = matrix.slice(headerRowIdx + 1).filter(r => r.some(c => c !== undefined && c !== null && String(c).trim() !== ""));
-  if (dataRows.length === 0) throw new Error("No data rows found under the header row.");
-  if (dataRows.length > MAX_ROWS) {
-    throw new Error(`The file has ${dataRows.length} data rows — the limit is ${MAX_ROWS}. Split the file.`);
+  const allRows = matrix.slice(dataStartIdx + 1);
+  if (allRows.length === 0) throw new Error("No data rows found under the heading row.");
+
+  // Walk the learner block: rows with a 12-digit LRN are learner rows; rows
+  // whose name cell starts with "<===" are TOTAL MALE / TOTAL FEMALE /
+  // COMBINED; reading stops at COMBINED or the REMARKS legend heading —
+  // the legend, signatures, and footer are never counted as errors.
+  const dataRows: unknown[][] = [];
+  let stopped = false;
+  for (const row of allRows) {
+    const lead = [cellText(row, 0), cellText(row, 1), cellText(row, 2), cellText(row, nameColumn)]
+      .join(" ")
+      .toLowerCase();
+    if (lead.includes("list and code of indicators")) break; // REMARKS legend heading
+    const nameCell = cellText(row, nameColumn);
+    if (nameCell.startsWith("<===")) {
+      if (nameCell.toUpperCase().includes("COMBINED")) break; // end of the learner block
+      continue; // TOTAL MALE / TOTAL FEMALE — skipped without a message
+    }
+    if (lead.includes("<===") && lead.includes("combined")) break;
+    if (lead.includes("<===") && lead.includes("total")) continue;
+    const hasText = row.some(c => c !== undefined && c !== null && String(c).trim() !== "");
+    if (!hasText) continue;
+    const lrn = cleanLrn(row, mapping.lrn);
+    const hasName = !!(
+      (nameColumn !== undefined && nameCell) ||
+      cellText(row, mapping.last_name) ||
+      cellText(row, mapping.first_name)
+    );
+    if (!lrn && !hasName) continue; // blank separator row inside the block
+    dataRows.push(row);
+    if (dataRows.length > MAX_ROWS) {
+      throw new Error(`The file has more than ${MAX_ROWS} data rows — the limit is ${MAX_ROWS}. Split the file.`);
+    }
   }
+  void stopped;
+  const dataRowCount = dataRows.length;
+  if (dataRowCount === 0) throw new Error("No data rows found under the heading row.");
 
   const lrnList = dataRows
     .map(r => cleanLrn(r, mapping.lrn))
@@ -282,17 +439,33 @@ async function runEngine(
     matched_update: 0,
     matched_no_change: 0,
     mismatch: 0,
+    name_differs: 0,
     not_in_hi5: 0,
     error: 0
   };
 
   for (const [rowIdx, row] of dataRows.entries()) {
-    const rowNum = headerRowIdx + 2 + rowIdx; // 1-based sheet row
+    const rowNum = dataStartIdx + 2 + rowIdx; // 1-based sheet row
     const lrn = cleanLrn(row, mapping.lrn);
-    const fileLast = cellText(row, mapping.last_name);
-    const fileFirst = cellText(row, mapping.first_name);
-    const fileMiddle = cellText(row, mapping.middle_name);
-    const fileName = [fileLast, fileFirst, fileMiddle].filter(Boolean).join(", ");
+    // The file's name: either a single NAME column ("LAST,FIRST NAMES, MIDDLE")
+    // or explicit surname / given-name columns.
+    const nameCell = cellText(row, nameColumn);
+    let fileLast = cellText(row, mapping.last_name);
+    let fileFirst = cellText(row, mapping.first_name);
+    let fileMiddle = cellText(row, mapping.middle_name);
+    let fileComma = "";
+    let fileName = "";
+    if (nameCell) {
+      const parts = nameCell.split(",").map(p => cleanValue(p));
+      fileLast = fileLast || parts[0] || "";
+      fileFirst = fileFirst || parts[1] || "";
+      fileMiddle = fileMiddle || parts.slice(2).filter(Boolean).join(" ");
+      fileName = cleanValue(nameCell);
+      fileComma = `${fileLast}, ${fileFirst} ${fileMiddle}`.replace(/,\s*$/, "");
+    } else {
+      fileName = [fileLast, fileFirst, fileMiddle].filter(Boolean).join(", ");
+      fileComma = `${fileLast}, ${fileFirst} ${fileMiddle}`.replace(/,\s*$/, "");
+    }
     const fileBd = cleanBirthdate(row, mapping.birthdate);
     const fileSex = cleanSex(row, mapping.sex);
 
@@ -327,19 +500,11 @@ async function runEngine(
       continue;
     }
 
-    // Identity comparison (name / birthdate / sex) — never overwritten
-    const storedParts = parseName(String(hi5.name));
-    const hi5Last = String(hi5.last_name ?? storedParts.last ?? "");
-    const hi5First = String(hi5.first_name ?? storedParts.first ?? "");
-    const fileComma = `${fileLast}, ${fileFirst} ${fileMiddle}`.replace(/,\s*$/, "");
-    const nameMatches =
-      namesMatch(fileComma, String(hi5.name)) ||
-      (fileLast.toLowerCase() === hi5Last.toLowerCase() &&
-        fileFirst.toLowerCase() === hi5First.toLowerCase());
+    // Birthdate / sex differ → Mismatch: both values are shown and the
+    // learner is NOT changed (revised doc §1).
     const bdMatches = !fileBd || String(hi5.birthdate).slice(0, 10) === fileBd;
     const sexMatches = !fileSex || String(hi5.sex).toLowerCase() === fileSex;
     const mismatches: string[] = [];
-    if (!nameMatches) mismatches.push(`Name: file "${fileName}" vs Hi5 "${hi5.name}"`);
     if (fileBd && !bdMatches) mismatches.push(`Birthdate: file ${fileBd} vs Hi5 ${String(hi5.birthdate).slice(0, 10)}`);
     if (fileSex && !sexMatches) mismatches.push(`Sex: file ${fileSex} vs Hi5 ${String(hi5.sex)}`);
     if (mismatches.length > 0) {
@@ -348,14 +513,38 @@ async function runEngine(
       continue;
     }
 
-    // Candidate detail changes per group + mode
+    // Name differs → a WARNING only: both values are shown, the name is
+    // never changed, and the row still updates its other fields.
+    let nameDiffers: EngineRow["name_differs"] | undefined;
+    {
+      const storedParts = parseName(String(hi5.name));
+      const hi5Last = String(hi5.last_name ?? storedParts.last ?? "");
+      const hi5First = String(hi5.first_name ?? storedParts.first ?? "");
+      const nameMatches =
+        namesMatch(fileComma, String(hi5.name)) ||
+        (fileLast.toLowerCase() === hi5Last.toLowerCase() &&
+          fileFirst.toLowerCase() === hi5First.toLowerCase());
+      if (!nameMatches && fileName) {
+        nameDiffers = { file: fileName, hi5: String(hi5.name) };
+        counts.name_differs++;
+      }
+    }
+
+    // Candidate detail changes per group + mode. Values are cleaned;
+    // a value longer than 255 characters is a per-field error and the rest
+    // of the row is still processed.
     const candidateFields: Record<string, { old: string; new: string; group: string; savedEdit: boolean }> = {};
+    const fieldErrors: string[] = [];
     for (const { group, fields } of FIELD_GROUPS) {
       for (const field of fields) {
         const col = mapping[field];
         if (col === undefined) continue;
         const newVal = cellText(row, col);
-        if (!newVal) continue;
+        if (!newVal) continue; // empty cells never overwrite, even in Overwrite
+        if (newVal.length > MAX_FIELD_CHARS) {
+          fieldErrors.push(`${field.replace(/_/g, " ")}: value too long (over ${MAX_FIELD_CHARS} characters) — skipped.`);
+          continue;
+        }
         const oldVal = String(hi5[field as keyof RowDataPacket] ?? "");
         const mode = modes[group] || "fill";
         if (mode === "overwrite" || !oldVal) {
@@ -383,6 +572,8 @@ async function runEngine(
         ...base,
         lrn,
         result: "matched_no_change",
+        name_differs: nameDiffers,
+        field_errors: fieldErrors.length ? fieldErrors : undefined,
         pwd_value: disabilityValue,
         pwd_already: disabilityValue ? await hasPwdTag(Number(hi5.id)) : false
       });
@@ -396,13 +587,25 @@ async function runEngine(
       student_id: Number(hi5.id),
       hi5_name: String(hi5.name),
       changes: changeList,
+      name_differs: nameDiffers,
+      field_errors: fieldErrors.length ? fieldErrors : undefined,
       has_saved_sf_edit: hasSavedEdit,
       pwd_value: disabilityValue,
       pwd_already: disabilityValue ? await hasPwdTag(Number(hi5.id)) : false
     });
   }
 
-  return { rowsOut, counts, mapping, headerRowIdx, headerTexts };
+  return {
+    rowsOut,
+    counts,
+    mapping,
+    headerRowIdx,
+    dataStartIdx,
+    headerTexts,
+    nameColumn,
+    unusedColumns,
+    onlyLrn
+  };
 }
 
 /** POST /api/lis/import/preview — multipart: file + school_year_id. No writes. */
@@ -431,10 +634,13 @@ export async function lisImportPreview(req: Request, res: Response): Promise<voi
       mapping: result.mapping,
       header_texts: result.headerTexts,
       counts: result.counts,
+      unused_columns: result.unusedColumns,
+      name_column: result.nameColumn,
+      only_lrn: result.onlyLrn,
       rows: result.rowsOut
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message || "Failed to read the LIS file." });
+    res.status(400).json({ error: error.message || "Failed to read the file." });
   }
 }
 
