@@ -497,7 +497,12 @@ function shrinkToFit(span: HTMLElement) {
         6,
         Math.floor(((current * avail) / natural) * 10) / 10
       );
-      if (next >= current) return; // cannot shrink further
+      if (next >= current) {
+        // Floor reached and the text STILL overflows — clip it so a long
+        // value can never spill into the next field (school name → School ID).
+        span.style.overflow = "hidden";
+        return;
+      }
       span.style.fontSize = next.toFixed(1) + "px";
     } else {
       return;

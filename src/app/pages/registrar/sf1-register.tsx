@@ -966,7 +966,7 @@ export function SF1Register() {
                     RELIGION
                   </th>
                   <th
-                    colSpan={4}
+                    colSpan={5}
                     className="border border-black px-1 py-1 font-bold">
                     ADDRESS
                   </th>
@@ -1007,6 +1007,9 @@ export function SF1Register() {
                   </th>
                   <th className="border border-black px-1 py-1 font-semibold">
                     Province
+                  </th>
+                  <th className="border border-black px-1 py-1 font-semibold">
+                    ZIP
                   </th>
                   <th className="border border-black px-1 py-1 font-semibold">
                     Father's Name (Last Name, First Name, Middle Name)

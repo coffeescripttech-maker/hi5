@@ -1429,7 +1429,7 @@ export function SF10Report() {
                         field aligns and the bordered box spans exactly the
                         same width as the learning-areas table below it. */}
                     <div className="grid grid-cols-12 items-end gap-x-4 gap-y-2">
-                      <div className="col-span-4 flex min-w-0 items-end gap-1">
+                      <div className="col-span-5 flex min-w-0 items-end gap-1">
                         <span className="font-bold">School:</span>
                         <input
                           type="text"
@@ -1473,7 +1473,7 @@ export function SF10Report() {
                           className="sf1-input sf-fill-input min-w-0 flex-1 border-b border-gray-800 bg-transparent px-1 text-[11px] outline-none focus:bg-amber-50"
                         />
                       </div>
-                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                      <div className="col-span-1 flex min-w-0 items-end gap-1">
                         <span className="font-bold">Region:</span>
                         <input
                           type="text"
@@ -1533,7 +1533,9 @@ export function SF10Report() {
                           />
                         </div>
                       )}
-                      <div className="col-span-2 flex min-w-0 items-end gap-1">
+                      {/* Adviser gets the widest slot — a teacher name can
+                          never fit in a 2/12 cell next to the long label. */}
+                      <div className="col-span-4 flex min-w-0 items-end gap-1">
                         <span className="font-bold">
                           Name of Adviser/Teacher:
                         </span>
