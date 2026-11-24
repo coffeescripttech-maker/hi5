@@ -48,7 +48,9 @@ export const lisImportApi = {
   preview: (formData: globalThis.FormData) =>
     apiUploadForLis<LisPreviewResponse>("/lis/import/preview", formData),
   apply: (formData: globalThis.FormData) =>
-    apiUploadForLis<LisApplyResponse>("/lis/import/apply", formData)
+    apiUploadForLis<LisApplyResponse>("/lis/import/apply", formData),
+  /** Blank template (.xlsx, two sheets, LRN column text-formatted). */
+  templateUrl: "/lis/import/template"
 };
 
 /** Multipart POST with the shared 401 wall (blob-style raw fetch). */

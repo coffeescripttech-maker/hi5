@@ -171,6 +171,25 @@ export function LisImport() {
     URL.revokeObjectURL(a.href);
   };
 
+  const downloadTemplate = async () => {
+    const { API_BASE, getToken } = await import("../../services/api");
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}${lisImportApi.templateUrl}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "learner-details-import-template.xlsx";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      showToast("error", "Could not download the template.");
+    }
+  };
+
   const reset = () => {
     setStage("idle");
     setFile(null);
@@ -193,13 +212,22 @@ export function LisImport() {
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900 tracking-[-0.02em]">
-                Import from LIS
+                Import Learner Details from a File
               </h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                Fill learner details from a DepEd LIS file — matched by LRN.
-                Identity fields are compared, never overwritten. Existing
-                learners only; nothing is created.
+                Hi5 does not connect to the DepEd LIS. Download the file from
+                your LIS records, such as the SF1, and import it here. Download
+                the template to see the columns Hi5 reads. Learners are matched
+                by LRN — identity fields are compared, never overwritten;
+                nothing is created.
               </p>
+              <button
+                type="button"
+                onClick={downloadTemplate}
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition">
+                <Download size={12} />
+                Download template
+              </button>
             </div>
           </div>
         </div>
@@ -213,7 +241,7 @@ export function LisImport() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <label className="block">
             <span className="mb-1 block text-[11px] font-semibold text-gray-500 uppercase tracking-[0.04em]">
-              LIS file (.xlsx / .xls / .csv, up to 10 MB)
+              File (.xlsx / .xls / .csv, up to 10 MB)
             </span>
             <input
               type="file"

@@ -509,8 +509,10 @@ export async function lisImportApply(req: Request, res: Response): Promise<void>
         for (const f of allowed) {
           await conn.execute(
             `INSERT INTO student_field_history (student_id, field, old_value, new_value, reason, changed_by, batch_id)
-             VALUES (?, ?, ?, ?, 'LIS import', ?, ?)`,
-            [studentId, f.field, f.old, f.new, req.user!.userId, batchId]
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            // Client revision: new changes record reason "File import";
+            // older entries keep their original "LIS import" reason.
+            [studentId, f.field, f.old, f.new, "File import", req.user!.userId, batchId]
           );
           applied++;
         }
@@ -540,7 +542,7 @@ export async function lisImportApply(req: Request, res: Response): Promise<void>
 
     logActivity(
       req.user!.userId,
-      `Imported LIS file "${req.file.originalname}" — ${applied} field(s) updated across ${updatable.length} learner(s); ${engine.counts.mismatch} mismatch(es), ${engine.counts.not_in_hi5} not in Hi5, ${engine.counts.error} error(s)`,
+      `Learner details file import — "${req.file.originalname}": ${applied} field(s) updated across ${updatable.length} learner(s); ${engine.counts.mismatch} mismatch(es), ${engine.counts.not_in_hi5} not in Hi5, ${engine.counts.error} error(s)`,
       "students",
       null
     );

@@ -473,7 +473,7 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         },
         {
           key: 'registrar_lis_import',
-          label: 'Import from LIS',
+          label: 'Import Learner Details',
           icon: Download,
           path: '/registrar/lis-import'
         }

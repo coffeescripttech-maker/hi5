@@ -15,6 +15,7 @@ import {
   lisImportPreview,
   lisImportApply,
 } from "../controllers/lisImport.controller";
+import { downloadImportTemplate } from "../controllers/importTemplate.controller";
 
 const router = Router();
 
@@ -56,5 +57,9 @@ router.post(
   lisUpload.single("file"),
   lisImportApply
 );
+
+// Blank template for the reworked import (§3 of the revised doc) — built in
+// memory, no learner data
+router.get("/import/template", authorize("registrar", "admin"), downloadImportTemplate);
 
 export default router;
