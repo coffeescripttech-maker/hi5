@@ -152,6 +152,7 @@ export const router = createBrowserRouter([
       { index: true, Component: CommitteeDashboard },
       { path: "transfers", Component: TransferApprovals },
       { path: "enrollment", Component: EnrollmentModule },
+      { path: "students", Component: StudentSearch },
       { path: "section-assignment", Component: SectionAssignment },
       { path: "documents", Component: DocumentCompletion },
       { path: "guide", Component: SystemGuide },

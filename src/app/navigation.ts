@@ -547,6 +547,12 @@ export const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
           path: '/committee/enrollment'
         },
         {
+          key: 'committee_students',
+          label: 'Student List',
+          icon: Users,
+          path: '/committee/students'
+        },
+        {
           key: 'committee_section_assignment',
           label: 'Section Assignment',
           icon: Layers,

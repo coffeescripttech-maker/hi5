@@ -108,6 +108,7 @@ export const MENU_KEYS_BY_ROLE: Record<Role, string[]> = {
   enrollment_committee: [
     "committee_dashboard",
     "committee_enrollment",
+    "committee_students",
     "committee_section_assignment",
     "committee_document_verification",
     "committee_transfers",
