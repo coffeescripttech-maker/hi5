@@ -126,6 +126,12 @@ export function subjectScopeSql(
   // scope even when it belongs to the other track (DepEd allows choosing
   // across tracks). OR-ed with the track restriction, never with the program
   // restriction (programs remain exclusive).
+  //
+  // PARAM ORDERING CONTRACT: every value is pushed exactly where its
+  // placeholder appears in the final SQL text. The elective values therefore
+  // are pushed inside the branch that embeds the elective clause, never
+  // before it (pushing early bound the learner's id to the track placeholder
+  // and made every track-linked elective invisible).
   const electiveStudentId = scope.electiveStudentId ?? scope.preserveStudentId ?? null;
   const electiveSchoolYearId = scope.electiveSchoolYearId ?? scope.preserveSchoolYearId ?? null;
   const electiveClause =
@@ -135,19 +141,32 @@ export function subjectScopeSql(
           WHERE se.student_id = ? AND se.school_year_id = ?
         ))`
       : null;
-  if (electiveClause) {
-    params.push(electiveStudentId as number, electiveSchoolYearId as number);
-  }
 
   if (scope.strandTrackId) {
+    // Text order: the track placeholder comes first, then the elective's
+    // (student, school-year) pair, then the elective-pick guard's pair.
+    // The pick guard sits OUTSIDE the OR: a tracked ELECTIVE is only offered
+    // when the learner actually picked it — otherwise every elective on the
+    // learner's track would surface on the grade sheet even when unpicked
+    // (tracked CORE subjects keep coming through the track match alone).
     const trackClause = `(
       NOT EXISTS (SELECT 1 FROM subject_strand_tracks sst WHERE sst.subject_id = ${a}.id)
       OR ${a}.id IN (SELECT sst2.subject_id FROM subject_strand_tracks sst2 WHERE sst2.strand_track_id = ?)
     )`;
+    const pickGuard = `(${a}.subject_type <> 'elective' OR ${a}.id IN (
+      SELECT se2.subject_id FROM student_electives se2
+      WHERE se2.student_id = ? AND se2.school_year_id = ?
+    ))`;
     params.push(scope.strandTrackId);
     if (electiveClause) {
-      clauses.push(`(${trackClause.slice(1, -1)} OR ${electiveClause.slice(1, -1)})`);
+      params.push(electiveStudentId as number, electiveSchoolYearId as number);
+      params.push(electiveStudentId as number, electiveSchoolYearId as number);
+      clauses.push(
+        `((${trackClause.slice(1, -1)} OR ${electiveClause.slice(1, -1)}) AND ${pickGuard})`
+      );
     } else {
+      // No elective context in this call — keep the plain track match (the
+      // guard needs learner context we do not have; never bind NULLs).
       clauses.push(trackClause);
     }
   } else if (hasPreserve || electiveClause) {
@@ -155,11 +174,15 @@ export function subjectScopeSql(
     // untracked TLE/EPP + program additions). Tracked specializations only show
     // up when a grade already exists on them (record preservation) or when the
     // learner holds an explicit elective pick on them.
-    const keep = hasPreserve ? keepSql() : "";
+    // Text order: trackScope (no params) -> preserve (pushed inline) ->
+    // elective (student, school-year).
     const trackScope = `NOT EXISTS (SELECT 1 FROM subject_strand_tracks sst WHERE sst.subject_id = ${a}.id)`;
     const ors: string[] = [trackScope];
-    if (keep) ors.push(keep);
-    if (electiveClause) ors.push(electiveClause.slice(1, -1));
+    if (hasPreserve) ors.push(keepSql());
+    if (electiveClause) {
+      params.push(electiveStudentId as number, electiveSchoolYearId as number);
+      ors.push(electiveClause.slice(1, -1));
+    }
     clauses.push(`(` + ors.join(" OR ") + `)`);
   }
 

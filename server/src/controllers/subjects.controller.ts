@@ -65,6 +65,7 @@ export async function getAssignedSubjects(req: Request, res: Response): Promise<
       SELECT DISTINCT s.*, tsa.created_at AS assigned_at
       FROM subjects s
       JOIN teacher_subject_assignments tsa ON tsa.subject_id = s.id
+        AND s.subject_type = 'elective'
       WHERE tsa.teacher_id = ?
     `;
     const params: any[] = [userId];
@@ -525,10 +526,25 @@ export async function assignTeacherToSubject(req: Request, res: Response): Promi
       return;
     }
 
-    // Validate subject exists
-    const subjects = await query<RowDataPacket[]>("SELECT id, name FROM subjects WHERE id = ?", [subjectId]);
+    // Validate subject exists (+ whether it is an elective — see the guard below)
+    const subjects = await query<RowDataPacket[]>(
+      "SELECT id, name, subject_type FROM subjects WHERE id = ?",
+      [subjectId]
+    );
     if (subjects.length === 0) {
       res.status(404).json({ error: "Subject not found." });
+      return;
+    }
+    // Grading access for REGULAR subjects comes ONLY from
+    // section_teacher_assignments (Section Creation > Subject Teachers).
+    // A teacher_subject_assignments row on a regular subject shows the
+    // subject in "my subjects" but can never be graded — refuse it here so
+    // the school is pointed at the screen that actually grants access.
+    if (subjects[0].subject_type !== 'elective') {
+      res.status(400).json({
+        error:
+          'Only electives can be assigned here. Regular subjects are graded via Section Creation → Subject Teachers.'
+      });
       return;
     }
 

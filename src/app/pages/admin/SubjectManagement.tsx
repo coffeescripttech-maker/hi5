@@ -983,12 +983,26 @@ export function SubjectManagement() {
                                 </td>
                                 <td className="px-5 py-3.5 text-center">
                                   <div className="flex items-center justify-center gap-1">
-                                    <button
-                                      onClick={() => openAssign(s)}
-                                      title="Assign Teacher"
-                                      className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
-                                      <Users size={14} />
-                                    </button>
+                                    {/* "Assign Teacher" only makes sense for
+                                        electives: a regular subject's grading
+                                        access comes from Section Creation >
+                                        Subject Teachers, so the button would
+                                        grant an assignment that can never be
+                                        graded. */}
+                                    {s.subject_type === 'elective' ? (
+                                      <button
+                                        onClick={() => openAssign(s)}
+                                        title="Assign Teacher"
+                                        className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
+                                        <Users size={14} />
+                                      </button>
+                                    ) : (
+                                      <span
+                                        title="Regular subjects: assign the teacher in Section Creation → Subject Teachers"
+                                        className="text-gray-300 p-1.5">
+                                        <Users size={14} />
+                                      </span>
+                                    )}
                                     <button
                                       onClick={() => openEdit(s)}
                                       className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
@@ -1082,11 +1096,20 @@ export function SubjectManagement() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
-                                <button
-                                  onClick={() => openAssign(s)}
-                                  className="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-lg hover:bg-indigo-50 touch-target">
-                                  <Users size={15} />
-                                </button>
+                                {s.subject_type === 'elective' ? (
+                                  <button
+                                    onClick={() => openAssign(s)}
+                                    title="Assign Teacher (electives only)"
+                                    className="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-lg hover:bg-indigo-50 touch-target">
+                                    <Users size={15} />
+                                  </button>
+                                ) : (
+                                  <span
+                                    title="Regular subjects: assign the teacher in Section Creation → Subject Teachers"
+                                    className="text-gray-300 p-2 touch-target">
+                                    <Users size={15} />
+                                  </span>
+                                )}
                                 <button
                                   onClick={() => openEdit(s)}
                                   className="text-blue-400 hover:text-blue-600 transition p-2 rounded-lg hover:bg-blue-50 touch-target">

@@ -735,8 +735,12 @@ export async function batchUpsertGrades(
               });
             return;
           }
-          if (subjectIsElective.get(r.subject_id) && (!enrollment || Number(enrollment.school_year_id) !== rowList[0].school_year_id)) {
-            // Elective rows additionally require the learner to hold the pick.
+          if (subjectIsElective.get(r.subject_id)) {
+            // Elective rows ALWAYS require the learner to hold the pick —
+            // the old guard only checked when the learner had no enrollment
+            // row, which let an elective grant save unpicked electives for
+            // normally-enrolled learners (and fixing the subject-scope param
+            // order would have widened that hole to the whole track).
             const pick = await query<RowDataPacket[]>(
               'SELECT 1 FROM student_electives WHERE student_id = ? AND school_year_id = ? AND subject_id = ? LIMIT 1',
               [studentId, rowList[0].school_year_id, r.subject_id]
