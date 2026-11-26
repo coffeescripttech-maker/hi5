@@ -975,6 +975,19 @@ export function SubjectManagement() {
                                                 No teacher assigned yet
                                               </span>
                                             )}
+                                            {/* Regular subjects: these rows are
+                                                legacy — grading access for
+                                                regular subjects comes only
+                                                from Section Creation > Subject
+                                                Teachers, so say so instead of
+                                                implying the list is active. */}
+                                            {s.subject_type !== 'elective' && (
+                                              <p className="mt-1.5 text-[10px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-200/70 rounded-lg px-2 py-1">
+                                                Regular subject — grading access is managed per section in
+                                                <span className="font-semibold"> Section Creation → Subject Teachers</span>.
+                                                Entries here are legacy and not used for grading.
+                                              </p>
+                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -1087,6 +1100,13 @@ export function SubjectManagement() {
                                               <span className="text-[11px] text-gray-400 italic">
                                                 No teacher assigned yet
                                               </span>
+                                            )}
+                                            {s.subject_type !== 'elective' && (
+                                              <p className="mt-1.5 text-[10px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-200/70 rounded-lg px-2 py-1">
+                                                Regular subject — grading access is managed per section in
+                                                <span className="font-semibold"> Section Creation → Subject Teachers</span>.
+                                                Entries here are legacy and not used for grading.
+                                              </p>
                                             )}
                                           </div>
                                         )}
