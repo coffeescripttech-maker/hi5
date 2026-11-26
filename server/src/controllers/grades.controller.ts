@@ -3,7 +3,7 @@ import { query } from '../config/database';
 import { logActivity, logActivities } from '../utils/activityLogger';
 import { collapseSubjectGroups } from '../utils/subjectGroups';
 import { subjectScopeSql } from '../utils/subjectScope';
-import { grantExistsSql, hasGrantPair, hasElectiveGrant, lockableSubjectIds, teacherCanEditStudentSubject } from '../utils/teacherGrants';
+import { grantExistsSql, hasGrantPair, hasElectiveGrant, hasSubjectLevelGrant, lockableSubjectIds, teacherCanEditStudentSubject } from '../utils/teacherGrants';
 import { getSectionGradeStatus } from '../utils/sectionGradeStatus';
 import { createNotification } from '../services/notify';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
@@ -88,7 +88,32 @@ async function teacherMayReadGrades(
      LIMIT 1`,
     [studentId, teacherId, teacherId, teacherId]
   );
-  return rows.length > 0;
+  if (rows.length > 0) return true;
+  // Subject Management grants (client-revised 2026-11-26): a teacher holding a
+  // subject-level grant may READ the grade sheet of any learner whose offering
+  // includes one of their granted subjects — the same rule the write path
+  // enforces (the write still needs the per-subject grant + offering check).
+  const stuRows = await query<RowDataPacket[]>(
+    "SELECT id FROM students WHERE id = ? LIMIT 1",
+    [studentId]
+  );
+  if (stuRows.length === 0) return false;
+  const enr = await query<RowDataPacket[]>(
+    `SELECT school_year_id FROM enrollments
+      WHERE student_id = ? AND status = 'enrolled'
+      ORDER BY school_year_id DESC, id DESC LIMIT 1`,
+    [studentId]
+  );
+  if (enr.length === 0) return false;
+  const sy = Number(enr[0].school_year_id);
+  const offered = await getLearnerOfferingSubjectIds(Number(stuRows[0].id), sy);
+  if (offered.size === 0) return false;
+  const tsaRows = await query<RowDataPacket[]>(
+    `SELECT subject_id FROM teacher_subject_assignments
+      WHERE teacher_id = ? AND (school_year_id = ? OR school_year_id IS NULL)`,
+    [teacherId, sy]
+  );
+  return tsaRows.some(r => offered.has(Number(r.subject_id)));
 }
 
 /** Section id a student is enrolled in for a school year (or null). */
@@ -189,10 +214,12 @@ async function teacherGradeBlockReason(
     'SELECT subject_type FROM subjects WHERE id = ?',
     [subjectId]
   );
-  // R11 (strict) — for every non-elective subject the COMPLETE grant is the
-  // exact (section, subject, teacher, school_year) row in
-  // section_teacher_assignments. Legacy subject-level rows no longer open a
-  // subject; a stale grant cannot let a teacher write it in some section.
+  // Grant model (client-revised 2026-11-26) — for every non-elective subject
+  // the grant is EITHER the exact (section, subject, teacher, school_year) row
+  // in section_teacher_assignments OR the Subject Management subject-level
+  // grant (teacher_subject_assignments), whose roster follows the learner's
+  // offering (checked below). A subject-level row can no longer show a subject
+  // in "my subjects" while refusing the write.
   const isElective = subjectRow.length > 0 && subjectRow[0].subject_type === 'elective';
   const studentSectionEarly = await getStudentSectionId(studentId, schoolYearId);
   const newGrant = await hasGrantPair(
@@ -214,7 +241,7 @@ async function teacherGradeBlockReason(
     if (pick.length === 0) {
       return 'Access denied: the learner is not assigned to this elective.';
     }
-  } else if (!newGrant) {
+  } else if (!newGrant && !(await hasSubjectLevelGrant(teacherId, schoolYearId, subjectId))) {
     return 'Access denied: you may only encode grades for subjects assigned to you.';
   }
   if (!(await isSubjectOfferedToLearner(studentId, schoolYearId, subjectId))) {
@@ -655,10 +682,22 @@ export async function batchUpsertGrades(
           });
         return;
       }
-      // Scope checks once per request, not once per row. STRICT grant model:
-      // non-elective rows need the exact per-section pair
-      // (section_teacher_assignments); elective rows need the subject-level
-      // elective grant + the learner's pick.
+      // Scope checks once per request, not once per row. Grant model
+      // (client-revised 2026-11-26): non-elective rows are granted by the
+      // exact per-section pair (section_teacher_assignments) OR the Subject
+      // Management subject-level grant (teacher_subject_assignments — its
+      // roster follows the learner's offering, checked below); elective rows
+      // need the subject-level elective grant + the learner's pick.
+      const subjectLevelRows = await query<RowDataPacket[]>(
+        `SELECT DISTINCT tsa.subject_id
+           FROM teacher_subject_assignments tsa
+          WHERE tsa.teacher_id = ?
+            AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)`,
+        [req.user!.userId, rowList[0].school_year_id]
+      );
+      const subjectLevelGranted = new Set(
+        subjectLevelRows.map(x => Number(x.subject_id))
+      );
       const electiveGrantRows = await query<RowDataPacket[]>(
         `SELECT DISTINCT tsa.subject_id
            FROM teacher_subject_assignments tsa
@@ -698,16 +737,22 @@ export async function batchUpsertGrades(
         const sectionIdNum =
           enrollment && enrollment.section_id ? Number(enrollment.section_id) : null;
         // The row set is fully covered when every (section, subject) pair of
-        // this learner's non-elective rows holds an exact per-section grant.
+        // this learner's non-elective rows holds an exact per-section grant,
+        // or the teacher holds the Subject Management subject-level grant for
+        // every non-elective subject in the batch.
         const newGrantsCoverStudent =
           sectionIdNum !== null &&
           nonElectiveRows.length > 0 &&
           nonElectiveRows.every(
             r => newGrants.has(`${sectionIdNum}|${Number(r.subject_id)}`)
           );
+        const subjectGrantsCoverStudent =
+          nonElectiveRows.length > 0 &&
+          nonElectiveRows.every(r => subjectLevelGranted.has(Number(r.subject_id)));
         if (
           nonElectiveRows.length > 0 &&
-          !newGrantsCoverStudent
+          !newGrantsCoverStudent &&
+          !subjectGrantsCoverStudent
         ) {
           res
             .status(403)
@@ -724,8 +769,9 @@ export async function batchUpsertGrades(
         for (const r of studentRows) {
           const granted = subjectIsElective.get(r.subject_id)
             ? electiveGranted.has(Number(r.subject_id))
-            : sectionIdNum !== null &&
-              newGrants.has(`${sectionIdNum}|${Number(r.subject_id)}`);
+            : (sectionIdNum !== null &&
+                newGrants.has(`${sectionIdNum}|${Number(r.subject_id)}`)) ||
+              subjectLevelGranted.has(Number(r.subject_id));
           if (!granted) {
             res
               .status(403)

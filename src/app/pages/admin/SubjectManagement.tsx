@@ -975,19 +975,6 @@ export function SubjectManagement() {
                                                 No teacher assigned yet
                                               </span>
                                             )}
-                                            {/* Regular subjects: these rows are
-                                                legacy — grading access for
-                                                regular subjects comes only
-                                                from Section Creation > Subject
-                                                Teachers, so say so instead of
-                                                implying the list is active. */}
-                                            {s.subject_type !== 'elective' && (
-                                              <p className="mt-1.5 text-[10px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-200/70 rounded-lg px-2 py-1">
-                                                Regular subject — grading access is managed per section in
-                                                <span className="font-semibold"> Section Creation → Subject Teachers</span>.
-                                                Entries here are legacy and not used for grading.
-                                              </p>
-                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -996,26 +983,12 @@ export function SubjectManagement() {
                                 </td>
                                 <td className="px-5 py-3.5 text-center">
                                   <div className="flex items-center justify-center gap-1">
-                                    {/* "Assign Teacher" only makes sense for
-                                        electives: a regular subject's grading
-                                        access comes from Section Creation >
-                                        Subject Teachers, so the button would
-                                        grant an assignment that can never be
-                                        graded. */}
-                                    {s.subject_type === 'elective' ? (
-                                      <button
-                                        onClick={() => openAssign(s)}
-                                        title="Assign Teacher"
-                                        className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
-                                        <Users size={14} />
-                                      </button>
-                                    ) : (
-                                      <span
-                                        title="Regular subjects: assign the teacher in Section Creation → Subject Teachers"
-                                        className="text-gray-300 p-1.5">
-                                        <Users size={14} />
-                                      </span>
-                                    )}
+                                    <button
+                                      onClick={() => openAssign(s)}
+                                      title="Assign Teacher"
+                                      className="text-indigo-400 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-indigo-50">
+                                      <Users size={14} />
+                                    </button>
                                     <button
                                       onClick={() => openEdit(s)}
                                       className="text-blue-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
@@ -1101,13 +1074,6 @@ export function SubjectManagement() {
                                                 No teacher assigned yet
                                               </span>
                                             )}
-                                            {s.subject_type !== 'elective' && (
-                                              <p className="mt-1.5 text-[10px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-200/70 rounded-lg px-2 py-1">
-                                                Regular subject — grading access is managed per section in
-                                                <span className="font-semibold"> Section Creation → Subject Teachers</span>.
-                                                Entries here are legacy and not used for grading.
-                                              </p>
-                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -1116,20 +1082,12 @@ export function SubjectManagement() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
-                                {s.subject_type === 'elective' ? (
-                                  <button
-                                    onClick={() => openAssign(s)}
-                                    title="Assign Teacher (electives only)"
-                                    className="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-lg hover:bg-indigo-50 touch-target">
-                                    <Users size={15} />
-                                  </button>
-                                ) : (
-                                  <span
-                                    title="Regular subjects: assign the teacher in Section Creation → Subject Teachers"
-                                    className="text-gray-300 p-2 touch-target">
-                                    <Users size={15} />
-                                  </span>
-                                )}
+                                <button
+                                  onClick={() => openAssign(s)}
+                                  title="Assign Teacher"
+                                  className="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-lg hover:bg-indigo-50 touch-target">
+                                  <Users size={15} />
+                                </button>
                                 <button
                                   onClick={() => openEdit(s)}
                                   className="text-blue-400 hover:text-blue-600 transition p-2 rounded-lg hover:bg-blue-50 touch-target">

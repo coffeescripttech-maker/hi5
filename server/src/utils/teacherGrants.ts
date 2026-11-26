@@ -2,21 +2,23 @@ import { query } from "../config/database";
 import { RowDataPacket } from "mysql2";
 
 /**
- * Teacher grant helpers — docs/new_requirement.txt R1, R11-R14 (client review
- * 2026-11: "use ONLY section_teacher_assignments for permission checks").
+ * Teacher grant helpers — docs/new_requirement.txt R1, R11-R14, revised by the
+ * client on 2026-11-26: the school configures subject teachers in
+ * **Subject Management** (/admin/subjects), so a subject-level
+ * teacher_subject_assignments row is now a REAL grading grant for every
+ * subject type — for regular subjects its roster is the learners whose
+ * offering includes the subject (the same offering rule the gradebook read
+ * uses); for electives the roster is the learners who picked it.
  *
  * The grant model is:
- *   - Regular (non-elective) subjects: section_teacher_assignments — the exact
- *     (section, subject, teacher, school_year) row created in Section
- *     Creation > Subject Teachers. NO legacy fallback.
- *   - Elective subjects: subject-level only. An elective's teacher is granted
- *     via teacher_subject_assignments (Subject Management > elective grant) and
- *     the roster is the learners who picked it (student_electives). Electives
- *     are never stored per section (R5/R12).
+ *   - Regular (non-elective) subjects: Section Creation > Subject Teachers
+ *     (the exact section+subject+teacher+year pair) OR the Subject Management
+ *     subject-level grant. The section row narrows the roster; the subject
+ *     grant follows the learner's offering.
+ *   - Elective subjects: subject-level grant (Subject Management) + the
+ *     learner's pick. Electives are never stored per section (R5/R12).
  *
- * The legacy tables (teacher_subject_assignments for core subjects,
- * teacher_section_assignments) are NO LONGER honored anywhere in permission
- * checks — a stale subject-level row by itself no longer grants access.
+ * teacher_section_assignments (legacy) is still not honored anywhere.
  */
 
 /** Current school year id (null when none is marked current). */
@@ -25,6 +27,26 @@ export async function currentSchoolYearId(): Promise<number | null> {
     "SELECT id FROM school_years WHERE is_current = 1 LIMIT 1"
   );
   return rows.length > 0 ? Number(rows[0].id) : null;
+}
+
+/**
+ * Subject-level grant from Subject Management (teacher_subject_assignments).
+ * Honored for EVERY subject type — this is the configuration surface the
+ * school actually uses for its subject teachers.
+ */
+export async function hasSubjectLevelGrant(
+  teacherId: number,
+  schoolYearId: number | null,
+  subjectId: number
+): Promise<boolean> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT 1 FROM teacher_subject_assignments tsa
+      WHERE tsa.teacher_id = ? AND tsa.subject_id = ?
+        AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)
+      LIMIT 1`,
+    [teacherId, subjectId, schoolYearId]
+  );
+  return rows.length > 0;
 }
 
 /**
@@ -114,9 +136,11 @@ export async function getStudentSectionId(
 
 /**
  * True when the teacher may edit the given subject for the given learner in
- * the given school year. Grant model (strict):
- *   - elective subject  → subject-level elective grant + the learner's pick
- *   - every other subject → the exact section_teacher_assignments pair
+ * the given school year. Grant model (client-revised 2026-11-26):
+ *   - elective subject  → subject-level grant + the learner's pick
+ *   - every other subject → the exact section_teacher_assignments pair OR the
+ *     Subject Management subject-level grant (roster follows the learner's
+ *     offering, enforced by the caller's offering check)
  */
 export async function teacherCanEditStudentSubject(
   teacherId: number,
@@ -144,6 +168,9 @@ export async function teacherCanEditStudentSubject(
       (await hasElectiveGrant(teacherId, schoolYearId, subjectId))
     );
   }
+  if (await hasSubjectLevelGrant(teacherId, schoolYearId, subjectId)) {
+    return true;
+  }
   return hasGrantPair(
     teacherId,
     schoolYearId,
@@ -154,8 +181,10 @@ export async function teacherCanEditStudentSubject(
 
 /**
  * Subject ids the teacher may lock/submit for one section in a school year:
- * the section's section_teacher_assignments pairs, plus any ELECTIVE subject
- * the teacher is granted at subject level (elective sheets list their pickers).
+ * the section's section_teacher_assignments pairs, plus any subject the
+ * teacher is granted at subject level (elective sheets list their pickers;
+ * regular-subject grants follow the learner's offering, enforced by the
+ * write path).
  */
 export async function lockableSubjectIds(
   teacherId: number,
@@ -169,7 +198,6 @@ export async function lockableSubjectIds(
       UNION
       SELECT DISTINCT tsa.subject_id
         FROM teacher_subject_assignments tsa
-        JOIN subjects s ON s.id = tsa.subject_id AND s.subject_type = 'elective'
        WHERE tsa.teacher_id = ?
          AND (tsa.school_year_id = ? OR tsa.school_year_id IS NULL)`,
     [teacherId, schoolYearId, sectionId, teacherId, schoolYearId]
