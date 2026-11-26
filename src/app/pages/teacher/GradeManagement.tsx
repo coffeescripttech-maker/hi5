@@ -724,7 +724,15 @@ export function GradeManagement() {
   // (Music, Arts, PE, Health) and subjects sharing a subject_group (TLE
   // specializations) contribute their GROUP average — matching the report
   // card. Averaging the nine individual rows double-weighted MAPEH.
+  // Intermediates stay unrounded; the final value rounds half-up
+  // (Math.round(x*100)/100) so 82.055 shows as 82.06 — exactly like the
+  // SF9/SF10 forms (toFixed alone fell to 82.05 through float drift).
   const overallAvg = useMemo(() => {
+    const rowMean = (r: GradeEntry): number | null => {
+      const vals = [r.q1, r.q2, r.q3].filter(v => v !== '');
+      if (vals.length === 0) return null;
+      return vals.reduce((a, b) => toNum(a) + toNum(b), 0) / vals.length;
+    };
     const areaAvgs: number[] = [];
     const consumed = new Set<GradeEntry>();
     grades.forEach(g => {
@@ -740,15 +748,22 @@ export function GradeManagement() {
               : (x.subject_group ?? null)) === key
         );
         members.forEach(m => consumed.add(m));
-        const avg = allAvg(members);
-        if (avg !== '—') areaAvgs.push(parseFloat(avg));
+        const ms = members
+          .map(rowMean)
+          .filter((v): v is number => v !== null);
+        if (ms.length > 0)
+          areaAvgs.push(ms.reduce((a, b) => a + b, 0) / ms.length);
       } else {
-        const avg = allAvg([g]);
-        if (avg !== '—') areaAvgs.push(parseFloat(avg));
+        const m = rowMean(g);
+        if (m !== null) areaAvgs.push(m);
       }
     });
     if (areaAvgs.length === 0) return '—';
-    return (areaAvgs.reduce((a, b) => a + b, 0) / areaAvgs.length).toFixed(2);
+    return (
+      Math.round(
+        (areaAvgs.reduce((a, b) => a + b, 0) / areaAvgs.length) * 100
+      ) / 100
+    ).toFixed(2);
   }, [grades]);
   const descriptor = getDescriptor(overallAvg);
   // At least one cell the teacher may still edit (fully locked sheets fall back
