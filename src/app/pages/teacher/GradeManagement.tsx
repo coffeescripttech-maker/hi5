@@ -720,7 +720,36 @@ export function GradeManagement() {
     }
   };
 
-  const overallAvg = allAvg(grades);
+  // General Average: grouped learning areas count ONCE. MAPEH components
+  // (Music, Arts, PE, Health) and subjects sharing a subject_group (TLE
+  // specializations) contribute their GROUP average — matching the report
+  // card. Averaging the nine individual rows double-weighted MAPEH.
+  const overallAvg = useMemo(() => {
+    const areaAvgs: number[] = [];
+    const consumed = new Set<GradeEntry>();
+    grades.forEach(g => {
+      if (consumed.has(g)) return;
+      const key = MAPEH_ORDER.includes(g.subject)
+        ? 'MAPEH'
+        : (g.subject_group ?? null);
+      if (key) {
+        const members = grades.filter(
+          x =>
+            (MAPEH_ORDER.includes(x.subject)
+              ? 'MAPEH'
+              : (x.subject_group ?? null)) === key
+        );
+        members.forEach(m => consumed.add(m));
+        const avg = allAvg(members);
+        if (avg !== '—') areaAvgs.push(parseFloat(avg));
+      } else {
+        const avg = allAvg([g]);
+        if (avg !== '—') areaAvgs.push(parseFloat(avg));
+      }
+    });
+    if (areaAvgs.length === 0) return '—';
+    return (areaAvgs.reduce((a, b) => a + b, 0) / areaAvgs.length).toFixed(2);
+  }, [grades]);
   const descriptor = getDescriptor(overallAvg);
   // At least one cell the teacher may still edit (fully locked sheets fall back
   // to the correction-request flow instead).
