@@ -4,6 +4,7 @@ import { RowDataPacket } from "mysql2";
 import { getAcademicThresholds } from "../services/schoolConfig";
 import { collapseSubjectGroups } from "../utils/subjectGroups";
 import { subjectScopeSql } from "../utils/subjectScope";
+import { getLearnerOfferingSubjectIds } from "./grades.controller";
 
 /**
  * GET /api/forms/sf1 — School Register (list of all enrolled students)
@@ -83,7 +84,31 @@ async function isTeacherAllowedForStudent(
   }
 
   const rows = await query<RowDataPacket[]>(sql, params);
-  return rows.length > 0;
+  if (rows.length > 0) return true;
+  // Subject Management grants (client-revised 2026-11-26): a teacher holding a
+  // subject-level grant (teacher_subject_assignments) may access the school
+  // forms of any learner whose offering includes one of their granted
+  // subjects — the same rule the grades write path enforces.
+  const fallbackYear = await query<RowDataPacket[]>(
+    `SELECT school_year_id FROM enrollments
+      WHERE student_id = ? AND status IN ('enrolled', 'completed')
+      ORDER BY school_year_id DESC, id DESC LIMIT 1`,
+    [studentId]
+  );
+  const effYear = schoolYearId
+    ? parseInt(schoolYearId)
+    : fallbackYear.length > 0
+      ? Number(fallbackYear[0].school_year_id)
+      : NaN;
+  if (Number.isNaN(effYear)) return false;
+  const offered = await getLearnerOfferingSubjectIds(studentId, effYear);
+  if (offered.size === 0) return false;
+  const grantRows = await query<RowDataPacket[]>(
+    `SELECT subject_id FROM teacher_subject_assignments
+      WHERE teacher_id = ? AND (school_year_id = ? OR school_year_id IS NULL)`,
+    [userId, effYear]
+  );
+  return grantRows.some(r => offered.has(Number(r.subject_id)));
 }
 
 

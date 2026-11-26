@@ -134,7 +134,7 @@ async function getStudentSectionId(
  * subjects filtered by program and (when assigned) strand/track. Empty when the
  * learner is not enrolled for that school year.
  */
-async function getLearnerOfferingSubjectIds(
+export async function getLearnerOfferingSubjectIds(
   studentId: number,
   schoolYearId: number
 ): Promise<Set<number>> {
@@ -252,6 +252,7 @@ async function teacherGradeBlockReason(
 
 /**
  * GET /api/grades — Get grades with filters
+
  * Query: ?student_id=1&school_year_id=1&subject_id=1&section_id=1
  *
  * If no student_id, returns gradebook for a section (all students + subjects pivoted)
